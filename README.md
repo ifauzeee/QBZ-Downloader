@@ -11,11 +11,7 @@
 
 <p align="center">
   <b>Premium Hi-Res Music Downloader CLI for Qobuz</b><br>
-  <sub>Download lossless FLAC audio up to 24-bit/192kHz with complete metadata and embedded lyrics</sub>
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/ifauzeee/QBZ-Downloader/main/assets/demo.gif" alt="Demo" width="700">
+  <sub>Download lossless FLAC audio up to 24-bit/192kHz with complete metadata, synced lyrics, and enhanced tagging</sub>
 </p>
 
 ---
@@ -28,11 +24,39 @@
 | 📝 **Complete Metadata** | Automatically embed all available tags including credits, composers, conductors |
 | 🎤 **Synced Lyrics** | Fetch and embed time-synced lyrics (LRC format) from LRCLIB |
 | 🖼️ **Cover Art** | High-resolution album artwork embedded in files |
-| 🎯 **Enhanced Metadata** | Optional metadata enrichment from Spotify and iTunes/Apple Music |
+| 🎯 **Multi-Source Metadata** | Enhanced metadata from Spotify, Discogs, and MusicBrainz |
 | 📊 **Beautiful CLI** | Colorful, informative terminal interface with progress tracking |
 | 🔍 **Catalog Search** | Search albums, tracks, and artists directly from CLI |
 | 📚 **Batch Download** | Download entire albums with a single command |
-| 📄 **Goodies Download** | Automatically download booklets and other album extras |
+
+---
+
+## 🎯 Enhanced Metadata (NEW!)
+
+This downloader enriches your music library with metadata from multiple sources:
+
+| Source | Data Provided |
+|--------|---------------|
+| **Qobuz** | Audio, Cover Art, Label, Copyright, ISRC, UPC |
+| **Spotify** | Artists (including featured), BPM, Key, Mood, Energy, Genres |
+| **Discogs** | Catalog Number, Country, Styles, Labels |
+| **MusicBrainz** | Original Release Date, Standardized IDs |
+| **LRCLIB** | Synced Lyrics (LRC format) |
+
+### Example Output Tags
+
+```
+ARTIST        = Lady Gaga; Bruno Mars
+ALBUM         = Die With A Smile
+YEAR          = 2024
+GENRE         = Pop
+BPM           = 158
+KEY           = G Major
+MOOD          = Happy
+ENERGY        = 0.72
+CATALOGNUMBER = B0041829-02
+RELEASECOUNTRY= US
+```
 
 ---
 
@@ -42,50 +66,20 @@
 
 - **Node.js** 18.0.0 or higher
 - **Valid Qobuz subscription** (Studio or Hi-Fi plan recommended for Hi-Res)
-- **Qobuz API credentials** (see [Configuration](#-configuration))
 
 ### Clone & Install
 
 ```bash
-# Clone the repository
 git clone https://github.com/ifauzeee/QBZ-Downloader.git
-
-# Navigate to the directory
 cd QBZ-Downloader
-
-# Install dependencies
 npm install
-```
-
-### Global Installation (Optional)
-
-```bash
-# Install globally for system-wide access
-npm install -g .
-
-# Now you can run from anywhere
-qbz-dl
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-### 1. Automatic Configuration (Recommended)
-
-Run the interactive setup wizard to configure your credentials:
-
-```bash
-npm start setup
-# or if installed globally
-qbz-dl setup
-```
-
-The wizard will guide you through entering your Qobuz App ID, Secret, and User Auth Token, and will automatically create/update your `.env` file.
-
-### 2. Manual Configuration (Optional)
-
-If you prefer manual setup, copy the example environment file and fill in your credentials:
+### 1. Copy Example Config
 
 ```bash
 cp .env.example .env
@@ -97,28 +91,21 @@ cp .env.example .env
 # Qobuz Credentials (REQUIRED)
 QOBUZ_APP_ID=your_app_id
 QOBUZ_APP_SECRET=your_app_secret
-QOBUZ_TOKEN=your_user_auth_token
-QOBUZ_USER_ID=your_user_id
+QOBUZ_USER_AUTH_TOKEN=your_user_auth_token
 
-# Spotify Credentials (OPTIONAL - for enhanced metadata)
+# Enhanced Metadata APIs (OPTIONAL but recommended)
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+DISCOGS_TOKEN=your_discogs_token
 ```
 
-### Getting Qobuz Credentials
+### Getting API Credentials
 
-You can obtain Qobuz API credentials using browser developer tools while logged into the Qobuz web player:
-
-1. Log into [play.qobuz.com](https://play.qobuz.com)
-2. Open Developer Tools (F12)
-3. Go to Network tab
-4. Look for API requests to find `app_id` and `user_auth_token`
-
-### Getting Spotify Credentials (Optional)
-
-1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Create a new app
-3. Copy the Client ID and Client Secret
+| Service | How to Get |
+|---------|------------|
+| **Qobuz** | Browser DevTools while logged into play.qobuz.com |
+| **Spotify** | [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) |
+| **Discogs** | [discogs.com/settings/developers](https://www.discogs.com/settings/developers) |
 
 ---
 
@@ -126,275 +113,81 @@ You can obtain Qobuz API credentials using browser developer tools while logged 
 
 ### Interactive Mode
 
-Simply run without arguments to access the interactive menu:
-
 ```bash
 npm start
-# or if installed globally
-qbz-dl
 ```
 
 ### Commands
 
-| Command | Alias | Description |
-|---------|-------|-------------|
-| `download <url>` | `dl` | Download a track or album |
-| `search <query>` | `s` | Search the Qobuz catalog |
-| `setup` | - | **Interactive configuration wizard** |
-| `info <url>` | `i` | Get detailed information |
-| `lyrics <url>` | `l` | Get lyrics for a track |
-| `account` | `acc` | Display account information |
-| `quality` | `q` | Show available quality options |
+| Command | Description |
+|---------|-------------|
+| `download <url>` | Download a track or album |
+| `search <query>` | Search the Qobuz catalog |
+| `info <url>` | Get detailed information |
+| `lyrics <url>` | Get lyrics for a track |
+| `account` | Display account information |
+| `quality` | Show available quality options |
 
-### Download Examples
+### Quality Options
 
-```bash
-# Download album in Hi-Res Max quality (default)
-npm start download https://www.qobuz.com/album/...
-
-# Download with specific quality
-npm start download https://www.qobuz.com/album/... -q 27   # Hi-Res Max (24/192)
-npm start download https://www.qobuz.com/album/... -q 7    # Hi-Res (24/96)
-npm start download https://www.qobuz.com/album/... -q 6    # CD Quality (16/44.1)
-npm start download https://www.qobuz.com/album/... -q 5    # MP3 320
-
-# Download a single track
-npm start download https://www.qobuz.com/track/...
-
-# Interactive download mode
-npm start download -i
-```
-
-### Search Examples
-
-```bash
-# Search albums
-npm start search "Daft Punk Random Access Memories"
-
-# Search tracks
-npm start search "Get Lucky" -t tracks
-
-# Search artists with limit
-npm start search "Coldplay" -t artists -l 20
-```
-
-### Get Information
-
-```bash
-# Album info
-npm start info https://www.qobuz.com/album/...
-
-# Track info with complete metadata
-npm start info https://www.qobuz.com/track/... -m
-
-# Track info with lyrics
-npm start info https://www.qobuz.com/track/... -l
-```
-
-### Get Lyrics
-
-```bash
-# Get lyrics by track URL
-npm start lyrics https://www.qobuz.com/track/...
-
-# Show synced lyrics only
-npm start lyrics <url> --synced
-
-# Show plain lyrics only
-npm start lyrics <url> --plain
-```
-
----
-
-## 📊 Audio Quality Options
-
-| ID | Format | Bit Depth | Sample Rate | Description |
-|----|--------|-----------|-------------|-------------|
-| **27** | FLAC | 24-bit | 192 kHz | 🔥 Hi-Res Max (Best Quality) |
-| **7** | FLAC | 24-bit | 96 kHz | ✨ Hi-Res Lossless |
-| **6** | FLAC | 16-bit | 44.1 kHz | 💿 CD Quality Lossless |
-| **5** | MP3 | - | 320 kbps | 🎵 Lossy Compressed |
-
-> **Note:** Hi-Res quality requires a Qobuz Studio subscription. The downloader will automatically fall back to the best available quality if Hi-Res is not available for a specific track.
+| ID | Format | Description |
+|----|--------|-------------|
+| **27** | FLAC 24/192 | 🔥 Hi-Res Max |
+| **7** | FLAC 24/96 | ✨ Hi-Res |
+| **6** | FLAC 16/44 | 💿 CD Quality |
+| **5** | MP3 320 | 🎵 Lossy |
 
 ---
 
 ## 📋 Embedded Metadata
 
-The downloader embeds comprehensive metadata into each file:
-
 ### Standard Tags
 - Title, Artist, Album, Album Artist
-- Track Number, Disc Number, Total Tracks, Total Discs
-- Year, Release Date, Original Release Date
+- Track Number, Disc Number, Year
 - Genre, Composer, Conductor
 
 ### Extended Tags
-- Producer, Mixer, Engineer, Arranger
-- Lyricist, Writer, Remixer
-- Label, Publisher, Copyright
-- ISRC, UPC/Barcode, Catalog Number
+- Producer, Mixer, Engineer
+- Label, Copyright, ISRC, UPC
+- Catalog Number, Release Country
 
-### Audio Information
-- Bit Depth, Sample Rate
-- Qobuz Track/Album/Artist IDs
-- Source, Encoder
-
-### Enhanced Metadata (via Spotify)
+### Audio Features (via Spotify)
 - BPM, Musical Key, Time Signature
-- Danceability, Energy, Valence (mood)
+- Danceability, Energy, Mood/Valence
 - Acousticness, Instrumentalness
-- Popularity Score
 
 ### Lyrics
-- Unsynced Lyrics (plain text)
 - Synced Lyrics (LRC format with timestamps)
-- Separate `.lrc` file for external player support
+- Embedded directly into FLAC/MP3 files
 
 ---
 
 ## 📁 Output Structure
 
-Downloads are organized in a clean folder structure:
-
 ```
 downloads/
 └── Artist Name/
     └── Album Title/
-        ├── 01. Track One.flac
-        ├── 01. Track One.lrc          # Synced lyrics file
-        ├── 02. Track Two.flac
-        ├── 02. Track Two.lrc
-        ├── cover.jpg                   # High-res album artwork
-        └── Digital Booklet.pdf         # If available
+        ├── 01 Track One.flac
+        ├── 02 Track Two.flac
+        └── cover.jpg
 ```
 
 ---
 
-## 🔧 Advanced Configuration
+## 📝 Notes
 
-Edit your `.env` file to customize the behavior without modifying the code.
-
-### Download Settings
-```env
-DOWNLOAD_PATH="./downloads"          # Where to save files
-FOLDER_TEMPLATE="{artist}/{album}"   # Folder structure
-FILE_TEMPLATE="{trackNumber}. {title}" # File naming
-MAX_CONCURRENCY=3                    # Number of parallel downloads
-```
-
-### Metadata & Preferences
-```env
-EMBED_COVER_ART=true                 # Embed cover art into files
-SAVE_COVER_FILE=true                 # Save cover.jpg to folder
-EMBED_LYRICS=true                    # Embed lyrics into files
-```
-
----
-
-## 🖥️ CLI Screenshots
-
-<details>
-<summary><b>📷 Click to view screenshots</b></summary>
-
-### Main Menu
-```
- ██████╗  ██████╗ ██████╗ ██╗   ██╗███████╗    ██████╗ ██╗     
-██╔═══██╗██╔═══██╗██╔══██╗██║   ██║╚══███╔╝    ██╔══██╗██║     
-██║   ██║██║   ██║██████╔╝██║   ██║  ███╔╝     ██║  ██║██║     
-██║▄▄ ██║██║   ██║██╔══██╗██║   ██║ ███╔╝      ██║  ██║██║     
-╚██████╔╝╚██████╔╝██████╔╝╚██████╔╝███████╗    ██████╔╝███████╗
- ╚══▀▀═╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝    ╚═════╝ ╚══════╝
-
-🎵 Premium Qobuz Downloader CLI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✨ Hi-Res Audio up to 24bit/192kHz
-📝 Complete Metadata Embedding
-🎤 Synced & Unsynced Lyrics
-🖼️  High-Resolution Cover Art
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📋 Main Menu:
-
-  1) 🔍 Search Music
-  2) 📥 Download by URL
-  3) 👤 Account Info
-  4) 🎚️ Quality Options
-  5) ❌ Exit
-```
-
-</details>
-
----
-
-## 📝 Notes & Disclaimers
-
-- ⚠️ **Valid Qobuz subscription required** for downloading
+- ⚠️ **Valid Qobuz subscription required**
 - 🔒 **Hi-Res downloads** require Qobuz Studio subscription
 - 📖 This tool is for **personal use only**
-- 🎵 Lyrics are sourced from [LRCLIB](https://lrclib.net) (free service)
-- 📊 Enhanced metadata from Spotify requires a free developer account
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 🛠️ Development
-
-### Setup Dev Environment
-
-```bash
-# Clone and install dependencies
-git clone https://github.com/ifauzeee/QBZ-Downloader.git
-cd QBZ-Downloader
-npm install
-```
-
-### Linting & Formatting
-
-We use **ESLint** and **Prettier** to maintain code quality:
-
-```bash
-# Check for linting issues
-npm run lint
-
-# Automatically format code
-npm run format
-```
-
-### Testing
-
-Tests are powered by **Vitest**:
-
-```bash
-# Run all tests
-npm test
-```
+- 🎵 Lyrics sourced from [LRCLIB](https://lrclib.net)
+- 📊 Enhanced metadata from Spotify & Discogs (optional)
 
 ---
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- [LRCLIB](https://lrclib.net) - Free synced lyrics API
-- [Qobuz](https://www.qobuz.com) - Hi-Res music streaming service
-- [Spotify Web API](https://developer.spotify.com) - Enhanced metadata
-- [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/) - Additional metadata
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 

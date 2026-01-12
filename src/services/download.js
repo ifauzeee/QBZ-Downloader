@@ -153,7 +153,7 @@ class DownloadService {
             const actualQuality = fileUrl.data.format_id || quality;
             const extension = CONFIG.quality.formats[actualQuality]?.extension || 'flac';
 
-            const metadata = this.metadataService.extractMetadata(track, albumData, {
+            let metadata = this.metadataService.extractMetadata(track, albumData, {
                 bitDepth: fileUrl.data.bit_depth || 16,
                 sampleRate: fileUrl.data.sampling_rate || 44.1
             });
@@ -173,18 +173,17 @@ class DownloadService {
                     result.lyrics = lyrics;
                 }
             }
-
             let enhancedMetadata = null;
-            try {
+            if (CONFIG.credentials.spotifyClientId) {
+                if (options.onProgress)
+                    options.onProgress({ phase: 'fetching_metadata', percent: 0 });
                 enhancedMetadata = await this.metadataService.getEnhancedMetadata(
-                    track.title,
-                    result.artist,
-                    albumData?.title || '',
-                    track.isrc
+                    metadata.title,
+                    metadata.artist,
+                    metadata.album,
+                    metadata.isrc
                 );
-                result.enhancedMetadata = enhancedMetadata;
-            } catch (e) {
-                /* empty */
+                this.metadataService.applyEnhancedOverrides(metadata, enhancedMetadata);
             }
 
             const folderPath = path.join(
@@ -618,7 +617,7 @@ class DownloadService {
 
                             fs.writeFileSync(goodiePath, response.data);
                         } catch (e) {
-                            /* empty */
+                            /* ignored */
                         }
                     }
                 }

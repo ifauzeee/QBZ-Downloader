@@ -3,88 +3,71 @@ import axios from 'axios';
 class MusicBrainzAPI {
     constructor() {
         this.baseUrl = 'https://musicbrainz.org/ws/2';
-        this.userAgent = 'Qobuz-DL-CLI/1.0.0 ( https://github.com/ifauzeee/QBZ-Downloader )';
+        this.userAgent = 'Qobuz-DL-CLI/2.0 ( https://github.com/ifauzeee/QBZ-Downloader )';
     }
 
-    async getMetadata(title, artist, album, isrc = null) {
+    async searchRelease(artist, album) {
         try {
-            let releaseData = null;
+            const query = `artist:"${artist}" AND release:"${album}"`;
+            const response = await axios.get(`${this.baseUrl}/release`, {
+                headers: { 'User-Agent': this.userAgent },
+                params: { query, fmt: 'json', limit: 1 }
+            });
+
+            return response.data.releases?.[0] || null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    async getReleaseDetails(releaseId) {
+        try {
+            const response = await axios.get(`${this.baseUrl}/release/${releaseId}`, {
+                headers: { 'User-Agent': this.userAgent },
+                params: { inc: 'artist-credits+labels+recordings+release-groups', fmt: 'json' }
+            });
+            return response.data;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    async getEnhancedMetadata(artist, album, isrc = null) {
+        try {
+            let release = null;
 
             if (isrc) {
-                console.log(`    🔍 MusicBrainz: Searching via ISRC (${isrc})...`);
-                const isrcData = await this.lookupByIsrc(isrc);
-                if (isrcData) {
-                    releaseData = isrcData;
+                const isrcResponse = await axios.get(`${this.baseUrl}/recording`, {
+                    headers: { 'User-Agent': this.userAgent },
+                    params: { query: `isrc:${isrc}`, fmt: 'json', limit: 1 }
+                });
+
+                if (isrcResponse.data.recordings?.[0]?.releases?.[0]) {
+                    release = isrcResponse.data.recordings[0].releases[0];
                 }
             }
 
-            if (!releaseData) {
-                console.log('    🔍 MusicBrainz: Searching via text match...');
-                const searchData = await this.searchRecording(title, artist, album);
-                if (searchData) {
-                    releaseData = searchData;
-                }
+            if (!release) {
+                release = await this.searchRelease(artist, album);
             }
 
-            if (!releaseData) return null;
+            if (!release) return null;
 
-            return this.extractMetadata(releaseData);
+            const details = await this.getReleaseDetails(release.id);
+            if (!details) return null;
+
+            return {
+                musicbrainzId: details.id,
+                originalDate: details['release-group']?.['first-release-date'] || details.date,
+                standardizedArtist: details['artist-credit']?.map((c) => c.name).join(', ') || null,
+                label: details['label-info']?.[0]?.label?.name || null,
+                catalogNumber: details['label-info']?.[0]?.['catalog-number'] || null,
+                barcode: details.barcode || null
+            };
         } catch (error) {
             return null;
         }
-    }
-
-    async lookupByIsrc(isrc) {
-        try {
-            const url = `${this.baseUrl}/recording?query=isrc:${isrc}&fmt=json&inc=releases+artist-credits+tags+ratings`;
-            const response = await axios.get(url, { headers: { 'User-Agent': this.userAgent } });
-
-            if (response.data.recordings && response.data.recordings.length > 0) {
-                return response.data.recordings[0];
-            }
-        } catch (error) {
-            return null;
-        }
-        return null;
-    }
-
-    async searchRecording(title, artist, _album) {
-        try {
-            const query = `recording:"${title}" AND artist:"${artist}"`;
-            const url = `${this.baseUrl}/recording?query=${encodeURIComponent(query)}&fmt=json&inc=releases+artist-credits`;
-
-            const response = await axios.get(url, { headers: { 'User-Agent': this.userAgent } });
-
-            if (response.data.recordings && response.data.recordings.length > 0) {
-                return response.data.recordings[0];
-            }
-        } catch (error) {
-            return null;
-        }
-        return null;
-    }
-
-    extractMetadata(recording) {
-        const metadata = {};
-
-        if (recording['first-release-date']) {
-            metadata.originalReleaseDate = recording['first-release-date'];
-        } else if (recording.releases && recording.releases.length > 0) {
-            const dates = recording.releases
-                .map((r) => r.date)
-                .filter((d) => d)
-                .sort();
-            if (dates.length > 0) metadata.originalReleaseDate = dates[0];
-        }
-
-        if (recording.tags) {
-            metadata.genres = recording.tags.map((t) => t.name).slice(0, 5);
-        }
-
-        metadata.musicBrainzId = recording.id;
-
-        return metadata;
     }
 }
 
-export default new MusicBrainzAPI();
+export default MusicBrainzAPI;

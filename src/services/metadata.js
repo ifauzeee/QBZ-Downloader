@@ -1,103 +1,110 @@
 import NodeID3 from 'node-id3';
 import SpotifyAPI from '../api/spotify.js';
-import iTunesAPI from '../api/itunes.js';
+import DiscogsAPI from '../api/discogs.js';
 import MusicBrainzAPI from '../api/musicbrainz.js';
+import { CONFIG } from '../config.js';
 
 class MetadataService {
     constructor() {
         this.supportedFormats = ['flac', 'mp3', 'm4a'];
         this.spotifyApi = new SpotifyAPI();
-        this.itunesApi = new iTunesAPI();
-        this.musicBrainzApi = MusicBrainzAPI;
+        this.discogsApi = new DiscogsAPI();
+        this.musicbrainzApi = new MusicBrainzAPI();
     }
 
     async getEnhancedMetadata(title, artist, album = '', isrc = null) {
-        const enhanced = {
-            spotify: null,
-            itunes: null,
-            musicBrainz: null,
-            merged: {}
-        };
+        let merged = {};
+        let spotifyData = null;
+        let discogsData = null;
+        let mbData = null;
 
-        try {
-            const [spotifyResult, itunesResult, mbResult] = await Promise.all([
-                this.spotifyApi
-                    .getEnhancedMetadata(title, artist, album)
-                    .catch((_e) => ({ success: false })),
-                this.itunesApi
-                    .getEnhancedMetadata(title, artist, album)
-                    .catch((_e) => ({ success: false })),
-                this.musicBrainzApi.getMetadata(title, artist, album, isrc).catch((_e) => null)
-            ]);
+        const promises = [];
 
-            if (spotifyResult.success) {
-                enhanced.spotify = spotifyResult.data;
-            }
-
-            if (itunesResult.success) {
-                enhanced.itunes = itunesResult.data;
-            }
-
-            if (mbResult) {
-                enhanced.musicBrainz = mbResult;
-            }
-
-            enhanced.merged = this.mergeMetadataSources(enhanced);
-        } catch (error) {
-            console.error('Enhanced metadata fetch error:', error.message);
+        if (CONFIG.credentials.spotifyClientId) {
+            promises.push(
+                this.spotifyApi.getTrackInfo(title, artist, album, isrc).then((data) => {
+                    if (data) spotifyData = data;
+                })
+            );
         }
 
-        return enhanced;
+        if (CONFIG.credentials.discogsToken && album) {
+            promises.push(
+                this.discogsApi.getEnhancedMetadata(artist, album).then((data) => {
+                    if (data) discogsData = data;
+                })
+            );
+        }
+
+        promises.push(
+            this.musicbrainzApi.getEnhancedMetadata(artist, album, isrc).then((data) => {
+                if (data) mbData = data;
+            })
+        );
+
+        await Promise.allSettled(promises);
+
+        if (spotifyData) merged = { ...merged, ...spotifyData };
+
+        if (mbData) {
+            merged.musicbrainzId = mbData.musicbrainzId;
+            merged.originalDate = mbData.originalDate;
+            if (mbData.standardizedArtist) merged.standardizedArtist = mbData.standardizedArtist;
+            if (mbData.catalogNumber) merged.catno = mbData.catalogNumber;
+        }
+
+        if (discogsData) {
+            merged.discogsId = discogsData.discogsId;
+            merged.country = discogsData.country;
+            if (!merged.catno) merged.catno = discogsData.catno;
+
+            if (discogsData.styles && discogsData.styles.length > 0) {
+                const newStyles = discogsData.styles.join('; ');
+                merged.genres = merged.genres ? `${merged.genres}; ${newStyles}` : newStyles;
+            }
+        }
+
+        return {
+            merged,
+            spotify: spotifyData,
+            discogs: discogsData,
+            musicbrainz: mbData
+        };
     }
 
-    mergeMetadataSources(enhanced) {
-        const merged = {};
+    normalizeName(name) {
+        if (!name) return '';
+        return name
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/-/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    }
 
-        if (enhanced.musicBrainz) {
-            if (enhanced.musicBrainz.originalReleaseDate) {
-                merged.originalReleaseDate = enhanced.musicBrainz.originalReleaseDate;
-            }
-            if (enhanced.musicBrainz.musicBrainzId) {
-                merged.musicBrainzId = enhanced.musicBrainz.musicBrainzId;
-            }
-            if (enhanced.musicBrainz.genres && enhanced.musicBrainz.genres.length > 0) {
-                merged.mbGenres = enhanced.musicBrainz.genres;
-            }
+    applyEnhancedOverrides(metadata, enhanced) {
+        if (!enhanced?.merged) return metadata;
+        const m = enhanced.merged;
+
+        if (m.spotifyArtistString) {
+            metadata.artist = m.spotifyArtistString;
+        } else if (m.standardizedArtist) {
+            metadata.artist = m.standardizedArtist.replace(/, /g, '; ');
         }
 
-        if (enhanced.spotify) {
-            merged.bpm = enhanced.spotify.spotifyBpm || 0;
-            merged.key = enhanced.spotify.spotifyKey || '';
-            merged.mode = enhanced.spotify.spotifyMode || '';
-            merged.timeSignature = enhanced.spotify.spotifyTimeSignature || 4;
-            merged.danceability = enhanced.spotify.spotifyDanceability || 0;
-            merged.energy = enhanced.spotify.spotifyEnergy || 0;
-            merged.valence = enhanced.spotify.spotifyValence || 0;
-            merged.acousticness = enhanced.spotify.spotifyAcousticness || 0;
-            merged.instrumentalness = enhanced.spotify.spotifyInstrumentalness || 0;
-            merged.liveness = enhanced.spotify.spotifyLiveness || 0;
-            merged.speechiness = enhanced.spotify.spotifySpeechiness || 0;
-            merged.loudness = enhanced.spotify.spotifyLoudness || 0;
-            merged.popularity = enhanced.spotify.spotifyPopularity || 0;
-            merged.genres = enhanced.spotify.spotifyGenres || merged.mbGenres || '';
-            merged.spotifyId = enhanced.spotify.spotifyTrackId || '';
-            merged.spotifyUri = enhanced.spotify.spotifyUri || '';
-            merged.isrcSpotify = enhanced.spotify.spotifyIsrc || '';
+        if (m.originalDate) {
+            metadata.originalReleaseDate = m.originalDate;
         }
 
-        if (enhanced.itunes) {
-            merged.itunesId = enhanced.itunes.itunesTrackId || '';
-            merged.itunesCoverUrl = enhanced.itunes.itunesCoverUrl || '';
-            merged.itunesCopyright = enhanced.itunes.itunesCopyright || '';
-            merged.itunesGenre = enhanced.itunes.itunesGenre || '';
-            merged.appleMusicUrl = enhanced.itunes.itunesTrackViewUrl || '';
-            merged.isrcItunes = enhanced.itunes.itunesIsrc || '';
-        }
+        if (m.musicbrainzId) metadata.musicbrainzReleaseId = m.musicbrainzId;
+        if (m.discogsId) metadata.discogsReleaseId = m.discogsId;
+        if (m.spotifyId) metadata.spotifyTrackId = m.spotifyId;
 
-        merged.bestCoverUrl =
-            enhanced.itunes?.itunesCoverUrl || enhanced.spotify?.spotifyCoverUrl || '';
+        if (m.catno) metadata.catalogNumber = m.catno;
+        if (m.country) metadata.releaseCountry = m.country;
 
-        return merged;
+        return metadata;
     }
 
     extractMetadata(trackData, albumData, fileInfo = {}) {
@@ -108,9 +115,22 @@ class MetadataService {
         const performers = this.extractPerformers(trackData, albumData);
         const credits = this.extractCredits(albumData);
 
+        let mainArtist = '';
+        if (performers.main.length > 0) {
+            mainArtist = performers.main.map((p) => p.name).join('; ');
+        } else {
+            mainArtist = artist.name || trackData.performer?.name || 'Unknown';
+        }
+
+        if (performers.featured.length > 0) {
+            const featuredStr = performers.featured.join('; ');
+            if (mainArtist) mainArtist += '; ' + featuredStr;
+            else mainArtist = featuredStr;
+        }
+
         const metadata = {
             title: trackData.title || '',
-            artist: artist.name || trackData.performer?.name || '',
+            artist: mainArtist,
             album: album.title || '',
             year: album.released_at ? new Date(album.released_at * 1000).getFullYear() : '',
             trackNumber: trackData.track_number || 1,
@@ -187,17 +207,67 @@ class MetadataService {
             ensemble: ''
         };
 
+        const seenNames = new Set();
+
+        const addPerformer = (name, role, targetList) => {
+            const normalized = this.normalizeName(name);
+            if (!seenNames.has(normalized)) {
+                targetList.push({ name, role });
+                seenNames.add(normalized);
+            }
+        };
+
         if (trackData.performers) {
             const perfs = trackData.performers.split(' - ');
             for (const perf of perfs) {
-                const [name, role] = perf.split(', ');
-                if (role) {
+                const parts = perf.split(', ');
+                const name = parts[0];
+                const role = parts.slice(1).join(', ');
+
+                if (role && name) {
                     const roleLower = role.toLowerCase();
+
+                    if (
+                        roleLower.includes('producer') ||
+                        roleLower.includes('engineer') ||
+                        roleLower.includes('mixer') ||
+                        roleLower.includes('mastering') ||
+                        roleLower.includes('writer') ||
+                        roleLower.includes('composer') ||
+                        roleLower.includes('programmer') ||
+                        roleLower.includes('arranger') ||
+                        roleLower.includes('designer') ||
+                        roleLower.includes('director') ||
+                        roleLower.includes('art direction') ||
+                        roleLower.includes('legal') ||
+                        roleLower.includes('management')
+                    ) {
+                        continue;
+                    }
+
                     if (roleLower.includes('conductor')) performers.conductor = name;
                     else if (roleLower.includes('orchestra')) performers.orchestra = name;
                     else if (roleLower.includes('choir')) performers.choir = name;
-                    else if (roleLower.includes('featured')) performers.featured.push(name);
-                    else performers.main.push({ name, role });
+                    else if (
+                        roleLower.includes('featured artist') ||
+                        roleLower.includes('featuring')
+                    ) {
+                        const normalized = this.normalizeName(name);
+                        if (!seenNames.has(normalized)) {
+                            performers.featured.push(name);
+                            seenNames.add(normalized);
+                        }
+                    } else if (
+                        roleLower.includes('main artist') ||
+                        roleLower === 'artist' ||
+                        roleLower === 'performer' ||
+                        roleLower.includes('vocalist') ||
+                        roleLower.includes('singer')
+                    ) {
+                        addPerformer(name, role, performers.main);
+                    } else {
+                        addPerformer(name, role, performers.main);
+                    }
                 }
             }
         }
@@ -328,10 +398,10 @@ class MetadataService {
         }
 
         if (lyrics) {
-            if (lyrics.plainLyrics) {
+            if (lyrics.syncedLyrics) {
                 tags.unsynchronisedLyrics = {
                     language: 'eng',
-                    text: lyrics.plainLyrics
+                    text: lyrics.syncedLyrics
                 };
             }
 
@@ -409,28 +479,26 @@ class MetadataService {
             if (m.speechiness) comments.push(['SPEECHINESS', m.speechiness.toString()]);
             if (m.loudness) comments.push(['LOUDNESS', m.loudness.toString()]);
             if (m.popularity) comments.push(['POPULARITY', m.popularity.toString()]);
-            if (m.genres) comments.push(['SPOTIFY_GENRES', m.genres]);
+            if (m.genres) comments.push(['GENRE', m.genres]);
+
             if (m.spotifyId) comments.push(['SPOTIFY_TRACK_ID', m.spotifyId]);
             if (m.spotifyUri) comments.push(['SPOTIFY_URI', m.spotifyUri]);
-        }
 
-        if (enhanced?.itunes) {
-            const i = enhanced.itunes;
-            if (i.itunesTrackId) comments.push(['ITUNES_TRACK_ID', i.itunesTrackId]);
-            if (i.itunesCopyright) comments.push(['ITUNES_COPYRIGHT', i.itunesCopyright]);
-            if (i.itunesGenre && !metadata.genre) comments.push(['GENRE', i.itunesGenre]);
-            if (i.itunesTrackViewUrl) comments.push(['APPLE_MUSIC_URL', i.itunesTrackViewUrl]);
+            if (metadata.discogsReleaseId)
+                comments.push(['DISCOGS_RELEASE_ID', metadata.discogsReleaseId.toString()]);
+            if (metadata.musicbrainzReleaseId)
+                comments.push(['MUSICBRAINZ_RELEASEID', metadata.musicbrainzReleaseId]);
+            if (metadata.catalogNumber) comments.push(['CATALOGNUMBER', metadata.catalogNumber]);
+            if (metadata.releaseCountry) comments.push(['RELEASECOUNTRY', metadata.releaseCountry]);
+            if (metadata.labels) comments.push(['LABEL', metadata.labels]);
         }
 
         if (lyrics) {
-            if (lyrics.plainLyrics) {
-                comments.push(['LYRICS', lyrics.plainLyrics]);
-                comments.push(['UNSYNCEDLYRICS', lyrics.plainLyrics]);
-            }
-
             if (lyrics.syncedLyrics) {
                 comments.push(['SYNCEDLYRICS', lyrics.syncedLyrics]);
                 comments.push(['LYRICS_SYNCED', lyrics.syncedLyrics]);
+                comments.push(['LYRICS', lyrics.syncedLyrics]);
+                comments.push(['UNSYNCEDLYRICS', lyrics.syncedLyrics]);
             }
 
             if (lyrics.source) {

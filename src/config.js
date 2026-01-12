@@ -10,7 +10,8 @@ export const CONFIG = {
         userId: getStr('QOBUZ_USER_ID', ''),
 
         spotifyClientId: getStr('SPOTIFY_CLIENT_ID', ''),
-        spotifyClientSecret: getStr('SPOTIFY_CLIENT_SECRET', '')
+        spotifyClientSecret: getStr('SPOTIFY_CLIENT_SECRET', ''),
+        discogsToken: getStr('DISCOGS_TOKEN', '')
     },
 
     api: {

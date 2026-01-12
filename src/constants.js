@@ -1,9 +1,6 @@
 export const API = {
     QOBUZ_BASE_URL: 'https://www.qobuz.com/api.json/0.2',
-    SPOTIFY_AUTH_URL: 'https://accounts.spotify.com/api/token',
-    SPOTIFY_API_URL: 'https://api.spotify.com/v1',
-    ITUNES_API_URL: 'https://itunes.apple.com',
-    MUSICBRAINZ_API_URL: 'https://musicbrainz.org/ws/2',
+
     LRCLIB_API_URL: 'https://lrclib.net/api'
 };
 
