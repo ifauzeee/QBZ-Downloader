@@ -11,7 +11,8 @@ const api = new QobuzAPI();
 export async function showMainMenu() {
     display.displayBanner();
 
-    while (true) {
+    let running = true;
+    while (running) {
         console.log(chalk.bold.cyan('\n📋 Main Menu:\n'));
         console.log(chalk.white('  1) 🔍 Search Music'));
         console.log(chalk.white('  2) 📥 Download by URL'));
@@ -33,7 +34,7 @@ export async function showMainMenu() {
             }
         ]);
 
-        const actionMap = { '1': 'search', '2': 'download', '3': 'account', '4': 'quality', '5': 'exit' };
+        const actionMap = { 1: 'search', 2: 'download', 3: 'account', 4: 'quality', 5: 'exit' };
         const action = actionMap[mainChoice.action];
 
         if (action === 'exit') {

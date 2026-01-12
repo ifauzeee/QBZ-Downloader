@@ -8,13 +8,15 @@ import { registerInfoCommand } from './commands/info.js';
 import { registerLyricsCommand } from './commands/lyrics.js';
 import { registerAccountCommand } from './commands/account.js';
 import { registerQualityCommand } from './commands/quality.js';
+import { registerSetupCommand } from './commands/setup.js';
 import { showMainMenu } from './commands/menu.js';
 import * as display from './utils/display.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
 import { handleError } from './utils/errors.js';
 import { APP_VERSION } from './constants.js';
 
-const isMetaCommand = process.argv.includes('--help') ||
+const isMetaCommand =
+    process.argv.includes('--help') ||
     process.argv.includes('-h') ||
     process.argv.includes('--version') ||
     process.argv.includes('-V') ||
@@ -40,6 +42,7 @@ registerInfoCommand(program);
 registerLyricsCommand(program);
 registerAccountCommand(program);
 registerQualityCommand(program);
+registerSetupCommand(program);
 
 program.action(async () => {
     displayEnvWarnings(warnings);
@@ -58,7 +61,11 @@ try {
         await showMainMenu();
     }
 } catch (error) {
-    if (error.exitCode === 0 || error.code === 'commander.help' || error.code === 'commander.version') {
+    if (
+        error.exitCode === 0 ||
+        error.code === 'commander.help' ||
+        error.code === 'commander.version'
+    ) {
         process.exit(0);
     }
     handleError(error, display);

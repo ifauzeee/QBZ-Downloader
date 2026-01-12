@@ -33,7 +33,10 @@ class DownloadService {
             .replace('{album}', this.sanitizeFilename(metadata.album))
             .replace('{year}', metadata.year?.toString() || 'Unknown')
             .replace('{quality}', qualityName.replace('/', '-'))
-            .replace('{album_artist}', this.sanitizeFilename(metadata.albumArtist || metadata.artist))
+            .replace(
+                '{album_artist}',
+                this.sanitizeFilename(metadata.albumArtist || metadata.artist)
+            )
             .replace('{track_number}', metadata.trackNumber?.toString().padStart(2, '0') || '00');
     }
 
@@ -181,9 +184,13 @@ class DownloadService {
                 );
                 result.enhancedMetadata = enhancedMetadata;
             } catch (e) {
+                /* empty */
             }
 
-            const folderPath = path.join(this.outputDir, this.buildFolderPath(metadata, actualQuality));
+            const folderPath = path.join(
+                this.outputDir,
+                this.buildFolderPath(metadata, actualQuality)
+            );
             fs.mkdirSync(folderPath, { recursive: true });
 
             const filename = this.buildFilename(metadata, extension);
@@ -199,15 +206,14 @@ class DownloadService {
                     `[ar:${metadata.artist}]`,
                     `[al:${metadata.album}]`,
                     `[length:${metadata.durationFormatted || ''}]`,
-                    `[by:Qobuz-DL CLI v2.0]`,
-                    `[re:LRCLIB]`,
+                    '[by:Qobuz-DL CLI v2.0]',
+                    '[re:LRCLIB]',
                     '',
                     lyrics.syncedLyrics
                 ].join('\n');
 
                 fs.writeFileSync(lrcPath, lrcContent, 'utf8');
             }
-
 
             if (options.onProgress) {
                 options.onProgress({ phase: 'downloading', percent: 0 });
@@ -220,8 +226,15 @@ class DownloadService {
                 timeout: 300000,
                 onDownloadProgress: (progressEvent) => {
                     if (options.onProgress && progressEvent.total) {
-                        const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-                        options.onProgress({ phase: 'downloading', percent, loaded: progressEvent.loaded, total: progressEvent.total });
+                        const percent = Math.round(
+                            (progressEvent.loaded / progressEvent.total) * 100
+                        );
+                        options.onProgress({
+                            phase: 'downloading',
+                            percent,
+                            loaded: progressEvent.loaded,
+                            total: progressEvent.total
+                        });
                     }
                 }
             });
@@ -240,7 +253,8 @@ class DownloadService {
                         percent,
                         loaded: downloadedSize,
                         total: totalSize,
-                        speed: this.formatBytes(downloadedSize) + ' / ' + this.formatBytes(totalSize)
+                        speed:
+                            this.formatBytes(downloadedSize) + ' / ' + this.formatBytes(totalSize)
                     });
                 }
             });
@@ -248,7 +262,10 @@ class DownloadService {
             await pipeline(response.data, writer);
 
             let coverBuffer = null;
-            if ((CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile) && metadata.coverUrl) {
+            if (
+                (CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile) &&
+                metadata.coverUrl
+            ) {
                 if (options.onProgress) {
                     options.onProgress({ phase: 'cover', percent: 0 });
                 }
@@ -269,10 +286,18 @@ class DownloadService {
             const finalCoverBuffer = CONFIG.metadata.embedCover ? coverBuffer : null;
 
             if (extension === 'mp3') {
-                const id3Tags = this.metadataService.buildId3Tags(metadata, finalCoverBuffer, lyrics);
+                const id3Tags = this.metadataService.buildId3Tags(
+                    metadata,
+                    finalCoverBuffer,
+                    lyrics
+                );
                 await this.metadataService.writeId3Tags(filePath, id3Tags);
             } else if (extension === 'flac') {
-                const flacTags = this.metadataService.buildFlacTags(metadata, lyrics, enhancedMetadata);
+                const flacTags = this.metadataService.buildFlacTags(
+                    metadata,
+                    lyrics,
+                    enhancedMetadata
+                );
                 await this.embedFlacMetadata(filePath, flacTags, finalCoverBuffer);
             }
 
@@ -282,7 +307,6 @@ class DownloadService {
 
             result.success = true;
             return result;
-
         } catch (error) {
             result.error = error.message;
             return result;
@@ -323,7 +347,9 @@ class DownloadService {
             for (const [key, value] of tags) {
                 if (value) {
                     const escapedValue = String(value).replace(/"/g, '\\"');
-                    execSync(`metaflac --set-tag="${key}=${escapedValue}" "${filePath}"`, { stdio: 'ignore' });
+                    execSync(`metaflac --set-tag="${key}=${escapedValue}" "${filePath}"`, {
+                        stdio: 'ignore'
+                    });
                 }
             }
 
@@ -331,7 +357,9 @@ class DownloadService {
                 const coverPath = filePath.replace('.flac', '_cover_temp.jpg');
                 fs.writeFileSync(coverPath, coverBuffer);
                 try {
-                    execSync(`metaflac --import-picture-from="${coverPath}" "${filePath}"`, { stdio: 'ignore' });
+                    execSync(`metaflac --import-picture-from="${coverPath}" "${filePath}"`, {
+                        stdio: 'ignore'
+                    });
                 } finally {
                     if (fs.existsSync(coverPath)) {
                         fs.unlinkSync(coverPath);
@@ -362,7 +390,7 @@ class DownloadService {
         while (offset < flacData.length) {
             const header = flacData[offset];
             const isLast = (header & 0x80) !== 0;
-            const blockType = header & 0x7F;
+            const blockType = header & 0x7f;
             const blockLength = flacData.readUIntBE(offset + 1, 3);
 
             if (blockType === 127) break;
@@ -403,12 +431,17 @@ class DownloadService {
 
         const vorbisData = Buffer.alloc(vorbisSize);
         let vOffset = 0;
-        vorbisData.writeUInt32LE(vendorBuffer.length, vOffset); vOffset += 4;
-        vendorBuffer.copy(vorbisData, vOffset); vOffset += vendorBuffer.length;
-        vorbisData.writeUInt32LE(comments.length, vOffset); vOffset += 4;
+        vorbisData.writeUInt32LE(vendorBuffer.length, vOffset);
+        vOffset += 4;
+        vendorBuffer.copy(vorbisData, vOffset);
+        vOffset += vendorBuffer.length;
+        vorbisData.writeUInt32LE(comments.length, vOffset);
+        vOffset += 4;
         for (const comment of comments) {
-            vorbisData.writeUInt32LE(comment.length, vOffset); vOffset += 4;
-            comment.copy(vorbisData, vOffset); vOffset += comment.length;
+            vorbisData.writeUInt32LE(comment.length, vOffset);
+            vOffset += 4;
+            comment.copy(vorbisData, vOffset);
+            vOffset += comment.length;
         }
 
         let pictureData = null;
@@ -417,31 +450,52 @@ class DownloadService {
             const mimeType = Buffer.from('image/jpeg', 'utf8');
             const description = Buffer.from('', 'utf8');
 
-            const picSize = 4 + 4 + mimeType.length + 4 + description.length + 4 + 4 + 4 + 4 + 4 + coverBuffer.length;
+            const picSize =
+                4 +
+                4 +
+                mimeType.length +
+                4 +
+                description.length +
+                4 +
+                4 +
+                4 +
+                4 +
+                4 +
+                coverBuffer.length;
             pictureData = Buffer.alloc(picSize);
 
             let pOffset = 0;
-            pictureData.writeUInt32BE(pictureType, pOffset); pOffset += 4;
-            pictureData.writeUInt32BE(mimeType.length, pOffset); pOffset += 4;
-            mimeType.copy(pictureData, pOffset); pOffset += mimeType.length;
-            pictureData.writeUInt32BE(description.length, pOffset); pOffset += 4;
-            description.copy(pictureData, pOffset); pOffset += description.length;
-            pictureData.writeUInt32BE(0, pOffset); pOffset += 4;
-            pictureData.writeUInt32BE(0, pOffset); pOffset += 4;
-            pictureData.writeUInt32BE(24, pOffset); pOffset += 4;
-            pictureData.writeUInt32BE(0, pOffset); pOffset += 4;
-            pictureData.writeUInt32BE(coverBuffer.length, pOffset); pOffset += 4;
+            pictureData.writeUInt32BE(pictureType, pOffset);
+            pOffset += 4;
+            pictureData.writeUInt32BE(mimeType.length, pOffset);
+            pOffset += 4;
+            mimeType.copy(pictureData, pOffset);
+            pOffset += mimeType.length;
+            pictureData.writeUInt32BE(description.length, pOffset);
+            pOffset += 4;
+            description.copy(pictureData, pOffset);
+            pOffset += description.length;
+            pictureData.writeUInt32BE(0, pOffset);
+            pOffset += 4;
+            pictureData.writeUInt32BE(0, pOffset);
+            pOffset += 4;
+            pictureData.writeUInt32BE(24, pOffset);
+            pOffset += 4;
+            pictureData.writeUInt32BE(0, pOffset);
+            pOffset += 4;
+            pictureData.writeUInt32BE(coverBuffer.length, pOffset);
+            pOffset += 4;
             coverBuffer.copy(pictureData, pOffset);
         }
 
-        const streamInfoBlock = metadataBlocks.find(b => b.type === 0);
+        const streamInfoBlock = metadataBlocks.find((b) => b.type === 0);
         const streamInfoHeader = Buffer.alloc(4);
         streamInfoHeader[0] = 0;
         streamInfoHeader.writeUIntBE(streamInfoBlock.data.length, 1, 3);
         chunks.push(streamInfoHeader);
         chunks.push(streamInfoBlock.data);
 
-        for (const block of metadataBlocks.filter(b => b.type !== 0 && b.keep)) {
+        for (const block of metadataBlocks.filter((b) => b.type !== 0 && b.keep)) {
             const blockHeader = Buffer.alloc(4);
             blockHeader[0] = block.type;
             blockHeader.writeUIntBE(block.data.length, 1, 3);
@@ -450,7 +504,7 @@ class DownloadService {
         }
 
         const vorbisHeader = Buffer.alloc(4);
-        vorbisHeader[0] = pictureData ? 4 : (4 | 0x80);
+        vorbisHeader[0] = pictureData ? 4 : 4 | 0x80;
         vorbisHeader.writeUIntBE(vorbisData.length, 1, 3);
         chunks.push(vorbisHeader);
         chunks.push(vorbisData);
@@ -499,8 +553,16 @@ class DownloadService {
             }
 
             const tracks = album.tracks?.items || [];
-            for (let i = 0; i < tracks.length; i++) {
-                const track = tracks[i];
+
+            let tracksToDownload = tracks;
+            if (options.trackIndices && Array.isArray(options.trackIndices)) {
+                tracksToDownload = tracks.filter((_, index) =>
+                    options.trackIndices.includes(index)
+                );
+            }
+
+            for (let i = 0; i < tracksToDownload.length; i++) {
+                const track = tracksToDownload[i];
 
                 if (options.onTrackStart) {
                     options.onTrackStart(track, i + 1, tracks.length);
@@ -527,7 +589,13 @@ class DownloadService {
                 const folderPath = path.join(
                     this.outputDir,
                     this.buildFolderPath(
-                        { albumArtist: results.artist, album: results.title, year: album.released_at ? new Date(album.released_at * 1000).getFullYear() : '' },
+                        {
+                            albumArtist: results.artist,
+                            album: results.title,
+                            year: album.released_at
+                                ? new Date(album.released_at * 1000).getFullYear()
+                                : ''
+                        },
                         quality
                     )
                 );
@@ -536,7 +604,10 @@ class DownloadService {
                     if (goodie.url) {
                         try {
                             const ext = goodie.file_format === 'PDF' ? 'pdf' : 'jpg';
-                            const goodiePath = path.join(folderPath, `${goodie.description || 'booklet'}.${ext}`);
+                            const goodiePath = path.join(
+                                folderPath,
+                                `${goodie.description || 'booklet'}.${ext}`
+                            );
 
                             const response = await axios({
                                 method: 'GET',
@@ -547,6 +618,7 @@ class DownloadService {
 
                             fs.writeFileSync(goodiePath, response.data);
                         } catch (e) {
+                            /* empty */
                         }
                     }
                 }
@@ -554,7 +626,6 @@ class DownloadService {
 
             results.success = results.failedTracks === 0;
             return results;
-
         } catch (error) {
             results.error = error.message;
             return results;
@@ -574,7 +645,10 @@ class DownloadService {
             case 'album':
                 return this.downloadAlbum(parsed.id, quality, options);
             case 'artist':
-                return { success: false, error: 'Artist download not implemented yet. Please provide an album URL.' };
+                return {
+                    success: false,
+                    error: 'Artist download not implemented yet. Please provide an album URL.'
+                };
             case 'playlist':
                 return { success: false, error: 'Playlist download not implemented yet.' };
             default:

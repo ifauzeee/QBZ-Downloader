@@ -31,7 +31,6 @@ export function registerAccountCommand(program) {
                 spinner.succeed(chalk.green('Account info retrieved!'));
                 display.displayAccountInfo(result.data);
                 display.displayQualityOptions();
-
             } catch (error) {
                 spinner.fail(chalk.red('An error occurred'));
                 display.displayError(error.message);
@@ -58,7 +57,6 @@ export async function handleAccount() {
         spinner.succeed(chalk.green('Account info retrieved!'));
         display.displayAccountInfo(result.data);
         display.displayQualityOptions();
-
     } catch (error) {
         spinner.fail(chalk.red('An error occurred'));
         display.displayError(error.message);
@@ -68,7 +66,7 @@ export async function handleAccount() {
         {
             type: 'input',
             name: 'continue',
-            message: chalk.gray('Press Enter to continue...'),
+            message: chalk.gray('Press Enter to continue...')
         }
     ]);
 }

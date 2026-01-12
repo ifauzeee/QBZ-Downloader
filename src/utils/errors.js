@@ -49,13 +49,21 @@ export function handleError(error, display) {
     if (error instanceof ValidationError) {
         display.displayError(`Validation Error: ${error.message}`);
     } else if (error instanceof AuthenticationError) {
-        display.displayError(`Authentication Error: ${error.message}\n\nPlease check your .env file and ensure QOBUZ_APP_ID, QOBUZ_APP_SECRET, and QOBUZ_USER_AUTH_TOKEN are set correctly.`);
+        display.displayError(
+            `Authentication Error: ${error.message}\n\nPlease check your .env file and ensure QOBUZ_APP_ID, QOBUZ_APP_SECRET, and QOBUZ_USER_AUTH_TOKEN are set correctly.`
+        );
     } else if (error instanceof APIError) {
-        display.displayError(`API Error: ${error.message}${error.statusCode ? ` (Status: ${error.statusCode})` : ''}`);
+        display.displayError(
+            `API Error: ${error.message}${error.statusCode ? ` (Status: ${error.statusCode})` : ''}`
+        );
     } else if (error instanceof DownloadError) {
-        display.displayError(`Download Error: ${error.message}${error.trackId ? ` (Track ID: ${error.trackId})` : ''}`);
+        display.displayError(
+            `Download Error: ${error.message}${error.trackId ? ` (Track ID: ${error.trackId})` : ''}`
+        );
     } else if (error instanceof ConfigurationError) {
-        display.displayError(`Configuration Error: ${error.message}\n\nMissing: ${error.missingVars.join(', ')}`);
+        display.displayError(
+            `Configuration Error: ${error.message}\n\nMissing: ${error.missingVars.join(', ')}`
+        );
     } else {
         display.displayError(error.message || 'An unexpected error occurred');
     }

@@ -7,7 +7,8 @@ class LyricsProvider {
             { name: 'LRCLIB', enabled: true },
             { name: 'Genius', enabled: true }
         ];
-        this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+        this.userAgent =
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
     }
 
     async searchLrclib(title, artist, album = '', duration = 0) {
@@ -108,7 +109,6 @@ class LyricsProvider {
             }
 
             return { success: false, error: 'Lyrics content not found' };
-
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -147,7 +147,7 @@ class LyricsProvider {
         const parsed = this.parseLrc(syncedLyrics);
         if (!parsed) return null;
 
-        return parsed.map(line => ({
+        return parsed.map((line) => ({
             text: line.text,
             timeStamp: line.time
         }));
@@ -190,15 +190,20 @@ class LyricsProvider {
         if (lyrics.syncedLyrics) {
             const parsed = this.parseLrc(lyrics.syncedLyrics);
             if (parsed) {
-                return parsed.slice(0, maxLines).map(l =>
-                    `[${l.timeStr}] ${l.text}`
-                ).join('\n') + (parsed.length > maxLines ? '\n...' : '');
+                return (
+                    parsed
+                        .slice(0, maxLines)
+                        .map((l) => `[${l.timeStr}] ${l.text}`)
+                        .join('\n') + (parsed.length > maxLines ? '\n...' : '')
+                );
             }
         }
 
         if (lyrics.plainLyrics) {
             const lines = lyrics.plainLyrics.split('\n').slice(0, maxLines);
-            return lines.join('\n') + (lyrics.plainLyrics.split('\n').length > maxLines ? '\n...' : '');
+            return (
+                lines.join('\n') + (lyrics.plainLyrics.split('\n').length > maxLines ? '\n...' : '')
+            );
         }
 
         return 'No lyrics available';

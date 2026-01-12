@@ -83,7 +83,9 @@ class iTunesAPI {
             itunesAlbumArtist: itunesTrack.collectionArtistName || itunesTrack.artistName || '',
 
             itunesReleaseDate: itunesTrack.releaseDate || '',
-            itunesYear: itunesTrack.releaseDate ? new Date(itunesTrack.releaseDate).getFullYear() : '',
+            itunesYear: itunesTrack.releaseDate
+                ? new Date(itunesTrack.releaseDate).getFullYear()
+                : '',
 
             itunesTrackNumber: itunesTrack.trackNumber || 0,
             itunesTotalTracks: itunesTrack.trackCount || 0,
@@ -136,7 +138,7 @@ class iTunesAPI {
     }
 
     findBestMatch(tracks, title, artist, album) {
-        const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalize = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normalTitle = normalize(title);
         const normalArtist = normalize(artist);
         const normalAlbum = normalize(album);
@@ -151,11 +153,14 @@ class iTunesAPI {
             const trackAlbum = normalize(track.collectionName || '');
 
             if (trackTitle === normalTitle) score += 50;
-            else if (trackTitle.includes(normalTitle) || normalTitle.includes(trackTitle)) score += 30;
+            else if (trackTitle.includes(normalTitle) || normalTitle.includes(trackTitle))
+                score += 30;
 
-            if (trackArtist.includes(normalArtist) || normalArtist.includes(trackArtist)) score += 30;
+            if (trackArtist.includes(normalArtist) || normalArtist.includes(trackArtist))
+                score += 30;
 
-            if (album && (trackAlbum === normalAlbum || trackAlbum.includes(normalAlbum))) score += 20;
+            if (album && (trackAlbum === normalAlbum || trackAlbum.includes(normalAlbum)))
+                score += 20;
 
             if (score > bestScore) {
                 bestScore = score;

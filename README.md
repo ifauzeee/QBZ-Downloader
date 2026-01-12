@@ -71,9 +71,21 @@ qbz-dl
 
 ## ⚙️ Configuration
 
-### 1. Create Environment File
+### 1. Automatic Configuration (Recommended)
 
-Copy the example environment file and fill in your credentials:
+Run the interactive setup wizard to configure your credentials:
+
+```bash
+npm start setup
+# or if installed globally
+qbz-dl setup
+```
+
+The wizard will guide you through entering your Qobuz App ID, Secret, and User Auth Token, and will automatically create/update your `.env` file.
+
+### 2. Manual Configuration (Optional)
+
+If you prefer manual setup, copy the example environment file and fill in your credentials:
 
 ```bash
 cp .env.example .env
@@ -128,6 +140,7 @@ qbz-dl
 |---------|-------|-------------|
 | `download <url>` | `dl` | Download a track or album |
 | `search <query>` | `s` | Search the Qobuz catalog |
+| `setup` | - | **Interactive configuration wizard** |
 | `info <url>` | `i` | Get detailed information |
 | `lyrics <url>` | `l` | Get lyrics for a track |
 | `account` | `acc` | Display account information |
@@ -333,6 +346,40 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+---
+
+## 🛠️ Development
+
+### Setup Dev Environment
+
+```bash
+# Clone and install dependencies
+git clone https://github.com/ifauzeee/QBZ-Downloader.git
+cd QBZ-Downloader
+npm install
+```
+
+### Linting & Formatting
+
+We use **ESLint** and **Prettier** to maintain code quality:
+
+```bash
+# Check for linting issues
+npm run lint
+
+# Automatically format code
+npm run format
+```
+
+### Testing
+
+Tests are powered by **Vitest**:
+
+```bash
+# Run all tests
+npm test
+```
 
 ---
 

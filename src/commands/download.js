@@ -1,12 +1,14 @@
 import inquirer from 'inquirer';
 import ora from 'ora';
 import chalk from 'chalk';
-import { CONFIG, getQualityEmoji, getQualityName } from '../config.js';
+import { CONFIG } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import DownloadService from '../services/download.js';
 import MetadataService from '../services/metadata.js';
 import * as display from '../utils/display.js';
+import { parseSelection } from '../utils/input.js';
+import * as prompts from './download/prompts.js';
 
 const api = new QobuzAPI();
 const downloadService = new DownloadService();
@@ -32,31 +34,9 @@ export function registerDownloadCommand(program) {
 
             if (options.interactive || !targetUrl) {
                 const answers = await inquirer.prompt([
-                    {
-                        type: 'input',
-                        name: 'url',
-                        message: chalk.cyan('🔗 Enter Qobuz URL or Album/Track ID:'),
-                        when: !targetUrl,
-                        validate: (input) => input.length > 0 || 'Please enter a valid URL'
-                    },
-                    {
-                        type: 'list',
-                        name: 'quality',
-                        message: chalk.cyan('🎚️ Select audio quality:'),
-                        choices: [
-                            { name: '🔥 Hi-Res Max (FLAC 24/192)', value: 27 },
-                            { name: '✨ Hi-Res (FLAC 24/96)', value: 7 },
-                            { name: '💿 CD Quality (FLAC 16/44.1)', value: 6 },
-                            { name: '🎵 MP3 320kbps', value: 5 }
-                        ],
-                        default: 27
-                    },
-                    {
-                        type: 'confirm',
-                        name: 'embedLyrics',
-                        message: chalk.cyan('🎤 Embed lyrics?'),
-                        default: true
-                    }
+                    prompts.getUrlPrompt(!targetUrl),
+                    prompts.getQualityPrompt(),
+                    prompts.getLyricsPrompt()
                 ]);
 
                 targetUrl = targetUrl || answers.url;
@@ -66,7 +46,9 @@ export function registerDownloadCommand(program) {
 
             const parsed = api.parseUrl(targetUrl);
             if (!parsed) {
-                display.displayError('Invalid Qobuz URL. Please provide a valid album or track URL.');
+                display.displayError(
+                    'Invalid Qobuz URL. Please provide a valid album or track URL.'
+                );
                 process.exit(1);
             }
 
@@ -89,12 +71,7 @@ export function registerDownloadCommand(program) {
                     display.displayTrackList(albumInfo.data.tracks?.items || []);
 
                     const confirm = await inquirer.prompt([
-                        {
-                            type: 'confirm',
-                            name: 'proceed',
-                            message: chalk.cyan(`\n📥 Download this album in ${getQualityEmoji(quality)} ${getQualityName(quality)}?`),
-                            default: true
-                        }
+                        prompts.getConfirmationPrompt(quality, 'album')
                     ]);
 
                     if (!confirm.proceed) {
@@ -104,30 +81,36 @@ export function registerDownloadCommand(program) {
 
                     console.log('\n' + chalk.cyan.bold('📥 Starting album download...\n'));
 
-                    let currentTrack = 0;
-                    const totalTracks = albumInfo.data.tracks?.items?.length || 0;
-
                     const result = await downloadService.downloadAlbum(parsed.id, quality, {
-                        onAlbumInfo: (album) => { },
+                        onAlbumInfo: (_album) => {},
                         onTrackStart: (track, num, total) => {
-                            currentTrack = num;
-                            console.log(chalk.cyan(`\n[${num}/${total}] `) + chalk.white.bold(track.title));
-                            console.log(chalk.gray(`    Artist: ${track.performer?.name || 'Unknown'}`));
+                            console.log(
+                                chalk.cyan(`\n[${num}/${total}] `) + chalk.white.bold(track.title)
+                            );
+                            console.log(
+                                chalk.gray(`    Artist: ${track.performer?.name || 'Unknown'}`)
+                            );
                         },
                         onProgress: (progress) => {
                             if (progress.phase === 'downloading') {
-                                display.displayProgress('downloading', progress.percent, { speed: progress.speed });
+                                display.displayProgress('downloading', progress.percent, {
+                                    speed: progress.speed
+                                });
                             } else if (progress.phase === 'metadata') {
                                 display.displayProgress('metadata', progress.percent);
                             } else if (progress.phase === 'complete') {
                                 display.displayProgress('complete', 100);
                             }
                         },
-                        onTrackComplete: (trackResult, num, total) => {
+                        onTrackComplete: (trackResult, _num, _total) => {
                             if (trackResult.success) {
-                                console.log(chalk.green(`    ✅ Downloaded successfully`));
+                                console.log(chalk.green('    ✅ Downloaded successfully'));
                                 if (trackResult.lyrics) {
-                                    console.log(chalk.magenta(`    🎤 Lyrics embedded (${trackResult.lyrics.syncedLyrics ? 'synced' : 'unsynced'})`));
+                                    console.log(
+                                        chalk.magenta(
+                                            `    🎤 Lyrics embedded (${trackResult.lyrics.syncedLyrics ? 'synced' : 'unsynced'})`
+                                        )
+                                    );
                                 }
                                 console.log(chalk.gray(`    📁 ${trackResult.filePath}`));
                             } else {
@@ -137,7 +120,6 @@ export function registerDownloadCommand(program) {
                     });
 
                     display.displayDownloadSummary(result);
-
                 } else if (parsed.type === 'track') {
                     const trackInfo = await api.getTrack(parsed.id);
                     if (!trackInfo.success) {
@@ -149,7 +131,10 @@ export function registerDownloadCommand(program) {
                     spinner.succeed(chalk.green('Track found!'));
                     display.displayTrackInfo(trackInfo.data);
 
-                    const metadata = metadataService.extractMetadata(trackInfo.data, trackInfo.data.album);
+                    const metadata = metadataService.extractMetadata(
+                        trackInfo.data,
+                        trackInfo.data.album
+                    );
                     display.displayMetadata(metadata);
 
                     const lyricsSpinner = ora({
@@ -172,12 +157,7 @@ export function registerDownloadCommand(program) {
                     }
 
                     const confirm = await inquirer.prompt([
-                        {
-                            type: 'confirm',
-                            name: 'proceed',
-                            message: chalk.cyan(`\n📥 Download this track in ${getQualityEmoji(quality)} ${getQualityName(quality)}?`),
-                            default: true
-                        }
+                        prompts.getConfirmationPrompt(quality, 'track')
                     ]);
 
                     if (!confirm.proceed) {
@@ -189,12 +169,16 @@ export function registerDownloadCommand(program) {
 
                     const result = await downloadService.downloadTrack(parsed.id, quality, {
                         onProgress: (progress) => {
-                            display.displayProgress(progress.phase, progress.percent, { speed: progress.speed });
+                            display.displayProgress(progress.phase, progress.percent, {
+                                speed: progress.speed
+                            });
                         }
                     });
 
                     if (result.success) {
-                        display.displaySuccess(`Track downloaded successfully!\n\n📁 ${result.filePath}`);
+                        display.displaySuccess(
+                            `Track downloaded successfully!\n\n📁 ${result.filePath}`
+                        );
 
                         console.log('\n' + chalk.bold.cyan('📋 Embedded Metadata:'));
                         display.displayMetadata(result.metadata);
@@ -206,7 +190,6 @@ export function registerDownloadCommand(program) {
                         display.displayError(`Download failed: ${result.error}`);
                     }
                 }
-
             } catch (error) {
                 spinner.fail(chalk.red('An error occurred'));
                 display.displayError(error.message);
@@ -215,7 +198,7 @@ export function registerDownloadCommand(program) {
         });
 }
 
-export async function downloadAlbumInteractive(albumId) {
+export async function downloadAlbumInteractive(albumId, options = {}) {
     const spinner = ora({
         text: display.spinnerMessage('Fetching album info...'),
         spinner: 'dots12'
@@ -224,6 +207,7 @@ export async function downloadAlbumInteractive(albumId) {
     const albumInfo = await api.getAlbum(albumId);
     if (!albumInfo.success) {
         spinner.fail(chalk.red('Failed to fetch album info'));
+        display.displayError(albumInfo.error);
         return;
     }
 
@@ -252,27 +236,33 @@ export async function downloadAlbumInteractive(albumId) {
 
     console.log(chalk.cyan('\n🎚️ Detected quality: ') + chalk.white.bold(qualityLabel));
 
-    const confirmAnswer = await inquirer.prompt([
-        {
-            type: 'input',
-            name: 'proceed',
-            message: chalk.cyan(`Download album? (y/n):`),
-            default: 'y',
-            validate: (input) => {
-                if (['y', 'n', 'Y', 'N', 'yes', 'no'].includes(input.toLowerCase())) return true;
-                return 'Please enter y or n';
-            }
-        }
-    ]);
+    let action = 'download';
 
-    if (confirmAnswer.proceed.toLowerCase() !== 'y' && confirmAnswer.proceed.toLowerCase() !== 'yes') {
+    if (!options.batch) {
+        const confirmAnswer = await inquirer.prompt([prompts.getActionPrompt()]);
+        action = confirmAnswer.action;
+    }
+
+    if (action === 'cancel') {
         console.log(chalk.yellow('\n👋 Download cancelled.\n'));
         return;
+    }
+
+    let trackIndices = null;
+
+    if (action === 'select') {
+        const selectionAnswer = await inquirer.prompt([
+            prompts.getTrackSelectionPrompt(album.tracks.items.length)
+        ]);
+
+        trackIndices = parseSelection(selectionAnswer.tracks, album.tracks.items.length);
+        console.log(chalk.cyan(`\n✨ Selected ${trackIndices.length} track(s) for download.`));
     }
 
     console.log('\n' + chalk.cyan.bold('📥 Starting album download...\n'));
 
     const downloadResult = await downloadService.downloadAlbum(albumId, bestQuality, {
+        trackIndices,
         onTrackStart: (track, num, total) => {
             console.log(chalk.cyan(`\n[${num}/${total}] `) + chalk.white.bold(track.title));
             console.log(chalk.gray(`    Artist: ${track.performer?.name || 'Unknown'}`));
@@ -282,9 +272,13 @@ export async function downloadAlbumInteractive(albumId) {
         },
         onTrackComplete: (trackResult) => {
             if (trackResult.success) {
-                console.log(chalk.green(`    ✅ Downloaded successfully`));
+                console.log(chalk.green('    ✅ Downloaded successfully'));
                 if (trackResult.lyrics) {
-                    console.log(chalk.magenta(`    🎤 Lyrics embedded (${trackResult.lyrics.syncedLyrics ? 'synced' : 'unsynced'})`));
+                    console.log(
+                        chalk.magenta(
+                            `    🎤 Lyrics embedded (${trackResult.lyrics.syncedLyrics ? 'synced' : 'unsynced'})`
+                        )
+                    );
                 }
             } else {
                 console.log(chalk.red(`    ❌ Failed: ${trackResult.error}`));
@@ -294,16 +288,18 @@ export async function downloadAlbumInteractive(albumId) {
 
     display.displayDownloadSummary(downloadResult);
 
-    await inquirer.prompt([
-        {
-            type: 'input',
-            name: 'continue',
-            message: chalk.gray('Press Enter to continue...'),
-        }
-    ]);
+    if (!options.batch) {
+        await inquirer.prompt([
+            {
+                type: 'input',
+                name: 'continue',
+                message: chalk.gray('Press Enter to continue...')
+            }
+        ]);
+    }
 }
 
-export async function downloadTrackInteractive(trackId) {
+export async function downloadTrackInteractive(trackId, options = {}) {
     const spinner = ora({
         text: display.spinnerMessage('Fetching track info...'),
         spinner: 'dots12'
@@ -312,11 +308,11 @@ export async function downloadTrackInteractive(trackId) {
     const trackInfo = await api.getTrack(trackId);
     if (!trackInfo.success) {
         spinner.fail(chalk.red('Failed to fetch track info'));
+        display.displayError(trackInfo.error);
         return;
     }
 
     const track = trackInfo.data;
-    const album = track.album || {};
     let bestQuality = 6;
     let qualityLabel = '💿 CD Quality (FLAC 16/44.1)';
 
@@ -340,20 +336,14 @@ export async function downloadTrackInteractive(trackId) {
 
     console.log(chalk.cyan('\n🎚️ Detected quality: ') + chalk.white.bold(qualityLabel));
 
-    const confirmAnswer = await inquirer.prompt([
-        {
-            type: 'input',
-            name: 'proceed',
-            message: chalk.cyan(`Download track? (y/n):`),
-            default: 'y',
-            validate: (input) => {
-                if (['y', 'n', 'Y', 'N', 'yes', 'no'].includes(input.toLowerCase())) return true;
-                return 'Please enter y or n';
-            }
-        }
-    ]);
+    let proceed = 'y';
 
-    if (confirmAnswer.proceed.toLowerCase() !== 'y' && confirmAnswer.proceed.toLowerCase() !== 'yes') {
+    if (!options.batch) {
+        const confirmAnswer = await inquirer.prompt([prompts.getTrackDownloadPrompt()]);
+        proceed = confirmAnswer.proceed;
+    }
+
+    if (proceed.toLowerCase() !== 'y' && proceed.toLowerCase() !== 'yes') {
         console.log(chalk.yellow('\n👋 Download cancelled.\n'));
         return;
     }
@@ -375,11 +365,7 @@ export async function downloadTrackInteractive(trackId) {
         display.displayError(`Download failed: ${result.error}`);
     }
 
-    await inquirer.prompt([
-        {
-            type: 'input',
-            name: 'continue',
-            message: chalk.gray('Press Enter to continue...'),
-        }
-    ]);
+    if (!options.batch) {
+        await inquirer.prompt([prompts.getContinuePrompt()]);
+    }
 }

@@ -1,11 +1,11 @@
 import { ValidationError } from './errors.js';
 
 const QOBUZ_URL_PATTERNS = {
-    track: /qobuz\.com\/[a-z-]+\/track\/(\d+)/i,
-    album: /qobuz\.com\/[a-z-]+\/album\/[^\/]+\/([a-zA-Z0-9]+)/i,
-    artist: /qobuz\.com\/[a-z-]+\/artist\/(\d+)/i,
-    playlist: /qobuz\.com\/[a-z-]+\/playlist\/(\d+)/i,
-    label: /qobuz\.com\/[a-z-]+\/label\/[^\/]+\/(\d+)/i
+    track: new RegExp('qobuz\\.com/[a-z-]+/track/(\\d+)', 'i'),
+    album: new RegExp('qobuz\\.com/[a-z-]+/album/[^/]+/([a-zA-Z0-9]+)', 'i'),
+    artist: new RegExp('qobuz\\.com/[a-z-]+/artist/(\\d+)', 'i'),
+    playlist: new RegExp('qobuz\\.com/[a-z-]+/playlist/(\\d+)', 'i'),
+    label: new RegExp('qobuz\\.com/[a-z-]+/label/[^/]+/(\\d+)', 'i')
 };
 
 const VALID_QUALITIES = [5, 6, 7, 27];
@@ -30,9 +30,9 @@ export function validateQobuzUrl(url) {
 
     throw new ValidationError(
         'Invalid Qobuz URL. Supported formats:\n' +
-        '  • https://www.qobuz.com/us-en/album/...\n' +
-        '  • https://www.qobuz.com/us-en/track/...\n' +
-        '  • Album ID (numeric)',
+            '  • https://www.qobuz.com/us-en/album/...\n' +
+            '  • https://www.qobuz.com/us-en/track/...\n' +
+            '  • Album ID (numeric)',
         'url'
     );
 }
@@ -50,10 +50,10 @@ export function validateQuality(quality) {
     if (!VALID_QUALITIES.includes(qualityId)) {
         throw new ValidationError(
             `Invalid quality ID: ${qualityId}. Valid options:\n` +
-            '  • 5  - MP3 320\n' +
-            '  • 6  - FLAC 16-bit/44.1kHz (CD)\n' +
-            '  • 7  - FLAC 24-bit/96kHz (Hi-Res)\n' +
-            '  • 27 - FLAC 24-bit/192kHz (Hi-Res Max)',
+                '  • 5  - MP3 320\n' +
+                '  • 6  - FLAC 16-bit/44.1kHz (CD)\n' +
+                '  • 7  - FLAC 24-bit/96kHz (Hi-Res)\n' +
+                '  • 27 - FLAC 24-bit/192kHz (Hi-Res Max)',
             'quality'
         );
     }
@@ -78,10 +78,7 @@ export function validateLimit(limit) {
     const limitNum = parseInt(limit, 10);
 
     if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
-        throw new ValidationError(
-            'Limit must be a number between 1 and 100',
-            'limit'
-        );
+        throw new ValidationError('Limit must be a number between 1 and 100', 'limit');
     }
 
     return limitNum;

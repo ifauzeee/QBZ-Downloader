@@ -72,13 +72,19 @@ export function registerLyricsCommand(program) {
                 if (lyrics.success) {
                     lyricsSpinner.succeed(chalk.green('Lyrics found!'));
 
-                    console.log('\n' + chalk.bold.magenta('🎤 Lyrics for: ') + chalk.white(`${title} - ${artist}`));
+                    console.log(
+                        '\n' +
+                            chalk.bold.magenta('🎤 Lyrics for: ') +
+                            chalk.white(`${title} - ${artist}`)
+                    );
                     console.log(chalk.gray('━'.repeat(50)) + '\n');
 
                     if (options.synced && lyrics.syncedLyrics) {
                         console.log(chalk.cyan('[Synced Lyrics]\n'));
-                        lyrics.parsedLyrics?.forEach(line => {
-                            console.log(chalk.gray(`[${line.timeStr}]`) + ' ' + chalk.white(line.text));
+                        lyrics.parsedLyrics?.forEach((line) => {
+                            console.log(
+                                chalk.gray(`[${line.timeStr}]`) + ' ' + chalk.white(line.text)
+                            );
                         });
                     } else if (options.plain && lyrics.plainLyrics) {
                         console.log(chalk.cyan('[Plain Lyrics]\n'));
@@ -86,9 +92,13 @@ export function registerLyricsCommand(program) {
                     } else {
                         if (lyrics.syncedLyrics) {
                             console.log(chalk.green('✅ Synced lyrics available'));
-                            console.log(chalk.gray(`   ${lyrics.parsedLyrics?.length || 0} lines\n`));
-                            lyrics.parsedLyrics?.slice(0, 10).forEach(line => {
-                                console.log(chalk.gray(`[${line.timeStr}]`) + ' ' + chalk.white(line.text));
+                            console.log(
+                                chalk.gray(`   ${lyrics.parsedLyrics?.length || 0} lines\n`)
+                            );
+                            lyrics.parsedLyrics?.slice(0, 10).forEach((line) => {
+                                console.log(
+                                    chalk.gray(`[${line.timeStr}]`) + ' ' + chalk.white(line.text)
+                                );
                             });
                             if ((lyrics.parsedLyrics?.length || 0) > 10) {
                                 console.log(chalk.gray('\n... (use --synced for full lyrics)'));
@@ -99,7 +109,7 @@ export function registerLyricsCommand(program) {
                             console.log(chalk.green('\n✅ Plain lyrics available'));
                             const lines = lyrics.plainLyrics.split('\n');
                             console.log(chalk.gray(`   ${lines.length} lines\n`));
-                            lines.slice(0, 10).forEach(line => {
+                            lines.slice(0, 10).forEach((line) => {
                                 console.log(chalk.white(line));
                             });
                             if (lines.length > 10) {
@@ -109,12 +119,10 @@ export function registerLyricsCommand(program) {
                     }
 
                     console.log('\n' + chalk.gray(`Source: ${lyrics.source}`));
-
                 } else {
                     lyricsSpinner.warn(chalk.yellow('No lyrics found'));
                     console.log(chalk.gray('\nTry searching with a different query or track URL.'));
                 }
-
             } catch (error) {
                 spinner.fail(chalk.red('An error occurred'));
                 display.displayError(error.message);

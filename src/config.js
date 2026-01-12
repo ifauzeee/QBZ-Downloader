@@ -1,9 +1,8 @@
-const getBool = (key, def) => process.env[key] === undefined ? def : process.env[key] === 'true';
-const getInt = (key, def) => process.env[key] ? parseInt(process.env[key]) : def;
+const getBool = (key, def) => (process.env[key] === undefined ? def : process.env[key] === 'true');
+const getInt = (key, def) => (process.env[key] ? parseInt(process.env[key]) : def);
 const getStr = (key, def) => process.env[key] || def;
 
 export const CONFIG = {
-
     credentials: {
         appId: getStr('QOBUZ_APP_ID', ''),
         appSecret: getStr('QOBUZ_APP_SECRET', ''),
@@ -32,9 +31,24 @@ export const CONFIG = {
     quality: {
         formats: {
             5: { name: 'MP3 320', bitDepth: null, sampleRate: null, extension: 'mp3' },
-            6: { name: 'FLAC 16-bit/44.1kHz (CD Quality)', bitDepth: 16, sampleRate: 44100, extension: 'flac' },
-            7: { name: 'FLAC 24-bit/96kHz (Hi-Res)', bitDepth: 24, sampleRate: 96000, extension: 'flac' },
-            27: { name: 'FLAC 24-bit/192kHz (Hi-Res Max)', bitDepth: 24, sampleRate: 192000, extension: 'flac' }
+            6: {
+                name: 'FLAC 16-bit/44.1kHz (CD Quality)',
+                bitDepth: 16,
+                sampleRate: 44100,
+                extension: 'flac'
+            },
+            7: {
+                name: 'FLAC 24-bit/96kHz (Hi-Res)',
+                bitDepth: 24,
+                sampleRate: 96000,
+                extension: 'flac'
+            },
+            27: {
+                name: 'FLAC 24-bit/192kHz (Hi-Res Max)',
+                bitDepth: 24,
+                sampleRate: 192000,
+                extension: 'flac'
+            }
         },
         default: 27
     },
@@ -92,14 +106,7 @@ export const CONFIG = {
                 'replayGain',
                 'comment'
             ],
-            credits: [
-                'engineer',
-                'masteredBy',
-                'mixedBy',
-                'producedBy',
-                'arrangedBy',
-                'recordedBy'
-            ]
+            credits: ['engineer', 'masteredBy', 'mixedBy', 'producedBy', 'arrangedBy', 'recordedBy']
         }
     },
 

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import crypto from 'crypto';
 import { CONFIG } from '../config.js';
+import { APIError, AuthenticationError } from '../utils/errors.js';
 
 class QobuzAPI {
     constructor() {
@@ -39,7 +40,7 @@ class QobuzAPI {
             });
             return { success: true, data: response.data };
         } catch (error) {
-            return { success: false, error: error.response?.data || error.message };
+            this.handleApiError(error);
         }
     }
 
@@ -50,28 +51,30 @@ class QobuzAPI {
                     album_id: albumId,
                     app_id: this.appId,
                     user_auth_token: this.token,
-                    extra: 'albumsFromSameArtist,focus,lyrics,credits'
+                    extra: 'albumsFromSameArtist,focus'
                 }
             });
             return { success: true, data: response.data };
         } catch (error) {
-            return { success: false, error: error.response?.data || error.message };
+            this.handleApiError(error);
         }
     }
 
-    async getArtist(artistId) {
+    async getArtist(artistId, offset = 0, limit = 20) {
         try {
             const response = await this.client.get('/artist/get', {
                 params: {
                     artist_id: artistId,
                     app_id: this.appId,
                     user_auth_token: this.token,
-                    extra: 'albums,focus'
+                    extra: 'albums,focus',
+                    album_offset: offset,
+                    album_limit: limit
                 }
             });
             return { success: true, data: response.data };
         } catch (error) {
-            return { success: false, error: error.response?.data || error.message };
+            this.handleApiError(error);
         }
     }
 
@@ -87,7 +90,7 @@ class QobuzAPI {
             });
             return { success: true, data: response.data };
         } catch (error) {
-            return { success: false, error: error.response?.data || error.message };
+            this.handleApiError(error);
         }
     }
 
@@ -104,7 +107,7 @@ class QobuzAPI {
             });
             return { success: true, data: response.data };
         } catch (error) {
-            return { success: false, error: error.response?.data || error.message };
+            this.handleApiError(error);
         }
     }
 
@@ -131,12 +134,7 @@ class QobuzAPI {
             } else if (formatId === 7) {
                 return await this.getFileUrl(trackId, 6);
             }
-
-            const errorMessage = error.response?.data || error.message;
-            return {
-                success: false,
-                error: typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage
-            };
+            this.handleApiError(error);
         }
     }
 
@@ -151,7 +149,7 @@ class QobuzAPI {
             });
             return { success: true, data: response.data };
         } catch (error) {
-            return { success: false, error: error.response?.data || error.message };
+            this.handleApiError(error);
         }
     }
 
@@ -171,7 +169,7 @@ class QobuzAPI {
             }
             return { success: false, error: 'No lyrics available' };
         } catch (error) {
-            return { success: false, error: error.message };
+            this.handleApiError(error);
         }
     }
 
@@ -183,17 +181,28 @@ class QobuzAPI {
             }
             return { success: false, error: 'No goodies available' };
         } catch (error) {
-            return { success: false, error: error.message };
+            this.handleApiError(error);
         }
+    }
+
+    handleApiError(error) {
+        const statusCode = error.response?.status;
+        const data = error.response?.data;
+        const message = data?.message || data?.error || error.message;
+
+        if (statusCode === 401 || statusCode === 403) {
+            throw new AuthenticationError(message);
+        }
+        throw new APIError(message, statusCode);
     }
 
     parseUrl(url) {
         const patterns = {
-            track: /\/track\/(\d+)/,
-            album: /\/album\/[^\/]+\/([a-zA-Z0-9]+)/,
-            artist: /\/artist\/(\d+)/,
-            playlist: /\/playlist\/(\d+)/,
-            label: /\/label\/[^\/]+\/(\d+)/
+            track: new RegExp('/track/(\\d+)'),
+            album: new RegExp('/album/[^/]+/([a-zA-Z0-9]+)'),
+            artist: new RegExp('/artist/(\\d+)'),
+            playlist: new RegExp('/playlist/(\\d+)'),
+            label: new RegExp('/label/[^/]+/(\\d+)')
         };
 
         for (const [type, pattern] of Object.entries(patterns)) {

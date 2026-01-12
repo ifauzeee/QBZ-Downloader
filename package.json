@@ -11,7 +11,9 @@
     "start": "node src/index.js",
     "dl": "node src/index.js download",
     "search": "node src/index.js search",
-    "test": "node src/index.js --version",
+    "test": "npx vitest run",
+    "lint": "eslint src/**/*.js",
+    "format": "prettier --write src/**/*.js",
     "prepare": "husky"
   },
   "keywords": [
@@ -56,6 +58,9 @@
     "ora": "^8.0.1"
   },
   "devDependencies": {
-    "husky": "^9.1.7"
+    "eslint": "^8.56.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.1.0",
+    "vitest": "^4.0.16"
   }
 }

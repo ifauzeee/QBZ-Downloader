@@ -29,7 +29,6 @@ class MusicBrainzAPI {
             if (!releaseData) return null;
 
             return this.extractMetadata(releaseData);
-
         } catch (error) {
             return null;
         }
@@ -49,7 +48,7 @@ class MusicBrainzAPI {
         return null;
     }
 
-    async searchRecording(title, artist, album) {
+    async searchRecording(title, artist, _album) {
         try {
             const query = `recording:"${title}" AND artist:"${artist}"`;
             const url = `${this.baseUrl}/recording?query=${encodeURIComponent(query)}&fmt=json&inc=releases+artist-credits`;
@@ -72,20 +71,14 @@ class MusicBrainzAPI {
             metadata.originalReleaseDate = recording['first-release-date'];
         } else if (recording.releases && recording.releases.length > 0) {
             const dates = recording.releases
-                .map(r => r.date)
-                .filter(d => d)
+                .map((r) => r.date)
+                .filter((d) => d)
                 .sort();
             if (dates.length > 0) metadata.originalReleaseDate = dates[0];
         }
 
-        if (recording.releases && recording.releases.length > 0) {
-            const release = recording.releases[0];
-            if (release['text-representation']) {
-            }
-        }
-
         if (recording.tags) {
-            metadata.genres = recording.tags.map(t => t.name).slice(0, 5);
+            metadata.genres = recording.tags.map((t) => t.name).slice(0, 5);
         }
 
         metadata.musicBrainzId = recording.id;

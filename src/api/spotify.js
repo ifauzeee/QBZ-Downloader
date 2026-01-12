@@ -21,14 +21,16 @@ class SpotifyAPI {
                 {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        'Authorization': 'Basic ' + Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')
+                        Authorization:
+                            'Basic ' +
+                            Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')
                     },
                     timeout: 10000
                 }
             );
 
             this.accessToken = response.data.access_token;
-            this.tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000;
+            this.tokenExpiry = Date.now() + response.data.expires_in * 1000 - 60000;
             return this.accessToken;
         } catch (error) {
             console.error('Spotify auth failed:', error.message);
@@ -45,7 +47,7 @@ class SpotifyAPI {
             if (album) query += ` album:${album}`;
 
             const response = await axios.get(`${this.baseUrl}/search`, {
-                headers: { 'Authorization': `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${token}` },
                 params: {
                     q: query,
                     type: 'track',
@@ -59,7 +61,7 @@ class SpotifyAPI {
             }
 
             const fallbackResponse = await axios.get(`${this.baseUrl}/search`, {
-                headers: { 'Authorization': `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${token}` },
                 params: {
                     q: `${title} ${artist}`,
                     type: 'track',
@@ -85,13 +87,15 @@ class SpotifyAPI {
 
             const [trackResponse, featuresResponse] = await Promise.all([
                 axios.get(`${this.baseUrl}/tracks/${trackId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                    headers: { Authorization: `Bearer ${token}` },
                     timeout: 10000
                 }),
-                axios.get(`${this.baseUrl}/audio-features/${trackId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    timeout: 10000
-                }).catch(() => ({ data: null }))
+                axios
+                    .get(`${this.baseUrl}/audio-features/${trackId}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                        timeout: 10000
+                    })
+                    .catch(() => ({ data: null }))
             ]);
 
             return {
@@ -112,7 +116,7 @@ class SpotifyAPI {
             if (!token) return { success: false, error: 'No access token' };
 
             const response = await axios.get(`${this.baseUrl}/albums/${albumId}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${token}` },
                 timeout: 10000
             });
 
@@ -128,7 +132,7 @@ class SpotifyAPI {
             if (!token) return { success: false, error: 'No access token' };
 
             const response = await axios.get(`${this.baseUrl}/artists/${artistId}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${token}` },
                 timeout: 10000
             });
 
@@ -148,7 +152,7 @@ class SpotifyAPI {
             spotifyUri: spotifyTrack.uri || '',
 
             spotifyTitle: spotifyTrack.name || '',
-            spotifyArtists: spotifyTrack.artists?.map(a => a.name).join(', ') || '',
+            spotifyArtists: spotifyTrack.artists?.map((a) => a.name).join(', ') || '',
             spotifyAlbum: spotifyTrack.album?.name || '',
             spotifyReleaseDate: spotifyTrack.album?.release_date || '',
             spotifyReleaseDatePrecision: spotifyTrack.album?.release_date_precision || '',
@@ -161,7 +165,7 @@ class SpotifyAPI {
 
             spotifyAlbumType: spotifyTrack.album?.album_type || '',
             spotifyLabel: spotifyTrack.album?.label || '',
-            spotifyAlbumArtists: spotifyTrack.album?.artists?.map(a => a.name).join(', ') || '',
+            spotifyAlbumArtists: spotifyTrack.album?.artists?.map((a) => a.name).join(', ') || '',
 
             spotifyCoverUrl: spotifyTrack.album?.images?.[0]?.url || '',
             spotifyCoverUrlSmall: spotifyTrack.album?.images?.[2]?.url || '',
@@ -182,7 +186,8 @@ class SpotifyAPI {
             metadata.spotifyEnergy = Math.round(audioFeatures.energy * 100) || 0;
             metadata.spotifyValence = Math.round(audioFeatures.valence * 100) || 0;
             metadata.spotifyAcousticness = Math.round(audioFeatures.acousticness * 100) || 0;
-            metadata.spotifyInstrumentalness = Math.round(audioFeatures.instrumentalness * 100) || 0;
+            metadata.spotifyInstrumentalness =
+                Math.round(audioFeatures.instrumentalness * 100) || 0;
             metadata.spotifyLiveness = Math.round(audioFeatures.liveness * 100) || 0;
             metadata.spotifySpeechiness = Math.round(audioFeatures.speechiness * 100) || 0;
             metadata.spotifyLoudness = audioFeatures.loudness || 0;
@@ -229,7 +234,7 @@ class SpotifyAPI {
     }
 
     findBestMatch(tracks, title, artist, album) {
-        const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalize = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normalTitle = normalize(title);
         const normalArtist = normalize(artist);
         const normalAlbum = normalize(album);
@@ -240,15 +245,18 @@ class SpotifyAPI {
         for (const track of tracks) {
             let score = 0;
             const trackTitle = normalize(track.name || '');
-            const trackArtist = normalize(track.artists?.map(a => a.name).join(' ') || '');
+            const trackArtist = normalize(track.artists?.map((a) => a.name).join(' ') || '');
             const trackAlbum = normalize(track.album?.name || '');
 
             if (trackTitle === normalTitle) score += 50;
-            else if (trackTitle.includes(normalTitle) || normalTitle.includes(trackTitle)) score += 30;
+            else if (trackTitle.includes(normalTitle) || normalTitle.includes(trackTitle))
+                score += 30;
 
-            if (trackArtist.includes(normalArtist) || normalArtist.includes(trackArtist)) score += 30;
+            if (trackArtist.includes(normalArtist) || normalArtist.includes(trackArtist))
+                score += 30;
 
-            if (album && (trackAlbum === normalAlbum || trackAlbum.includes(normalAlbum))) score += 20;
+            if (album && (trackAlbum === normalAlbum || trackAlbum.includes(normalAlbum)))
+                score += 20;
 
             if (score > bestScore) {
                 bestScore = score;

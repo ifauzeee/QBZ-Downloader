@@ -47,10 +47,11 @@ export function registerInfoCommand(program) {
                     if (result.data.credits && result.data.credits.length > 0) {
                         console.log('\n' + chalk.bold.cyan('👥 Credits:'));
                         for (const credit of result.data.credits) {
-                            console.log(chalk.gray(`  • ${credit.role}: `) + chalk.white(credit.name));
+                            console.log(
+                                chalk.gray(`  • ${credit.role}: `) + chalk.white(credit.name)
+                            );
                         }
                     }
-
                 } else if (parsed.type === 'track') {
                     const result = await api.getTrack(parsed.id);
                     if (!result.success) {
@@ -63,7 +64,10 @@ export function registerInfoCommand(program) {
                     display.displayTrackInfo(result.data);
 
                     if (options.metadata) {
-                        const metadata = metadataService.extractMetadata(result.data, result.data.album);
+                        const metadata = metadataService.extractMetadata(
+                            result.data,
+                            result.data.album
+                        );
                         display.displayMetadata(metadata);
                     }
 
@@ -88,7 +92,6 @@ export function registerInfoCommand(program) {
                         }
                     }
                 }
-
             } catch (error) {
                 spinner.fail(chalk.red('An error occurred'));
                 display.displayError(error.message);

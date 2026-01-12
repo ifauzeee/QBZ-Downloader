@@ -1,7 +1,4 @@
-import fs from 'fs';
-import path from 'path';
 import NodeID3 from 'node-id3';
-import { CONFIG } from '../config.js';
 import SpotifyAPI from '../api/spotify.js';
 import iTunesAPI from '../api/itunes.js';
 import MusicBrainzAPI from '../api/musicbrainz.js';
@@ -24,9 +21,13 @@ class MetadataService {
 
         try {
             const [spotifyResult, itunesResult, mbResult] = await Promise.all([
-                this.spotifyApi.getEnhancedMetadata(title, artist, album).catch(e => ({ success: false })),
-                this.itunesApi.getEnhancedMetadata(title, artist, album).catch(e => ({ success: false })),
-                this.musicBrainzApi.getMetadata(title, artist, album, isrc).catch(e => null)
+                this.spotifyApi
+                    .getEnhancedMetadata(title, artist, album)
+                    .catch((_e) => ({ success: false })),
+                this.itunesApi
+                    .getEnhancedMetadata(title, artist, album)
+                    .catch((_e) => ({ success: false })),
+                this.musicBrainzApi.getMetadata(title, artist, album, isrc).catch((_e) => null)
             ]);
 
             if (spotifyResult.success) {
@@ -42,7 +43,6 @@ class MetadataService {
             }
 
             enhanced.merged = this.mergeMetadataSources(enhanced);
-
         } catch (error) {
             console.error('Enhanced metadata fetch error:', error.message);
         }
@@ -94,8 +94,8 @@ class MetadataService {
             merged.isrcItunes = enhanced.itunes.itunesIsrc || '';
         }
 
-        merged.bestCoverUrl = enhanced.itunes?.itunesCoverUrl ||
-            enhanced.spotify?.spotifyCoverUrl || '';
+        merged.bestCoverUrl =
+            enhanced.itunes?.itunesCoverUrl || enhanced.spotify?.spotifyCoverUrl || '';
 
         return merged;
     }
@@ -177,7 +177,7 @@ class MetadataService {
         return metadata;
     }
 
-    extractPerformers(trackData, albumData) {
+    extractPerformers(trackData, _albumData) {
         const performers = {
             main: [],
             featured: [],
@@ -220,17 +220,17 @@ class MetadataService {
 
         if (albumData?.credits) {
             const creditMap = {
-                'Producer': 'producer',
-                'Mixer': 'mixer',
+                Producer: 'producer',
+                Mixer: 'mixer',
                 'Mixed By': 'mixer',
-                'Remixer': 'remixer',
-                'Lyricist': 'lyricist',
-                'Songwriter': 'writer',
-                'Writer': 'writer',
-                'Arranger': 'arranger',
-                'Engineer': 'engineer',
-                'Mastering': 'masteredBy',
-                'Recording': 'recordedBy'
+                Remixer: 'remixer',
+                Lyricist: 'lyricist',
+                Songwriter: 'writer',
+                Writer: 'writer',
+                Arranger: 'arranger',
+                Engineer: 'engineer',
+                Mastering: 'masteredBy',
+                Recording: 'recordedBy'
             };
 
             for (const credit of albumData.credits) {
@@ -307,8 +307,11 @@ class MetadataService {
                 { description: 'RELEASETYPE', value: metadata.releaseType },
                 { description: 'QOBUZ_TRACK_ID', value: metadata.qobuzTrackId },
                 { description: 'QOBUZ_ALBUM_ID', value: metadata.qobuzAlbumId },
-                { description: 'AUDIO_QUALITY', value: `${metadata.bitDepth}bit/${metadata.sampleRate}kHz` }
-            ].filter(t => t.value)
+                {
+                    description: 'AUDIO_QUALITY',
+                    value: `${metadata.bitDepth}bit/${metadata.sampleRate}kHz`
+                }
+            ].filter((t) => t.value)
         };
 
         if (metadata.albumArtist) {
@@ -333,7 +336,7 @@ class MetadataService {
             }
 
             if (lyrics.syltFormat) {
-                tags.synchronisedLyrics = lyrics.syltFormat.map(l => ({
+                tags.synchronisedLyrics = lyrics.syltFormat.map((l) => ({
                     text: l.text,
                     timeStamp: l.timeStamp
                 }));
@@ -400,7 +403,8 @@ class MetadataService {
             if (m.valence) comments.push(['MOOD', m.valence > 50 ? 'Happy' : 'Sad']);
             if (m.valence) comments.push(['VALENCE', m.valence.toString()]);
             if (m.acousticness) comments.push(['ACOUSTICNESS', m.acousticness.toString()]);
-            if (m.instrumentalness) comments.push(['INSTRUMENTALNESS', m.instrumentalness.toString()]);
+            if (m.instrumentalness)
+                comments.push(['INSTRUMENTALNESS', m.instrumentalness.toString()]);
             if (m.liveness) comments.push(['LIVENESS', m.liveness.toString()]);
             if (m.speechiness) comments.push(['SPEECHINESS', m.speechiness.toString()]);
             if (m.loudness) comments.push(['LOUDNESS', m.loudness.toString()]);
@@ -434,7 +438,7 @@ class MetadataService {
             }
         }
 
-        return comments.filter(([key, value]) => value && value.toString().trim());
+        return comments.filter(([_key, value]) => value && value.toString().trim());
     }
 
     async writeId3Tags(filePath, tags) {

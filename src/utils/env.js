@@ -1,13 +1,9 @@
 import chalk from 'chalk';
 import { ConfigurationError } from './errors.js';
 
-const REQUIRED_VARS = [
-    'QOBUZ_APP_ID',
-    'QOBUZ_APP_SECRET',
-    'QOBUZ_USER_AUTH_TOKEN'
-];
+const REQUIRED_VARS = ['QOBUZ_APP_ID', 'QOBUZ_APP_SECRET', 'QOBUZ_USER_AUTH_TOKEN'];
 
-const OPTIONAL_VARS = [
+const _OPTIONAL_VARS = [
     'QOBUZ_USER_ID',
     'SPOTIFY_CLIENT_ID',
     'SPOTIFY_CLIENT_SECRET',
@@ -36,8 +32,8 @@ export function validateEnvironment(exitOnError = true) {
 
     if (missing.length > 0) {
         const error = new ConfigurationError(
-            `Missing required environment variables:\n${missing.map(v => `  • ${v}`).join('\n')}\n\n` +
-            'Please copy .env.example to .env and fill in your credentials.',
+            `Missing required environment variables:\n${missing.map((v) => `  • ${v}`).join('\n')}\n\n` +
+                'Please copy .env.example to .env and fill in your credentials.',
             missing
         );
 

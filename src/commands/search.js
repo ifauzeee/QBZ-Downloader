@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import QobuzAPI from '../api/qobuz.js';
 import DownloadService from '../services/download.js';
 import * as display from '../utils/display.js';
+import { parseSelection, validateSelection } from '../utils/input.js';
 import { downloadAlbumInteractive, downloadTrackInteractive } from './download.js';
 
 const api = new QobuzAPI();
@@ -71,26 +72,34 @@ export function registerSearchCommand(program) {
 
                         console.log('\n' + chalk.cyan.bold('📥 Starting download...\n'));
 
-                        const downloadResult = await downloadService.downloadAlbum(answer.albumId, downloadAnswer.quality, {
-                            onTrackStart: (track, num, total) => {
-                                console.log(chalk.cyan(`\n[${num}/${total}] `) + chalk.white.bold(track.title));
-                            },
-                            onProgress: (progress) => {
-                                display.displayProgress(progress.phase, progress.percent, { speed: progress.speed });
-                            },
-                            onTrackComplete: (trackResult) => {
-                                if (trackResult.success) {
-                                    console.log(chalk.green(`    ✅ Complete`));
-                                } else {
-                                    console.log(chalk.red(`    ❌ Failed`));
+                        const downloadResult = await downloadService.downloadAlbum(
+                            answer.albumId,
+                            downloadAnswer.quality,
+                            {
+                                onTrackStart: (track, num, total) => {
+                                    console.log(
+                                        chalk.cyan(`\n[${num}/${total}] `) +
+                                            chalk.white.bold(track.title)
+                                    );
+                                },
+                                onProgress: (progress) => {
+                                    display.displayProgress(progress.phase, progress.percent, {
+                                        speed: progress.speed
+                                    });
+                                },
+                                onTrackComplete: (trackResult) => {
+                                    if (trackResult.success) {
+                                        console.log(chalk.green('    ✅ Complete'));
+                                    } else {
+                                        console.log(chalk.red('    ❌ Failed'));
+                                    }
                                 }
                             }
-                        });
+                        );
 
                         display.displayDownloadSummary(downloadResult);
                     }
                 }
-
             } catch (error) {
                 spinner.fail(chalk.red('An error occurred'));
                 display.displayError(error.message);
@@ -120,12 +129,13 @@ export async function handleSearch() {
         }
     ]);
 
-    const typeMap = { '0': 'back', '1': 'albums', '2': 'tracks', '3': 'artists' };
+    const typeMap = { 0: 'back', 1: 'albums', 2: 'tracks', 3: 'artists' };
     const searchType = typeMap[searchOptions.type];
 
     if (searchType === 'back') return;
 
-    const searchLabel = searchType === 'albums' ? 'album' : searchType === 'tracks' ? 'track' : 'artist';
+    const searchLabel =
+        searchType === 'albums' ? 'album' : searchType === 'tracks' ? 'track' : 'artist';
     const queryAnswer = await inquirer.prompt([
         {
             type: 'input',
@@ -141,7 +151,7 @@ export async function handleSearch() {
     }).start();
 
     try {
-        const result = await api.search(queryAnswer.query, searchType, 15);
+        const result = await api.search(queryAnswer.query, searchType, 50);
 
         if (!result.success) {
             spinner.fail(chalk.red('Search failed'));
@@ -149,52 +159,78 @@ export async function handleSearch() {
             return;
         }
 
+        if (searchType === 'tracks' && result.data.tracks?.items) {
+            result.data.tracks.items.sort((a, b) => {
+                const albumA = a.album?.title || '';
+                const albumB = b.album?.title || '';
+                return albumA.localeCompare(albumB);
+            });
+        }
+
         spinner.succeed(chalk.green('Search complete!'));
         display.displaySearchResults(result.data, searchType);
 
-        if (searchType === 'albums' && result.data.albums?.items?.length > 0) {
+        if (result.data.albums?.items?.length > 0) {
             const albums = result.data.albums.items;
-            console.log(chalk.cyan('\n📥 Enter album number to download (0 to go back):'));
+            console.log(
+                chalk.cyan('\n📥 Enter album number(s) to download (e.g. 1-3, 5) or 0 to go back:')
+            );
 
             const answer = await inquirer.prompt([
                 {
                     type: 'input',
                     name: 'selection',
-                    message: chalk.cyan('Album number:'),
-                    validate: (input) => {
-                        const num = parseInt(input);
-                        if (num >= 0 && num <= albums.length) return true;
-                        return `Please enter a number between 0 and ${albums.length}`;
-                    }
+                    message: chalk.cyan('Selection:'),
+                    validate: (input) => validateSelection(input, albums.length)
                 }
             ]);
 
-            const selectedIdx = parseInt(answer.selection) - 1;
-            if (selectedIdx >= 0 && albums[selectedIdx]) {
-                await downloadAlbumInteractive(albums[selectedIdx].id);
+            if (answer.selection === '0') return;
+
+            const selectedIndices = parseSelection(answer.selection, albums.length);
+            const batchMode = selectedIndices.length > 1;
+
+            for (const idx of selectedIndices) {
+                if (albums[idx]) {
+                    console.log(
+                        chalk.yellow(
+                            `\nProcessing album ${idx + 1}/${albums.length}: ${albums[idx].title}`
+                        )
+                    );
+                    await downloadAlbumInteractive(albums[idx].id, { batch: batchMode });
+                }
             }
-        } else if (searchType === 'tracks' && result.data.tracks?.items?.length > 0) {
+        } else if (result.data.tracks?.items?.length > 0) {
             const tracks = result.data.tracks.items;
-            console.log(chalk.cyan('\n📥 Enter track number to download (0 to go back):'));
+            console.log(
+                chalk.cyan('\n📥 Enter track number(s) to download (e.g. 1-3, 5) or 0 to go back:')
+            );
 
             const answer = await inquirer.prompt([
                 {
                     type: 'input',
                     name: 'selection',
-                    message: chalk.cyan('Track number:'),
-                    validate: (input) => {
-                        const num = parseInt(input);
-                        if (num >= 0 && num <= tracks.length) return true;
-                        return `Please enter a number between 0 and ${tracks.length}`;
-                    }
+                    message: chalk.cyan('Selection:'),
+                    validate: (input) => validateSelection(input, tracks.length)
                 }
             ]);
 
-            const selectedIdx = parseInt(answer.selection) - 1;
-            if (selectedIdx >= 0 && tracks[selectedIdx]) {
-                await downloadTrackInteractive(tracks[selectedIdx].id);
+            if (answer.selection === '0') return;
+
+            const selectedIndices = parseSelection(answer.selection, tracks.length);
+            const batchMode = selectedIndices.length > 1;
+
+            for (const idx of selectedIndices) {
+                if (tracks[idx]) {
+                    console.log(
+                        chalk.yellow(
+                            `\nProcessing track ${idx + 1}/${tracks.length}: ${tracks[idx].title}`
+                        )
+                    );
+                    await downloadTrackInteractive(tracks[idx].id, { batch: batchMode });
+                }
             }
-        } else if (searchType === 'artists' && result.data.artists?.items?.length > 0) {
+        } else if (result.data.artists?.items?.length > 0) {
             const artists = result.data.artists.items;
             console.log(chalk.cyan('\n🎤 Enter artist number to view albums (0 to go back):'));
 
@@ -213,10 +249,27 @@ export async function handleSearch() {
 
             const selectedIdx = parseInt(answer.selection) - 1;
             if (selectedIdx >= 0 && artists[selectedIdx]) {
-                await browseArtistAlbums(artists[selectedIdx].id);
+                const artist = artists[selectedIdx];
+
+                const viewAnswer = await inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'view',
+                        message: chalk.cyan(`View ${artist.name}'s:`),
+                        choices: [
+                            { name: '💿 Albums', value: 'albums' },
+                            { name: '🎵 Top Tracks', value: 'tracks' }
+                        ]
+                    }
+                ]);
+
+                if (viewAnswer.view === 'albums') {
+                    await browseArtistAlbums(artist.id);
+                } else {
+                    await browseArtistTracks(artist.name);
+                }
             }
         }
-
     } catch (error) {
         spinner.fail(chalk.red('An error occurred'));
         display.displayError(error.message);
@@ -224,51 +277,172 @@ export async function handleSearch() {
 }
 
 export async function browseArtistAlbums(artistId) {
-    const spinner = ora({
-        text: display.spinnerMessage('Fetching artist albums...'),
-        spinner: 'dots12'
-    }).start();
+    let offset = 0;
+    const limit = 20;
+    let keepBrowsing = true;
 
-    try {
-        const result = await api.getArtist(artistId);
-        if (!result.success) {
-            spinner.fail(chalk.red('Failed to get artist info'));
-            return;
-        }
+    while (keepBrowsing) {
+        console.clear();
+        display.displayBanner();
 
-        spinner.succeed(chalk.green(`Found ${result.data.albums_count || 0} albums by ${result.data.name}`));
+        const spinner = ora({
+            text: display.spinnerMessage('Fetching artist albums...'),
+            spinner: 'dots12'
+        }).start();
 
-        if (result.data.albums?.items?.length > 0) {
+        try {
+            const result = await api.getArtist(artistId, offset, limit);
+            if (!result.success) {
+                spinner.fail(chalk.red('Failed to get artist info'));
+                return;
+            }
+
+            const totalAlbums = result.data.albums.total;
             const albums = result.data.albums.items;
+            const artistName = result.data.name;
 
-            console.log(chalk.bold.cyan('\n💿 Albums:\n'));
-            albums.forEach((album, i) => {
-                const year = album.released_at ? new Date(album.released_at * 1000).getFullYear() : 'N/A';
-                const quality = album.hires ? '✨' : '💿';
-                console.log(chalk.white(`  ${(i + 1).toString().padStart(2, ' ')}) ${quality} ${album.title.substring(0, 45)} (${year})`));
-            });
-            console.log(chalk.gray('   0) ⬅️ Back to menu'));
+            spinner.stop();
+
+            console.log(
+                chalk.bold.cyan(
+                    `\n💿 Albums by ${artistName} (${offset + 1}-${Math.min(offset + albums.length, totalAlbums)} of ${totalAlbums}):\n`
+                )
+            );
+
+            if (albums.length === 0) {
+                console.log(chalk.yellow('   No albums found in this range.'));
+            } else {
+                albums.forEach((album, i) => {
+                    const year = album.released_at
+                        ? new Date(album.released_at * 1000).getFullYear()
+                        : 'N/A';
+                    const quality = album.hires ? '✨' : '💿';
+                    console.log(
+                        chalk.white(
+                            `  ${(i + 1).toString().padStart(2, ' ')}) ${quality} ${album.title.substring(0, 45)} (${year})`
+                        )
+                    );
+                });
+            }
+            console.log();
+
+            const choices = [];
+            if (offset + albums.length < totalAlbums) {
+                console.log(chalk.cyan('  n) ➡️  Next Page'));
+                choices.push('n');
+            }
+            if (offset > 0) {
+                console.log(chalk.cyan('  p) ⬅️  Previous Page'));
+                choices.push('p');
+            }
+            console.log(chalk.gray('  0) ⬅️  Back to menu'));
             console.log();
 
             const answer = await inquirer.prompt([
                 {
                     type: 'input',
                     name: 'selection',
-                    message: chalk.cyan('Enter album number:'),
+                    message: chalk.cyan('Enter choice:'),
                     validate: (input) => {
+                        if (input === '0' || input === 'n' || input === 'p') return true;
                         const num = parseInt(input);
-                        if (num >= 0 && num <= albums.length) return true;
-                        return `Please enter a number between 0 and ${albums.length}`;
+                        if (num >= 1 && num <= albums.length) return true;
+                        return `Please enter 'n', 'p', '0', or a number between 1 and ${albums.length}`;
                     }
                 }
             ]);
 
-            const selectedIdx = parseInt(answer.selection) - 1;
-            if (selectedIdx >= 0 && albums[selectedIdx]) {
-                await downloadAlbumInteractive(albums[selectedIdx].id);
+            const selection = answer.selection.toLowerCase();
+
+            if (selection === '0') {
+                keepBrowsing = false;
+            } else if (selection === 'n') {
+                if (offset + limit < totalAlbums) {
+                    offset += limit;
+                } else {
+                    console.log(chalk.yellow('\n⚠️ No more pages.'));
+                    await new Promise((r) => setTimeout(r, 1000));
+                }
+            } else if (selection === 'p') {
+                if (offset >= limit) {
+                    offset -= limit;
+                } else {
+                    console.log(chalk.yellow('\n⚠️ This is the first page.'));
+                    await new Promise((r) => setTimeout(r, 1000));
+                }
+            } else {
+                const selectedIdx = parseInt(selection) - 1;
+                if (selectedIdx >= 0 && albums[selectedIdx]) {
+                    await downloadAlbumInteractive(albums[selectedIdx].id);
+                }
+            }
+        } catch (error) {
+            spinner.fail(chalk.red('An error occurred'));
+            console.error(error);
+            keepBrowsing = false;
+        }
+    }
+}
+
+export async function browseArtistTracks(artistName) {
+    const spinner = ora({
+        text: display.spinnerMessage(`Fetching tracks for ${artistName}...`),
+        spinner: 'dots12'
+    }).start();
+
+    try {
+        const result = await api.search(artistName, 'tracks', 50);
+
+        if (!result.success) {
+            spinner.fail(chalk.red('Failed to fetch tracks'));
+            display.displayError(result.error);
+            return;
+        }
+
+        if (result.data.tracks?.items) {
+            result.data.tracks.items.sort((a, b) => {
+                const albumA = a.album?.title || '';
+                const albumB = b.album?.title || '';
+                return albumA.localeCompare(albumB);
+            });
+        }
+
+        spinner.succeed(chalk.green(`Found tracks for ${artistName}`));
+        display.displaySearchResults(result.data, 'tracks');
+
+        if (result.data.tracks?.items?.length > 0) {
+            const tracks = result.data.tracks.items;
+            console.log(
+                chalk.cyan('\n📥 Enter track number(s) to download (e.g. 1-3, 5) or 0 to go back:')
+            );
+
+            const answer = await inquirer.prompt([
+                {
+                    type: 'input',
+                    name: 'selection',
+                    message: chalk.cyan('Selection:'),
+                    validate: (input) => validateSelection(input, tracks.length)
+                }
+            ]);
+
+            if (answer.selection === '0') return;
+
+            const selectedIndices = parseSelection(answer.selection, tracks.length);
+            const batchMode = selectedIndices.length > 1;
+
+            for (const idx of selectedIndices) {
+                if (tracks[idx]) {
+                    console.log(
+                        chalk.yellow(
+                            `\nProcessing track ${idx + 1}/${tracks.length}: ${tracks[idx].title}`
+                        )
+                    );
+                    await downloadTrackInteractive(tracks[idx].id, { batch: batchMode });
+                }
             }
         }
     } catch (error) {
         spinner.fail(chalk.red('An error occurred'));
+        console.error(error);
     }
 }
