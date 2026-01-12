@@ -1,10 +1,3 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                    SPOTIFY METADATA API                           ║
- * ║         Fetches enhanced metadata from Spotify Web API            ║
- * ╚═══════════════════════════════════════════════════════════════════╝
- */
-
 import axios from 'axios';
 
 class SpotifyAPI {
@@ -16,9 +9,6 @@ class SpotifyAPI {
         this.baseUrl = 'https://api.spotify.com/v1';
     }
 
-    /**
-     * Get access token using Client Credentials flow
-     */
     async getAccessToken() {
         if (this.accessToken && Date.now() < this.tokenExpiry) {
             return this.accessToken;
@@ -46,14 +36,10 @@ class SpotifyAPI {
         }
     }
 
-    /**
-     * Search for a track on Spotify
-     */
     async searchTrack(title, artist, album = '') {
         try {
             const token = await this.getAccessToken();
             if (!token) return { success: false, error: 'No access token' };
-
 
             let query = `track:${title} artist:${artist}`;
             if (album) query += ` album:${album}`;
@@ -71,7 +57,6 @@ class SpotifyAPI {
             if (response.data.tracks?.items?.length > 0) {
                 return { success: true, data: response.data.tracks.items };
             }
-
 
             const fallbackResponse = await axios.get(`${this.baseUrl}/search`, {
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -93,9 +78,6 @@ class SpotifyAPI {
         }
     }
 
-    /**
-     * Get full track details including audio features
-     */
     async getTrackDetails(trackId) {
         try {
             const token = await this.getAccessToken();
@@ -124,9 +106,6 @@ class SpotifyAPI {
         }
     }
 
-    /**
-     * Get album details
-     */
     async getAlbumDetails(albumId) {
         try {
             const token = await this.getAccessToken();
@@ -143,9 +122,6 @@ class SpotifyAPI {
         }
     }
 
-    /**
-     * Get artist details including genres
-     */
     async getArtistDetails(artistId) {
         try {
             const token = await this.getAccessToken();
@@ -162,19 +138,14 @@ class SpotifyAPI {
         }
     }
 
-    /**
-     * Extract enhanced metadata from Spotify response
-     */
     extractMetadata(spotifyTrack, audioFeatures = null, artistDetails = null) {
         if (!spotifyTrack) return {};
 
         const metadata = {
-
             spotifyTrackId: spotifyTrack.id || '',
             spotifyAlbumId: spotifyTrack.album?.id || '',
             spotifyArtistId: spotifyTrack.artists?.[0]?.id || '',
             spotifyUri: spotifyTrack.uri || '',
-
 
             spotifyTitle: spotifyTrack.name || '',
             spotifyArtists: spotifyTrack.artists?.map(a => a.name).join(', ') || '',
@@ -188,24 +159,19 @@ class SpotifyAPI {
             spotifyExplicit: spotifyTrack.explicit || false,
             spotifyPopularity: spotifyTrack.popularity || 0,
 
-
             spotifyAlbumType: spotifyTrack.album?.album_type || '',
             spotifyLabel: spotifyTrack.album?.label || '',
             spotifyAlbumArtists: spotifyTrack.album?.artists?.map(a => a.name).join(', ') || '',
 
-
             spotifyCoverUrl: spotifyTrack.album?.images?.[0]?.url || '',
             spotifyCoverUrlSmall: spotifyTrack.album?.images?.[2]?.url || '',
-
 
             spotifyIsrc: spotifyTrack.external_ids?.isrc || '',
             spotifyEan: spotifyTrack.external_ids?.ean || '',
             spotifyUpc: spotifyTrack.external_ids?.upc || '',
 
-
             spotifyAvailableMarkets: spotifyTrack.available_markets?.length || 0
         };
-
 
         if (audioFeatures) {
             metadata.spotifyBpm = Math.round(audioFeatures.tempo) || 0;
@@ -222,7 +188,6 @@ class SpotifyAPI {
             metadata.spotifyLoudness = audioFeatures.loudness || 0;
         }
 
-
         if (artistDetails) {
             metadata.spotifyGenres = artistDetails.genres?.join(', ') || '';
             metadata.spotifyArtistPopularity = artistDetails.popularity || 0;
@@ -232,17 +197,11 @@ class SpotifyAPI {
         return metadata;
     }
 
-    /**
-     * Convert pitch class to key string
-     */
     keyToString(key) {
         const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         return key >= 0 && key < 12 ? keys[key] : '';
     }
 
-    /**
-     * Get complete enhanced metadata for a track
-     */
     async getEnhancedMetadata(title, artist, album = '') {
         const searchResult = await this.searchTrack(title, artist, album);
 
@@ -250,13 +209,11 @@ class SpotifyAPI {
             return { success: false, error: 'Track not found on Spotify' };
         }
 
-
         const bestMatch = this.findBestMatch(searchResult.data, title, artist, album);
 
         if (!bestMatch) {
             return { success: false, error: 'No matching track found' };
         }
-
 
         const [trackDetails, artistDetails] = await Promise.all([
             this.getTrackDetails(bestMatch.id),
@@ -271,15 +228,11 @@ class SpotifyAPI {
         return { success: true, data: metadata };
     }
 
-    /**
-     * Find best matching track from search results
-     */
     findBestMatch(tracks, title, artist, album) {
         const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normalTitle = normalize(title);
         const normalArtist = normalize(artist);
         const normalAlbum = normalize(album);
-
 
         let bestScore = 0;
         let bestTrack = null;
@@ -290,13 +243,10 @@ class SpotifyAPI {
             const trackArtist = normalize(track.artists?.map(a => a.name).join(' ') || '');
             const trackAlbum = normalize(track.album?.name || '');
 
-
             if (trackTitle === normalTitle) score += 50;
             else if (trackTitle.includes(normalTitle) || normalTitle.includes(trackTitle)) score += 30;
 
-
             if (trackArtist.includes(normalArtist) || normalArtist.includes(trackArtist)) score += 30;
-
 
             if (album && (trackAlbum === normalAlbum || trackAlbum.includes(normalAlbum))) score += 20;
 

@@ -1,10 +1,3 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                    ITUNES/APPLE MUSIC METADATA API                ║
- * ║         Fetches enhanced metadata from iTunes Search API          ║ 
- * ╚═══════════════════════════════════════════════════════════════════╝
- */
-
 import axios from 'axios';
 
 class iTunesAPI {
@@ -12,12 +5,8 @@ class iTunesAPI {
         this.baseUrl = 'https://itunes.apple.com';
     }
 
-    /**
-     * Search for a track on iTunes
-     */
     async searchTrack(title, artist, album = '') {
         try {
-
             let term = `${title} ${artist}`;
             if (album) term += ` ${album}`;
 
@@ -34,7 +23,6 @@ class iTunesAPI {
             if (response.data.resultCount > 0) {
                 return { success: true, data: response.data.results };
             }
-
 
             const fallbackResponse = await axios.get(`${this.baseUrl}/search`, {
                 params: {
@@ -56,9 +44,6 @@ class iTunesAPI {
         }
     }
 
-    /**
-     * Lookup by iTunes ID
-     */
     async lookup(id, entity = 'song') {
         try {
             const response = await axios.get(`${this.baseUrl}/lookup`, {
@@ -79,12 +64,8 @@ class iTunesAPI {
         }
     }
 
-    /**
-     * Extract enhanced metadata from iTunes response
-     */
     extractMetadata(itunesTrack) {
         if (!itunesTrack) return {};
-
 
         let artworkUrl = itunesTrack.artworkUrl100 || '';
         if (artworkUrl) {
@@ -92,21 +73,17 @@ class iTunesAPI {
         }
 
         return {
-
             itunesTrackId: itunesTrack.trackId?.toString() || '',
             itunesArtistId: itunesTrack.artistId?.toString() || '',
             itunesCollectionId: itunesTrack.collectionId?.toString() || '',
-
 
             itunesTitle: itunesTrack.trackName || '',
             itunesArtist: itunesTrack.artistName || '',
             itunesAlbum: itunesTrack.collectionName || '',
             itunesAlbumArtist: itunesTrack.collectionArtistName || itunesTrack.artistName || '',
 
-
             itunesReleaseDate: itunesTrack.releaseDate || '',
             itunesYear: itunesTrack.releaseDate ? new Date(itunesTrack.releaseDate).getFullYear() : '',
-
 
             itunesTrackNumber: itunesTrack.trackNumber || 0,
             itunesTotalTracks: itunesTrack.trackCount || 0,
@@ -114,50 +91,38 @@ class iTunesAPI {
             itunesTotalDiscs: itunesTrack.discCount || 1,
             itunsDurationMs: itunesTrack.trackTimeMillis || 0,
 
-
             itunesGenre: itunesTrack.primaryGenreName || '',
-
 
             itunesExplicit: itunesTrack.trackExplicitness === 'explicit',
             itunesContentAdvisoryRating: itunesTrack.contentAdvisoryRating || '',
-
 
             itunesPrice: itunesTrack.trackPrice || 0,
             itunesCurrency: itunesTrack.currency || '',
             itunesCountry: itunesTrack.country || '',
 
-
             itunesCollectionType: itunesTrack.collectionType || '',
             itunesCopyright: itunesTrack.copyright || '',
-
 
             itunesCoverUrl: artworkUrl,
             itunesCoverUrl100: itunesTrack.artworkUrl100 || '',
             itunesCoverUrl60: itunesTrack.artworkUrl60 || '',
 
-
             itunesPreviewUrl: itunesTrack.previewUrl || '',
-
 
             itunesTrackViewUrl: itunesTrack.trackViewUrl || '',
             itunesArtistViewUrl: itunesTrack.artistViewUrl || '',
             itunesCollectionViewUrl: itunesTrack.collectionViewUrl || '',
 
-
             itunesStreamable: itunesTrack.isStreamable || false
         };
     }
 
-    /**
-     * Get complete enhanced metadata for a track
-     */
     async getEnhancedMetadata(title, artist, album = '') {
         const searchResult = await this.searchTrack(title, artist, album);
 
         if (!searchResult.success || !searchResult.data?.length) {
             return { success: false, error: 'Track not found on iTunes' };
         }
-
 
         const bestMatch = this.findBestMatch(searchResult.data, title, artist, album);
 
@@ -170,9 +135,6 @@ class iTunesAPI {
         return { success: true, data: metadata };
     }
 
-    /**
-     * Find best matching track from search results
-     */
     findBestMatch(tracks, title, artist, album) {
         const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normalTitle = normalize(title);
@@ -188,13 +150,10 @@ class iTunesAPI {
             const trackArtist = normalize(track.artistName || '');
             const trackAlbum = normalize(track.collectionName || '');
 
-
             if (trackTitle === normalTitle) score += 50;
             else if (trackTitle.includes(normalTitle) || normalTitle.includes(trackTitle)) score += 30;
 
-
             if (trackArtist.includes(normalArtist) || normalArtist.includes(trackArtist)) score += 30;
-
 
             if (album && (trackAlbum === normalAlbum || trackAlbum.includes(normalAlbum))) score += 20;
 

@@ -1,10 +1,3 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                      QOBUZ API CLIENT                             ║
- * ║              Handles all Qobuz API communications                 ║
- * ╚═══════════════════════════════════════════════════════════════════╝
- */
-
 import axios from 'axios';
 import crypto from 'crypto';
 import { CONFIG } from '../config.js';
@@ -27,10 +20,6 @@ class QobuzAPI {
         });
     }
 
-    /**
-     * Generate request signature for authenticated endpoints
-     * Format: trackgetFileUrlformat_id{format}intent{intent}track_id{track}{timestamp}{appSecret}
-     */
     generateSignature(trackId, formatId, intent = 'stream') {
         const timestamp = Math.floor(Date.now() / 1000);
         const data = `trackgetFileUrlformat_id${formatId}intent${intent}track_id${trackId}${timestamp}${this.appSecret}`;
@@ -38,9 +27,6 @@ class QobuzAPI {
         return { timestamp, signature };
     }
 
-    /**
-     * Get track information
-     */
     async getTrack(trackId) {
         try {
             const response = await this.client.get('/track/get', {
@@ -57,9 +43,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Get album information with all tracks
-     */
     async getAlbum(albumId) {
         try {
             const response = await this.client.get('/album/get', {
@@ -76,9 +59,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Get artist information
-     */
     async getArtist(artistId) {
         try {
             const response = await this.client.get('/artist/get', {
@@ -95,9 +75,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Get playlist information
-     */
     async getPlaylist(playlistId) {
         try {
             const response = await this.client.get('/playlist/get', {
@@ -114,9 +91,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Search Qobuz catalog
-     */
     async search(query, type = 'albums', limit = 20) {
         try {
             const response = await this.client.get('/catalog/search', {
@@ -134,9 +108,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Get download/stream URL for a track
-     */
     async getFileUrl(trackId, formatId = 27) {
         try {
             const { timestamp, signature } = this.generateSignature(trackId, formatId);
@@ -155,17 +126,13 @@ class QobuzAPI {
 
             return { success: true, data: response.data };
         } catch (error) {
-
-
-
             if (formatId === 27) {
-
                 return await this.getFileUrl(trackId, 7);
             } else if (formatId === 7) {
-
                 return await this.getFileUrl(trackId, 6);
             }
 
+            const errorMessage = error.response?.data || error.message;
             return {
                 success: false,
                 error: typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage
@@ -173,9 +140,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Get user account information
-     */
     async getUserInfo() {
         try {
             const response = await this.client.get('/user/get', {
@@ -191,9 +155,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Get track lyrics
-     */
     async getLyrics(trackId) {
         try {
             const trackInfo = await this.getTrack(trackId);
@@ -214,9 +175,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Get album goodies (booklet, etc.)
-     */
     async getGoodies(albumId) {
         try {
             const albumInfo = await this.getAlbum(albumId);
@@ -229,9 +187,6 @@ class QobuzAPI {
         }
     }
 
-    /**
-     * Parse Qobuz URL to extract type and ID
-     */
     parseUrl(url) {
         const patterns = {
             track: /\/track\/(\d+)/,
@@ -247,7 +202,6 @@ class QobuzAPI {
                 return { type, id: match[1] };
             }
         }
-
 
         if (/^\d+$/.test(url)) {
             return { type: 'album', id: url };

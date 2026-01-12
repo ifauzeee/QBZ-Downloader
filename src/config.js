@@ -1,10 +1,3 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                    QOBUZ DOWNLOADER CONFIGURATION                 ║
- * ║                   Premium Hi-Res Audio Downloader                 ║
- * ╚═══════════════════════════════════════════════════════════════════╝
- */
-
 const getBool = (key, def) => process.env[key] === undefined ? def : process.env[key] === 'true';
 const getInt = (key, def) => process.env[key] ? parseInt(process.env[key]) : def;
 const getStr = (key, def) => process.env[key] || def;
@@ -21,7 +14,6 @@ export const CONFIG = {
         spotifyClientSecret: getStr('SPOTIFY_CLIENT_SECRET', '')
     },
 
-
     api: {
         baseUrl: 'https://www.qobuz.com/api.json/0.2',
         endpoints: {
@@ -37,37 +29,32 @@ export const CONFIG = {
         proxy: getStr('PROXY_URL', '')
     },
 
-
     quality: {
-
         formats: {
             5: { name: 'MP3 320', bitDepth: null, sampleRate: null, extension: 'mp3' },
             6: { name: 'FLAC 16-bit/44.1kHz (CD Quality)', bitDepth: 16, sampleRate: 44100, extension: 'flac' },
             7: { name: 'FLAC 24-bit/96kHz (Hi-Res)', bitDepth: 24, sampleRate: 96000, extension: 'flac' },
             27: { name: 'FLAC 24-bit/192kHz (Hi-Res Max)', bitDepth: 24, sampleRate: 192000, extension: 'flac' }
         },
-
         default: 27
     },
-
 
     download: {
         outputDir: getStr('DOWNLOAD_PATH', './downloads'),
         folderStructure: getStr('FOLDER_TEMPLATE', '{artist}/{album}'),
-        fileNaming: getStr('FILE_TEMPLATE', '{trackNumber}. {title}'),
+        fileNaming: getStr('FILE_TEMPLATE', '{track_number} {title}'),
         concurrent: getInt('MAX_CONCURRENCY', 4),
         retryAttempts: 3,
         retryDelay: 1000
     },
 
-
     metadata: {
         embedCover: getBool('EMBED_COVER_ART', true),
         saveCoverFile: getBool('SAVE_COVER_FILE', true),
+        saveLrcFile: getBool('SAVE_LRC_FILE', true),
         coverSize: 'max',
         embedLyrics: getBool('EMBED_LYRICS', true),
         lyricsType: 'both',
-
 
         tags: {
             basic: ['title', 'artist', 'album', 'year', 'trackNumber', 'genre'],
@@ -116,7 +103,6 @@ export const CONFIG = {
         }
     },
 
-
     display: {
         showProgress: true,
         showMetadata: true,
@@ -125,11 +111,9 @@ export const CONFIG = {
     }
 };
 
-
 export const getQualityName = (formatId) => {
     return CONFIG.quality.formats[formatId]?.name || 'Unknown';
 };
-
 
 export const getQualityEmoji = (formatId) => {
     const emojis = {

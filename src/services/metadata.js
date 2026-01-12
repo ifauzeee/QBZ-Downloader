@@ -1,9 +1,3 @@
-/**
- * METADATA SERVICE
- * Handles complete metadata extraction and embedding
- * Sources: Qobuz, Spotify, iTunes/Apple Music, MusicBrainz
- */
-
 import fs from 'fs';
 import path from 'path';
 import NodeID3 from 'node-id3';
@@ -20,9 +14,6 @@ class MetadataService {
         this.musicBrainzApi = MusicBrainzAPI;
     }
 
-    /**
-     * Get enhanced metadata from multiple sources (Spotify, iTunes, MusicBrainz)
-     */
     async getEnhancedMetadata(title, artist, album = '', isrc = null) {
         const enhanced = {
             spotify: null,
@@ -32,7 +23,6 @@ class MetadataService {
         };
 
         try {
-
             const [spotifyResult, itunesResult, mbResult] = await Promise.all([
                 this.spotifyApi.getEnhancedMetadata(title, artist, album).catch(e => ({ success: false })),
                 this.itunesApi.getEnhancedMetadata(title, artist, album).catch(e => ({ success: false })),
@@ -60,9 +50,6 @@ class MetadataService {
         return enhanced;
     }
 
-    /**
-     * Merge metadata from multiple sources
-     */
     mergeMetadataSources(enhanced) {
         const merged = {};
 
@@ -113,14 +100,10 @@ class MetadataService {
         return merged;
     }
 
-    /**
-     * Extract complete metadata from Qobuz track/album data
-     */
     extractMetadata(trackData, albumData, fileInfo = {}) {
         const album = trackData.album || albumData || {};
         const artist = trackData.performer || trackData.artist || {};
         const composer = trackData.composer || {};
-
 
         const performers = this.extractPerformers(trackData, albumData);
         const credits = this.extractCredits(albumData);
@@ -194,88 +177,6 @@ class MetadataService {
         return metadata;
     }
 
-    /**
-     * Get enhanced metadata from multiple sources (Spotify, iTunes, MusicBrainz)
-     */
-    async getEnhancedMetadata(title, artist, album = '') {
-        const enhanced = {
-            spotify: null,
-            itunes: null,
-            merged: {}
-        };
-
-        try {
-
-            const [spotifyResult, itunesResult] = await Promise.all([
-                this.spotifyApi.getEnhancedMetadata(title, artist, album).catch(e => ({ success: false })),
-                this.itunesApi.getEnhancedMetadata(title, artist, album).catch(e => ({ success: false }))
-            ]);
-
-            if (spotifyResult.success) {
-                enhanced.spotify = spotifyResult.data;
-            }
-
-            if (itunesResult.success) {
-                enhanced.itunes = itunesResult.data;
-            }
-
-
-            enhanced.merged = this.mergeMetadataSources(enhanced);
-
-        } catch (error) {
-            console.error('Enhanced metadata fetch error:', error.message);
-        }
-
-        return enhanced;
-    }
-
-    /**
-     * Merge metadata from multiple sources
-     */
-    mergeMetadataSources(enhanced) {
-        const merged = {};
-
-
-        if (enhanced.spotify) {
-            merged.bpm = enhanced.spotify.spotifyBpm || 0;
-            merged.key = enhanced.spotify.spotifyKey || '';
-            merged.mode = enhanced.spotify.spotifyMode || '';
-            merged.timeSignature = enhanced.spotify.spotifyTimeSignature || 4;
-            merged.danceability = enhanced.spotify.spotifyDanceability || 0;
-            merged.energy = enhanced.spotify.spotifyEnergy || 0;
-            merged.valence = enhanced.spotify.spotifyValence || 0;
-            merged.acousticness = enhanced.spotify.spotifyAcousticness || 0;
-            merged.instrumentalness = enhanced.spotify.spotifyInstrumentalness || 0;
-            merged.liveness = enhanced.spotify.spotifyLiveness || 0;
-            merged.speechiness = enhanced.spotify.spotifySpeechiness || 0;
-            merged.loudness = enhanced.spotify.spotifyLoudness || 0;
-            merged.popularity = enhanced.spotify.spotifyPopularity || 0;
-            merged.genres = enhanced.spotify.spotifyGenres || '';
-            merged.spotifyId = enhanced.spotify.spotifyTrackId || '';
-            merged.spotifyUri = enhanced.spotify.spotifyUri || '';
-            merged.isrcSpotify = enhanced.spotify.spotifyIsrc || '';
-        }
-
-
-        if (enhanced.itunes) {
-            merged.itunesId = enhanced.itunes.itunesTrackId || '';
-            merged.itunesCoverUrl = enhanced.itunes.itunesCoverUrl || '';
-            merged.itunesCopyright = enhanced.itunes.itunesCopyright || '';
-            merged.itunesGenre = enhanced.itunes.itunesGenre || '';
-            merged.appleMusicUrl = enhanced.itunes.itunesTrackViewUrl || '';
-            merged.isrcItunes = enhanced.itunes.itunesIsrc || '';
-        }
-
-
-        merged.bestCoverUrl = enhanced.itunes?.itunesCoverUrl ||
-            enhanced.spotify?.spotifyCoverUrl || '';
-
-        return merged;
-    }
-
-    /**
-     * Extract all performers from track/album
-     */
     extractPerformers(trackData, albumData) {
         const performers = {
             main: [],
@@ -285,7 +186,6 @@ class MetadataService {
             choir: '',
             ensemble: ''
         };
-
 
         if (trackData.performers) {
             const perfs = trackData.performers.split(' - ');
@@ -305,9 +205,6 @@ class MetadataService {
         return performers;
     }
 
-    /**
-     * Extract credits from album data
-     */
     extractCredits(albumData) {
         const credits = {
             producer: '',
@@ -320,7 +217,6 @@ class MetadataService {
             masteredBy: '',
             recordedBy: ''
         };
-
 
         if (albumData?.credits) {
             const creditMap = {
@@ -349,9 +245,6 @@ class MetadataService {
         return credits;
     }
 
-    /**
-     * Get all artists combined
-     */
     getAllArtists(trackData, albumData) {
         const artists = new Set();
 
@@ -363,18 +256,12 @@ class MetadataService {
         return Array.from(artists);
     }
 
-    /**
-     * Format Unix timestamp to date string
-     */
     formatDate(timestamp) {
         if (!timestamp) return '';
         const date = new Date(timestamp * 1000);
         return date.toISOString().split('T')[0];
     }
 
-    /**
-     * Format duration in seconds to MM:SS
-     */
     formatDuration(seconds) {
         if (!seconds) return '0:00';
         const mins = Math.floor(seconds / 60);
@@ -382,9 +269,6 @@ class MetadataService {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
-    /**
-     * Format duration in seconds to HH:MM:SS
-     */
     formatDurationLong(seconds) {
         if (!seconds) return '00:00:00';
         const hrs = Math.floor(seconds / 3600);
@@ -393,9 +277,6 @@ class MetadataService {
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    /**
-     * Build ID3v2.4 tags for MP3
-     */
     buildId3Tags(metadata, coverBuffer = null, lyrics = null) {
         const tags = {
             title: metadata.title,
@@ -406,13 +287,11 @@ class MetadataService {
             partOfSet: `${metadata.discNumber}/${metadata.totalDiscs}`,
             genre: metadata.genre,
 
-
             composer: metadata.composer,
             conductor: metadata.conductor,
             publisher: metadata.label,
             copyright: metadata.copyright,
             encodedBy: metadata.encodedBy,
-
 
             ISRC: metadata.isrc,
             originalReleaseDate: metadata.originalReleaseDate,
@@ -420,7 +299,6 @@ class MetadataService {
                 language: 'eng',
                 text: metadata.comment
             },
-
 
             userDefinedText: [
                 { description: 'BARCODE', value: metadata.upc },
@@ -437,7 +315,6 @@ class MetadataService {
             tags.performerInfo = metadata.albumArtist;
         }
 
-
         if (coverBuffer) {
             tags.image = {
                 mime: 'image/jpeg',
@@ -447,16 +324,13 @@ class MetadataService {
             };
         }
 
-
         if (lyrics) {
-
             if (lyrics.plainLyrics) {
                 tags.unsynchronisedLyrics = {
                     language: 'eng',
                     text: lyrics.plainLyrics
                 };
             }
-
 
             if (lyrics.syltFormat) {
                 tags.synchronisedLyrics = lyrics.syltFormat.map(l => ({
@@ -469,9 +343,6 @@ class MetadataService {
         return tags;
     }
 
-    /**
-     * Build Vorbis comments for FLAC with enhanced metadata
-     */
     buildFlacTags(metadata, lyrics = null, enhanced = null) {
         const comments = [
             ['TITLE', metadata.title],
@@ -548,31 +419,24 @@ class MetadataService {
         }
 
         if (lyrics) {
-
             if (lyrics.plainLyrics) {
                 comments.push(['LYRICS', lyrics.plainLyrics]);
                 comments.push(['UNSYNCEDLYRICS', lyrics.plainLyrics]);
             }
-
 
             if (lyrics.syncedLyrics) {
                 comments.push(['SYNCEDLYRICS', lyrics.syncedLyrics]);
                 comments.push(['LYRICS_SYNCED', lyrics.syncedLyrics]);
             }
 
-
             if (lyrics.source) {
                 comments.push(['LYRICS_SOURCE', lyrics.source]);
             }
         }
 
-
         return comments.filter(([key, value]) => value && value.toString().trim());
     }
 
-    /**
-     * Write ID3 tags to MP3 file
-     */
     async writeId3Tags(filePath, tags) {
         return new Promise((resolve, reject) => {
             const success = NodeID3.write(tags, filePath);
@@ -584,9 +448,6 @@ class MetadataService {
         });
     }
 
-    /**
-     * Get metadata display for CLI
-     */
     getMetadataDisplay(metadata) {
         return {
             '📀 Title': metadata.title,

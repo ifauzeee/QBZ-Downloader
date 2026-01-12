@@ -1,10 +1,3 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                    DOWNLOAD SERVICE                               ║
- * ║         Handles downloading tracks with progress tracking         ║
- * ╚═══════════════════════════════════════════════════════════════════╝
- */
-
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
@@ -23,9 +16,6 @@ class DownloadService {
         this.outputDir = CONFIG.download.outputDir;
     }
 
-    /**
-     * Sanitize filename for filesystem
-     */
     sanitizeFilename(name) {
         return name
             .replace(/[<>:"/\\|?*]/g, '')
@@ -34,9 +24,6 @@ class DownloadService {
             .substring(0, 200);
     }
 
-    /**
-     * Build folder path from template
-     */
     buildFolderPath(metadata, quality) {
         const template = CONFIG.download.folderStructure;
         const qualityName = CONFIG.quality.formats[quality]?.name || 'FLAC';
@@ -45,30 +32,28 @@ class DownloadService {
             .replace('{artist}', this.sanitizeFilename(metadata.albumArtist || metadata.artist))
             .replace('{album}', this.sanitizeFilename(metadata.album))
             .replace('{year}', metadata.year?.toString() || 'Unknown')
-            .replace('{quality}', qualityName.replace('/', '-'));
+            .replace('{quality}', qualityName.replace('/', '-'))
+            .replace('{album_artist}', this.sanitizeFilename(metadata.albumArtist || metadata.artist))
+            .replace('{track_number}', metadata.trackNumber?.toString().padStart(2, '0') || '00');
     }
 
-    /**
-     * Build filename from template
-     */
     buildFilename(metadata, extension) {
         const template = CONFIG.download.fileNaming;
         const trackNum = metadata.trackNumber?.toString().padStart(2, '0') || '00';
 
         const filename = template
             .replace('{trackNumber}', trackNum)
+            .replace('{track_number}', trackNum)
             .replace('{title}', this.sanitizeFilename(metadata.title))
-            .replace('{artist}', this.sanitizeFilename(metadata.artist));
+            .replace('{artist}', this.sanitizeFilename(metadata.artist))
+            .replace('{album}', this.sanitizeFilename(metadata.album))
+            .replace('{year}', metadata.year?.toString() || 'Unknown');
 
         return `${filename}.${extension}`;
     }
 
-    /**
-     * Download cover art
-     */
     async downloadCover(url, outputPath) {
         try {
-
             const highResUrl = url.replace(/_\d+\.jpg/, '_max.jpg').replace('/600/', '/1200/');
 
             const response = await axios({
@@ -81,7 +66,6 @@ class DownloadService {
             fs.writeFileSync(outputPath, response.data);
             return { success: true, buffer: response.data, path: outputPath };
         } catch (error) {
-
             try {
                 const response = await axios({
                     method: 'GET',
@@ -98,9 +82,6 @@ class DownloadService {
         }
     }
 
-    /**
-     * Get cover art as buffer
-     */
     async getCoverBuffer(url) {
         try {
             const highResUrl = url.replace(/_\d+\.jpg/, '_max.jpg').replace('/600/', '/1200/');
@@ -128,9 +109,6 @@ class DownloadService {
         }
     }
 
-    /**
-     * Download a single track
-     */
     async downloadTrack(trackId, quality = 27, options = {}) {
         const result = {
             success: false,
@@ -145,7 +123,6 @@ class DownloadService {
         };
 
         try {
-
             const trackInfo = await this.api.getTrack(trackId);
             if (!trackInfo.success) {
                 result.error = `Failed to get track info: ${trackInfo.error}`;
@@ -156,7 +133,6 @@ class DownloadService {
             result.title = track.title;
             result.artist = track.performer?.name || track.artist?.name || 'Unknown';
 
-
             let albumData = track.album;
             if (track.album?.id) {
                 const albumInfo = await this.api.getAlbum(track.album.id);
@@ -164,7 +140,6 @@ class DownloadService {
                     albumData = albumInfo.data;
                 }
             }
-
 
             const fileUrl = await this.api.getFileUrl(trackId, quality);
             if (!fileUrl.success) {
@@ -175,14 +150,12 @@ class DownloadService {
             const actualQuality = fileUrl.data.format_id || quality;
             const extension = CONFIG.quality.formats[actualQuality]?.extension || 'flac';
 
-
             const metadata = this.metadataService.extractMetadata(track, albumData, {
                 bitDepth: fileUrl.data.bit_depth || 16,
                 sampleRate: fileUrl.data.sampling_rate || 44.1
             });
             result.metadata = metadata;
             result.quality = actualQuality;
-
 
             let lyrics = null;
             if (CONFIG.metadata.embedLyrics) {
@@ -198,7 +171,6 @@ class DownloadService {
                 }
             }
 
-
             let enhancedMetadata = null;
             try {
                 enhancedMetadata = await this.metadataService.getEnhancedMetadata(
@@ -209,23 +181,18 @@ class DownloadService {
                 );
                 result.enhancedMetadata = enhancedMetadata;
             } catch (e) {
-
             }
-
 
             const folderPath = path.join(this.outputDir, this.buildFolderPath(metadata, actualQuality));
             fs.mkdirSync(folderPath, { recursive: true });
-
 
             const filename = this.buildFilename(metadata, extension);
             const filePath = path.join(folderPath, filename);
             result.filePath = filePath;
 
-
-            if (lyrics?.syncedLyrics) {
+            if (lyrics?.syncedLyrics && CONFIG.metadata.saveLrcFile) {
                 const lrcFilename = this.buildFilename(metadata, 'lrc');
                 const lrcPath = path.join(folderPath, lrcFilename);
-
 
                 const lrcContent = [
                     `[ti:${metadata.title}]`,
@@ -259,7 +226,6 @@ class DownloadService {
                 }
             });
 
-
             const totalSize = parseInt(response.headers['content-length'], 10) || 0;
             let downloadedSize = 0;
 
@@ -281,14 +247,12 @@ class DownloadService {
 
             await pipeline(response.data, writer);
 
-
             let coverBuffer = null;
             if ((CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile) && metadata.coverUrl) {
                 if (options.onProgress) {
                     options.onProgress({ phase: 'cover', percent: 0 });
                 }
                 coverBuffer = await this.getCoverBuffer(metadata.coverUrl);
-
 
                 if (CONFIG.metadata.saveCoverFile) {
                     const coverPath = path.join(folderPath, 'cover.jpg');
@@ -297,7 +261,6 @@ class DownloadService {
                     }
                 }
             }
-
 
             if (options.onProgress) {
                 options.onProgress({ phase: 'metadata', percent: 50 });
@@ -309,7 +272,6 @@ class DownloadService {
                 const id3Tags = this.metadataService.buildId3Tags(metadata, finalCoverBuffer, lyrics);
                 await this.metadataService.writeId3Tags(filePath, id3Tags);
             } else if (extension === 'flac') {
-
                 const flacTags = this.metadataService.buildFlacTags(metadata, lyrics, enhancedMetadata);
                 await this.embedFlacMetadata(filePath, flacTags, finalCoverBuffer);
             }
@@ -327,21 +289,15 @@ class DownloadService {
         }
     }
 
-    /**
-     * Embed FLAC metadata - uses metaflac CLI if available, otherwise pure JS implementation
-     */
     async embedFlacMetadata(filePath, tags, coverBuffer) {
         try {
-
             const metaflacResult = await this.tryMetaflac(filePath, tags, coverBuffer);
             if (metaflacResult) {
                 return;
             }
 
-
             await this.writeFlacMetadataPure(filePath, tags, coverBuffer);
         } catch (error) {
-
             console.error('Warning: Could not embed metadata, saving as sidecar file');
             const sidecarPath = filePath.replace('.flac', '.metadata.json');
             const metadata = {};
@@ -352,13 +308,9 @@ class DownloadService {
         }
     }
 
-    /**
-     * Try to use metaflac command-line tool
-     */
     async tryMetaflac(filePath, tags, coverBuffer) {
         try {
             const { execSync } = await import('child_process');
-
 
             try {
                 execSync('metaflac --version', { stdio: 'ignore' });
@@ -366,9 +318,7 @@ class DownloadService {
                 return false;
             }
 
-
             execSync(`metaflac --remove-all-tags "${filePath}"`, { stdio: 'ignore' });
-
 
             for (const [key, value] of tags) {
                 if (value) {
@@ -376,7 +326,6 @@ class DownloadService {
                     execSync(`metaflac --set-tag="${key}=${escapedValue}" "${filePath}"`, { stdio: 'ignore' });
                 }
             }
-
 
             if (coverBuffer) {
                 const coverPath = filePath.replace('.flac', '_cover_temp.jpg');
@@ -396,13 +345,8 @@ class DownloadService {
         }
     }
 
-    /**
-     * Pure JavaScript FLAC metadata writing
-     * Writes Vorbis comments directly to FLAC file
-     */
     async writeFlacMetadataPure(filePath, tags, coverBuffer) {
         const flacData = fs.readFileSync(filePath);
-
 
         if (flacData.toString('utf8', 0, 4) !== 'fLaC') {
             throw new Error('Not a valid FLAC file');
@@ -415,7 +359,6 @@ class DownloadService {
         let foundStreamInfo = false;
         const metadataBlocks = [];
 
-
         while (offset < flacData.length) {
             const header = flacData[offset];
             const isLast = (header & 0x80) !== 0;
@@ -425,7 +368,6 @@ class DownloadService {
             if (blockType === 127) break;
 
             const blockData = flacData.subarray(offset + 4, offset + 4 + blockLength);
-
 
             if (blockType === 0) {
                 foundStreamInfo = true;
@@ -442,9 +384,7 @@ class DownloadService {
             throw new Error('Invalid FLAC: no STREAMINFO block');
         }
 
-
         const audioData = flacData.subarray(offset);
-
 
         const vendorString = 'Qobuz-DL CLI v1.0';
         const vendorBuffer = Buffer.from(vendorString, 'utf8');
@@ -455,7 +395,6 @@ class DownloadService {
                 comments.push(Buffer.from(`${key}=${value}`, 'utf8'));
             }
         }
-
 
         let vorbisSize = 4 + vendorBuffer.length + 4;
         for (const comment of comments) {
@@ -471,7 +410,6 @@ class DownloadService {
             vorbisData.writeUInt32LE(comment.length, vOffset); vOffset += 4;
             comment.copy(vorbisData, vOffset); vOffset += comment.length;
         }
-
 
         let pictureData = null;
         if (coverBuffer && coverBuffer.length > 0) {
@@ -496,15 +434,12 @@ class DownloadService {
             coverBuffer.copy(pictureData, pOffset);
         }
 
-
-
         const streamInfoBlock = metadataBlocks.find(b => b.type === 0);
         const streamInfoHeader = Buffer.alloc(4);
         streamInfoHeader[0] = 0;
         streamInfoHeader.writeUIntBE(streamInfoBlock.data.length, 1, 3);
         chunks.push(streamInfoHeader);
         chunks.push(streamInfoBlock.data);
-
 
         for (const block of metadataBlocks.filter(b => b.type !== 0 && b.keep)) {
             const blockHeader = Buffer.alloc(4);
@@ -514,13 +449,11 @@ class DownloadService {
             chunks.push(block.data);
         }
 
-
         const vorbisHeader = Buffer.alloc(4);
         vorbisHeader[0] = pictureData ? 4 : (4 | 0x80);
         vorbisHeader.writeUIntBE(vorbisData.length, 1, 3);
         chunks.push(vorbisHeader);
         chunks.push(vorbisData);
-
 
         if (pictureData) {
             const pictureHeader = Buffer.alloc(4);
@@ -530,17 +463,12 @@ class DownloadService {
             chunks.push(pictureData);
         }
 
-
         chunks.push(audioData);
-
 
         const newFlacData = Buffer.concat(chunks);
         fs.writeFileSync(filePath, newFlacData);
     }
 
-    /**
-     * Download entire album
-     */
     async downloadAlbum(albumId, quality = 27, options = {}) {
         const results = {
             success: false,
@@ -555,7 +483,6 @@ class DownloadService {
         };
 
         try {
-
             const albumInfo = await this.api.getAlbum(albumId);
             if (!albumInfo.success) {
                 results.error = `Failed to get album info: ${albumInfo.error}`;
@@ -570,7 +497,6 @@ class DownloadService {
             if (options.onAlbumInfo) {
                 options.onAlbumInfo(album);
             }
-
 
             const tracks = album.tracks?.items || [];
             for (let i = 0; i < tracks.length; i++) {
@@ -597,7 +523,6 @@ class DownloadService {
                 }
             }
 
-
             if (album.goodies && album.goodies.length > 0) {
                 const folderPath = path.join(
                     this.outputDir,
@@ -622,7 +547,6 @@ class DownloadService {
 
                             fs.writeFileSync(goodiePath, response.data);
                         } catch (e) {
-
                         }
                     }
                 }
@@ -637,9 +561,6 @@ class DownloadService {
         }
     }
 
-    /**
-     * Download by URL (auto-detect type)
-     */
     async downloadByUrl(url, quality = 27, options = {}) {
         const parsed = this.api.parseUrl(url);
 
@@ -661,9 +582,6 @@ class DownloadService {
         }
     }
 
-    /**
-     * Format bytes to human readable
-     */
     formatBytes(bytes) {
         if (bytes === 0) return '0 B';
         const k = 1024;

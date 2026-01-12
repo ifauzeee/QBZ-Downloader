@@ -1,10 +1,3 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                       CLI DISPLAY UTILS                           ║
- * ║         Beautiful terminal output with colors and formatting      ║
- * ╚═══════════════════════════════════════════════════════════════════╝
- */
-
 import chalk from 'chalk';
 import boxen from 'boxen';
 import gradient from 'gradient-string';
@@ -12,15 +5,11 @@ import Table from 'cli-table3';
 import figlet from 'figlet';
 import { CONFIG, getQualityEmoji, getQualityName } from '../config.js';
 
-
 const qobuzGradient = gradient(['#00c8ff', '#0066ff', '#6600ff']);
 const successGradient = gradient(['#00ff88', '#00cc66']);
 const errorGradient = gradient(['#ff6b6b', '#ff0000']);
 const goldGradient = gradient(['#ffd700', '#ffaa00', '#ff8800']);
 
-/**
- * Display the CLI banner
- */
 export function displayBanner() {
     console.clear();
 
@@ -50,9 +39,6 @@ export function displayBanner() {
     ));
 }
 
-/**
- * Display account info
- */
 export function displayAccountInfo(userInfo) {
     const subscription = userInfo?.subscription?.offer || 'Unknown';
     const country = userInfo?.country_code || 'N/A';
@@ -73,9 +59,6 @@ export function displayAccountInfo(userInfo) {
     ));
 }
 
-/**
- * Display quality options
- */
 export function displayQualityOptions() {
     const table = new Table({
         head: [
@@ -98,9 +81,6 @@ export function displayQualityOptions() {
     console.log(table.toString());
 }
 
-/**
- * Display album info
- */
 export function displayAlbumInfo(album) {
     const year = album.released_at ? new Date(album.released_at * 1000).getFullYear() : 'N/A';
     const duration = formatDuration(album.duration);
@@ -129,9 +109,6 @@ export function displayAlbumInfo(album) {
     ));
 }
 
-/**
- * Display track info
- */
 export function displayTrackInfo(track, albumData = null) {
     const album = track.album || albumData || {};
     const duration = formatDuration(track.duration);
@@ -155,9 +132,6 @@ export function displayTrackInfo(track, albumData = null) {
     ));
 }
 
-/**
- * Display metadata details
- */
 export function displayMetadata(metadata) {
     const table = new Table({
         style: { head: [], border: ['gray'] },
@@ -197,9 +171,6 @@ export function displayMetadata(metadata) {
     console.log(table.toString());
 }
 
-/**
- * Display download progress
- */
 export function displayProgress(phase, percent, details = {}) {
     const width = 40;
     const filled = Math.round((percent / 100) * width);
@@ -229,9 +200,6 @@ export function displayProgress(phase, percent, details = {}) {
     }
 }
 
-/**
- * Display track list
- */
 export function displayTrackList(tracks) {
     const table = new Table({
         head: [
@@ -258,9 +226,6 @@ export function displayTrackList(tracks) {
     console.log(table.toString());
 }
 
-/**
- * Display search results
- */
 export function displaySearchResults(results, type) {
     console.log('\n' + chalk.bold.cyan(`🔍 Search Results (${type}):\n`));
 
@@ -341,9 +306,6 @@ export function displaySearchResults(results, type) {
     }
 }
 
-/**
- * Display lyrics
- */
 export function displayLyrics(lyrics, maxLines = 15) {
     if (!lyrics || (!lyrics.syncedLyrics && !lyrics.plainLyrics)) {
         console.log(chalk.yellow('\n⚠️ No lyrics available for this track.\n'));
@@ -373,9 +335,6 @@ export function displayLyrics(lyrics, maxLines = 15) {
     ));
 }
 
-/**
- * Display success message
- */
 export function displaySuccess(message) {
     console.log('\n' + boxen(
         chalk.green.bold('✅ SUCCESS') + '\n\n' + chalk.white(message),
@@ -387,9 +346,6 @@ export function displaySuccess(message) {
     ));
 }
 
-/**
- * Display error message
- */
 export function displayError(message) {
     console.log('\n' + boxen(
         chalk.red.bold('❌ ERROR') + '\n\n' + chalk.white(message),
@@ -401,23 +357,14 @@ export function displayError(message) {
     ));
 }
 
-/**
- * Display warning message
- */
 export function displayWarning(message) {
     console.log(chalk.yellow(`\n⚠️  ${message}\n`));
 }
 
-/**
- * Display info message
- */
 export function displayInfo(message) {
     console.log(chalk.cyan(`\nℹ️  ${message}\n`));
 }
 
-/**
- * Display download summary
- */
 export function displayDownloadSummary(results) {
     const total = results.tracks?.length || 1;
     const completed = results.completedTracks || (results.success ? 1 : 0);
@@ -441,9 +388,6 @@ export function displayDownloadSummary(results) {
     ));
 }
 
-/**
- * Format duration in seconds to MM:SS
- */
 function formatDuration(seconds) {
     if (!seconds) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -451,9 +395,6 @@ function formatDuration(seconds) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-/**
- * Create a spinner message
- */
 export function spinnerMessage(text) {
     return chalk.cyan('⏳ ') + chalk.white(text);
 }

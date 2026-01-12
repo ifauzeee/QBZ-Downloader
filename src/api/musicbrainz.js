@@ -1,10 +1,3 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                      MUSICBRAINZ API CLIENT                       ║
- * ║       "The Holy Grail" of Music Metadata (Credits & Dates)        ║
- * ╚═══════════════════════════════════════════════════════════════════╝
- */
-
 import axios from 'axios';
 
 class MusicBrainzAPI {
@@ -13,13 +6,6 @@ class MusicBrainzAPI {
         this.userAgent = 'Qobuz-DL-CLI/1.0.0 ( https://github.com/ifauzeee/QBZ-Downloader )';
     }
 
-    /**
-     * Get enhanced metadata from MusicBrainz (Prioritizing ISRC)
-     * @param {string} title - Track title
-     * @param {string} artist - Artist name
-     * @param {string} album - Album title
-     * @param {string} isrc - International Standard Recording Code
-     */
     async getMetadata(title, artist, album, isrc = null) {
         try {
             let releaseData = null;

@@ -1,10 +1,3 @@
-/**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                    LYRICS PROVIDER API                            ║
- * ║        Fetches synced and unsynced lyrics from multiple sources   ║
- * ╚═══════════════════════════════════════════════════════════════════╝
- */
-
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
@@ -17,9 +10,6 @@ class LyricsProvider {
         this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
     }
 
-    /**
-     * Search lyrics from LRCLIB (free, synced lyrics)
-     */
     async searchLrclib(title, artist, album = '', duration = 0) {
         try {
             const response = await axios.get('https://lrclib.net/api/get', {
@@ -50,9 +40,6 @@ class LyricsProvider {
         }
     }
 
-    /**
-     * Search lyrics using best match from LRCLIB
-     */
     async searchLrclibBest(title, artist) {
         try {
             const response = await axios.get('https://lrclib.net/api/search', {
@@ -63,7 +50,6 @@ class LyricsProvider {
             });
 
             if (response.data && response.data.length > 0) {
-
                 const match = response.data[0];
                 return {
                     success: true,
@@ -82,9 +68,6 @@ class LyricsProvider {
         }
     }
 
-    /**
-     * Search lyrics from Genius (Fallback, Unsynced)
-     */
     async searchGenius(title, artist) {
         try {
             console.log('    🔍 Searching Genius fallback...');
@@ -101,14 +84,11 @@ class LyricsProvider {
 
             const songUrl = hits[0].result.url;
 
-
             const pageRes = await axios.get(songUrl, { headers: { 'User-Agent': this.userAgent } });
             const $ = cheerio.load(pageRes.data);
 
-
             let lyrics = '';
             $('[data-lyrics-container="true"]').each((i, elem) => {
-
                 $(elem).find('br').replaceWith('\n');
                 lyrics += $(elem).text() + '\n\n';
             });
@@ -134,9 +114,6 @@ class LyricsProvider {
         }
     }
 
-    /**
-     * Parse LRC format to structured format
-     */
     parseLrc(lrcText) {
         if (!lrcText) return null;
 
@@ -166,9 +143,6 @@ class LyricsProvider {
         return lyrics;
     }
 
-    /**
-     * Convert synced lyrics to SYLT format for ID3
-     */
     toSylt(syncedLyrics) {
         const parsed = this.parseLrc(syncedLyrics);
         if (!parsed) return null;
@@ -179,27 +153,17 @@ class LyricsProvider {
         }));
     }
 
-    /**
-     * Convert synced lyrics to embedded LRC format
-     */
     toLrcEmbed(syncedLyrics) {
         if (!syncedLyrics) return null;
         return syncedLyrics;
     }
 
-    /**
-     * Get lyrics from all available sources
-     */
     async getLyrics(title, artist, album = '', duration = 0) {
-
-
         let result = await this.searchLrclib(title, artist, album, duration);
-
 
         if (!result.success) {
             result = await this.searchLrclibBest(title, artist);
         }
-
 
         if (!result.success) {
             result = await this.searchGenius(title, artist);
@@ -220,9 +184,6 @@ class LyricsProvider {
         return { success: false, error: 'No lyrics found from any source' };
     }
 
-    /**
-     * Format lyrics for CLI display
-     */
     formatForDisplay(lyrics, maxLines = 10) {
         if (!lyrics) return 'No lyrics available';
 
