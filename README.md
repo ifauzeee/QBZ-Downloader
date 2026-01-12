@@ -260,25 +260,21 @@ downloads/
 
 ## 🔧 Advanced Configuration
 
-Edit `src/config.js` to customize:
+Edit your `.env` file to customize the behavior without modifying the code.
 
-```javascript
-// Download Settings
-download: {
-    outputDir: './downloads',           // Output directory
-    folderStructure: '{artist}/{album}', // Folder naming
-    fileNaming: '{trackNumber}. {title}', // File naming
-    concurrent: 3,                       // Concurrent downloads
-    retryAttempts: 3                     // Retry on failure
-},
+### Download Settings
+```env
+DOWNLOAD_PATH="./downloads"          # Where to save files
+FOLDER_TEMPLATE="{artist}/{album}"   # Folder structure
+FILE_TEMPLATE="{trackNumber}. {title}" # File naming
+MAX_CONCURRENCY=3                    # Number of parallel downloads
+```
 
-// Metadata Settings
-metadata: {
-    embedCover: true,          // Embed cover art
-    coverSize: 'max',          // Cover resolution
-    embedLyrics: true,         // Embed lyrics
-    lyricsType: 'both'         // 'synced', 'unsynced', 'both'
-}
+### Metadata & Preferences
+```env
+EMBED_COVER_ART=true                 # Embed cover art into files
+SAVE_COVER_FILE=true                 # Save cover.jpg to folder
+EMBED_LYRICS=true                    # Embed lyrics into files
 ```
 
 ---

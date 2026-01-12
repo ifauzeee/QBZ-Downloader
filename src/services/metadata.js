@@ -1,9 +1,7 @@
 /**
- * ╔═══════════════════════════════════════════════════════════════════╗
- * ║                    METADATA SERVICE                               ║
- * ║         Handles complete metadata extraction and embedding        ║
- * ║    Sources: Qobuz, Spotify, iTunes/Apple Music, MusicBrainz       ║
- * ╚═══════════════════════════════════════════════════════════════════╝
+ * METADATA SERVICE
+ * Handles complete metadata extraction and embedding
+ * Sources: Qobuz, Spotify, iTunes/Apple Music, MusicBrainz
  */
 
 import fs from 'fs';
@@ -12,12 +10,107 @@ import NodeID3 from 'node-id3';
 import { CONFIG } from '../config.js';
 import SpotifyAPI from '../api/spotify.js';
 import iTunesAPI from '../api/itunes.js';
+import MusicBrainzAPI from '../api/musicbrainz.js';
 
 class MetadataService {
     constructor() {
         this.supportedFormats = ['flac', 'mp3', 'm4a'];
         this.spotifyApi = new SpotifyAPI();
         this.itunesApi = new iTunesAPI();
+        this.musicBrainzApi = MusicBrainzAPI;
+    }
+
+    /**
+     * Get enhanced metadata from multiple sources (Spotify, iTunes, MusicBrainz)
+     */
+    async getEnhancedMetadata(title, artist, album = '', isrc = null) {
+        const enhanced = {
+            spotify: null,
+            itunes: null,
+            musicBrainz: null,
+            merged: {}
+        };
+
+        try {
+
+            const [spotifyResult, itunesResult, mbResult] = await Promise.all([
+                this.spotifyApi.getEnhancedMetadata(title, artist, album).catch(e => ({ success: false })),
+                this.itunesApi.getEnhancedMetadata(title, artist, album).catch(e => ({ success: false })),
+                this.musicBrainzApi.getMetadata(title, artist, album, isrc).catch(e => null)
+            ]);
+
+            if (spotifyResult.success) {
+                enhanced.spotify = spotifyResult.data;
+            }
+
+            if (itunesResult.success) {
+                enhanced.itunes = itunesResult.data;
+            }
+
+            if (mbResult) {
+                enhanced.musicBrainz = mbResult;
+            }
+
+            enhanced.merged = this.mergeMetadataSources(enhanced);
+
+        } catch (error) {
+            console.error('Enhanced metadata fetch error:', error.message);
+        }
+
+        return enhanced;
+    }
+
+    /**
+     * Merge metadata from multiple sources
+     */
+    mergeMetadataSources(enhanced) {
+        const merged = {};
+
+        if (enhanced.musicBrainz) {
+            if (enhanced.musicBrainz.originalReleaseDate) {
+                merged.originalReleaseDate = enhanced.musicBrainz.originalReleaseDate;
+            }
+            if (enhanced.musicBrainz.musicBrainzId) {
+                merged.musicBrainzId = enhanced.musicBrainz.musicBrainzId;
+            }
+            if (enhanced.musicBrainz.genres && enhanced.musicBrainz.genres.length > 0) {
+                merged.mbGenres = enhanced.musicBrainz.genres;
+            }
+        }
+
+        if (enhanced.spotify) {
+            merged.bpm = enhanced.spotify.spotifyBpm || 0;
+            merged.key = enhanced.spotify.spotifyKey || '';
+            merged.mode = enhanced.spotify.spotifyMode || '';
+            merged.timeSignature = enhanced.spotify.spotifyTimeSignature || 4;
+            merged.danceability = enhanced.spotify.spotifyDanceability || 0;
+            merged.energy = enhanced.spotify.spotifyEnergy || 0;
+            merged.valence = enhanced.spotify.spotifyValence || 0;
+            merged.acousticness = enhanced.spotify.spotifyAcousticness || 0;
+            merged.instrumentalness = enhanced.spotify.spotifyInstrumentalness || 0;
+            merged.liveness = enhanced.spotify.spotifyLiveness || 0;
+            merged.speechiness = enhanced.spotify.spotifySpeechiness || 0;
+            merged.loudness = enhanced.spotify.spotifyLoudness || 0;
+            merged.popularity = enhanced.spotify.spotifyPopularity || 0;
+            merged.genres = enhanced.spotify.spotifyGenres || merged.mbGenres || '';
+            merged.spotifyId = enhanced.spotify.spotifyTrackId || '';
+            merged.spotifyUri = enhanced.spotify.spotifyUri || '';
+            merged.isrcSpotify = enhanced.spotify.spotifyIsrc || '';
+        }
+
+        if (enhanced.itunes) {
+            merged.itunesId = enhanced.itunes.itunesTrackId || '';
+            merged.itunesCoverUrl = enhanced.itunes.itunesCoverUrl || '';
+            merged.itunesCopyright = enhanced.itunes.itunesCopyright || '';
+            merged.itunesGenre = enhanced.itunes.itunesGenre || '';
+            merged.appleMusicUrl = enhanced.itunes.itunesTrackViewUrl || '';
+            merged.isrcItunes = enhanced.itunes.itunesIsrc || '';
+        }
+
+        merged.bestCoverUrl = enhanced.itunes?.itunesCoverUrl ||
+            enhanced.spotify?.spotifyCoverUrl || '';
+
+        return merged;
     }
 
     /**
@@ -33,9 +126,6 @@ class MetadataService {
         const credits = this.extractCredits(albumData);
 
         const metadata = {
-            // ═══════════════════════════════════════════════
-            // BASIC TAGS
-            // ═══════════════════════════════════════════════
             title: trackData.title || '',
             artist: artist.name || trackData.performer?.name || '',
             album: album.title || '',
@@ -46,9 +136,6 @@ class MetadataService {
             totalDiscs: album.media_count || 1,
             genre: album.genre?.name || album.genres_list?.[0] || '',
 
-            // ═══════════════════════════════════════════════
-            // EXTENDED TAGS
-            // ═══════════════════════════════════════════════
             albumArtist: album.artist?.name || artist.name || '',
             composer: composer.name || trackData.composer?.name || '',
             conductor: performers.conductor || '',
@@ -60,9 +147,6 @@ class MetadataService {
             arranger: credits.arranger || '',
             engineer: credits.engineer || '',
 
-            // ═══════════════════════════════════════════════
-            // LABEL & CATALOG INFO
-            // ═══════════════════════════════════════════════
             label: album.label?.name || '',
             copyright: album.copyright || '',
             isrc: trackData.isrc || '',
@@ -70,17 +154,11 @@ class MetadataService {
             barcode: album.upc || '',
             catalogNumber: album.catalog_number || '',
 
-            // ═══════════════════════════════════════════════
-            // RELEASE INFO
-            // ═══════════════════════════════════════════════
             releaseDate: this.formatDate(album.released_at),
             originalReleaseDate: this.formatDate(album.released_at),
             releaseType: album.release_type || 'album',
             version: trackData.version || '',
 
-            // ═══════════════════════════════════════════════
-            // AUDIO PROPERTIES
-            // ═══════════════════════════════════════════════
             duration: trackData.duration || 0,
             durationFormatted: this.formatDuration(trackData.duration),
             bitDepth: fileInfo.bitDepth || trackData.maximum_bit_depth || 16,
@@ -88,9 +166,6 @@ class MetadataService {
             bitrate: fileInfo.bitrate || 0,
             channels: fileInfo.channels || 2,
 
-            // ═══════════════════════════════════════════════
-            // QOBUZ SPECIFIC
-            // ═══════════════════════════════════════════════
             qobuzTrackId: trackData.id?.toString() || '',
             qobuzAlbumId: album.id?.toString() || '',
             qobuzArtistId: artist.id?.toString() || '',
@@ -99,31 +174,19 @@ class MetadataService {
             hiresAvailable: album.hires || trackData.hires || false,
             parental: trackData.parental_warning || false,
 
-            // ═══════════════════════════════════════════════
-            // COVER ART
-            // ═══════════════════════════════════════════════
             coverUrl: album.image?.large || album.image?.small || '',
             coverUrlSmall: album.image?.small || '',
             coverUrlLarge: album.image?.large || '',
             coverUrlMax: album.image?.large?.replace('600', '1200') || '',
 
-            // ═══════════════════════════════════════════════
-            // DESCRIPTIONS
-            // ═══════════════════════════════════════════════
             description: album.description || '',
             comment: `Downloaded from Qobuz | ${fileInfo.bitDepth || 16}bit/${fileInfo.sampleRate || 44.1}kHz`,
             encodedBy: 'Qobuz-DL CLI v2.0',
 
-            // ═══════════════════════════════════════════════
-            // PERFORMERS & CREDITS (DETAILED)
-            // ═══════════════════════════════════════════════
             performers: performers,
             credits: credits,
             allArtists: this.getAllArtists(trackData, albumData),
 
-            // ═══════════════════════════════════════════════
-            // RAW DATA
-            // ═══════════════════════════════════════════════
             rawTrack: trackData,
             rawAlbum: albumData
         };
@@ -370,7 +433,6 @@ class MetadataService {
             ].filter(t => t.value)
         };
 
-        // Add album artist (TPE2)
         if (metadata.albumArtist) {
             tags.performerInfo = metadata.albumArtist;
         }
@@ -412,9 +474,6 @@ class MetadataService {
      */
     buildFlacTags(metadata, lyrics = null, enhanced = null) {
         const comments = [
-            // ═══════════════════════════════════════════════
-            // BASIC TAGS
-            // ═══════════════════════════════════════════════
             ['TITLE', metadata.title],
             ['ARTIST', metadata.artist],
             ['ALBUM', metadata.album],
@@ -425,9 +484,6 @@ class MetadataService {
             ['DISCTOTAL', metadata.totalDiscs?.toString()],
             ['GENRE', metadata.genre],
 
-            // ═══════════════════════════════════════════════
-            // EXTENDED TAGS
-            // ═══════════════════════════════════════════════
             ['ALBUMARTIST', metadata.albumArtist],
             ['COMPOSER', metadata.composer],
             ['CONDUCTOR', metadata.conductor],
@@ -438,9 +494,6 @@ class MetadataService {
             ['LYRICIST', metadata.lyricist],
             ['WRITER', metadata.writer],
 
-            // ═══════════════════════════════════════════════
-            // LABEL & CATALOG INFO
-            // ═══════════════════════════════════════════════
             ['LABEL', metadata.label],
             ['PUBLISHER', metadata.label],
             ['COPYRIGHT', metadata.copyright],
@@ -449,35 +502,23 @@ class MetadataService {
             ['UPC', metadata.upc],
             ['CATALOGNUMBER', metadata.catalogNumber],
 
-            // ═══════════════════════════════════════════════
-            // RELEASE INFO
-            // ═══════════════════════════════════════════════
             ['ORIGINALDATE', metadata.originalReleaseDate],
             ['RELEASEDATE', metadata.releaseDate],
             ['RELEASETYPE', metadata.releaseType],
             ['MEDIA', 'Digital Media'],
             ['VERSION', metadata.version],
 
-            // ═══════════════════════════════════════════════
-            // QUALITY & SOURCE INFO
-            // ═══════════════════════════════════════════════
             ['ENCODER', metadata.encodedBy],
             ['COMMENT', metadata.comment],
             ['REPLAYGAIN_TRACK_GAIN', metadata.replayGain || ''],
             ['AUDIO_QUALITY', `${metadata.bitDepth}bit/${metadata.sampleRate}kHz`],
             ['SOURCE', 'Qobuz'],
 
-            // ═══════════════════════════════════════════════
-            // QOBUZ SPECIFIC
-            // ═══════════════════════════════════════════════
             ['QOBUZ_TRACK_ID', metadata.qobuzTrackId],
             ['QOBUZ_ALBUM_ID', metadata.qobuzAlbumId],
             ['QOBUZ_ARTIST_ID', metadata.qobuzArtistId]
         ];
 
-        // ═══════════════════════════════════════════════
-        // ENHANCED METADATA FROM SPOTIFY
-        // ═══════════════════════════════════════════════
         if (enhanced?.merged) {
             const m = enhanced.merged;
             if (m.bpm) comments.push(['BPM', m.bpm.toString()]);
@@ -498,9 +539,6 @@ class MetadataService {
             if (m.spotifyUri) comments.push(['SPOTIFY_URI', m.spotifyUri]);
         }
 
-        // ═══════════════════════════════════════════════
-        // ENHANCED METADATA FROM ITUNES
-        // ═══════════════════════════════════════════════
         if (enhanced?.itunes) {
             const i = enhanced.itunes;
             if (i.itunesTrackId) comments.push(['ITUNES_TRACK_ID', i.itunesTrackId]);
@@ -509,9 +547,6 @@ class MetadataService {
             if (i.itunesTrackViewUrl) comments.push(['APPLE_MUSIC_URL', i.itunesTrackViewUrl]);
         }
 
-        // ═══════════════════════════════════════════════
-        // LYRICS (SYNCED WITH TIMESTAMPS)
-        // ═══════════════════════════════════════════════
         if (lyrics) {
 
             if (lyrics.plainLyrics) {
@@ -522,8 +557,6 @@ class MetadataService {
 
             if (lyrics.syncedLyrics) {
                 comments.push(['SYNCEDLYRICS', lyrics.syncedLyrics]);
-
-
                 comments.push(['LYRICS_SYNCED', lyrics.syncedLyrics]);
             }
 

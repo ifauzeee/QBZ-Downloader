@@ -42,18 +42,12 @@ const downloadService = new DownloadService();
 const metadataService = new MetadataService();
 const lyricsProvider = new LyricsProvider();
 
-// ═══════════════════════════════════════════════════════════════════
-// CLI CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════
 
 program
     .name('qobuz-dl')
     .description('🎵 Premium Qobuz Downloader CLI - Hi-Res Audio with Complete Metadata & Lyrics')
     .version('1.0.0');
 
-// ═══════════════════════════════════════════════════════════════════
-// DOWNLOAD COMMAND
-// ═══════════════════════════════════════════════════════════════════
 
 program
     .command('download')
@@ -267,9 +261,6 @@ program
         }
     });
 
-// ═══════════════════════════════════════════════════════════════════
-// SEARCH COMMAND
-// ═══════════════════════════════════════════════════════════════════
 
 program
     .command('search')
@@ -361,9 +352,6 @@ program
         }
     });
 
-// ═══════════════════════════════════════════════════════════════════
-// INFO COMMAND
-// ═══════════════════════════════════════════════════════════════════
 
 program
     .command('info')
@@ -452,9 +440,6 @@ program
         }
     });
 
-// ═══════════════════════════════════════════════════════════════════
-// ACCOUNT COMMAND
-// ═══════════════════════════════════════════════════════════════════
 
 program
     .command('account')
@@ -488,9 +473,6 @@ program
         }
     });
 
-// ═══════════════════════════════════════════════════════════════════
-// LYRICS COMMAND
-// ═══════════════════════════════════════════════════════════════════
 
 program
     .command('lyrics')
@@ -609,9 +591,6 @@ program
         }
     });
 
-// ═══════════════════════════════════════════════════════════════════
-// QUALITY COMMAND
-// ═══════════════════════════════════════════════════════════════════
 
 program
     .command('quality')
@@ -628,9 +607,6 @@ program
         console.log(chalk.gray('  qobuz-dl download <url> -q 5    ') + chalk.white('# MP3 320\n'));
     });
 
-// ═══════════════════════════════════════════════════════════════════
-// INTERACTIVE MAIN MENU
-// ═══════════════════════════════════════════════════════════════════
 
 async function showMainMenu() {
     display.displayBanner();
@@ -1068,6 +1044,7 @@ async function handleAccount() {
 
         spinner.succeed(chalk.green('Account info retrieved!'));
         display.displayAccountInfo(result.data);
+        display.displayQualityOptions();
 
     } catch (error) {
         spinner.fail(chalk.red('An error occurred'));
@@ -1083,18 +1060,12 @@ async function handleAccount() {
     ]);
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// DEFAULT ACTION - INTERACTIVE MENU
-// ═══════════════════════════════════════════════════════════════════
 
 program
     .action(async () => {
         await showMainMenu();
     });
 
-// ═══════════════════════════════════════════════════════════════════
-// ERROR HANDLING
-// ═══════════════════════════════════════════════════════════════════
 
 program.exitOverride();
 

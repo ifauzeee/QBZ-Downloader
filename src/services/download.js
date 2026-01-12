@@ -204,7 +204,8 @@ class DownloadService {
                 enhancedMetadata = await this.metadataService.getEnhancedMetadata(
                     track.title,
                     result.artist,
-                    albumData?.title || ''
+                    albumData?.title || '',
+                    track.isrc
                 );
                 result.enhancedMetadata = enhancedMetadata;
             } catch (e) {
@@ -282,16 +283,18 @@ class DownloadService {
 
 
             let coverBuffer = null;
-            if (CONFIG.metadata.embedCover && metadata.coverUrl) {
+            if ((CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile) && metadata.coverUrl) {
                 if (options.onProgress) {
                     options.onProgress({ phase: 'cover', percent: 0 });
                 }
                 coverBuffer = await this.getCoverBuffer(metadata.coverUrl);
 
 
-                const coverPath = path.join(folderPath, 'cover.jpg');
-                if (coverBuffer && !fs.existsSync(coverPath)) {
-                    fs.writeFileSync(coverPath, coverBuffer);
+                if (CONFIG.metadata.saveCoverFile) {
+                    const coverPath = path.join(folderPath, 'cover.jpg');
+                    if (coverBuffer && !fs.existsSync(coverPath)) {
+                        fs.writeFileSync(coverPath, coverBuffer);
+                    }
                 }
             }
 
@@ -300,13 +303,15 @@ class DownloadService {
                 options.onProgress({ phase: 'metadata', percent: 50 });
             }
 
+            const finalCoverBuffer = CONFIG.metadata.embedCover ? coverBuffer : null;
+
             if (extension === 'mp3') {
-                const id3Tags = this.metadataService.buildId3Tags(metadata, coverBuffer, lyrics);
+                const id3Tags = this.metadataService.buildId3Tags(metadata, finalCoverBuffer, lyrics);
                 await this.metadataService.writeId3Tags(filePath, id3Tags);
             } else if (extension === 'flac') {
 
                 const flacTags = this.metadataService.buildFlacTags(metadata, lyrics, enhancedMetadata);
-                await this.embedFlacMetadata(filePath, flacTags, coverBuffer);
+                await this.embedFlacMetadata(filePath, flacTags, finalCoverBuffer);
             }
 
             if (options.onProgress) {

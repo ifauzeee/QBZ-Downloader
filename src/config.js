@@ -5,13 +5,20 @@
  * ╚═══════════════════════════════════════════════════════════════════╝
  */
 
+const getBool = (key, def) => process.env[key] === undefined ? def : process.env[key] === 'true';
+const getInt = (key, def) => process.env[key] ? parseInt(process.env[key]) : def;
+const getStr = (key, def) => process.env[key] || def;
+
 export const CONFIG = {
 
     credentials: {
-        appId: process.env.QOBUZ_APP_ID || '',
-        appSecret: process.env.QOBUZ_APP_SECRET || '',
-        token: process.env.QOBUZ_TOKEN || '',
-        userId: process.env.QOBUZ_USER_ID || ''
+        appId: getStr('QOBUZ_APP_ID', ''),
+        appSecret: getStr('QOBUZ_APP_SECRET', ''),
+        token: getStr('QOBUZ_USER_AUTH_TOKEN', getStr('QOBUZ_TOKEN', '')),
+        userId: getStr('QOBUZ_USER_ID', ''),
+
+        spotifyClientId: getStr('SPOTIFY_CLIENT_ID', ''),
+        spotifyClientSecret: getStr('SPOTIFY_CLIENT_SECRET', '')
     },
 
 
@@ -26,7 +33,8 @@ export const CONFIG = {
             fileUrl: '/track/getFileUrl',
             userInfo: '/user/get',
             favorites: '/favorite/getUserFavorites'
-        }
+        },
+        proxy: getStr('PROXY_URL', '')
     },
 
 
@@ -44,19 +52,20 @@ export const CONFIG = {
 
 
     download: {
-        outputDir: './downloads',
-        folderStructure: '{artist}/{album}',
-        fileNaming: '{trackNumber}. {title}',
-        concurrent: 3,
+        outputDir: getStr('DOWNLOAD_PATH', './downloads'),
+        folderStructure: getStr('FOLDER_TEMPLATE', '{artist}/{album}'),
+        fileNaming: getStr('FILE_TEMPLATE', '{trackNumber}. {title}'),
+        concurrent: getInt('MAX_CONCURRENCY', 4),
         retryAttempts: 3,
         retryDelay: 1000
     },
 
 
     metadata: {
-        embedCover: true,
+        embedCover: getBool('EMBED_COVER_ART', true),
+        saveCoverFile: getBool('SAVE_COVER_FILE', true),
         coverSize: 'max',
-        embedLyrics: true,
+        embedLyrics: getBool('EMBED_LYRICS', true),
         lyricsType: 'both',
 
 

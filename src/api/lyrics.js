@@ -6,14 +6,15 @@
  */
 
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 class LyricsProvider {
     constructor() {
         this.providers = [
             { name: 'LRCLIB', enabled: true },
-            { name: 'Musixmatch', enabled: true },
             { name: 'Genius', enabled: true }
         ];
+        this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
     }
 
     /**
@@ -82,6 +83,58 @@ class LyricsProvider {
     }
 
     /**
+     * Search lyrics from Genius (Fallback, Unsynced)
+     */
+    async searchGenius(title, artist) {
+        try {
+            console.log('    🔍 Searching Genius fallback...');
+
+            const query = `${title} ${artist}`;
+            const searchUrl = `https://genius.com/api/search/multi?per_page=1&q=${encodeURIComponent(query)}`;
+
+            const searchRes = await axios.get(searchUrl, {
+                headers: { 'User-Agent': this.userAgent }
+            });
+
+            const hits = searchRes.data?.response?.sections?.[0]?.hits || [];
+            if (hits.length === 0) return { success: false };
+
+            const songUrl = hits[0].result.url;
+
+
+            const pageRes = await axios.get(songUrl, { headers: { 'User-Agent': this.userAgent } });
+            const $ = cheerio.load(pageRes.data);
+
+
+            let lyrics = '';
+            $('[data-lyrics-container="true"]').each((i, elem) => {
+
+                $(elem).find('br').replaceWith('\n');
+                lyrics += $(elem).text() + '\n\n';
+            });
+
+            lyrics = lyrics.trim();
+
+            if (lyrics) {
+                return {
+                    success: true,
+                    source: 'Genius',
+                    data: {
+                        syncedLyrics: null,
+                        plainLyrics: lyrics,
+                        instrumental: false
+                    }
+                };
+            }
+
+            return { success: false, error: 'Lyrics content not found' };
+
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Parse LRC format to structured format
      */
     parseLrc(lrcText) {
@@ -139,11 +192,17 @@ class LyricsProvider {
      */
     async getLyrics(title, artist, album = '', duration = 0) {
 
+
         let result = await this.searchLrclib(title, artist, album, duration);
 
-        if (!result.success) {
 
+        if (!result.success) {
             result = await this.searchLrclibBest(title, artist);
+        }
+
+
+        if (!result.success) {
+            result = await this.searchGenius(title, artist);
         }
 
         if (result.success) {
