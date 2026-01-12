@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Downloads
+downloads/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Cache
+.cache/
+.npm/
+
+# Test coverage
+coverage/
+
+# Debug
+*.pid
+*.seed
+
+# Metadata sidecar (if embedding fails)
+*.metadata.json
