@@ -39,7 +39,7 @@ export function displayBanner() {
         chalk.cyan('🎤 Synced & Unsynced Lyrics') + '\n' +
         chalk.cyan('🖼️  High-Resolution Cover Art') + '\n' +
         chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━') + '\n' +
-        chalk.gray(`Version 2.0.0 | Made with ${chalk.red('♥')}`),
+        chalk.gray(`Version 1.0.0 | Made with ${chalk.red('♥')}`),
         {
             padding: 1,
             margin: 1,

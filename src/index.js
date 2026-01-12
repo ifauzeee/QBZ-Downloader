@@ -872,12 +872,19 @@ async function downloadAlbumInteractive(albumId) {
     let bestQuality = 6;
     let qualityLabel = '💿 CD Quality (FLAC 16/44.1)';
 
-    if (album.hires_streamable) {
+    const sampleRate = album.maximum_sampling_rate || 44.1;
+    const bitDepth = album.maximum_bit_depth || 16;
+
+    if (bitDepth > 16 || album.hires || album.hires_streamable) {
         bestQuality = 27;
-        qualityLabel = '🔥 Hi-Res Max (FLAC 24/192)';
-    } else if (album.hires) {
-        bestQuality = 7;
-        qualityLabel = '✨ Hi-Res (FLAC 24/96)';
+        if (sampleRate >= 176.4) {
+            qualityLabel = `🔥 Hi-Res Max (FLAC ${bitDepth}/${sampleRate})`;
+        } else {
+            qualityLabel = `✨ Hi-Res (FLAC ${bitDepth}/${sampleRate})`;
+        }
+    } else {
+        bestQuality = 6;
+        qualityLabel = `💿 CD Quality (FLAC ${bitDepth}/${sampleRate})`;
     }
 
     spinner.succeed(chalk.green('Album found!'));
@@ -956,12 +963,19 @@ async function downloadTrackInteractive(trackId) {
     let bestQuality = 6;
     let qualityLabel = '💿 CD Quality (FLAC 16/44.1)';
 
-    if (album.hires_streamable || track.hires_streamable) {
+    const sampleRate = track.maximum_sampling_rate || 44.1;
+    const bitDepth = track.maximum_bit_depth || 16;
+
+    if (bitDepth > 16 || track.hires || track.hires_streamable) {
         bestQuality = 27;
-        qualityLabel = '🔥 Hi-Res Max (FLAC 24/192)';
-    } else if (album.hires || track.hires) {
-        bestQuality = 7;
-        qualityLabel = '✨ Hi-Res (FLAC 24/96)';
+        if (sampleRate >= 176.4) {
+            qualityLabel = `🔥 Hi-Res Max (FLAC ${bitDepth}/${sampleRate})`;
+        } else {
+            qualityLabel = `✨ Hi-Res (FLAC ${bitDepth}/${sampleRate})`;
+        }
+    } else {
+        bestQuality = 6;
+        qualityLabel = `💿 CD Quality (FLAC ${bitDepth}/${sampleRate})`;
     }
 
     spinner.succeed(chalk.green('Track found!'));
