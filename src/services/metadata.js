@@ -1,5 +1,5 @@
 import NodeID3 from 'node-id3';
-import { CONFIG } from '../config.js';
+
 
 class MetadataService {
     constructor() {
@@ -326,7 +326,7 @@ class MetadataService {
         return tags;
     }
 
-    buildFlacTags(metadata, lyrics = null, enhanced = null) {
+    buildFlacTags(metadata, lyrics = null) {
         const comments = [
             ['TITLE', metadata.title],
             ['ARTIST', metadata.artist],

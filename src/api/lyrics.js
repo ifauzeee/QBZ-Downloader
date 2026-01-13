@@ -160,28 +160,59 @@ class LyricsProvider {
 
     async getLyrics(title, artist, album = '', duration = 0) {
         let result = await this.searchLrclib(title, artist, album, duration);
+        if (result.success) return this.formatResult(result);
 
-        if (!result.success) {
-            result = await this.searchLrclibBest(title, artist);
+        result = await this.searchLrclibBest(title, artist);
+        if (result.success) return this.formatResult(result);
+
+        const cleanTitle = this.cleanTitle(title);
+        const cleanArtist = artist.split(/[,&]/)[0].trim();
+
+        if (cleanTitle !== title || cleanArtist !== artist) {
+            console.log(`    ⚠️  Retrying with cleaned metadata: "${cleanTitle}" by "${cleanArtist}"`);
+            result = await this.searchLrclibBest(cleanTitle, cleanArtist);
+            if (result.success) return this.formatResult(result);
         }
 
-        if (!result.success) {
-            result = await this.searchGenius(title, artist);
-        }
+        result = await this.searchGenius(title, artist);
+        if (result.success) return this.formatResult(result);
 
-        if (result.success) {
-            return {
-                success: true,
-                source: result.source,
-                syncedLyrics: result.data.syncedLyrics,
-                plainLyrics: result.data.plainLyrics,
-                parsedLyrics: this.parseLrc(result.data.syncedLyrics),
-                syltFormat: this.toSylt(result.data.syncedLyrics),
-                instrumental: result.data.instrumental
-            };
+        if (cleanTitle !== title || cleanArtist !== artist) {
+            result = await this.searchGenius(cleanTitle, cleanArtist);
+            if (result.success) return this.formatResult(result);
         }
 
         return { success: false, error: 'No lyrics found from any source' };
+    }
+
+    cleanTitle(title) {
+        return title
+            .replace(/\s*\(feat\..*?\)/gi, '')
+            .replace(/\s*\(ft\..*?\)/gi, '')
+            .replace(/\s*\[feat\..*?\]/gi, '')
+            .replace(/\s*\[ft\..*?\]/gi, '')
+            .replace(/\s*\(with.*?\)/gi, '')
+            .replace(/\s*\(.*?remaster.*?\)/gi, '')
+            .replace(/\s*\[.*?remaster.*?\]/gi, '')
+            .replace(/\s*\(live.*?\)/gi, '')
+            .replace(/\s*\[live.*?\]/gi, '')
+            .replace(/\s*\(radio edit\)/gi, '')
+            .replace(/\s*- radio edit/gi, '')
+            .replace(/\s*- remastered/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    formatResult(result) {
+        return {
+            success: true,
+            source: result.source,
+            syncedLyrics: result.data.syncedLyrics,
+            plainLyrics: result.data.plainLyrics,
+            parsedLyrics: this.parseLrc(result.data.syncedLyrics),
+            syltFormat: this.toSylt(result.data.syncedLyrics),
+            instrumental: result.data.instrumental
+        };
     }
 
     formatForDisplay(lyrics, maxLines = 10) {
