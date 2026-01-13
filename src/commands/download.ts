@@ -72,9 +72,10 @@ export function registerDownloadCommand(program: Command) {
                     spinner.stop();
                     await downloadArtistInteractive(parsed.id);
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
+                const err = error as Error;
                 spinner.fail(chalk.red('An error occurred'));
-                display.displayError(error.message);
+                display.displayError(err.message);
                 process.exit(1);
             }
         });
@@ -100,6 +101,11 @@ export async function downloadAlbumInteractive(
     let bestQuality = 6;
     let qualityLabel = '💿 CD Quality (FLAC 16/44.1)';
 
+    if (!album) {
+        spinner.fail(chalk.red('Album data is missing'));
+        return;
+    }
+
     const sampleRate = album.maximum_sampling_rate || 44.1;
     const bitDepth = album.maximum_bit_depth || 16;
 
@@ -116,8 +122,8 @@ export async function downloadAlbumInteractive(
     }
 
     spinner.succeed(chalk.green('Album found!'));
-    display.displayAlbumInfo(albumInfo.data);
-    display.displayTrackList(albumInfo.data.tracks?.items || []);
+    display.displayAlbumInfo(albumInfo.data!);
+    display.displayTrackList(albumInfo.data!.tracks?.items || []);
 
     console.log(chalk.cyan('\n🎚️ Detected quality: ') + chalk.white.bold(qualityLabel));
 
@@ -162,12 +168,18 @@ export async function downloadAlbumInteractive(
 
     let trackIndices: number[] | undefined = undefined;
 
+    const tracks = album?.tracks?.items || [];
+    if (!tracks.length) {
+        console.log(chalk.yellow('No tracks found in this album.'));
+        return;
+    }
+
     if (action === 'select') {
         const selectionAnswer = await inquirer.prompt([
-            prompts.getTrackSelectionPrompt(album.tracks.items.length)
+            prompts.getTrackSelectionPrompt(tracks.length)
         ]);
 
-        trackIndices = parseSelection(selectionAnswer.tracks, album.tracks.items.length);
+        trackIndices = parseSelection(selectionAnswer.tracks, tracks.length);
         console.log(chalk.cyan(`\n✨ Selected ${trackIndices.length} track(s) for download.`));
     }
 
@@ -175,19 +187,20 @@ export async function downloadAlbumInteractive(
 
     const downloadResult = await downloadService.downloadAlbum(albumId, selectedQuality, {
         trackIndices,
-        onTrackStart: (track: any, _num: any, _total: any) => {
+        onTrackStart: (track, _num, _total) => {
             const trackNum = track.track_number.toString().padStart(2, '0');
             console.log(chalk.cyan(`\n[Track ${trackNum}] `) + chalk.white.bold(track.title));
             console.log(chalk.gray(`    Artist: ${track.performer?.name || 'Unknown'}`));
         },
-        onTrackComplete: (trackResult: any) => {
+        onTrackComplete: (trackResult) => {
             if (trackResult.success) {
                 console.log(chalk.green('    ✅ Downloaded successfully'));
-                if (trackResult.lyrics) {
+                if (trackResult.lyrics && typeof trackResult.lyrics !== 'string') {
+                    const lyricsData = trackResult.lyrics as any;
+                    const hasSynced = lyricsData.synced && lyricsData.synced.length > 0;
                     console.log(
                         chalk.magenta(
-                            `    🎤 Lyrics embedded (${trackResult.lyrics.syncedLyrics ? 'synced' : 'unsynced'})
-                        `
+                            `    🎤 Lyrics embedded (${hasSynced ? 'synced' : 'unsynced'})`
                         )
                     );
                 }
@@ -230,10 +243,10 @@ export async function downloadTrackInteractive(
     let bestQuality = 6;
     let qualityLabel = '💿 CD Quality (FLAC 16/44.1)';
 
-    const sampleRate = track.maximum_sampling_rate || 44.1;
-    const bitDepth = track.maximum_bit_depth || 16;
+    const sampleRate = track!.maximum_sampling_rate || 44.1;
+    const bitDepth = track!.maximum_bit_depth || 16;
 
-    if (bitDepth > 16 || track.hires || track.hires_streamable) {
+    if (bitDepth > 16 || track!.hires || track!.hires_streamable) {
         bestQuality = 27;
         if (sampleRate >= 176.4) {
             qualityLabel = `🔥 Hi-Res Max (FLAC ${bitDepth}/${sampleRate})`;
@@ -246,7 +259,7 @@ export async function downloadTrackInteractive(
     }
 
     spinner.succeed(chalk.green('Track found!'));
-    display.displayTrackInfo(trackInfo.data);
+    display.displayTrackInfo(track!);
 
     console.log(chalk.cyan('\n🎚️ Detected quality: ') + chalk.white.bold(qualityLabel));
 
@@ -268,7 +281,7 @@ export async function downloadTrackInteractive(
                 choices.push({ name: '💿 CD Quality (16/44.1)', value: 6 });
             }
 
-            choices.push({ name: ' MP3 320kbps', value: 5 });
+            choices.push({ name: '🎵 MP3 320kbps', value: 5 });
 
             const qualityAnswer = await inquirer.prompt([
                 {
@@ -330,6 +343,10 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
     }
 
     const playlist = playlistInfo.data;
+    if (!playlist) {
+        spinner.fail(chalk.red('Playlist not found or empty'));
+        return;
+    }
     spinner.succeed(chalk.green('Playlist found!'));
 
     console.log(chalk.bold.hex('#FF00CC')('\n🎶 PLAYLIST DETAILS'));
@@ -382,18 +399,18 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
 
     console.log('\n' + chalk.cyan.bold('📥 Starting playlist download...\n'));
 
-    await downloadService.downloadAlbum(playlistId, selectedQuality);
-
-    const result2 = await (downloadService as any).downloadPlaylist(playlistId, selectedQuality, {
-        onTrackStart: (track: any, num: any, total: any) => {
-            console.log(chalk.cyan(`\n[${num}/${total}] `) + chalk.white.bold(track.title));
-            console.log(chalk.gray(`    Artist: ${track.performer?.name || 'Unknown'}`));
+    const result2 = await downloadService.downloadPlaylist(playlistId, selectedQuality, {
+        onProgress: (phase: any, loaded: number, total: number) => {
+            display.displayProgress(phase, loaded, total);
         },
-        onTrackComplete: (trackResult: any) => {
+        onTrackStart: (track, num, total) => {
+            console.log(chalk.cyan(`\n[${num}/${total}] `) + chalk.white.bold(track.title));
+        },
+        onTrackComplete: (trackResult) => {
             if (trackResult.success) {
-                console.log(chalk.green('    ✅ Downloaded successfully'));
+                console.log(chalk.green('    ✅ Complete'));
             } else {
-                console.log(chalk.red(`    ❌ Failed: ${trackResult.error}`));
+                console.log(chalk.red('    ❌ Failed'));
             }
         }
     });
@@ -414,9 +431,9 @@ export async function downloadArtistInteractive(artistId: string | number, _opti
         return;
     }
 
-    const artist = artistInfo.data;
-    const albums = artist.albums?.items || [];
     spinner.succeed(chalk.green('Artist found!'));
+    const artist = artistInfo.data as any;
+    const albums = artist.albums?.items || [];
 
     console.log(chalk.bold.hex('#F37335')('\n🎤 ARTIST DETAILS'));
     console.log(chalk.gray('──────────────────────────────') + '\n');
@@ -467,15 +484,17 @@ export async function downloadArtistInteractive(artistId: string | number, _opti
 
     console.log('\n' + chalk.cyan.bold('📥 Starting artist discography download...\n'));
 
-    await (downloadService as any).downloadArtist(artistId, selectedQuality, {
-        onAlbumInfo: (album: any) => {
+    await downloadService.downloadArtist(artistId, selectedQuality, {
+        onAlbumInfo: (album) => {
             console.log(chalk.bold.yellow(`\n💿 Processing Album: ${album.title}`));
         },
-        onTrackStart: (track: any, num: any, total: any) => {
+        onTrackStart: (track, num, total) => {
             console.log(chalk.cyan(`  [${num}/${total}] `) + chalk.white(track.title));
         },
-        onTrackComplete: (trackResult: any) => {
-            if (!trackResult.success) {
+        onTrackComplete: (trackResult) => {
+            if (trackResult.success) {
+                console.log(chalk.green('    ✅ Complete'));
+            } else {
                 console.log(chalk.red(`    ❌ Failed: ${trackResult.error}`));
             }
         }

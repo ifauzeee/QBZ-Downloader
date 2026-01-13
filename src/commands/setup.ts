@@ -2,7 +2,7 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
-import { displayBanner, displaySuccess, displayError } from '../utils/display.js';
+import { displayBanner, displaySuccess } from '../utils/display.js';
 import { Command } from 'commander';
 
 export function registerSetupCommand(program: Command) {
@@ -70,8 +70,8 @@ export async function runSetup() {
         console.log(
             chalk.yellow('\nTip: You might need to restart the CLI for changes to take effect.\n')
         );
-    } catch (error: any) {
-        displayError(`Setup failed: ${error.message}`);
+    } catch (error: unknown) {
+        console.error(chalk.red('Setup failed:'), (error as Error).message);
     }
 }
 

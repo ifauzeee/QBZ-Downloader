@@ -59,8 +59,8 @@ export async function showMainMenu() {
                     await handleSettings();
                     break;
             }
-        } catch (error: any) {
-            ui.printError(`An unexpected error occurred: ${error.message}`);
+        } catch (error: unknown) {
+            console.error(chalk.red('Failed to fetch user info:'), (error as Error).message);
         }
 
         console.log();
@@ -79,7 +79,14 @@ async function handleSmartDownload() {
         {
             type: 'input',
             name: 'input',
-            message: chalk.cyan('🔗 Link / ID:')
+            message: chalk.cyan('🔗 Link / ID:'),
+            validate: (input: string) => {
+                if (!input) return true;
+                if (!input.includes('qobuz.com') && !/^\d+$/.test(input)) {
+                    return 'This does not look like a valid Qobuz URL or ID.';
+                }
+                return true;
+            }
         }
     ]);
 
@@ -122,8 +129,8 @@ async function handleSmartDownload() {
                 await downloadArtistInteractive(parsed.id);
                 break;
         }
-    } catch (e: any) {
-        ui.printError(e.message);
+    } catch (e: unknown) {
+        ui.printError((e as Error).message);
     }
 
     await inquirer.prompt([

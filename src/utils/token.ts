@@ -60,8 +60,8 @@ export async function refreshUserToken(): Promise<string | null> {
         process.env.QOBUZ_USER_AUTH_TOKEN = newToken;
 
         return newToken;
-    } catch (error: any) {
-        console.error(chalk.red(`Failed to save token: ${error.message}`));
+    } catch (error: unknown) {
+        console.error(chalk.red(`Failed to save token: ${(error as Error).message}`));
         return null;
     }
 }

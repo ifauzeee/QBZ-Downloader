@@ -37,23 +37,23 @@ export function registerLyricsCommand(program: Command) {
                         process.exit(1);
                     }
 
-                    title = result.data.title;
-                    artist = result.data.performer?.name || '';
-                    album = result.data.album?.title || '';
-                    duration = result.data.duration || 0;
+                    title = result.data!.title;
+                    artist = result.data!.performer?.name || '';
+                    album = result.data!.album?.title || '';
+                    duration = result.data!.duration || 0;
 
                     spinner.succeed(chalk.green('Track found!'));
-                    display.displayTrackInfo(result.data);
+                    display.displayTrackInfo(result.data!);
                 } else {
                     spinner.text = display.spinnerMessage(`Searching for "${url}"...`);
 
                     const searchResult = await api.search(url, 'tracks', 1);
-                    if (!searchResult.success || !searchResult.data.tracks?.items?.length) {
+                    if (!searchResult.success || !searchResult.data?.tracks?.items?.length) {
                         spinner.fail(chalk.red('No tracks found'));
                         process.exit(1);
                     }
 
-                    const track = searchResult.data.tracks.items[0];
+                    const track = searchResult.data!.tracks!.items[0];
                     title = track.title;
                     artist = track.performer?.name || '';
                     album = track.album?.title || '';
@@ -128,9 +128,9 @@ export function registerLyricsCommand(program: Command) {
                     lyricsSpinner.warn(chalk.yellow('No lyrics found'));
                     console.log(chalk.gray('\nTry searching with a different query or track URL.'));
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
                 spinner.fail(chalk.red('An error occurred'));
-                display.displayError(error.message);
+                display.displayError((error as Error).message);
                 process.exit(1);
             }
         });

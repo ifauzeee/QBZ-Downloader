@@ -61,15 +61,16 @@ async function main() {
             displayEnvWarnings(warnings);
             await showMainMenu();
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const err = error as any;
         if (
-            error.exitCode === 0 ||
-            error.code === 'commander.help' ||
-            error.code === 'commander.version'
+            err.exitCode === 0 ||
+            err.code === 'commander.help' ||
+            err.code === 'commander.version'
         ) {
             process.exit(0);
         }
-        handleError(error, display);
+        handleError(error as Error, display);
         process.exit(1);
     }
 }

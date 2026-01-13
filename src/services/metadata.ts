@@ -1,5 +1,7 @@
 import NodeID3 from 'node-id3';
 
+export type RawData = Record<string, any>;
+
 export interface Metadata {
     title: string;
     artist: string;
@@ -55,15 +57,15 @@ export interface Metadata {
     comment: string;
     encodedBy: string;
 
-    performers: any;
-    credits: any;
+    performers: RawData;
+    credits: RawData;
     allArtists: any[];
 
-    rawTrack: any;
-        rawAlbum: any;
-    
-        replayGain?: string;
-    }
+    rawTrack: RawData;
+    rawAlbum: RawData;
+
+    replayGain?: string;
+}
 class MetadataService {
     supportedFormats: string[];
 
@@ -82,7 +84,11 @@ class MetadataService {
             .toLowerCase();
     }
 
-    async extractMetadata(trackData: any, albumData: any, fileInfo: any = {}): Promise<Metadata> {
+    async extractMetadata(
+        trackData: RawData,
+        albumData: RawData,
+        fileInfo: RawData = {}
+    ): Promise<Metadata> {
         const album = trackData.album || albumData || {};
         const artist = trackData.performer || trackData.artist || {};
         const composer = trackData.composer || {};
@@ -169,7 +175,7 @@ class MetadataService {
         return metadata;
     }
 
-    extractPerformers(trackData: any, _albumData: any) {
+    extractPerformers(trackData: RawData, _albumData: RawData) {
         const performers: any = {
             main: [],
             featured: [],
@@ -247,7 +253,7 @@ class MetadataService {
         return performers;
     }
 
-    extractCredits(albumData: any) {
+    extractCredits(albumData: RawData) {
         const credits: any = {
             producer: '',
             mixer: '',
@@ -287,7 +293,7 @@ class MetadataService {
         return credits;
     }
 
-    getAllArtists(trackData: any, albumData: any) {
+    getAllArtists(trackData: RawData, albumData: RawData) {
         const artists = new Set();
 
         if (trackData.performer?.name) artists.add(trackData.performer.name);

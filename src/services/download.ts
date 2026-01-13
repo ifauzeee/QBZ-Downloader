@@ -12,6 +12,7 @@ import pLimit from 'p-limit';
 import flac from 'flac-metadata';
 import cliProgress from 'cli-progress';
 import chalk from 'chalk';
+import { Track, LyricsResult, Album } from '../types/qobuz.js';
 
 interface DownloadOptions {
     outputDir?: string;
@@ -25,10 +26,17 @@ interface DownloadOptions {
 
 export interface AlbumDownloadOptions {
     trackIndices?: number[];
-    onTrackStart?: (track: any, num: number, total: number) => void;
+    onTrackStart?: (track: Track, num: number, total: number) => void;
     onTrackComplete?: (result: DownloadResult) => void;
     onProgress?: (phase: string, loaded: number, total: number) => void;
     batch?: boolean;
+}
+
+export interface ArtistDownloadOptions {
+    onAlbumInfo?: (album: Album) => void;
+    onTrackStart?: (track: Track, num: number, total: number) => void;
+    onTrackComplete?: (result: DownloadResult) => void;
+    onProgress?: (phase: string, loaded: number, total: number) => void;
 }
 
 interface DownloadResult {
@@ -45,7 +53,7 @@ interface DownloadResult {
     failedTracks?: number;
     totalTracks?: number;
     name?: string;
-    lyrics?: any;
+    lyrics?: LyricsResult | string;
 }
 
 class DownloadService {
@@ -152,18 +160,21 @@ class DownloadService {
             const fileUrl = await this.api.getFileUrl(trackId, quality);
             if (!fileUrl.success) throw new Error(`File URL Error: ${fileUrl.error}`);
 
-            const actualQuality = fileUrl.data.format_id || quality;
+            const fileUrlData = fileUrl.data as any;
+            const actualQuality = fileUrlData.format_id || quality;
             const extension = CONFIG.quality.formats[actualQuality]?.extension || 'flac';
 
-            let albumData = track.album;
-            if (track.album?.id) {
-                const albumInfo = await this.api.getAlbum(track.album.id);
-                if (albumInfo.success) albumData = albumInfo.data;
+            let albumData: Record<string, any> = track!.album || {};
+            if (track!.album?.id) {
+                const albumInfo = await this.api.getAlbum(track!.album!.id!);
+                if (albumInfo.success && albumInfo.data)
+                    albumData = albumInfo.data as unknown as Record<string, any>;
             }
 
-            const metadata = await this.metadataService.extractMetadata(track, albumData, {
-                bitDepth: fileUrl.data.bit_depth || 16,
-                sampleRate: fileUrl.data.sampling_rate || 44.1
+            const fileUrlInfo = fileUrl.data as { bit_depth?: number; sampling_rate?: number };
+            const metadata = await this.metadataService.extractMetadata(track!, albumData, {
+                bitDepth: fileUrlInfo.bit_depth || 16,
+                sampleRate: fileUrlInfo.sampling_rate || 44.1
             });
             result.metadata = metadata;
 
@@ -178,19 +189,20 @@ class DownloadService {
             if (embedLyrics) {
                 if (options.onProgress) options.onProgress('lyrics', 0);
                 const lyricsRes = await this.lyricsProvider.getLyrics(
-                    track.title,
+                    track!.title,
                     metadata.artist,
                     metadata.album,
-                    track.duration
+                    track!.duration
                 );
                 if (lyricsRes.success) lyrics = lyricsRes;
             }
 
             if (options.onProgress) options.onProgress('download_start', 0);
 
+            const fileStreamData = fileUrl.data as { url: string };
             const response = await axios({
                 method: 'GET',
-                url: fileUrl.data.url,
+                url: fileStreamData.url,
                 responseType: 'stream',
                 timeout: 300000
             });
@@ -199,7 +211,7 @@ class DownloadService {
             const writer = createWriteStream(filePath);
 
             let downloaded = 0;
-            response.data.on('data', (chunk: any) => {
+            response.data.on('data', (chunk: Buffer) => {
                 downloaded += chunk.length;
                 if (options.onProgress) options.onProgress('download', downloaded, totalSize);
             });
@@ -231,13 +243,13 @@ class DownloadService {
 
             result.success = true;
             return result;
-        } catch (error: any) {
-            result.error = error.message;
+        } catch (error: unknown) {
+            result.error = (error as Error).message;
             return result;
         }
     }
 
-    async embedFlacMetadata(filePath: string, tags: any[][], coverBuffer: Buffer | null) {
+    async embedFlacMetadata(filePath: string, tags: string[][], coverBuffer: Buffer | null) {
         try {
             const { execSync } = await import('child_process');
             try {
@@ -322,8 +334,8 @@ class DownloadService {
 
             fs.unlinkSync(filePath);
             fs.renameSync(tempPath, filePath);
-        } catch (error: any) {
-            console.error('Tagging Error:', error.message);
+        } catch (error: unknown) {
+            console.error('Tagging Error:', (error as Error).message);
         }
     }
 
@@ -347,20 +359,22 @@ class DownloadService {
         if (!albumInfo.success) return { success: false, error: albumInfo.error };
         const album = albumInfo.data;
 
-        let tracks = album.tracks.items;
+        const tracksItems = album?.tracks?.items || [];
+        let tracks: any[] = tracksItems;
         if (options.trackIndices)
-            tracks = tracks.filter((_: any, i: number) => options.trackIndices!.includes(i));
+            tracks = tracks.filter((_: unknown, i: number) => options.trackIndices!.includes(i));
 
         const limit = pLimit(CONFIG.download.concurrent);
 
         console.log(
-            chalk.bold.cyan(`\n📥 Downloading ${tracks.length} tracks from "${album.title}"\n`)
+            chalk.bold.cyan(`\n📥 Downloading ${tracks.length} tracks from "${album!.title}"\n`)
         );
 
-        const promises = tracks.map((track: any) => {
+        const promises = tracks.map((track) => {
             return limit(async () => {
                 const trackNum = track.track_number.toString().padStart(2, '0');
-                if (options.onTrackStart) options.onTrackStart(track, parseInt(track.track_number), tracks.length);
+                if (options.onTrackStart)
+                    options.onTrackStart(track, parseInt(track.track_number), tracks.length);
                 const bar = multibar.create(100, 0, {
                     status: 'Starting',
                     filename: `${trackNum}. ${track.title.substring(0, 20)}...`
@@ -396,11 +410,132 @@ class DownloadService {
         return {
             success: results.every((r) => r.success),
             tracks: results,
-            title: album.title,
-            artist: album.artist.name,
+            title: album?.title || 'Unknown Album',
+            artist: album?.artist?.name || 'Unknown Artist',
             completedTracks: results.filter((r) => r.success).length,
             failedTracks: results.filter((r) => !r.success).length,
             totalTracks: results.length
+        };
+    }
+
+    async downloadPlaylist(
+        playlistId: string | number,
+        quality = 27,
+        options: AlbumDownloadOptions = {}
+    ): Promise<DownloadResult> {
+        const multibar = new cliProgress.MultiBar(
+            {
+                clearOnComplete: false,
+                hideCursor: true,
+                format: ' {bar} | {percentage}% | {value}/{total} | {status} | {filename}',
+                barCompleteChar: '\u2588',
+                barIncompleteChar: '\u2591'
+            },
+            cliProgress.Presets.shades_classic
+        );
+
+        const playlistInfo = await this.api.getPlaylist(playlistId);
+        if (!playlistInfo.success) return { success: false, error: playlistInfo.error };
+        const playlist = playlistInfo.data!;
+
+        let tracks = playlist.tracks.items;
+        if (options.trackIndices)
+            tracks = tracks.filter((_: Track, i: number) => options.trackIndices!.includes(i));
+
+        const limit = pLimit(CONFIG.download.concurrent);
+
+        console.log(
+            chalk.bold.cyan(
+                `\n📥 Downloading ${tracks.length} tracks from playlist "${playlist.name}"\n`
+            )
+        );
+
+        const promises = tracks.map((track) => {
+            return limit(async () => {
+                const trackNum = (tracks.indexOf(track) + 1).toString().padStart(2, '0');
+                if (options.onTrackStart)
+                    options.onTrackStart(track, parseInt(trackNum), tracks.length);
+                const bar = multibar.create(100, 0, {
+                    status: 'Starting',
+                    filename: `${trackNum}. ${track.title.substring(0, 20)}...`
+                });
+
+                const res = await this.downloadTrack(track.id, quality, {
+                    onProgress: (phase, loaded, total) => {
+                        if (phase === 'download' && total) {
+                            bar.setTotal(total);
+                            bar.update(loaded, { status: chalk.cyan('Downloading') });
+                        } else if (phase === 'tagging') {
+                            bar.update(100, { status: chalk.magenta('Tagging') });
+                        } else if (phase === 'lyrics') {
+                            bar.update(0, { status: chalk.yellow('Lyrics') });
+                        }
+                    }
+                });
+
+                if (res.success) {
+                    bar.update(bar.getTotal(), { status: chalk.green('Done') });
+                    if (options.onTrackComplete) options.onTrackComplete(res);
+                } else {
+                    bar.update(bar.getTotal(), { status: chalk.red('Failed') });
+                    if (options.onTrackComplete) options.onTrackComplete(res);
+                }
+                return res;
+            });
+        });
+
+        const results = await Promise.all(promises);
+        multibar.stop();
+
+        return {
+            success: results.every((r) => r.success),
+            tracks: results,
+            title: playlist.name,
+            totalTracks: results.length,
+            completedTracks: results.filter((r) => r.success).length,
+            failedTracks: results.filter((r) => !r.success).length
+        };
+    }
+
+    async downloadArtist(
+        artistId: string | number,
+        quality = 27,
+        options: ArtistDownloadOptions = {}
+    ): Promise<DownloadResult> {
+        const artistInfo = await this.api.getArtist(artistId);
+        if (!artistInfo.success) return { success: false, error: artistInfo.error };
+        const artist = artistInfo.data as Record<string, any>;
+
+        const albums = artist.albums?.items || [];
+        const results: DownloadResult[] = [];
+
+        console.log(
+            chalk.bold.cyan(
+                `\n📥 Downloading discography for "${artist.name}" (${albums.length} albums)\n`
+            )
+        );
+
+        for (const album of albums) {
+            if (options.onAlbumInfo) options.onAlbumInfo(album as Album);
+
+            try {
+                const res = await this.downloadAlbum(album.id, quality, {
+                    onTrackStart: options.onTrackStart,
+                    onTrackComplete: options.onTrackComplete,
+                    onProgress: options.onProgress
+                });
+                results.push(res);
+            } catch (e: unknown) {
+                results.push({ success: false, error: (e as Error).message });
+            }
+        }
+
+        return {
+            success: results.every((r) => r.success),
+            tracks: [],
+            completedTracks: results.reduce((acc, r) => acc + (r.completedTracks || 0), 0),
+            failedTracks: results.reduce((acc, r) => acc + (r.failedTracks || 0), 0),
+            totalTracks: results.reduce((acc, r) => acc + (r.totalTracks || 0), 0)
         };
     }
 }

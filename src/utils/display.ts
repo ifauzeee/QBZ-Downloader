@@ -1,14 +1,32 @@
 import chalk from 'chalk';
-import Table from 'cli-table3';
 import cliProgress from 'cli-progress';
-import { printBox, printHeader, printSuccess, printError, printLogo } from './ui.js';
+import { printBox, printHeader, printLogo } from './ui.js';
 import { COLORS, SYMBOLS } from './theme.js';
+import {
+    Album,
+    Track,
+    UserInfo,
+    DownloadResultSummary,
+    SearchResults,
+    LyricsResult,
+    Artist
+} from '../types/qobuz.js';
 
 export { printLogo as displayBanner };
-export { printSuccess as displaySuccess };
-export { printError as displayError };
 
 let progressBar: cliProgress.SingleBar | null = null;
+
+const center = (text: string, width: number) => {
+    const len = text.length;
+    if (len >= width) return text;
+    const padding = Math.floor((width - len) / 2);
+    return ' '.repeat(padding) + text + ' '.repeat(width - len - padding);
+};
+
+const truncate = (text: string, length: number) => {
+    if (text.length <= length) return text;
+    return text.substring(0, length - 3) + '...';
+};
 
 export function displayProgress(
     phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging',
@@ -17,23 +35,26 @@ export function displayProgress(
 ) {
     if (!progressBar) {
         progressBar = new cliProgress.SingleBar({
-            format: ' {bar} | {percentage}% | {value}/{total} | {status}',
+            format: `${chalk.hex(COLORS.primary)('{bar}')} | {percentage}% | {value}/{total} | {status}`,
             barCompleteChar: '\u2588',
             barIncompleteChar: '\u2591',
-            hideCursor: true
+            hideCursor: true,
+            barsize: 30
         });
         progressBar.start(total || 100, 0, { status: 'Starting...' });
     }
 
     if (phase === 'download_start') {
-        progressBar.start(total || 100, 0, { status: 'Downloading...' });
+        progressBar.start(total || 100, 0, { status: chalk.white('Preparing...') });
     } else if (phase === 'download') {
         if (total) progressBar.setTotal(total);
         progressBar.update(loaded, { status: chalk.cyan('Downloading') });
     } else if (phase === 'lyrics') {
-        progressBar.update((progressBar as any).value, { status: chalk.yellow('Fetching Lyrics') });
+        const val = (progressBar as unknown as { value: number }).value;
+        progressBar.update(val, { status: chalk.yellow('Lyrics') });
     } else if (phase === 'cover') {
-        progressBar.update((progressBar as any).value, { status: chalk.yellow('Fetching Cover') });
+        const val = (progressBar as unknown as { value: number }).value;
+        progressBar.update(val, { status: chalk.yellow('Cover Art') });
     } else if (phase === 'tagging') {
         progressBar.update(progressBar.getTotal(), { status: chalk.magenta('Tagging') });
     }
@@ -50,84 +71,92 @@ export function spinnerMessage(text: string) {
     return chalk.hex(COLORS.primary)(text);
 }
 
-export function displayAccountInfo(userInfo: any) {
-    const content = `
-${chalk.bold('Email:')}    ${userInfo.email}
-${chalk.bold('Country:')}  ${userInfo.country_code}
-${chalk.bold('Plan:')}     ${chalk.hex(COLORS.success)(userInfo.subscription?.offer || 'Free')}
-${chalk.bold('Hi-Res:')}   ${userInfo.hires_streaming ? SYMBOLS.success : SYMBOLS.error}
-    `;
-    printBox(content.trim(), '👤 Account Information');
+export function displayAccountInfo(userInfo: UserInfo) {
+    const plan = userInfo.subscription?.offer || 'Free';
+    const hires = userInfo.hires_streaming ? chalk.green('Yes') : chalk.red('No');
+
+    const content = [
+        `${chalk.bold('UserID')} : ${chalk.white(userInfo.email || userInfo.id)}`,
+        `${chalk.bold('Country')} : ${chalk.white(userInfo.country_code)}`,
+        `${chalk.bold('Plan')}    : ${chalk.hex(COLORS.success)(plan)}`,
+        `${chalk.bold('Hi-Res')}  : ${hires}`
+    ].join('\n');
+
+    printBox(content, '👤 Account Information');
 }
 
-export function displayAlbumInfo(album: any) {
+export function displayAlbumInfo(album: Album) {
     const year = album.released_at ? new Date(album.released_at * 1000).getFullYear() : 'N/A';
     const duration = formatDuration(album.duration);
     const quality = album.hires
         ? chalk.hex(COLORS.success)('Hi-Res 24-bit')
         : chalk.yellow('CD Quality');
 
-    const content = `
-${chalk.hex(COLORS.secondary).bold(album.artist?.name || 'Unknown')}
-${chalk.white.italic(album.title)}
+    const title = chalk.bold.white(album.title);
+    const artist = chalk.hex(COLORS.secondary)(album.artist?.name || 'Unknown Artist');
 
-${chalk.gray('─────────────────────────────')}
+    const header = `${center(title, 50)}\n${center(artist, 50)}`;
+    const divider = chalk.gray('─'.repeat(50));
 
-📅 ${chalk.white(year)}
-🏢 ${chalk.white(album.label?.name || 'N/A')}
-🎼 ${chalk.white(album.genre?.name || 'Pop')}
-⏱️ ${chalk.white(duration)}
-✨ ${quality}
-    `.trim();
+    const meta = [
+        `${SYMBOLS.time} ${chalk.white(year)}`,
+        `🏢 ${chalk.white(album.label?.name || 'N/A')}`,
+        `${SYMBOLS.music} ${chalk.white(album.genre?.name || 'Unknown Genre')}`,
+        `⏱️ ${chalk.white(duration)}`,
+        `${SYMBOLS.quality} ${quality}`
+    ].join('\n');
 
-    printBox(content, '💿 Album Details');
+    printBox(`${header}\n\n${divider}\n\n${meta}`, '💿 Album Details');
 }
 
-export function displayTrackInfo(track: any) {
+export function displayTrackInfo(track: Track) {
+    const title = chalk.bold.white(track.title);
+    const artist = chalk.hex(COLORS.secondary)(track.performer?.name);
+
     const content = `
-${chalk.bold(track.title)}
-${chalk.hex(COLORS.secondary)(track.performer?.name)}
-${chalk.gray(track.album?.title)}
+${center(title, 40)}
+${center(artist, 40)}
 
-${chalk.gray('─────────────────────────────')}
+${chalk.gray('─'.repeat(40))}
 
-⏱️ ${formatDuration(track.duration)}
-✨ ${track.hires ? 'Hi-Res' : 'CD Quality'}
+⏱️  ${chalk.white(formatDuration(track.duration))}
+${SYMBOLS.quality}  ${track.hires ? chalk.hex(COLORS.success)('Hi-Res') : chalk.yellow('CD Quality')}
+${track.album ? `💿  ${chalk.gray(track.album.title)}` : ''}
     `.trim();
 
     printBox(content, '🎵 Track Details');
 }
 
-export function displayTrackList(tracks: any[]) {
-    const table = new Table({
-        head: [
-            chalk.hex(COLORS.primary)('#'),
-            chalk.hex(COLORS.primary)('Title'),
-            chalk.hex(COLORS.primary)('Time'),
-            chalk.hex(COLORS.primary)('Q')
-        ],
-        chars: { mid: '', 'left-mid': '', 'mid-mid': '', 'right-mid': '' },
-        style: { 'padding-left': 1, 'padding-right': 1, border: ['gray'], head: [] },
-        colWidths: [6, 40, 10, 8]
-    });
+export function displayTrackList(tracks: Track[]) {
+    printHeader('Track List');
+
+    const hNo = chalk.gray('#');
+    const hTitle = chalk.gray('TITLE');
+    const hTime = chalk.gray('TIME');
+    const hQ = chalk.gray('Q');
+
+    console.log(`  ${hNo}   ${hTitle.padEnd(45)} ${hTime.padEnd(8)} ${hQ}`);
+    console.log(chalk.gray('  ' + '─'.repeat(60)));
 
     tracks.forEach((t, i) => {
-        table.push([
-            chalk.gray((i + 1).toString().padStart(2, '0')),
-            chalk.white(t.title.substring(0, 38)),
-            chalk.gray(formatDuration(t.duration)),
-            t.hires ? chalk.green('HR') : chalk.yellow('CD')
-        ]);
-    });
+        const num = chalk.hex(COLORS.primary)((i + 1).toString().padStart(2, '0'));
+        const title = chalk.white(truncate(t.title, 43));
+        const time = chalk.gray(formatDuration(t.duration));
+        const q = t.hires ? chalk.green('HR') : chalk.yellow('CD');
 
-    console.log(table.toString());
+        console.log(`  ${num}   ${title.padEnd(45)} ${time.padEnd(8)} ${q}`);
+    });
+    console.log();
 }
 
-export function displayMetadata(metadata: Record<string, any>) {
+export function displayMetadata(metadata: Record<string, unknown>) {
+    const maxKeyLen = Math.max(...Object.keys(metadata).map((k) => k.length));
+
     const content = Object.entries(metadata)
         .map(([key, val]) => {
             if (!val || typeof val === 'object') return null;
-            return `${chalk.hex(COLORS.primary)(key.padEnd(15))}: ${val}`;
+            const keyStr = chalk.hex(COLORS.primary)(key.padEnd(maxKeyLen));
+            return `${keyStr} : ${chalk.white(val)}`;
         })
         .filter(Boolean)
         .join('\n');
@@ -135,52 +164,62 @@ export function displayMetadata(metadata: Record<string, any>) {
     printBox(content, '📝 Metadata Preview');
 }
 
-export function displaySearchResults(results: any, type: string) {
-    printHeader(`Search Results: ${type}`);
+export function displaySearchResults(results: SearchResults, type: string) {
+    printHeader(`Search Results: ${type.toUpperCase()}`);
 
     if (!results || !results[`${type}`]?.items?.length) {
-        console.log(chalk.gray('No results found.'));
+        console.log(chalk.gray('   No results found.'));
         return;
     }
 
-    const items = results[`${type}`].items;
+    const section = results[`${type}`];
+    if (!section || !section.items) return;
+    const items = section.items;
 
-    items.forEach((item: any, i: number) => {
-        const num = chalk.hex(COLORS.primary)(`[${i + 1}]`);
-        let title = '';
-        let subtitle = '';
+    items.forEach((item: Album | Track | Artist, i: number) => {
+        const num = chalk.hex(COLORS.primary)(`[${i + 1}]`.padEnd(4));
+        let top = '';
+        let bottom = '';
 
         if (type === 'albums') {
-            title = item.title;
-            subtitle = item.artist?.name;
+            const album = item as Album;
+            top = chalk.bold.white(album.title);
+            bottom = chalk.gray(album.artist?.name || 'Unknown Artist');
         } else if (type === 'tracks') {
-            title = item.title;
-            subtitle = `${item.performer?.name} • ${item.album?.title}`;
+            const track = item as Track;
+            top = chalk.bold.white(track.title);
+            bottom = chalk.gray(`${track.performer?.name} • ${track.album?.title}`);
         } else if (type === 'artists') {
-            title = item.name;
-            subtitle = `${item.albums_count || 0} Albums`;
+            const artist = item as Artist;
+            top = chalk.bold.white(artist.name);
+            bottom = chalk.gray(`${artist.albums_count || 0} Albums`);
         }
 
-        console.log(`${num} ${chalk.bold.white(title)}`);
-        console.log(`    ${chalk.gray(subtitle)}`);
-        console.log();
+        console.log(` ${num} ${top}`);
+        if (bottom) console.log(`      ${bottom}`);
+        console.log(chalk.blackBright('      ' + '─'.repeat(40)));
     });
+    console.log();
 }
 
-export function displayLyrics(lyrics: any) {
+export function displayLyrics(lyrics: LyricsResult) {
     if (!lyrics.success) {
         console.log(chalk.gray('No lyrics found.'));
         return;
     }
 
-    const text = lyrics.syncedLyrics
-        ? lyrics.parsedLyrics
-              .slice(0, 10)
-              .map((l: any) => `${chalk.cyan(l.timeStr)} ${l.text}`)
-              .join('\n')
-        : lyrics.plainLyrics.split('\n').slice(0, 10).join('\n');
+    const lines = lyrics.syncedLyrics
+        ? lyrics
+              .parsedLyrics!.slice(0, 8)
+              .map((l) => `${chalk.hex(COLORS.secondary)(l.timeStr)}  ${chalk.white(l.text)}`)
+        : lyrics.plainLyrics!.split('\n').slice(0, 8);
 
-    printBox(text + '\n\n' + chalk.gray('...'), '🎤 Lyrics Preview');
+    const text = Array.isArray(lines) ? lines.join('\n') : lines;
+
+    printBox(
+        text + '\n\n' + chalk.gray(center('... full lyrics in file ...', 40)),
+        '🎤 Lyrics Preview'
+    );
 }
 
 export function displayQualityOptions() {
@@ -193,21 +232,40 @@ ${chalk.hex(COLORS.primary)('27')} : FLAC 24-bit / 192kHz  (Max)
     printBox(content, 'Available Qualities');
 }
 
-export function displayDownloadSummary(results: any) {
-    const successCount = results.completedTracks || (results.success ? 1 : 0);
-    const failCount = results.failedTracks || (results.success ? 0 : 1);
+export function displayDownloadSummary(results: DownloadResultSummary) {
+    const total = results.totalTracks || 1;
+    const success = results.completedTracks || (results.success ? 1 : 0);
+    const failed = results.failedTracks || (results.success ? 0 : 1);
+
+    const title = results.title || results.name || 'Unknown';
+    const artist = results.artist || 'Unknown';
+
+    const rate = Math.round((success / total) * 100);
+    const rateColor = rate === 100 ? 'green' : rate > 50 ? 'yellow' : 'red';
 
     const content = `
-${chalk.bold('Item:')}    ${results.title || results.name}
-${chalk.bold('Artist:')}  ${results.artist || 'Unknown'}
-${chalk.bold('Total:')}   ${results.totalTracks || 1}
+${chalk.bold.white(truncate(title, 40))}
+${chalk.gray(artist)}
 
-${chalk.green('✔ Success:')} ${successCount}
-${chalk.red('✖ Failed:')}  ${failCount}
+${chalk.gray('─'.repeat(40))}
+
+${chalk.bold('Progress')} : ${chalk[rateColor](`${success}/${total}`)} (${rate}%)
+${chalk.green('Success')}  : ${success}
+${chalk.red('Failed')}   : ${failed}
     `.trim();
 
-    const style = failCount > 0 ? 'warning' : 'success';
-    printBox(content, '📊 Download Summary', style);
+    const style = failed > 0 ? (success > 0 ? 'warning' : 'error') : 'success';
+    const headerTitle = failed === 0 ? '✨ Download Complete' : '⚠️  Download Finished';
+
+    printBox(content, headerTitle, style);
+}
+
+export function displaySuccess(msg: string) {
+    console.log(chalk.hex(COLORS.success)(`\n${SYMBOLS.success} ${msg}`));
+}
+
+export function displayError(msg: string) {
+    console.log(chalk.hex(COLORS.error)(`\n${SYMBOLS.error} ${msg}`));
 }
 
 function formatDuration(seconds: number) {

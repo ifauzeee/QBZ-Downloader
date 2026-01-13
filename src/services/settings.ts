@@ -7,7 +7,7 @@ interface Settings {
     defaultQuality?: string | number;
     embedLyrics?: boolean;
     embedCover?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 class SettingsService {
@@ -31,8 +31,8 @@ class SettingsService {
                 const data = fs.readFileSync(this.settingsPath, 'utf8');
                 return { ...this.defaultSettings, ...JSON.parse(data) };
             }
-        } catch (error: any) {
-            console.error('Failed to load settings:', error.message);
+        } catch (error: unknown) {
+            console.error('Failed to load settings:', (error as Error).message);
         }
         return { ...this.defaultSettings };
     }
@@ -40,8 +40,8 @@ class SettingsService {
     saveSettings() {
         try {
             fs.writeFileSync(this.settingsPath, JSON.stringify(this.settings, null, 2));
-        } catch (error: any) {
-            console.error('Failed to save settings:', error.message);
+        } catch (error: unknown) {
+            console.error('Failed to save settings:', (error as Error).message);
         }
     }
 
@@ -49,7 +49,7 @@ class SettingsService {
         return this.settings[key];
     }
 
-    set(key: string, value: any) {
+    set(key: string, value: unknown) {
         this.settings[key] = value;
         this.saveSettings();
     }

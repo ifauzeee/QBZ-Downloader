@@ -4,18 +4,23 @@ import gradient from 'gradient-string';
 export const COLORS = {
     primary: '#00F2FF',
     secondary: '#FF0099',
+    tertiary: '#7000FF',
     success: '#00FF9D',
     warning: '#FFD700',
     error: '#FF4444',
     text: '#FFFFFF',
-    subtext: '#888888',
-    bg: '#1a1a1a'
+    subtext: '#A0A0A0',
+    muted: '#555555',
+    bg: '#1a1a1a',
+    border: '#333333'
 };
 
 export const GRADIENTS = {
-    title: gradient([COLORS.primary, COLORS.secondary]),
+    title: gradient(['#00F2FF', '#0099FF', '#FF0099']),
     gold: gradient(['#FFD700', '#FF8C00']),
-    success: gradient([COLORS.success, '#00CC7A'])
+    success: gradient(['#00FF9D', '#00CC7A']),
+    error: gradient(['#FF4444', '#CC0000']),
+    sunrise: gradient(['#FF0099', '#FFD700'])
 };
 
 export const SYMBOLS = {
@@ -27,7 +32,11 @@ export const SYMBOLS = {
     arrow: chalk.hex(COLORS.primary)('➜'),
     line: '─',
     star: '★',
-    music: '🎵'
+    music: '🎵',
+    play: '▶',
+    download: '📥',
+    time: '⏱️',
+    quality: '💎'
 };
 
 export const THEME = {

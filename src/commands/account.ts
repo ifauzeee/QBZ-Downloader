@@ -30,11 +30,11 @@ export function registerAccountCommand(program: Command) {
                 }
 
                 spinner.succeed(chalk.green('Account info retrieved!'));
-                display.displayAccountInfo(result.data);
+                display.displayAccountInfo(result.data!);
                 display.displayQualityOptions();
-            } catch (error: any) {
+            } catch (error: unknown) {
                 spinner.fail(chalk.red('An error occurred'));
-                display.displayError(error.message);
+                display.displayError((error as Error).message);
                 process.exit(1);
             }
         });
@@ -56,11 +56,12 @@ export async function handleAccount() {
         }
 
         spinner.succeed(chalk.green('Account info retrieved!'));
-        display.displayAccountInfo(result.data);
+        display.displayAccountInfo(result.data!);
         display.displayQualityOptions();
-    } catch (error: any) {
+        display.displayQualityOptions();
+    } catch (error: unknown) {
         spinner.fail(chalk.red('An error occurred'));
-        display.displayError(error.message);
+        display.displayError((error as Error).message);
     }
 
     await inquirer.prompt([

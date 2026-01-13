@@ -8,8 +8,10 @@ export const printLogo = () => {
     const logo = figlet.textSync(' Qobuz DL ', { font: 'Slant' });
     console.log(GRADIENTS.title(logo));
     console.log(
-        (chalk as any).center
-            ? (chalk as any).center('v2.0.0 • Premium High-Res Downloader')
+        (chalk as unknown as { center: (str: string) => string }).center
+            ? (chalk as unknown as { center: (str: string) => string }).center(
+                  'v2.0.0 • Premium High-Res Downloader'
+              )
             : '       v2.0.0 • Premium High-Res Downloader'
     );
     console.log();

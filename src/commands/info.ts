@@ -42,12 +42,13 @@ export function registerInfoCommand(program: Command) {
                     }
 
                     spinner.succeed(chalk.green('Album info retrieved!'));
-                    display.displayAlbumInfo(result.data);
-                    display.displayTrackList(result.data.tracks?.items || []);
+                    display.displayAlbumInfo(result.data!);
+                    display.displayTrackList(result.data!.tracks?.items || []);
 
-                    if (result.data.credits && result.data.credits.length > 0) {
+                    const credits = result.data!.credits as any[];
+                    if (credits && credits.length > 0) {
                         console.log('\n' + chalk.bold.cyan('👥 Credits:'));
-                        for (const credit of result.data.credits) {
+                        for (const credit of credits) {
                             console.log(
                                 chalk.gray(`  • ${credit.role}: `) + chalk.white(credit.name)
                             );
@@ -62,12 +63,12 @@ export function registerInfoCommand(program: Command) {
                     }
 
                     spinner.succeed(chalk.green('Track info retrieved!'));
-                    display.displayTrackInfo(result.data);
+                    display.displayTrackInfo(result.data!);
 
                     if (options.metadata) {
                         const metadata = await metadataService.extractMetadata(
-                            result.data,
-                            result.data.album
+                            result.data!,
+                            result.data!.album || {}
                         );
                         display.displayMetadata(metadata as any);
                     }
@@ -79,23 +80,23 @@ export function registerInfoCommand(program: Command) {
                         }).start();
 
                         const lyrics = await lyricsProvider.getLyrics(
-                            result.data.title,
-                            result.data.performer?.name || '',
-                            result.data.album?.title || '',
-                            result.data.duration || 0
+                            result.data!.title,
+                            result.data!.performer?.name || '',
+                            result.data!.album?.title || '',
+                            result.data!.duration || 0
                         );
 
                         if (lyrics.success) {
                             lyricsSpinner.succeed(chalk.green('Lyrics found!'));
-                            display.displayLyrics(lyrics);
+                            display.displayLyrics(lyrics as any);
                         } else {
                             lyricsSpinner.warn(chalk.yellow('No lyrics available'));
                         }
                     }
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
                 spinner.fail(chalk.red('An error occurred'));
-                display.displayError(error.message);
+                display.displayError((error as Error).message);
                 process.exit(1);
             }
         });

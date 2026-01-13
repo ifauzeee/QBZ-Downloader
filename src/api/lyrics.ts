@@ -20,8 +20,8 @@ interface ProcessedLyrics {
     source?: string;
     syncedLyrics?: string | null;
     plainLyrics?: string | null;
-    parsedLyrics?: any[] | null;
-    syltFormat?: any[] | null;
+    parsedLyrics?: Record<string, any>[] | null;
+    syltFormat?: Record<string, any>[] | null;
     instrumental?: boolean;
     error?: string;
 }
@@ -69,8 +69,8 @@ class LyricsProvider {
                 };
             }
             return { success: false, error: 'No lyrics found' };
-        } catch (error: any) {
-            return { success: false, error: error.message };
+        } catch (error: unknown) {
+            return { success: false, error: (error as Error).message };
         }
     }
 
@@ -97,8 +97,8 @@ class LyricsProvider {
                 };
             }
             return { success: false, error: 'No lyrics found' };
-        } catch (error: any) {
-            return { success: false, error: error.message };
+        } catch (error: unknown) {
+            return { success: false, error: (error as Error).message };
         }
     }
 
@@ -143,8 +143,8 @@ class LyricsProvider {
             }
 
             return { success: false, error: 'Lyrics content not found' };
-        } catch (error: any) {
-            return { success: false, error: error.message };
+        } catch (error: unknown) {
+            return { success: false, error: (error as Error).message };
         }
     }
 
@@ -256,7 +256,7 @@ class LyricsProvider {
         };
     }
 
-    formatForDisplay(lyrics: any, maxLines = 10) {
+    formatForDisplay(lyrics: ProcessedLyrics | null, maxLines = 10) {
         if (!lyrics) return 'No lyrics available';
 
         if (lyrics.syncedLyrics) {

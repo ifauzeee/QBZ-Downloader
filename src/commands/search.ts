@@ -7,6 +7,7 @@ import * as display from '../utils/display.js';
 import { parseSelection, validateSelection } from '../utils/input.js';
 import { downloadAlbumInteractive, downloadTrackInteractive } from './download.js';
 import { Command } from 'commander';
+import { Track, Album } from '../types/qobuz.js';
 
 const api = new QobuzAPI();
 const downloadService = new DownloadService();
@@ -37,14 +38,14 @@ export function registerSearchCommand(program: Command) {
                 }
 
                 spinner.succeed(chalk.green('Search complete!'));
-                display.displaySearchResults(result.data, options.type);
+                display.displaySearchResults(result.data!, options.type);
 
-                if (options.type === 'albums' && result.data.albums?.items?.length > 0) {
-                    const choices = result.data.albums.items.map((album: any, i: number) => ({
+                if (options.type === 'albums' && result.data!.albums?.items?.length) {
+                    const choices = result.data!.albums!.items.map((album, i) => ({
                         name: `${i + 1}. ${album.title} - ${album.artist?.name}`,
                         value: album.id
                     }));
-                    choices.push({ name: '❌ Cancel', value: null });
+                    choices.push({ name: '❌ Cancel', value: 0 });
 
                     const answer = await inquirer.prompt([
                         {
@@ -80,13 +81,13 @@ export function registerSearchCommand(program: Command) {
                                 onTrackStart: (track, num, total) => {
                                     console.log(
                                         chalk.cyan(`\n[${num}/${total}] `) +
-                                        chalk.white.bold(track.title)
+                                            chalk.white.bold(track.title)
                                     );
                                 },
-                                onProgress: (phase: any, loaded: any, total: any) => {
-                                    display.displayProgress(phase, loaded, total);
+                                onProgress: (phase: string, loaded: number, total: number) => {
+                                    display.displayProgress(phase as any, loaded, total);
                                 },
-                                onTrackComplete: (trackResult: any) => {
+                                onTrackComplete: (trackResult) => {
                                     if (trackResult.success) {
                                         console.log(chalk.green('    ✅ Complete'));
                                     } else {
@@ -99,9 +100,9 @@ export function registerSearchCommand(program: Command) {
                         display.displayDownloadSummary(downloadResult);
                     }
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
                 spinner.fail(chalk.red('An error occurred'));
-                display.displayError(error.message);
+                display.displayError((error as Error).message);
                 process.exit(1);
             }
         });
@@ -172,8 +173,8 @@ export async function handleSearch() {
                 continue;
             }
 
-            if (searchType === 'tracks' && result.data.tracks?.items) {
-                result.data.tracks.items.sort((a: any, b: any) => {
+            if (searchType === 'tracks' && result.data?.tracks?.items) {
+                result.data.tracks.items.sort((a: Track, b: Track) => {
                     const albumA = a.album?.title || '';
                     const albumB = b.album?.title || '';
                     return albumA.localeCompare(albumB);
@@ -181,10 +182,10 @@ export async function handleSearch() {
             }
 
             spinner.succeed(chalk.green('Search complete!'));
-            display.displaySearchResults(result.data, searchType);
+            display.displaySearchResults(result.data!, searchType);
 
-            if (result.data.albums?.items?.length > 0) {
-                const albums = result.data.albums.items;
+            if (result.data!.albums?.items?.length) {
+                const albums = result.data!.albums!.items;
                 console.log(
                     chalk.cyan(
                         '\n📥 Enter album number(s) to download (e.g. 1-3, 5) or 0 to go back:'
@@ -215,8 +216,8 @@ export async function handleSearch() {
                         await downloadAlbumInteractive(albums[idx].id, { batch: batchMode });
                     }
                 }
-            } else if (result.data.tracks?.items?.length > 0) {
-                const tracks = result.data.tracks.items;
+            } else if (result.data!.tracks?.items?.length) {
+                const tracks = result.data!.tracks!.items;
                 console.log(
                     chalk.cyan(
                         '\n📥 Enter track number(s) to download (e.g. 1-3, 5) or 0 to go back:'
@@ -247,8 +248,8 @@ export async function handleSearch() {
                         await downloadTrackInteractive(tracks[idx].id, { batch: batchMode });
                     }
                 }
-            } else if (result.data.artists?.items?.length > 0) {
-                const artists = result.data.artists.items;
+            } else if (result.data!.artists?.items?.length) {
+                const artists = result.data!.artists!.items;
                 console.log(chalk.cyan('\n🎤 Enter artist number to view albums (0 to go back):'));
 
                 const answer = await inquirer.prompt([
@@ -287,9 +288,9 @@ export async function handleSearch() {
                     }
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             spinner.fail(chalk.red('An error occurred'));
-            display.displayError(error.message);
+            display.displayError((error as Error).message);
         }
     }
 }
@@ -315,9 +316,10 @@ export async function browseArtistAlbums(artistId: string | number) {
                 return;
             }
 
-            const totalAlbums = result.data.albums.total;
-            const albums = result.data.albums.items;
-            const artistName = result.data.name;
+            const artistData = result.data as any;
+            const totalAlbums = artistData.albums.total;
+            const albums = artistData.albums.items;
+            const artistName = artistData.name;
 
             spinner.stop();
 
@@ -330,7 +332,7 @@ export async function browseArtistAlbums(artistId: string | number) {
             if (albums.length === 0) {
                 console.log(chalk.yellow('   No albums found in this range.'));
             } else {
-                albums.forEach((album: any, i: number) => {
+                albums.forEach((album: Album, i: number) => {
                     const year = album.released_at
                         ? new Date(album.released_at * 1000).getFullYear()
                         : 'N/A';
@@ -417,8 +419,8 @@ export async function browseArtistTracks(artistName: string) {
             return;
         }
 
-        if (result.data.tracks?.items) {
-            result.data.tracks.items.sort((a: any, b: any) => {
+        if (result.data!.tracks?.items) {
+            result.data!.tracks!.items.sort((a: Track, b: Track) => {
                 const albumA = a.album?.title || '';
                 const albumB = b.album?.title || '';
                 return albumA.localeCompare(albumB);
@@ -426,10 +428,10 @@ export async function browseArtistTracks(artistName: string) {
         }
 
         spinner.succeed(chalk.green(`Found tracks for ${artistName}`));
-        display.displaySearchResults(result.data, 'tracks');
+        display.displaySearchResults(result.data!, 'tracks');
 
-        if (result.data.tracks?.items?.length > 0) {
-            const tracks = result.data.tracks.items;
+        if (result.data!.tracks?.items?.length) {
+            const tracks = result.data!.tracks!.items;
             console.log(
                 chalk.cyan('\n📥 Enter track number(s) to download (e.g. 1-3, 5) or 0 to go back:')
             );

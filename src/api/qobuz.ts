@@ -1,10 +1,12 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import crypto from 'crypto';
 import { CONFIG } from '../config.js';
 import { APIError, AuthenticationError } from '../utils/errors.js';
 import { refreshUserToken } from '../utils/token.js';
 
-interface ApiResponse<T = any> {
+import { Album, Track, UserInfo, SearchResults, LyricsResult, Playlist } from '../types/qobuz.js';
+
+interface ApiResponse<T = unknown> {
     success: boolean;
     data?: T;
     error?: string;
@@ -59,9 +61,9 @@ class QobuzAPI {
                                 originalRequest.params.user_auth_token = newToken;
                             }
 
-                            return this.client(originalRequest);
+                            return this.client(originalRequest as AxiosRequestConfig);
                         }
-                    } catch (e) {
+                    } catch {
                         return Promise.reject(error);
                     }
                 }
@@ -77,7 +79,7 @@ class QobuzAPI {
         return { timestamp, signature };
     }
 
-    async getTrack(trackId: string | number): Promise<ApiResponse> {
+    async getTrack(trackId: string | number): Promise<ApiResponse<Track>> {
         try {
             const response = await this.client.get('/track/get', {
                 params: {
@@ -94,7 +96,7 @@ class QobuzAPI {
         }
     }
 
-    async getAlbum(albumId: string | number): Promise<ApiResponse> {
+    async getAlbum(albumId: string | number): Promise<ApiResponse<Album>> {
         try {
             const response = await this.client.get('/album/get', {
                 params: {
@@ -130,7 +132,7 @@ class QobuzAPI {
         }
     }
 
-    async getPlaylist(playlistId: string | number): Promise<ApiResponse> {
+    async getPlaylist(playlistId: string | number): Promise<ApiResponse<Playlist>> {
         try {
             const response = await this.client.get('/playlist/get', {
                 params: {
@@ -147,7 +149,7 @@ class QobuzAPI {
         }
     }
 
-    async search(query: string, type = 'albums', limit = 20): Promise<ApiResponse> {
+    async search(query: string, type = 'albums', limit = 20): Promise<ApiResponse<SearchResults>> {
         try {
             const response = await this.client.get('/catalog/search', {
                 params: {
@@ -193,7 +195,7 @@ class QobuzAPI {
         }
     }
 
-    async getUserInfo(): Promise<ApiResponse> {
+    async getUserInfo(): Promise<ApiResponse<UserInfo>> {
         try {
             const response = await this.client.get('/user/get', {
                 params: {
@@ -209,13 +211,14 @@ class QobuzAPI {
         }
     }
 
-    async getLyrics(trackId: string | number): Promise<ApiResponse> {
+    async getLyrics(trackId: string | number): Promise<ApiResponse<LyricsResult>> {
         try {
             const trackInfo = await this.getTrack(trackId);
-            if (trackInfo.success && trackInfo.data.lyrics) {
+            if (trackInfo.success && trackInfo.data && trackInfo.data.lyrics) {
                 return {
                     success: true,
                     data: {
+                        success: true,
                         synced: trackInfo.data.lyrics.sync || null,
                         unsynced: trackInfo.data.lyrics.text || null,
                         copyright: trackInfo.data.lyrics.copyright || null,
@@ -233,7 +236,7 @@ class QobuzAPI {
     async getGoodies(albumId: string | number): Promise<ApiResponse> {
         try {
             const albumInfo = await this.getAlbum(albumId);
-            if (albumInfo.success && albumInfo.data.goodies) {
+            if (albumInfo.success && albumInfo.data && albumInfo.data.goodies) {
                 return { success: true, data: albumInfo.data.goodies };
             }
             return { success: false, error: 'No goodies available' };
@@ -243,15 +246,18 @@ class QobuzAPI {
         }
     }
 
-    handleApiError(error: any) {
-        const statusCode = error.response?.status;
-        const data = error.response?.data;
-        const message = data?.message || data?.error || error.message;
+    handleApiError(error: unknown) {
+        const err = error as AxiosError;
+        const statusCode = err.response?.status;
+        const data = err.response?.data as Record<string, unknown> | undefined;
+        const rawMessage = data?.message || data?.error || err.message;
+        const message = typeof rawMessage === 'string' ? rawMessage : 'Unknown error';
 
         if (statusCode === 401 || statusCode === 403) {
-            throw new AuthenticationError(message);
+            throw new AuthenticationError(message || 'Authentication failed');
         }
-        throw new APIError(message, statusCode);
+
+        throw new APIError(message || 'API Error', statusCode);
     }
 
     parseUrl(url: string) {
