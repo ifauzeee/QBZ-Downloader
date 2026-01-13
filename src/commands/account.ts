@@ -3,10 +3,11 @@ import ora from 'ora';
 import chalk from 'chalk';
 import QobuzAPI from '../api/qobuz.js';
 import * as display from '../utils/display.js';
+import { Command } from 'commander';
 
 const api = new QobuzAPI();
 
-export function registerAccountCommand(program) {
+export function registerAccountCommand(program: Command) {
     program
         .command('account')
         .alias('acc')
@@ -24,14 +25,14 @@ export function registerAccountCommand(program) {
 
                 if (!result.success) {
                     spinner.fail(chalk.red('Failed to get account info'));
-                    display.displayError(result.error);
+                    display.displayError(result.error || 'Unknown error');
                     process.exit(1);
                 }
 
                 spinner.succeed(chalk.green('Account info retrieved!'));
                 display.displayAccountInfo(result.data);
                 display.displayQualityOptions();
-            } catch (error) {
+            } catch (error: any) {
                 spinner.fail(chalk.red('An error occurred'));
                 display.displayError(error.message);
                 process.exit(1);
@@ -50,14 +51,14 @@ export async function handleAccount() {
 
         if (!result.success) {
             spinner.fail(chalk.red('Failed to get account info'));
-            display.displayError(result.error);
+            display.displayError(result.error || 'Unknown error');
             return;
         }
 
         spinner.succeed(chalk.green('Account info retrieved!'));
         display.displayAccountInfo(result.data);
         display.displayQualityOptions();
-    } catch (error) {
+    } catch (error: any) {
         spinner.fail(chalk.red('An error occurred'));
         display.displayError(error.message);
     }

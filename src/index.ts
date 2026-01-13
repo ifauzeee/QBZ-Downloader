@@ -23,7 +23,7 @@ const isMetaCommand =
     process.argv.includes('quality') ||
     process.argv.includes('q');
 
-let warnings = [];
+let warnings: string[] = [];
 if (!isMetaCommand) {
     const result = validateEnvironment();
     warnings = result.warnings;
@@ -53,21 +53,25 @@ program.exitOverride();
 
 const hasCommand = process.argv.length > 2;
 
-try {
-    if (hasCommand) {
-        await program.parseAsync(process.argv);
-    } else {
-        displayEnvWarnings(warnings);
-        await showMainMenu();
+async function main() {
+    try {
+        if (hasCommand) {
+            await program.parseAsync(process.argv);
+        } else {
+            displayEnvWarnings(warnings);
+            await showMainMenu();
+        }
+    } catch (error: any) {
+        if (
+            error.exitCode === 0 ||
+            error.code === 'commander.help' ||
+            error.code === 'commander.version'
+        ) {
+            process.exit(0);
+        }
+        handleError(error, display);
+        process.exit(1);
     }
-} catch (error) {
-    if (
-        error.exitCode === 0 ||
-        error.code === 'commander.help' ||
-        error.code === 'commander.version'
-    ) {
-        process.exit(0);
-    }
-    handleError(error, display);
-    process.exit(1);
 }
+
+main();

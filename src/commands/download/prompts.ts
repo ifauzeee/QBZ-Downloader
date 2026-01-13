@@ -2,12 +2,12 @@ import chalk from 'chalk';
 import { validateSelection } from '../../utils/input.js';
 import { getQualityEmoji, getQualityName } from '../../config.js';
 
-export const getUrlPrompt = (when) => ({
+export const getUrlPrompt = (when: boolean) => ({
     type: 'input',
     name: 'url',
     message: chalk.cyan('🔗 Enter Qobuz URL or Album/Track ID:'),
     when: when,
-    validate: (input) => input.length > 0 || 'Please enter a valid URL'
+    validate: (input: string) => input.length > 0 || 'Please enter a valid URL'
 });
 
 export const getQualityPrompt = () => ({
@@ -41,14 +41,14 @@ export const getActionPrompt = () => ({
     ]
 });
 
-export const getTrackSelectionPrompt = (totalTracks) => ({
+export const getTrackSelectionPrompt = (totalTracks: number) => ({
     type: 'input',
     name: 'tracks',
-    message: chalk.cyan(`Enter track numbers (1-${totalTracks}):`),
-    validate: (input) => validateSelection(input, totalTracks)
+    message: chalk.cyan('Enter track numbers (e.g., "1-3" for range, "1, 3" for separate):'),
+    validate: (input: string) => validateSelection(input, totalTracks)
 });
 
-export const getConfirmationPrompt = (quality, type = 'album') => ({
+export const getConfirmationPrompt = (quality: number, type = 'album') => ({
     type: 'confirm',
     name: 'proceed',
     message: chalk.cyan(
@@ -68,7 +68,7 @@ export const getTrackDownloadPrompt = () => ({
     name: 'proceed',
     message: 'Download track? (y/n):',
     default: 'y',
-    validate: (input) => {
+    validate: (input: string) => {
         if (['y', 'n', 'Y', 'N', 'yes', 'no'].includes(input.toLowerCase())) return true;
         return 'Please enter y or n';
     }

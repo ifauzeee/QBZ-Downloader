@@ -6,13 +6,22 @@
 </p>
 
 <h1 align="center">
-  🎵 QBZ-Downloader
+  🎵 QBZ-Downloader (TypeScript Edition)
 </h1>
 
 <p align="center">
   <b>Premium Hi-Res Music Downloader CLI for Qobuz</b><br>
   <sub>Download lossless FLAC audio up to 24-bit/192kHz with complete metadata, synced lyrics, and enhanced tagging</sub>
 </p>
+
+---
+
+## ✨ New in v2.0 (TypeScript)
+
+- **🚀 Full TypeScript Migration:** Safer, more robust codebase.
+- **🔄 Auto-Token Refresh:** Automatically prompts for a new token when expired, no restarts needed.
+- **🛡️ Enhanced Error Handling:** Better error messages and recovery.
+- **🏗️ Modern Architecture:** Modular service-based design.
 
 ---
 
@@ -26,9 +35,7 @@
 | 🖼️ **Cover Art** | High-resolution album artwork embedded in files |
 | 📊 **Beautiful CLI** | Colorful, informative terminal interface with progress tracking |
 | 🔍 **Catalog Search** | Search albums, tracks, and artists directly from CLI |
-| 📚 **Batch Download** | Download entire albums with a single command |
-
----
+| 📚 **Batch Download** | Download entire albums, playlists, or artist discographies |
 
 ---
 
@@ -51,13 +58,25 @@ npm install
 
 ## ⚙️ Configuration
 
-### 1. Copy Example Config
+### 1. Run Setup Wizard (Recommended)
+
+The easiest way to configure the tool is to run the setup wizard:
+
+```bash
+npm start setup
+```
+
+This will prompt you for your credentials and create the `.env` file automatically.
+
+### 2. Manual Configuration
+
+Alternatively, copy the example config and edit it manually:
 
 ```bash
 cp .env.example .env
 ```
 
-### 2. Edit `.env` File
+Edit `.env` file:
 
 ```env
 # Qobuz Credentials (REQUIRED)
@@ -76,22 +95,34 @@ QOBUZ_USER_AUTH_TOKEN=your_user_auth_token
 
 ## 🚀 Usage
 
-### Interactive Mode
+### Development / Direct Run
+
+You can run the tool directly using `npm start`.
 
 ```bash
 npm start
+```
+
+### Building for Production
+
+To compile the TypeScript code to JavaScript for faster execution:
+
+```bash
+npm run build
+node dist/index.js
 ```
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `download <url>` | Download a track or album |
+| `download <url>` | Download a track, album, playlist, or artist |
 | `search <query>` | Search the Qobuz catalog |
-| `info <url>` | Get detailed information |
+| `info <url>` | Get detailed information about media |
 | `lyrics <url>` | Get lyrics for a track |
 | `account` | Display account information |
 | `quality` | Show available quality options |
+| `setup` | Run configuration wizard |
 
 ### Quality Options
 
@@ -101,24 +132,6 @@ npm start
 | **7** | FLAC 24/96 | ✨ Hi-Res |
 | **6** | FLAC 16/44 | 💿 CD Quality |
 | **5** | MP3 320 | 🎵 Lossy |
-
----
-
-## 📋 Embedded Metadata
-
-### Standard Tags
-- Title, Artist, Album, Album Artist
-- Track Number, Disc Number, Year
-- Genre, Composer, Conductor
-
-### Extended Tags
-- Producer, Mixer, Engineer
-- Label, Copyright, ISRC, UPC
-- Catalog Number, Release Country
-
-### Lyrics
-- Synced Lyrics (LRC format with timestamps)
-- Embedded directly into FLAC/MP3 files
 
 ---
 
@@ -132,6 +145,17 @@ downloads/
         ├── 02 Track Two.flac
         └── cover.jpg
 ```
+
+---
+
+## 🛠️ Development
+
+### Scripts
+
+- `npm run build`: Compile TypeScript to JavaScript
+- `npm run lint`: Run ESLint check
+- `npm test`: Run tests with Vitest
+- `npm run format`: Format code with Prettier
 
 ---
 
@@ -152,8 +176,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 <p align="center">
   Made with ❤️ by <a href="https://github.com/ifauzeee">ifauzeee</a>
-</p>
-
-<p align="center">
-  <sub>⭐ Star this repo if you find it useful!</sub>
 </p>

@@ -1,8 +1,72 @@
-const getBool = (key, def) => (process.env[key] === undefined ? def : process.env[key] === 'true');
-const getInt = (key, def) => (process.env[key] ? parseInt(process.env[key]) : def);
-const getStr = (key, def) => process.env[key] || def;
+const getBool = (key: string, def: boolean): boolean =>
+    process.env[key] === undefined ? def : process.env[key] === 'true';
+const getInt = (key: string, def: number): number =>
+    process.env[key] ? parseInt(process.env[key]!) : def;
+const getStr = (key: string, def: string): string => process.env[key] || def;
 
-export const CONFIG = {
+export interface Config {
+    credentials: {
+        appId: string;
+        appSecret: string;
+        token: string;
+        userId: string;
+    };
+    api: {
+        baseUrl: string;
+        endpoints: {
+            track: string;
+            album: string;
+            artist: string;
+            playlist: string;
+            search: string;
+            fileUrl: string;
+            userInfo: string;
+            favorites: string;
+        };
+        proxy: string;
+    };
+    quality: {
+        formats: Record<
+            number,
+            {
+                name: string;
+                bitDepth: number | null;
+                sampleRate: number | null;
+                extension: string;
+            }
+        >;
+        default: number;
+    };
+    download: {
+        outputDir: string;
+        folderStructure: string;
+        fileNaming: string;
+        concurrent: number;
+        retryAttempts: number;
+        retryDelay: number;
+    };
+    metadata: {
+        embedCover: boolean;
+        saveCoverFile: boolean;
+        saveLrcFile: boolean;
+        coverSize: string;
+        embedLyrics: boolean;
+        lyricsType: string;
+        tags: {
+            basic: string[];
+            extended: string[];
+            credits: string[];
+        };
+    };
+    display: {
+        showProgress: boolean;
+        showMetadata: boolean;
+        colorScheme: string;
+        verbosity: string;
+    };
+}
+
+export const CONFIG: Config = {
     credentials: {
         appId: getStr('QOBUZ_APP_ID', ''),
         appSecret: getStr('QOBUZ_APP_SECRET', ''),
@@ -54,7 +118,7 @@ export const CONFIG = {
         outputDir: getStr('DOWNLOAD_PATH', './downloads'),
         folderStructure: getStr('FOLDER_TEMPLATE', '{artist}/{album}'),
         fileNaming: getStr('FILE_TEMPLATE', '{track_number} {title}'),
-        concurrent: getInt('MAX_CONCURRENCY', 4),
+        concurrent: getInt('MAX_CONCURRENCY', 1),
         retryAttempts: 3,
         retryDelay: 1000
     },
@@ -115,12 +179,12 @@ export const CONFIG = {
     }
 };
 
-export const getQualityName = (formatId) => {
+export const getQualityName = (formatId: number) => {
     return CONFIG.quality.formats[formatId]?.name || 'Unknown';
 };
 
-export const getQualityEmoji = (formatId) => {
-    const emojis = {
+export const getQualityEmoji = (formatId: number) => {
+    const emojis: Record<number, string> = {
         5: '🎵',
         6: '💿',
         7: '✨',

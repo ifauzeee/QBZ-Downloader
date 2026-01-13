@@ -3,8 +3,9 @@ import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import { displayBanner, displaySuccess, displayError } from '../utils/display.js';
+import { Command } from 'commander';
 
-export function registerSetupCommand(program) {
+export function registerSetupCommand(program: Command) {
     program
         .command('setup')
         .description('Configure Qobuz-DL credentials')
@@ -69,13 +70,13 @@ export async function runSetup() {
         console.log(
             chalk.yellow('\nTip: You might need to restart the CLI for changes to take effect.\n')
         );
-    } catch (error) {
+    } catch (error: any) {
         displayError(`Setup failed: ${error.message}`);
     }
 }
 
-function loadCurrentConfig() {
-    const config = {};
+function loadCurrentConfig(): Record<string, string> {
+    const config: Record<string, string> = {};
     const envPath = path.resolve(process.cwd(), '.env');
 
     if (fs.existsSync(envPath)) {

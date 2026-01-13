@@ -1,7 +1,35 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
+interface LrclibResponse {
+    syncedLyrics?: string;
+    plainLyrics?: string;
+    instrumental: boolean;
+    duration: number;
+}
+
+interface LyricsResult {
+    success: boolean;
+    source?: string;
+    data?: LrclibResponse;
+    error?: string;
+}
+
+interface ProcessedLyrics {
+    success: boolean;
+    source?: string;
+    syncedLyrics?: string | null;
+    plainLyrics?: string | null;
+    parsedLyrics?: any[] | null;
+    syltFormat?: any[] | null;
+    instrumental?: boolean;
+    error?: string;
+}
+
 class LyricsProvider {
+    providers: { name: string; enabled: boolean }[];
+    userAgent: string;
+
     constructor() {
         this.providers = [
             { name: 'LRCLIB', enabled: true },
@@ -11,7 +39,12 @@ class LyricsProvider {
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
     }
 
-    async searchLrclib(title, artist, album = '', duration = 0) {
+    async searchLrclib(
+        title: string,
+        artist: string,
+        album = '',
+        duration = 0
+    ): Promise<LyricsResult> {
         try {
             const response = await axios.get('https://lrclib.net/api/get', {
                 params: {
@@ -36,12 +69,12 @@ class LyricsProvider {
                 };
             }
             return { success: false, error: 'No lyrics found' };
-        } catch (error) {
+        } catch (error: any) {
             return { success: false, error: error.message };
         }
     }
 
-    async searchLrclibBest(title, artist) {
+    async searchLrclibBest(title: string, artist: string): Promise<LyricsResult> {
         try {
             const response = await axios.get('https://lrclib.net/api/search', {
                 params: {
@@ -64,12 +97,12 @@ class LyricsProvider {
                 };
             }
             return { success: false, error: 'No lyrics found' };
-        } catch (error) {
+        } catch (error: any) {
             return { success: false, error: error.message };
         }
     }
 
-    async searchGenius(title, artist) {
+    async searchGenius(title: string, artist: string): Promise<LyricsResult> {
         try {
             console.log('    🔍 Searching Genius fallback...');
 
@@ -101,25 +134,26 @@ class LyricsProvider {
                     success: true,
                     source: 'Genius',
                     data: {
-                        syncedLyrics: null,
+                        syncedLyrics: undefined,
                         plainLyrics: lyrics,
-                        instrumental: false
+                        instrumental: false,
+                        duration: 0
                     }
                 };
             }
 
             return { success: false, error: 'Lyrics content not found' };
-        } catch (error) {
+        } catch (error: any) {
             return { success: false, error: error.message };
         }
     }
 
-    parseLrc(lrcText) {
+    parseLrc(lrcText: string | null | undefined) {
         if (!lrcText) return null;
 
         const lines = lrcText.split('\n');
         const lyrics = [];
-        const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+        const timeRegex = /^\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
 
         for (const line of lines) {
             const match = line.match(timeRegex);
@@ -143,7 +177,7 @@ class LyricsProvider {
         return lyrics;
     }
 
-    toSylt(syncedLyrics) {
+    toSylt(syncedLyrics: string | null | undefined) {
         const parsed = this.parseLrc(syncedLyrics);
         if (!parsed) return null;
 
@@ -153,12 +187,17 @@ class LyricsProvider {
         }));
     }
 
-    toLrcEmbed(syncedLyrics) {
+    toLrcEmbed(syncedLyrics: string) {
         if (!syncedLyrics) return null;
         return syncedLyrics;
     }
 
-    async getLyrics(title, artist, album = '', duration = 0) {
+    async getLyrics(
+        title: string,
+        artist: string,
+        album = '',
+        duration = 0
+    ): Promise<ProcessedLyrics> {
         let result = await this.searchLrclib(title, artist, album, duration);
         if (result.success) return this.formatResult(result);
 
@@ -169,7 +208,9 @@ class LyricsProvider {
         const cleanArtist = artist.split(/[,&]/)[0].trim();
 
         if (cleanTitle !== title || cleanArtist !== artist) {
-            console.log(`    ⚠️  Retrying with cleaned metadata: "${cleanTitle}" by "${cleanArtist}"`);
+            console.log(
+                `    ⚠️  Retrying with cleaned metadata: "${cleanTitle}" by "${cleanArtist}"`
+            );
             result = await this.searchLrclibBest(cleanTitle, cleanArtist);
             if (result.success) return this.formatResult(result);
         }
@@ -185,7 +226,7 @@ class LyricsProvider {
         return { success: false, error: 'No lyrics found from any source' };
     }
 
-    cleanTitle(title) {
+    cleanTitle(title: string) {
         return title
             .replace(/\s*\(feat\..*?\)/gi, '')
             .replace(/\s*\(ft\..*?\)/gi, '')
@@ -193,9 +234,9 @@ class LyricsProvider {
             .replace(/\s*\[ft\..*?\]/gi, '')
             .replace(/\s*\(with.*?\)/gi, '')
             .replace(/\s*\(.*?remaster.*?\)/gi, '')
-            .replace(/\s*\[.*?remaster.*?\]/gi, '')
+            .replace(/\s*\[.*?remaster.*?\].*?/gi, '')
             .replace(/\s*\(live.*?\)/gi, '')
-            .replace(/\s*\[live.*?\]/gi, '')
+            .replace(/\s*\[live.*?\].*?/gi, '')
             .replace(/\s*\(radio edit\)/gi, '')
             .replace(/\s*- radio edit/gi, '')
             .replace(/\s*- remastered/gi, '')
@@ -203,19 +244,19 @@ class LyricsProvider {
             .trim();
     }
 
-    formatResult(result) {
+    formatResult(result: LyricsResult): ProcessedLyrics {
         return {
             success: true,
             source: result.source,
-            syncedLyrics: result.data.syncedLyrics,
-            plainLyrics: result.data.plainLyrics,
-            parsedLyrics: this.parseLrc(result.data.syncedLyrics),
-            syltFormat: this.toSylt(result.data.syncedLyrics),
-            instrumental: result.data.instrumental
+            syncedLyrics: result.data?.syncedLyrics,
+            plainLyrics: result.data?.plainLyrics,
+            parsedLyrics: this.parseLrc(result.data?.syncedLyrics),
+            syltFormat: this.toSylt(result.data?.syncedLyrics),
+            instrumental: result.data?.instrumental
         };
     }
 
-    formatForDisplay(lyrics, maxLines = 10) {
+    formatForDisplay(lyrics: any, maxLines = 10) {
         if (!lyrics) return 'No lyrics available';
 
         if (lyrics.syncedLyrics) {

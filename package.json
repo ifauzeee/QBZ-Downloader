@@ -1,19 +1,20 @@
 {
   "name": "qbz-downloader",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "🎵 Premium Qobuz Downloader CLI with Hi-Res Audio, Complete Metadata & Embedded Lyrics",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "qbz-dl": "./src/index.js"
+    "qbz-dl": "./dist/index.js"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "dl": "node src/index.js download",
-    "search": "node src/index.js search",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dl": "node dist/index.js download",
+    "search": "node dist/index.js search",
     "test": "npx vitest run",
-    "lint": "eslint src/**/*.js",
-    "format": "prettier --write src/**/*.js",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts",
     "prepare": "husky"
   },
   "keywords": [
@@ -55,12 +56,22 @@
     "gradient-string": "^2.0.2",
     "inquirer": "^9.2.12",
     "node-id3": "^0.2.6",
-    "ora": "^8.0.1"
+    "ora": "^8.0.1",
+    "p-limit": "^7.2.0"
   },
   "devDependencies": {
+    "@types/cheerio": "^0.22.35",
+    "@types/cli-progress": "^3.11.6",
+    "@types/figlet": "^1.7.0",
+    "@types/gradient-string": "^1.1.6",
+    "@types/inquirer": "^9.0.9",
+    "@types/node": "^25.0.7",
+    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "@typescript-eslint/parser": "^8.53.0",
     "eslint": "^8.56.0",
     "husky": "^9.1.7",
     "prettier": "^3.1.0",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }
 }

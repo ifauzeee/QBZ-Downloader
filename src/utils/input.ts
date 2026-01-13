@@ -1,12 +1,5 @@
-/**
- * Parses a selection string (e.g., "1, 3-5, 7") into an array of 0-based indices.
- *
- * @param {string} input - The input string from the user
- * @param {number} max - The maximum valid number (1-based)
- * @returns {number[]} - Array of unique 0-based indices, sorted ascending
- */
-export function parseSelection(input, max) {
-    const indices = new Set();
+export function parseSelection(input: string, max: number): number[] {
+    const indices = new Set<number>();
 
     const parts = input.split(/[, ]+/);
 
@@ -15,7 +8,14 @@ export function parseSelection(input, max) {
 
         const subParts = part.split('-');
 
-        if (subParts.length >= 2) {
+        if (subParts.length > 2) {
+            const nums = subParts.map((s) => parseInt(s));
+            if (nums.some(isNaN)) continue;
+
+            for (const num of nums) {
+                if (!isNaN(num) && num >= 1 && num <= max) indices.add(num - 1);
+            }
+        } else if (subParts.length === 2) {
             const nums = subParts.map((s) => parseInt(s));
             if (nums.some(isNaN)) continue;
 
@@ -26,11 +26,6 @@ export function parseSelection(input, max) {
             const high = Math.max(start, end);
             for (let i = low; i <= high; i++) {
                 if (i >= 1 && i <= max) indices.add(i - 1);
-            }
-
-            for (let i = 2; i < nums.length; i++) {
-                const num = nums[i];
-                if (num >= 1 && num <= max) indices.add(num - 1);
             }
         } else {
             const num = parseInt(part);
@@ -43,19 +38,14 @@ export function parseSelection(input, max) {
     return Array.from(indices).sort((a, b) => a - b);
 }
 
-/**
- * Validates a selection string.
- *
- * @param {string} input - The input string
- * @param {number} max - The maximum valid number
- * @returns {boolean|string} - True if valid, or error message
- */
-export function validateSelection(input, max) {
+export function validateSelection(input: string, max: number): string | boolean {
     if (!input || input.trim().length === 0) return 'Please enter a selection';
 
     if (!/^[\d\s,-]+$/.test(input)) {
         return 'Invalid format. Use numbers, commas, and hyphens (e.g., 1, 3-5)';
     }
+
+    if (input.trim() === '0') return true;
 
     const indices = parseSelection(input, max);
     if (indices.length === 0) {

@@ -3,11 +3,12 @@ import chalk from 'chalk';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import * as display from '../utils/display.js';
+import { Command } from 'commander';
 
 const api = new QobuzAPI();
 const lyricsProvider = new LyricsProvider();
 
-export function registerLyricsCommand(program) {
+export function registerLyricsCommand(program: Command) {
     program
         .command('lyrics')
         .alias('l')
@@ -32,7 +33,7 @@ export function registerLyricsCommand(program) {
                     const result = await api.getTrack(parsed.id);
                     if (!result.success) {
                         spinner.fail(chalk.red('Failed to get track info'));
-                        display.displayError(result.error);
+                        display.displayError(result.error || 'Unknown error');
                         process.exit(1);
                     }
 
@@ -59,7 +60,11 @@ export function registerLyricsCommand(program) {
                     duration = track.duration || 0;
 
                     spinner.succeed(chalk.green('Track found!'));
-                    console.log(chalk.cyan(`\n🎵 ${title} - ${artist}\n`));
+                    console.log(
+                        chalk.cyan(`
+🎵 ${title} - ${artist}
+`)
+                    );
                 }
 
                 const lyricsSpinner = ora({
@@ -123,7 +128,7 @@ export function registerLyricsCommand(program) {
                     lyricsSpinner.warn(chalk.yellow('No lyrics found'));
                     console.log(chalk.gray('\nTry searching with a different query or track URL.'));
                 }
-            } catch (error) {
+            } catch (error: any) {
                 spinner.fail(chalk.red('An error occurred'));
                 display.displayError(error.message);
                 process.exit(1);

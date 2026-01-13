@@ -1,5 +1,6 @@
 export class QobuzError extends Error {
-    constructor(message, code = 'UNKNOWN_ERROR') {
+    code: string;
+    constructor(message: string, code = 'UNKNOWN_ERROR') {
         super(message);
         this.name = 'QobuzError';
         this.code = code;
@@ -14,7 +15,8 @@ export class AuthenticationError extends QobuzError {
 }
 
 export class APIError extends QobuzError {
-    constructor(message, statusCode = null) {
+    statusCode: number | null;
+    constructor(message: string, statusCode: number | null = null) {
         super(message, 'API_ERROR');
         this.name = 'APIError';
         this.statusCode = statusCode;
@@ -22,7 +24,8 @@ export class APIError extends QobuzError {
 }
 
 export class DownloadError extends QobuzError {
-    constructor(message, trackId = null) {
+    trackId: string | number | null;
+    constructor(message: string, trackId: string | number | null = null) {
         super(message, 'DOWNLOAD_ERROR');
         this.name = 'DownloadError';
         this.trackId = trackId;
@@ -30,7 +33,8 @@ export class DownloadError extends QobuzError {
 }
 
 export class ValidationError extends QobuzError {
-    constructor(message, field = null) {
+    field: string | null;
+    constructor(message: string, field: string | null = null) {
         super(message, 'VALIDATION_ERROR');
         this.name = 'ValidationError';
         this.field = field;
@@ -38,14 +42,15 @@ export class ValidationError extends QobuzError {
 }
 
 export class ConfigurationError extends QobuzError {
-    constructor(message, missingVars = []) {
+    missingVars: string[];
+    constructor(message: string, missingVars: string[] = []) {
         super(message, 'CONFIG_ERROR');
         this.name = 'ConfigurationError';
         this.missingVars = missingVars;
     }
 }
 
-export function handleError(error, display) {
+export function handleError(error: Error | QobuzError, display: any) {
     if (error instanceof ValidationError) {
         display.displayError(`Validation Error: ${error.message}`);
     } else if (error instanceof AuthenticationError) {

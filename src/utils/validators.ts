@@ -1,16 +1,22 @@
 import { ValidationError } from './errors.js';
 
 const QOBUZ_URL_PATTERNS = {
-    track: new RegExp('qobuz\\.com/[a-z-]+/track/(\\d+)', 'i'),
-    album: new RegExp('qobuz\\.com/[a-z-]+/album/[^/]+/([a-zA-Z0-9]+)', 'i'),
-    artist: new RegExp('qobuz\\.com/[a-z-]+/artist/(\\d+)', 'i'),
-    playlist: new RegExp('qobuz\\.com/[a-z-]+/playlist/(\\d+)', 'i'),
-    label: new RegExp('qobuz\\.com/[a-z-]+/label/[^/]+/(\\d+)', 'i')
+    track: new RegExp('qobuz.com/[a-z-]+/track/(\\d+)', 'i'),
+    album: new RegExp('qobuz.com/[a-z-]+/album/[^/]+/([a-zA-Z0-9]+)', 'i'),
+    artist: new RegExp('qobuz.com/[a-z-]+/artist/(\\d+)', 'i'),
+    playlist: new RegExp('qobuz.com/[a-z-]+/playlist/(\\d+)', 'i'),
+    label: new RegExp('qobuz.com/[a-z-]+/label/[^/]+/(\\d+)', 'i')
 };
 
 const VALID_QUALITIES = [5, 6, 7, 27];
 
-export function validateQobuzUrl(url) {
+export interface QobuzUrlInfo {
+    valid: boolean;
+    type: string;
+    id: string;
+}
+
+export function validateQobuzUrl(url: string | null | undefined): QobuzUrlInfo {
     if (!url || typeof url !== 'string') {
         throw new ValidationError('URL is required', 'url');
     }
@@ -37,8 +43,8 @@ export function validateQobuzUrl(url) {
     );
 }
 
-export function validateQuality(quality) {
-    const qualityId = parseInt(quality, 10);
+export function validateQuality(quality: string | number): number {
+    const qualityId = typeof quality === 'string' ? parseInt(quality, 10) : quality;
 
     if (isNaN(qualityId)) {
         throw new ValidationError(
@@ -61,7 +67,7 @@ export function validateQuality(quality) {
     return qualityId;
 }
 
-export function validateSearchType(type) {
+export function validateSearchType(type: string): string {
     const validTypes = ['albums', 'tracks', 'artists'];
 
     if (!validTypes.includes(type.toLowerCase())) {
@@ -74,8 +80,8 @@ export function validateSearchType(type) {
     return type.toLowerCase();
 }
 
-export function validateLimit(limit) {
-    const limitNum = parseInt(limit, 10);
+export function validateLimit(limit: string | number): number {
+    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : limit;
 
     if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
         throw new ValidationError('Limit must be a number between 1 and 100', 'limit');
@@ -84,7 +90,7 @@ export function validateLimit(limit) {
     return limitNum;
 }
 
-export function isValidUrl(url) {
+export function isValidUrl(url: string): boolean {
     try {
         validateQobuzUrl(url);
         return true;

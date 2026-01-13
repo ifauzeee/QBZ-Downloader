@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import MetadataService from './metadata.js';
 
 describe('MetadataService', () => {
     const metadataService = new MetadataService();
+    (metadataService as any).fetchItunesMetadata = vi.fn().mockResolvedValue(null);
 
-    const mockMetadata = {
+    const mockMetadata: any = {
         title: 'Test Title',
         artist: 'Test Artist',
         album: 'Test Album'
@@ -61,7 +62,7 @@ describe('MetadataService', () => {
     });
 
     describe('Artist Extraction', () => {
-        it('should extract featured artists correctly', () => {
+        it('should extract featured artists correctly', async () => {
             const track = {
                 title: 'Starboy',
                 performer: { name: 'The Weeknd' },
@@ -69,12 +70,12 @@ describe('MetadataService', () => {
                 album: { title: 'Starboy' }
             };
 
-            const metadata = metadataService.extractMetadata(track, {});
+            const metadata = await metadataService.extractMetadata(track, {});
             expect(metadata.performers.featured).toContain('Daft Punk');
             expect(metadata.artist).toContain('Daft Punk');
         });
 
-        it('should extract multiple main artists', () => {
+        it('should extract multiple main artists', async () => {
             const track = {
                 title: 'Die With A Smile',
                 performer: { name: 'Lady Gaga' },
@@ -82,7 +83,7 @@ describe('MetadataService', () => {
                 album: { title: 'Die With A Smile' }
             };
 
-            const metadata = metadataService.extractMetadata(track, {});
+            const metadata = await metadataService.extractMetadata(track, {});
             expect(metadata.artist).toContain('Lady Gaga');
             expect(metadata.artist).toContain('Bruno Mars');
         });

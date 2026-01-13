@@ -1,6 +1,5 @@
 export const API = {
     QOBUZ_BASE_URL: 'https://www.qobuz.com/api.json/0.2',
-
     LRCLIB_API_URL: 'https://lrclib.net/api'
 };
 
@@ -22,7 +21,15 @@ export const QUALITY = {
     HIRES_MAX: 27
 };
 
-export const QUALITY_INFO = {
+export interface QualityFormat {
+    name: string;
+    bitDepth: number | null;
+    sampleRate: number | null;
+    extension: string;
+    emoji: string;
+}
+
+export const QUALITY_INFO: Record<number, QualityFormat> = {
     5: { name: 'MP3 320', bitDepth: null, sampleRate: null, extension: 'mp3', emoji: '🎵' },
     6: {
         name: 'FLAC 16-bit/44.1kHz (CD Quality)',
@@ -94,5 +101,5 @@ export const METADATA_TAGS = {
 };
 
 export const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '2.0.0';
 export const APP_NAME = 'Qobuz-DL CLI';

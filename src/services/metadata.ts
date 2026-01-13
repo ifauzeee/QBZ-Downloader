@@ -1,12 +1,77 @@
 import NodeID3 from 'node-id3';
 
+export interface Metadata {
+    title: string;
+    artist: string;
+    album: string;
+    year: string | number;
+    trackNumber: number | string;
+    totalTracks: number | string;
+    discNumber: number | string;
+    totalDiscs: number | string;
+    genre: string;
 
+    albumArtist: string;
+    composer: string;
+    conductor: string;
+    producer: string;
+    mixer: string;
+    remixer: string;
+    lyricist: string;
+    writer: string;
+    arranger: string;
+    engineer: string;
+
+    label: string;
+    copyright: string;
+    isrc: string;
+    upc: string;
+    barcode: string;
+    catalogNumber: string;
+
+    releaseDate: string;
+    originalReleaseDate: string;
+    releaseType: string;
+    version: string;
+
+    duration: number;
+    durationFormatted: string;
+    bitDepth: number;
+    sampleRate: number;
+    bitrate: number;
+    channels: number;
+
+    qobuzTrackId: string;
+    qobuzAlbumId: string;
+    qobuzArtistId: string;
+    streamable: boolean;
+    hiresStreamable: boolean;
+    hiresAvailable: boolean;
+    parental: boolean;
+
+    coverUrl: string;
+
+    description: string;
+    comment: string;
+    encodedBy: string;
+
+    performers: any;
+    credits: any;
+    allArtists: any[];
+
+    rawTrack: any;
+        rawAlbum: any;
+    
+        replayGain?: string;
+    }
 class MetadataService {
+    supportedFormats: string[];
+
     constructor() {
         this.supportedFormats = ['flac', 'mp3', 'm4a'];
     }
 
-    normalizeName(name) {
+    normalizeName(name: string) {
         if (!name) return '';
         return name
             .normalize('NFD')
@@ -17,7 +82,7 @@ class MetadataService {
             .toLowerCase();
     }
 
-    extractMetadata(trackData, albumData, fileInfo = {}) {
+    async extractMetadata(trackData: any, albumData: any, fileInfo: any = {}): Promise<Metadata> {
         const album = trackData.album || albumData || {};
         const artist = trackData.performer || trackData.artist || {};
         const composer = trackData.composer || {};
@@ -27,7 +92,7 @@ class MetadataService {
 
         let mainArtist = '';
         if (performers.main.length > 0) {
-            mainArtist = performers.main.map((p) => p.name).join('; ');
+            mainArtist = performers.main.map((p: any) => p.name).join('; ');
         } else {
             mainArtist = artist.name || trackData.performer?.name || 'Unknown';
         }
@@ -38,7 +103,7 @@ class MetadataService {
             else mainArtist = featuredStr;
         }
 
-        const metadata = {
+        const metadata: Metadata = {
             title: trackData.title || '',
             artist: mainArtist,
             album: album.title || '',
@@ -88,13 +153,10 @@ class MetadataService {
             parental: trackData.parental_warning || false,
 
             coverUrl: album.image?.large || album.image?.small || '',
-            coverUrlSmall: album.image?.small || '',
-            coverUrlLarge: album.image?.large || '',
-            coverUrlMax: album.image?.large?.replace('600', '1200') || '',
 
             description: album.description || '',
-            comment: `Downloaded from Qobuz | ${fileInfo.bitDepth || 16}bit/${fileInfo.sampleRate || 44.1}kHz`,
-            encodedBy: 'Qobuz-DL CLI v2.0',
+            comment: `Downloaded by Zee Downloader | ${fileInfo.bitDepth || 16}bit/${fileInfo.sampleRate || 44.1}kHz`,
+            encodedBy: 'Zee Downloader',
 
             performers: performers,
             credits: credits,
@@ -107,8 +169,8 @@ class MetadataService {
         return metadata;
     }
 
-    extractPerformers(trackData, _albumData) {
-        const performers = {
+    extractPerformers(trackData: any, _albumData: any) {
+        const performers: any = {
             main: [],
             featured: [],
             conductor: '',
@@ -119,7 +181,7 @@ class MetadataService {
 
         const seenNames = new Set();
 
-        const addPerformer = (name, role, targetList) => {
+        const addPerformer = (name: string, role: string, targetList: any[]) => {
             const normalized = this.normalizeName(name);
             if (!seenNames.has(normalized)) {
                 targetList.push({ name, role });
@@ -185,8 +247,8 @@ class MetadataService {
         return performers;
     }
 
-    extractCredits(albumData) {
-        const credits = {
+    extractCredits(albumData: any) {
+        const credits: any = {
             producer: '',
             mixer: '',
             remixer: '',
@@ -199,7 +261,7 @@ class MetadataService {
         };
 
         if (albumData?.credits) {
-            const creditMap = {
+            const creditMap: Record<string, string> = {
                 Producer: 'producer',
                 Mixer: 'mixer',
                 'Mixed By': 'mixer',
@@ -225,7 +287,7 @@ class MetadataService {
         return credits;
     }
 
-    getAllArtists(trackData, albumData) {
+    getAllArtists(trackData: any, albumData: any) {
         const artists = new Set();
 
         if (trackData.performer?.name) artists.add(trackData.performer.name);
@@ -236,20 +298,20 @@ class MetadataService {
         return Array.from(artists);
     }
 
-    formatDate(timestamp) {
+    formatDate(timestamp: number) {
         if (!timestamp) return '';
         const date = new Date(timestamp * 1000);
         return date.toISOString().split('T')[0];
     }
 
-    formatDuration(seconds) {
+    formatDuration(seconds: number) {
         if (!seconds) return '0:00';
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
-    formatDurationLong(seconds) {
+    formatDurationLong(seconds: number) {
         if (!seconds) return '00:00:00';
         const hrs = Math.floor(seconds / 3600);
         const mins = Math.floor((seconds % 3600) / 60);
@@ -257,8 +319,8 @@ class MetadataService {
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    buildId3Tags(metadata, coverBuffer = null, lyrics = null) {
-        const tags = {
+    buildId3Tags(metadata: Metadata, coverBuffer: Buffer | null = null, lyrics: any = null) {
+        const tags: any = {
             title: metadata.title,
             artist: metadata.artist,
             album: metadata.album,
@@ -316,7 +378,7 @@ class MetadataService {
             }
 
             if (lyrics.syltFormat) {
-                tags.synchronisedLyrics = lyrics.syltFormat.map((l) => ({
+                tags.synchronisedLyrics = lyrics.syltFormat.map((l: any) => ({
                     text: l.text,
                     timeStamp: l.timeStamp
                 }));
@@ -326,7 +388,7 @@ class MetadataService {
         return tags;
     }
 
-    buildFlacTags(metadata, lyrics = null) {
+    buildFlacTags(metadata: Metadata, lyrics: any = null) {
         const comments = [
             ['TITLE', metadata.title],
             ['ARTIST', metadata.artist],
@@ -373,8 +435,6 @@ class MetadataService {
             ['QOBUZ_ARTIST_ID', metadata.qobuzArtistId]
         ];
 
-
-
         if (lyrics) {
             if (lyrics.syncedLyrics) {
                 comments.push(['SYNCEDLYRICS', lyrics.syncedLyrics]);
@@ -391,7 +451,7 @@ class MetadataService {
         return comments.filter(([_key, value]) => value && value.toString().trim());
     }
 
-    async writeId3Tags(filePath, tags) {
+    async writeId3Tags(filePath: string, tags: any) {
         return new Promise((resolve, reject) => {
             const success = NodeID3.write(tags, filePath);
             if (success) {
@@ -402,7 +462,7 @@ class MetadataService {
         });
     }
 
-    getMetadataDisplay(metadata) {
+    getMetadataDisplay(metadata: Metadata) {
         return {
             '📀 Title': metadata.title,
             '🎤 Artist': metadata.artist,

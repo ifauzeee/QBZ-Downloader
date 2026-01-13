@@ -13,8 +13,8 @@ const _OPTIONAL_VARS = [
 ];
 
 export function validateEnvironment(exitOnError = true) {
-    const missing = [];
-    const warnings = [];
+    const missing: string[] = [];
+    const warnings: string[] = [];
 
     for (const varName of REQUIRED_VARS) {
         if (varName === 'QOBUZ_USER_AUTH_TOKEN') {
@@ -49,7 +49,7 @@ export function validateEnvironment(exitOnError = true) {
     return { valid: true, warnings };
 }
 
-export function displayEnvWarnings(warnings) {
+export function displayEnvWarnings(warnings: string[]) {
     if (warnings && warnings.length > 0) {
         for (const warning of warnings) {
             console.log(chalk.yellow(`⚠️  ${warning}`));

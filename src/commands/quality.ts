@@ -1,7 +1,8 @@
 import chalk from 'chalk';
 import * as display from '../utils/display.js';
+import { Command } from 'commander';
 
-export function registerQualityCommand(program) {
+export function registerQualityCommand(program: Command) {
     program
         .command('quality')
         .alias('q')

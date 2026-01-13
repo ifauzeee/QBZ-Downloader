@@ -4,12 +4,13 @@ import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import MetadataService from '../services/metadata.js';
 import * as display from '../utils/display.js';
+import { Command } from 'commander';
 
 const api = new QobuzAPI();
 const metadataService = new MetadataService();
 const lyricsProvider = new LyricsProvider();
 
-export function registerInfoCommand(program) {
+export function registerInfoCommand(program: Command) {
     program
         .command('info')
         .alias('i')
@@ -36,7 +37,7 @@ export function registerInfoCommand(program) {
                     const result = await api.getAlbum(parsed.id);
                     if (!result.success) {
                         spinner.fail(chalk.red('Failed to get album info'));
-                        display.displayError(result.error);
+                        display.displayError(result.error || 'Unknown error');
                         process.exit(1);
                     }
 
@@ -56,7 +57,7 @@ export function registerInfoCommand(program) {
                     const result = await api.getTrack(parsed.id);
                     if (!result.success) {
                         spinner.fail(chalk.red('Failed to get track info'));
-                        display.displayError(result.error);
+                        display.displayError(result.error || 'Unknown error');
                         process.exit(1);
                     }
 
@@ -64,11 +65,11 @@ export function registerInfoCommand(program) {
                     display.displayTrackInfo(result.data);
 
                     if (options.metadata) {
-                        const metadata = metadataService.extractMetadata(
+                        const metadata = await metadataService.extractMetadata(
                             result.data,
                             result.data.album
                         );
-                        display.displayMetadata(metadata);
+                        display.displayMetadata(metadata as any);
                     }
 
                     if (options.lyrics) {
@@ -86,13 +87,13 @@ export function registerInfoCommand(program) {
 
                         if (lyrics.success) {
                             lyricsSpinner.succeed(chalk.green('Lyrics found!'));
-                            display.displayLyrics(lyrics, 30);
+                            display.displayLyrics(lyrics);
                         } else {
                             lyricsSpinner.warn(chalk.yellow('No lyrics available'));
                         }
                     }
                 }
-            } catch (error) {
+            } catch (error: any) {
                 spinner.fail(chalk.red('An error occurred'));
                 display.displayError(error.message);
                 process.exit(1);
