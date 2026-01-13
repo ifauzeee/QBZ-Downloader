@@ -352,7 +352,7 @@ class MetadataService {
                 { description: 'BARCODE', value: metadata.upc },
                 { description: 'CATALOGNUMBER', value: metadata.catalogNumber },
                 { description: 'LABEL', value: metadata.label },
-                { description: 'RELEASETYPE', value: metadata.releaseType },
+                { description: 'RELEASETYPE', value: metadata.releaseType }
             ].filter((t) => t.value)
         };
 
@@ -425,8 +425,7 @@ class MetadataService {
             ['VERSION', metadata.version],
 
             ['ENCODER', metadata.encodedBy],
-            ['COMMENT', metadata.comment],
-
+            ['COMMENT', metadata.comment]
         ];
 
         if (lyrics) {

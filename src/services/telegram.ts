@@ -58,7 +58,7 @@ export class TelegramService {
                 fs.rmdirSync(dir);
                 this.deleteEmptyDirs(path.dirname(dir));
             }
-        } catch { }
+        } catch {}
     }
 
     async sendMessage(message: string) {
@@ -68,7 +68,7 @@ export class TelegramService {
             await this.bot.telegram.sendMessage(this.chatId, message, {
                 parse_mode: 'HTML'
             });
-        } catch { }
+        } catch {}
     }
 
     async uploadFile(filePath: string, caption?: string) {
@@ -82,8 +82,8 @@ export class TelegramService {
             if (sizeInMB > 49) {
                 await this.sendMessage(
                     '⚠️ <b>File > 50MB (Telegram Limit)</b>\n' +
-                    `📄 <code>${path.basename(filePath)}</code> (${this.formatSize(fileSizeInBytes)})\n` +
-                    '<i>Saved on server. Cannot auto-delete.</i>'
+                        `📄 <code>${path.basename(filePath)}</code> (${this.formatSize(fileSizeInBytes)})\n` +
+                        '<i>Saved on server. Cannot auto-delete.</i>'
                 );
                 return;
             }
@@ -195,7 +195,7 @@ export class TelegramService {
             await this.bot!.telegram.editMessageText(this.chatId!, messageId, undefined, msgCode, {
                 parse_mode: 'HTML'
             });
-        } catch { }
+        } catch {}
     }
 
     async startBot() {
@@ -219,7 +219,7 @@ export class TelegramService {
         this.bot.start((ctx) => {
             ctx.reply(
                 '<b>👋 Welcome to Qobuz-DL Bot!</b>\n\n' +
-                'Send me a Qobuz link to start downloading.\nIf the file is &lt; 50MB, I will send it here.',
+                    'Send me a Qobuz link to start downloading.\nIf the file is &lt; 50MB, I will send it here.',
                 { parse_mode: 'HTML' }
             );
         });
@@ -227,9 +227,9 @@ export class TelegramService {
         this.bot.help((ctx) => {
             ctx.reply(
                 '<b>Available Commands:</b>\n\n' +
-                '/search &lt;query&gt; - Search for tracks/albums\n' +
-                '/help - Show this message\n\n' +
-                'Or just send a Qobuz link.',
+                    '/search &lt;query&gt; - Search for tracks/albums\n' +
+                    '/help - Show this message\n\n' +
+                    'Or just send a Qobuz link.',
                 { parse_mode: 'HTML' }
             );
         });

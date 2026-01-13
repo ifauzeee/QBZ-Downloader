@@ -148,15 +148,28 @@ export async function downloadAlbumInteractive(
             selectedQuality = qualityAnswer.quality;
         }
     } else {
-        selectedQuality = CONFIG.quality.default === 'min' ? 5 :
-            CONFIG.quality.default === 'max' ? bestQuality :
-                (typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : bestQuality);
+        selectedQuality =
+            CONFIG.quality.default === 'min'
+                ? 5
+                : CONFIG.quality.default === 'max'
+                  ? bestQuality
+                  : typeof CONFIG.quality.default === 'number'
+                    ? CONFIG.quality.default
+                    : bestQuality;
 
-        if (typeof selectedQuality === 'number' && selectedQuality > bestQuality && bestQuality !== 5) {
+        if (
+            typeof selectedQuality === 'number' &&
+            selectedQuality > bestQuality &&
+            bestQuality !== 5
+        ) {
             selectedQuality = bestQuality;
         }
 
-        console.log(chalk.green(`ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`));
+        console.log(
+            chalk.green(
+                `ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`
+            )
+        );
     }
 
     if (!options.batch) {
@@ -310,15 +323,28 @@ export async function downloadTrackInteractive(
             proceed = confirmAnswer.proceed;
         }
     } else {
-        selectedQuality = CONFIG.quality.default === 'min' ? 5 :
-            CONFIG.quality.default === 'max' ? bestQuality :
-                (typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : bestQuality);
+        selectedQuality =
+            CONFIG.quality.default === 'min'
+                ? 5
+                : CONFIG.quality.default === 'max'
+                  ? bestQuality
+                  : typeof CONFIG.quality.default === 'number'
+                    ? CONFIG.quality.default
+                    : bestQuality;
 
-        if (typeof selectedQuality === 'number' && selectedQuality > bestQuality && bestQuality !== 5) {
+        if (
+            typeof selectedQuality === 'number' &&
+            selectedQuality > bestQuality &&
+            bestQuality !== 5
+        ) {
             selectedQuality = bestQuality;
         }
 
-        console.log(chalk.green(`ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`));
+        console.log(
+            chalk.green(
+                `ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`
+            )
+        );
 
         if (!options.batch) {
             const confirmAnswer = await inquirer.prompt([prompts.getTrackDownloadPrompt()]);
@@ -416,11 +442,20 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
         ]);
         proceed = confirm.proceed;
     } else {
-        selectedQuality = CONFIG.quality.default === 'min' ? 5 :
-            CONFIG.quality.default === 'max' ? 27 :
-                (typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : 27);
+        selectedQuality =
+            CONFIG.quality.default === 'min'
+                ? 5
+                : CONFIG.quality.default === 'max'
+                  ? 27
+                  : typeof CONFIG.quality.default === 'number'
+                    ? CONFIG.quality.default
+                    : 27;
 
-        console.log(chalk.green(`ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`));
+        console.log(
+            chalk.green(
+                `ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`
+            )
+        );
 
         const confirm = await inquirer.prompt([
             {
@@ -530,11 +565,20 @@ export async function downloadArtistInteractive(artistId: string | number, _opti
         ]);
         proceed = confirm.proceed;
     } else {
-        selectedQuality = CONFIG.quality.default === 'min' ? 5 :
-            CONFIG.quality.default === 'max' ? 27 :
-                (typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : 27);
+        selectedQuality =
+            CONFIG.quality.default === 'min'
+                ? 5
+                : CONFIG.quality.default === 'max'
+                  ? 27
+                  : typeof CONFIG.quality.default === 'number'
+                    ? CONFIG.quality.default
+                    : 27;
 
-        console.log(chalk.green(`ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`));
+        console.log(
+            chalk.green(
+                `ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`
+            )
+        );
 
         const confirm = await inquirer.prompt([
             {

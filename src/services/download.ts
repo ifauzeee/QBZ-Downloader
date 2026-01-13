@@ -1,8 +1,16 @@
-import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 import { pipeline } from 'stream/promises';
-import { createWriteStream } from 'fs';
+import {
+    createWriteStream,
+    mkdirSync,
+    writeFileSync,
+    unlinkSync,
+    renameSync,
+    createReadStream,
+    existsSync
+} from 'fs';
+import { PassThrough } from 'stream';
 import { CONFIG } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
@@ -180,7 +188,7 @@ class DownloadService {
 
             const rootDir = options.outputDir || this.outputDir;
             const folderPath = path.join(rootDir, this.buildFolderPath(metadata, actualQuality));
-            fs.mkdirSync(folderPath, { recursive: true });
+            mkdirSync(folderPath, { recursive: true });
 
             const filePath = path.join(folderPath, this.buildFilename(metadata, extension));
             result.filePath = filePath;
@@ -197,26 +205,57 @@ class DownloadService {
                 if (lyricsRes.success) lyrics = lyricsRes;
             }
 
-            if (options.onProgress) options.onProgress('download_start', 0);
+            const maxAttempts = CONFIG.download.retryAttempts || 3;
+            const retryDelay = CONFIG.download.retryDelay || 1000;
+            let lastError = null;
 
-            const fileStreamData = fileUrl.data as { url: string };
-            const response = await axios({
-                method: 'GET',
-                url: fileStreamData.url,
-                responseType: 'stream',
-                timeout: 300000
-            });
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    if (options.onProgress) options.onProgress('download_start', 0);
 
-            const totalSize = parseInt(response.headers['content-length'], 10);
-            const writer = createWriteStream(filePath);
+                    const fileStreamData = fileUrl.data as { url: string };
+                    const response = await axios({
+                        method: 'GET',
+                        url: fileStreamData.url,
+                        responseType: 'stream',
+                        timeout: 0
+                    });
 
-            let downloaded = 0;
-            response.data.on('data', (chunk: Buffer) => {
-                downloaded += chunk.length;
-                if (options.onProgress) options.onProgress('download', downloaded, totalSize);
-            });
+                    const totalSize = parseInt(response.headers['content-length'], 10);
+                    const writer = createWriteStream(filePath);
+                    const progressStream = new PassThrough();
 
-            await pipeline(response.data, writer);
+                    let downloaded = 0;
+                    progressStream.on('data', (chunk: Buffer) => {
+                        downloaded += chunk.length;
+                        if (options.onProgress)
+                            options.onProgress('download', downloaded, totalSize);
+                    });
+
+                    await pipeline(response.data, progressStream, writer);
+
+                    if (totalSize && downloaded < totalSize) {
+                        throw new Error(
+                            `Incomplete download: Expected ${totalSize} bytes, got ${downloaded}`
+                        );
+                    }
+
+                    lastError = null;
+                    break;
+                } catch (error) {
+                    lastError = error;
+                    if (attempt < maxAttempts) {
+                        const delay = retryDelay * attempt;
+                        if (existsSync(filePath)) unlinkSync(filePath);
+                        await new Promise((resolve) => setTimeout(resolve, delay));
+                        continue;
+                    }
+                }
+            }
+
+            if (lastError) {
+                throw lastError;
+            }
 
             if (options.onProgress) options.onProgress('cover', 0);
             const coverBuffer =
@@ -225,7 +264,7 @@ class DownloadService {
                     : null;
 
             if (coverBuffer && CONFIG.metadata.saveCoverFile) {
-                fs.writeFileSync(path.join(folderPath, 'cover.jpg'), coverBuffer);
+                writeFileSync(path.join(folderPath, 'cover.jpg'), coverBuffer);
             }
 
             if (options.onProgress) options.onProgress('tagging', 0);
@@ -244,7 +283,9 @@ class DownloadService {
             result.success = true;
             return result;
         } catch (error: unknown) {
-            result.error = (error as Error).message;
+            const err = error as any;
+            result.error = err.message || 'Unknown error';
+            if (err.code) result.error += ` (${err.code})`;
             return result;
         }
     }
@@ -266,11 +307,11 @@ class DownloadService {
                 }
                 if (coverBuffer) {
                     const coverPath = filePath + '.cover.jpg';
-                    fs.writeFileSync(coverPath, coverBuffer);
+                    writeFileSync(coverPath, coverBuffer);
                     execSync(`metaflac --import-picture-from="${coverPath}" "${filePath}"`, {
                         stdio: 'ignore'
                     });
-                    fs.unlinkSync(coverPath);
+                    unlinkSync(coverPath);
                 }
                 return;
             } catch (e) {
@@ -279,8 +320,8 @@ class DownloadService {
 
             console.log('    ℹ️  Using JS fallback for FLAC tagging...');
             const tempPath = filePath + '.tmp';
-            const reader = fs.createReadStream(filePath);
-            const writer = fs.createWriteStream(tempPath);
+            const reader = createReadStream(filePath);
+            const writer = createWriteStream(tempPath);
 
             const processor = new flac.Processor({ parseMetaDataBlocks: true });
 
@@ -332,8 +373,8 @@ class DownloadService {
                 processor.on('error', reject);
             });
 
-            fs.unlinkSync(filePath);
-            fs.renameSync(tempPath, filePath);
+            unlinkSync(filePath);
+            renameSync(tempPath, filePath);
         } catch (error: unknown) {
             console.error('Tagging Error:', (error as Error).message);
         }

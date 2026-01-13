@@ -33,12 +33,20 @@ export async function handleSettings() {
         const dlPath = getSetting('downloads', 'path', './downloads');
         const dlConc = getSetting('downloads', 'concurrent', 4);
 
-        const metaLyrics = getSetting('metadata', 'embedLyrics', true) ? chalk.green('Yes') : chalk.red('No');
-        const metaCover = getSetting('metadata', 'embedCover', true) ? chalk.green('Yes') : chalk.red('No');
-        const saveCover = getSetting('metadata', 'saveCoverFile', false) ? chalk.green('Yes') : chalk.red('No');
+        const metaLyrics = getSetting('metadata', 'embedLyrics', true)
+            ? chalk.green('Yes')
+            : chalk.red('No');
+        const metaCover = getSetting('metadata', 'embedCover', true)
+            ? chalk.green('Yes')
+            : chalk.red('No');
+        const saveCover = getSetting('metadata', 'saveCoverFile', false)
+            ? chalk.green('Yes')
+            : chalk.red('No');
 
         const dispColor = getSetting('display', 'colorScheme', 'gradient');
-        const tgUpload = getSetting('telegram', 'uploadFiles', true) ? chalk.green('Yes') : chalk.red('No');
+        const tgUpload = getSetting('telegram', 'uploadFiles', true)
+            ? chalk.green('Yes')
+            : chalk.red('No');
 
         console.log(chalk.bold.cyan('\n⚙️  Settings & Configuration:\n'));
 
@@ -49,7 +57,11 @@ export async function handleSettings() {
         console.log(chalk.gray(`     Path: ${dlPath} | Concurrency: ${dlConc}`));
 
         console.log(chalk.bold.white('  3) 🏷️  Metadata & Assets'));
-        console.log(chalk.gray(`     Lyrics: ${metaLyrics} | Cover: ${metaCover} | Save Folder.jpg: ${saveCover}`));
+        console.log(
+            chalk.gray(
+                `     Lyrics: ${metaLyrics} | Cover: ${metaCover} | Save Folder.jpg: ${saveCover}`
+            )
+        );
 
         console.log(chalk.bold.white('  4) 🎨 Display & Interface'));
         console.log(chalk.gray(`     Theme: ${dispColor}`));
@@ -79,14 +91,30 @@ export async function handleSettings() {
         const choice = parseInt(answer.action);
 
         switch (choice) {
-            case 1: await handleQualitySettings(); break;
-            case 2: await handleDownloadSettings(); break;
-            case 3: await handleMetadataSettings(); break;
-            case 4: await handleDisplaySettings(); break;
-            case 5: await handleTelegramSettings(); break;
-            case 6: await handleResetSettings(); break;
-            case 7: await showSettingsHelp(); break;
-            case 0: inSettings = false; break;
+            case 1:
+                await handleQualitySettings();
+                break;
+            case 2:
+                await handleDownloadSettings();
+                break;
+            case 3:
+                await handleMetadataSettings();
+                break;
+            case 4:
+                await handleDisplaySettings();
+                break;
+            case 5:
+                await handleTelegramSettings();
+                break;
+            case 6:
+                await handleResetSettings();
+                break;
+            case 7:
+                await showSettingsHelp();
+                break;
+            case 0:
+                inSettings = false;
+                break;
         }
     }
 }
@@ -295,27 +323,62 @@ async function showSettingsHelp() {
     console.log(chalk.bold.cyan('\n📖 Settings Guide (English):\n'));
 
     console.log(chalk.bold.yellow('--- GENERAL ---'));
-    console.log(chalk.white('quality.default   ') + chalk.gray(': "ask" to prompt every time, "max" for best, "min" for 320kbps.'));
-    console.log(chalk.white('embedLyrics       ') + chalk.gray(': Automatically embed lyrics into the music file.'));
-    console.log(chalk.white('embedCover        ') + chalk.gray(': Automatically embed cover art into the music file.'));
+    console.log(
+        chalk.white('quality.default   ') +
+            chalk.gray(': "ask" to prompt every time, "max" for best, "min" for 320kbps.')
+    );
+    console.log(
+        chalk.white('embedLyrics       ') +
+            chalk.gray(': Automatically embed lyrics into the music file.')
+    );
+    console.log(
+        chalk.white('embedCover        ') +
+            chalk.gray(': Automatically embed cover art into the music file.')
+    );
 
     console.log(chalk.bold.yellow('\n--- DOWNLOADS ---'));
-    console.log(chalk.white('path              ') + chalk.gray(': The directory where your music will be saved.'));
-    console.log(chalk.white('concurrent        ') + chalk.gray(': How many songs to download at once (1-10 recommended).'));
-    console.log(chalk.white('folderTemplate    ') + chalk.gray(': Structure of folders (e.g., "{artist}/{album}").'));
-    console.log(chalk.white('fileTemplate      ') + chalk.gray(': How files are named (e.g., "{track_number} {title}").'));
+    console.log(
+        chalk.white('path              ') +
+            chalk.gray(': The directory where your music will be saved.')
+    );
+    console.log(
+        chalk.white('concurrent        ') +
+            chalk.gray(': How many songs to download at once (1-10 recommended).')
+    );
+    console.log(
+        chalk.white('folderTemplate    ') +
+            chalk.gray(': Structure of folders (e.g., "{artist}/{album}").')
+    );
+    console.log(
+        chalk.white('fileTemplate      ') +
+            chalk.gray(': How files are named (e.g., "{track_number} {title}").')
+    );
 
     console.log(chalk.bold.yellow('\n--- METADATA ---'));
-    console.log(chalk.white('saveCoverFile     ') + chalk.gray(': Save "cover.jpg" inside the album folder.'));
-    console.log(chalk.white('saveLrcFile       ') + chalk.gray(': Save a separate ".lrc" file for lyrics.'));
-    console.log(chalk.white('lyricsType        ') + chalk.gray(': "synced" (LRC), "plain" (TXT), or "both".'));
+    console.log(
+        chalk.white('saveCoverFile     ') +
+            chalk.gray(': Save "cover.jpg" inside the album folder.')
+    );
+    console.log(
+        chalk.white('saveLrcFile       ') + chalk.gray(': Save a separate ".lrc" file for lyrics.')
+    );
+    console.log(
+        chalk.white('lyricsType        ') +
+            chalk.gray(': "synced" (LRC), "plain" (TXT), or "both".')
+    );
 
     console.log(chalk.bold.yellow('\n--- TELEGRAM ---'));
-    console.log(chalk.white('uploadFiles       ') + chalk.gray(': Automatically send downloaded songs to your Telegram bot.'));
-    console.log(chalk.white('autoDelete        ') + chalk.gray(': Delete the local file after a successful Telegram upload.'));
+    console.log(
+        chalk.white('uploadFiles       ') +
+            chalk.gray(': Automatically send downloaded songs to your Telegram bot.')
+    );
+    console.log(
+        chalk.white('autoDelete        ') +
+            chalk.gray(': Delete the local file after a successful Telegram upload.')
+    );
 
     console.log(chalk.cyan('\nPress any key to return to settings menu...'));
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
         process.stdin.setRawMode(true);
         process.stdin.resume();
         process.stdin.once('data', () => {
