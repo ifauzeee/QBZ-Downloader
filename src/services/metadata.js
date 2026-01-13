@@ -1,75 +1,9 @@
 import NodeID3 from 'node-id3';
-import SpotifyAPI from '../api/spotify.js';
-import DiscogsAPI from '../api/discogs.js';
-import MusicBrainzAPI from '../api/musicbrainz.js';
 import { CONFIG } from '../config.js';
 
 class MetadataService {
     constructor() {
         this.supportedFormats = ['flac', 'mp3', 'm4a'];
-        this.spotifyApi = new SpotifyAPI();
-        this.discogsApi = new DiscogsAPI();
-        this.musicbrainzApi = new MusicBrainzAPI();
-    }
-
-    async getEnhancedMetadata(title, artist, album = '', isrc = null) {
-        let merged = {};
-        let spotifyData = null;
-        let discogsData = null;
-        let mbData = null;
-
-        const promises = [];
-
-        if (CONFIG.credentials.spotifyClientId) {
-            promises.push(
-                this.spotifyApi.getTrackInfo(title, artist, album, isrc).then((data) => {
-                    if (data) spotifyData = data;
-                })
-            );
-        }
-
-        if (CONFIG.credentials.discogsToken && album) {
-            promises.push(
-                this.discogsApi.getEnhancedMetadata(artist, album).then((data) => {
-                    if (data) discogsData = data;
-                })
-            );
-        }
-
-        promises.push(
-            this.musicbrainzApi.getEnhancedMetadata(artist, album, isrc).then((data) => {
-                if (data) mbData = data;
-            })
-        );
-
-        await Promise.allSettled(promises);
-
-        if (spotifyData) merged = { ...merged, ...spotifyData };
-
-        if (mbData) {
-            merged.musicbrainzId = mbData.musicbrainzId;
-            merged.originalDate = mbData.originalDate;
-            if (mbData.standardizedArtist) merged.standardizedArtist = mbData.standardizedArtist;
-            if (mbData.catalogNumber) merged.catno = mbData.catalogNumber;
-        }
-
-        if (discogsData) {
-            merged.discogsId = discogsData.discogsId;
-            merged.country = discogsData.country;
-            if (!merged.catno) merged.catno = discogsData.catno;
-
-            if (discogsData.styles && discogsData.styles.length > 0) {
-                const newStyles = discogsData.styles.join('; ');
-                merged.genres = merged.genres ? `${merged.genres}; ${newStyles}` : newStyles;
-            }
-        }
-
-        return {
-            merged,
-            spotify: spotifyData,
-            discogs: discogsData,
-            musicbrainz: mbData
-        };
     }
 
     normalizeName(name) {
@@ -81,30 +15,6 @@ class MetadataService {
             .replace(/\s+/g, ' ')
             .trim()
             .toLowerCase();
-    }
-
-    applyEnhancedOverrides(metadata, enhanced) {
-        if (!enhanced?.merged) return metadata;
-        const m = enhanced.merged;
-
-        if (m.spotifyArtistString) {
-            metadata.artist = m.spotifyArtistString;
-        } else if (m.standardizedArtist) {
-            metadata.artist = m.standardizedArtist.replace(/, /g, '; ');
-        }
-
-        if (m.originalDate) {
-            metadata.originalReleaseDate = m.originalDate;
-        }
-
-        if (m.musicbrainzId) metadata.musicbrainzReleaseId = m.musicbrainzId;
-        if (m.discogsId) metadata.discogsReleaseId = m.discogsId;
-        if (m.spotifyId) metadata.spotifyTrackId = m.spotifyId;
-
-        if (m.catno) metadata.catalogNumber = m.catno;
-        if (m.country) metadata.releaseCountry = m.country;
-
-        return metadata;
     }
 
     extractMetadata(trackData, albumData, fileInfo = {}) {
@@ -463,35 +373,7 @@ class MetadataService {
             ['QOBUZ_ARTIST_ID', metadata.qobuzArtistId]
         ];
 
-        if (enhanced?.merged) {
-            const m = enhanced.merged;
-            if (m.bpm) comments.push(['BPM', m.bpm.toString()]);
-            if (m.key) comments.push(['KEY', `${m.key} ${m.mode || ''}`]);
-            if (m.timeSignature) comments.push(['TIMESIGNATURE', `${m.timeSignature}/4`]);
-            if (m.danceability) comments.push(['DANCEABILITY', m.danceability.toString()]);
-            if (m.energy) comments.push(['ENERGY', m.energy.toString()]);
-            if (m.valence) comments.push(['MOOD', m.valence > 50 ? 'Happy' : 'Sad']);
-            if (m.valence) comments.push(['VALENCE', m.valence.toString()]);
-            if (m.acousticness) comments.push(['ACOUSTICNESS', m.acousticness.toString()]);
-            if (m.instrumentalness)
-                comments.push(['INSTRUMENTALNESS', m.instrumentalness.toString()]);
-            if (m.liveness) comments.push(['LIVENESS', m.liveness.toString()]);
-            if (m.speechiness) comments.push(['SPEECHINESS', m.speechiness.toString()]);
-            if (m.loudness) comments.push(['LOUDNESS', m.loudness.toString()]);
-            if (m.popularity) comments.push(['POPULARITY', m.popularity.toString()]);
-            if (m.genres) comments.push(['GENRE', m.genres]);
 
-            if (m.spotifyId) comments.push(['SPOTIFY_TRACK_ID', m.spotifyId]);
-            if (m.spotifyUri) comments.push(['SPOTIFY_URI', m.spotifyUri]);
-
-            if (metadata.discogsReleaseId)
-                comments.push(['DISCOGS_RELEASE_ID', metadata.discogsReleaseId.toString()]);
-            if (metadata.musicbrainzReleaseId)
-                comments.push(['MUSICBRAINZ_RELEASEID', metadata.musicbrainzReleaseId]);
-            if (metadata.catalogNumber) comments.push(['CATALOGNUMBER', metadata.catalogNumber]);
-            if (metadata.releaseCountry) comments.push(['RELEASECOUNTRY', metadata.releaseCountry]);
-            if (metadata.labels) comments.push(['LABEL', metadata.labels]);
-        }
 
         if (lyrics) {
             if (lyrics.syncedLyrics) {

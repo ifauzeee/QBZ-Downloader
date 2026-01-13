@@ -24,39 +24,11 @@
 | 📝 **Complete Metadata** | Automatically embed all available tags including credits, composers, conductors |
 | 🎤 **Synced Lyrics** | Fetch and embed time-synced lyrics (LRC format) from LRCLIB |
 | 🖼️ **Cover Art** | High-resolution album artwork embedded in files |
-| 🎯 **Multi-Source Metadata** | Enhanced metadata from Spotify, Discogs, and MusicBrainz |
 | 📊 **Beautiful CLI** | Colorful, informative terminal interface with progress tracking |
 | 🔍 **Catalog Search** | Search albums, tracks, and artists directly from CLI |
 | 📚 **Batch Download** | Download entire albums with a single command |
 
 ---
-
-## 🎯 Enhanced Metadata (NEW!)
-
-This downloader enriches your music library with metadata from multiple sources:
-
-| Source | Data Provided |
-|--------|---------------|
-| **Qobuz** | Audio, Cover Art, Label, Copyright, ISRC, UPC |
-| **Spotify** | Artists (including featured), BPM, Key, Mood, Energy, Genres |
-| **Discogs** | Catalog Number, Country, Styles, Labels |
-| **MusicBrainz** | Original Release Date, Standardized IDs |
-| **LRCLIB** | Synced Lyrics (LRC format) |
-
-### Example Output Tags
-
-```
-ARTIST        = Lady Gaga; Bruno Mars
-ALBUM         = Die With A Smile
-YEAR          = 2024
-GENRE         = Pop
-BPM           = 158
-KEY           = G Major
-MOOD          = Happy
-ENERGY        = 0.72
-CATALOGNUMBER = B0041829-02
-RELEASECOUNTRY= US
-```
 
 ---
 
@@ -92,11 +64,6 @@ cp .env.example .env
 QOBUZ_APP_ID=your_app_id
 QOBUZ_APP_SECRET=your_app_secret
 QOBUZ_USER_AUTH_TOKEN=your_user_auth_token
-
-# Enhanced Metadata APIs (OPTIONAL but recommended)
-SPOTIFY_CLIENT_ID=your_spotify_client_id
-SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-DISCOGS_TOKEN=your_discogs_token
 ```
 
 ### Getting API Credentials
@@ -104,8 +71,6 @@ DISCOGS_TOKEN=your_discogs_token
 | Service | How to Get |
 |---------|------------|
 | **Qobuz** | Browser DevTools while logged into play.qobuz.com |
-| **Spotify** | [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) |
-| **Discogs** | [discogs.com/settings/developers](https://www.discogs.com/settings/developers) |
 
 ---
 
@@ -151,11 +116,6 @@ npm start
 - Label, Copyright, ISRC, UPC
 - Catalog Number, Release Country
 
-### Audio Features (via Spotify)
-- BPM, Musical Key, Time Signature
-- Danceability, Energy, Mood/Valence
-- Acousticness, Instrumentalness
-
 ### Lyrics
 - Synced Lyrics (LRC format with timestamps)
 - Embedded directly into FLAC/MP3 files
@@ -181,7 +141,6 @@ downloads/
 - 🔒 **Hi-Res downloads** require Qobuz Studio subscription
 - 📖 This tool is for **personal use only**
 - 🎵 Lyrics sourced from [LRCLIB](https://lrclib.net)
-- 📊 Enhanced metadata from Spotify & Discogs (optional)
 
 ---
 

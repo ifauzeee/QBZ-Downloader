@@ -173,18 +173,7 @@ class DownloadService {
                     result.lyrics = lyrics;
                 }
             }
-            let enhancedMetadata = null;
-            if (CONFIG.credentials.spotifyClientId) {
-                if (options.onProgress)
-                    options.onProgress({ phase: 'fetching_metadata', percent: 0 });
-                enhancedMetadata = await this.metadataService.getEnhancedMetadata(
-                    metadata.title,
-                    metadata.artist,
-                    metadata.album,
-                    metadata.isrc
-                );
-                this.metadataService.applyEnhancedOverrides(metadata, enhancedMetadata);
-            }
+
 
             const folderPath = path.join(
                 this.outputDir,
@@ -294,8 +283,7 @@ class DownloadService {
             } else if (extension === 'flac') {
                 const flacTags = this.metadataService.buildFlacTags(
                     metadata,
-                    lyrics,
-                    enhancedMetadata
+                    lyrics
                 );
                 await this.embedFlacMetadata(filePath, flacTags, finalCoverBuffer);
             }

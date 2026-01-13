@@ -7,11 +7,7 @@ export const CONFIG = {
         appId: getStr('QOBUZ_APP_ID', ''),
         appSecret: getStr('QOBUZ_APP_SECRET', ''),
         token: getStr('QOBUZ_USER_AUTH_TOKEN', getStr('QOBUZ_TOKEN', '')),
-        userId: getStr('QOBUZ_USER_ID', ''),
-
-        spotifyClientId: getStr('SPOTIFY_CLIENT_ID', ''),
-        spotifyClientSecret: getStr('SPOTIFY_CLIENT_SECRET', ''),
-        discogsToken: getStr('DISCOGS_TOKEN', '')
+        userId: getStr('QOBUZ_USER_ID', '')
     },
 
     api: {
