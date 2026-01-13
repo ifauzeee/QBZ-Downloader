@@ -52,8 +52,7 @@ export class TelegramService {
                 fs.rmdirSync(dir);
                 this.deleteEmptyDirs(path.dirname(dir));
             }
-        } catch {
-        }
+        } catch {}
     }
 
     async sendMessage(message: string) {
@@ -63,8 +62,7 @@ export class TelegramService {
             await this.bot.telegram.sendMessage(this.chatId, message, {
                 parse_mode: 'HTML'
             });
-        } catch {
-        }
+        } catch {}
     }
 
     async uploadFile(filePath: string, caption?: string) {
@@ -78,16 +76,20 @@ export class TelegramService {
             if (sizeInMB > 49) {
                 await this.sendMessage(
                     '⚠️ <b>File > 50MB (Telegram Limit)</b>\n' +
-                    `📄 <code>${path.basename(filePath)}</code> (${this.formatSize(fileSizeInBytes)})\n` +
-                    '<i>Saved on server. Cannot auto-delete.</i>'
+                        `📄 <code>${path.basename(filePath)}</code> (${this.formatSize(fileSizeInBytes)})\n` +
+                        '<i>Saved on server. Cannot auto-delete.</i>'
                 );
                 return;
             }
 
             console.log(chalk.cyan(`    📤 Uploading to Telegram: ${path.basename(filePath)}`));
-            await this.bot.telegram.sendAudio(this.chatId, { source: filePath }, {
-                caption: caption || path.basename(filePath)
-            });
+            await this.bot.telegram.sendAudio(
+                this.chatId,
+                { source: filePath },
+                {
+                    caption: caption || path.basename(filePath)
+                }
+            );
 
             if (CONFIG.telegram.autoDelete) {
                 try {
@@ -97,16 +99,24 @@ export class TelegramService {
                     console.error(chalk.red('Failed to delete local file:'), delErr);
                 }
             }
-
         } catch (error) {
             console.error(chalk.red('Failed to upload file to Telegram:'), error);
-            await this.sendError('Upload Failed', `Could not upload ${path.basename(filePath)}. File kept locally.`);
+            await this.sendError(
+                'Upload Failed',
+                `Could not upload ${path.basename(filePath)}. File kept locally.`
+            );
         }
     }
 
-    async sendDownloadStart(title: string, type: 'track' | 'album' | 'playlist' | 'artist', quality: string) {
-        const icon = type === 'track' ? '🎵' : type === 'album' ? '💿' : type === 'artist' ? '👤' : '📜';
-        const msg = '<b>📥 Started Download</b>\n\n' +
+    async sendDownloadStart(
+        title: string,
+        type: 'track' | 'album' | 'playlist' | 'artist',
+        quality: string
+    ) {
+        const icon =
+            type === 'track' ? '🎵' : type === 'album' ? '💿' : type === 'artist' ? '👤' : '📜';
+        const msg =
+            '<b>📥 Started Download</b>\n\n' +
             `${icon} <b>${title}</b>\n` +
             `💎 Quality: ${quality}\n` +
             `⏱️ Time: ${new Date().toLocaleTimeString()}`;
@@ -114,7 +124,11 @@ export class TelegramService {
         await this.sendMessage(msg);
     }
 
-    async sendDownloadComplete(title: string, path: string, stats?: { totalSize?: number, trackCount?: number }) {
+    async sendDownloadComplete(
+        title: string,
+        path: string,
+        stats?: { totalSize?: number; trackCount?: number }
+    ) {
         let statsMsg = '';
         if (stats) {
             if (stats.trackCount) statsMsg += `📊 Tracks: ${stats.trackCount}\n`;
@@ -127,23 +141,26 @@ export class TelegramService {
             pathLine = '';
         }
 
-        const msg = '<b>✅ Download Complete</b>\n\n' +
-            `<b>${title}</b>\n` +
-            `${statsMsg}` +
-            `${pathLine}`;
+        const msg =
+            '<b>✅ Download Complete</b>\n\n' + `<b>${title}</b>\n` + `${statsMsg}` + `${pathLine}`;
 
         await this.sendMessage(msg);
     }
 
     async sendError(context: string, error: string) {
-        const msg = '<b>❌ Error</b>\n\n' +
-            `<b>${context}</b>\n` +
-            `⚠️ ${error}`;
+        const msg = '<b>❌ Error</b>\n\n' + `<b>${context}</b>\n` + `⚠️ ${error}`;
 
         await this.sendMessage(msg);
     }
 
-    private async updateProgress(_ctx: any, messageId: number, phase: string, loaded: number, total: number | undefined, title: string) {
+    private async updateProgress(
+        _ctx: any,
+        messageId: number,
+        phase: string,
+        loaded: number,
+        total: number | undefined,
+        title: string
+    ) {
         const now = Date.now();
         if (now - this.lastProgressUpdate < 2000 && loaded !== total && phase !== 'tagging') return;
         this.lastProgressUpdate = now;
@@ -169,14 +186,17 @@ export class TelegramService {
         const msgCode = `<b>${title}</b>\n\n${statusText}`;
 
         try {
-            await this.bot!.telegram.editMessageText(this.chatId!, messageId, undefined, msgCode, { parse_mode: 'HTML' });
-        } catch {
-        }
+            await this.bot!.telegram.editMessageText(this.chatId!, messageId, undefined, msgCode, {
+                parse_mode: 'HTML'
+            });
+        } catch {}
     }
 
     async startBot() {
         if (!this.enabled || !this.bot) {
-            console.log(chalk.red('❌ Telegram Bot is not configured. Please check .env settings.'));
+            console.log(
+                chalk.red('❌ Telegram Bot is not configured. Please check .env settings.')
+            );
             return;
         }
 
@@ -193,7 +213,7 @@ export class TelegramService {
         this.bot.start((ctx) => {
             ctx.reply(
                 '<b>👋 Welcome to Qobuz-DL Bot!</b>\n\n' +
-                'Send me a Qobuz link to start downloading.\nIf the file is &lt; 50MB, I will send it here.',
+                    'Send me a Qobuz link to start downloading.\nIf the file is &lt; 50MB, I will send it here.',
                 { parse_mode: 'HTML' }
             );
         });
@@ -201,9 +221,9 @@ export class TelegramService {
         this.bot.help((ctx) => {
             ctx.reply(
                 '<b>Available Commands:</b>\n\n' +
-                '/search &lt;query&gt; - Search for tracks/albums\n' +
-                '/help - Show this message\n\n' +
-                'Or just send a Qobuz link.',
+                    '/search &lt;query&gt; - Search for tracks/albums\n' +
+                    '/help - Show this message\n\n' +
+                    'Or just send a Qobuz link.',
                 { parse_mode: 'HTML' }
             );
         });
@@ -211,7 +231,10 @@ export class TelegramService {
         this.bot.command('search', async (ctx) => {
             const query = ctx.message.text.split(' ').slice(1).join(' ');
             if (!query) {
-                await ctx.reply('⚠️ Please provide a search query.\nExample: <code>/search adele</code>', { parse_mode: 'HTML' });
+                await ctx.reply(
+                    '⚠️ Please provide a search query.\nExample: <code>/search adele</code>',
+                    { parse_mode: 'HTML' }
+                );
                 return;
             }
             await this.handleSearch(ctx, query);
@@ -229,9 +252,11 @@ export class TelegramService {
                     await this.sendError('Download Error', err.message);
                 });
             } else {
-                this.handleBatchDownload(id, type as 'album' | 'playlist' | 'artist').catch(async (err) => {
-                    await this.sendError('Download Error', err.message);
-                });
+                this.handleBatchDownload(id, type as 'album' | 'playlist' | 'artist').catch(
+                    async (err) => {
+                        await this.sendError('Download Error', err.message);
+                    }
+                );
             }
         });
 
@@ -280,7 +305,8 @@ export class TelegramService {
             if (!info.success || !info.data) throw new Error('Album not found');
             const album = info.data;
 
-            let msg = `<b>💿 Album: ${album.title}</b>\n` +
+            let msg =
+                `<b>💿 Album: ${album.title}</b>\n` +
                 `👤 Artist: ${album.artist.name}\n` +
                 `Songs: ${album.tracks_count}\n\n` +
                 `⬇️ <b><a href="/dl_album_${id}">Download All Tracks</a></b> (/dl_album_${id})\n\n` +
@@ -293,13 +319,13 @@ export class TelegramService {
             }
 
             await this.sendMessage(msg);
-
         } else if (type === 'playlist') {
             const info = await this.api.getPlaylist(id);
             if (!info.success || !info.data) throw new Error('Playlist not found');
             const playlist = info.data;
 
-            let msg = `<b>📜 Playlist: ${playlist.name}</b>\n` +
+            let msg =
+                `<b>📜 Playlist: ${playlist.name}</b>\n` +
                 `Songs: ${playlist.tracks.total}\n\n` +
                 `⬇️ <b><a href="/dl_playlist_${id}">Download All Tracks</a></b> (/dl_playlist_${id})\n\n` +
                 '<b>Tracklist:</b>\n';
@@ -310,13 +336,13 @@ export class TelegramService {
                 });
             }
             await this.sendMessage(msg);
-
         } else if (type === 'artist') {
             const info = await this.api.getArtist(id);
             if (!info.success || !info.data) throw new Error('Artist not found');
             const artist = info.data as any;
 
-            const msg = `<b>👤 Artist: ${artist.name}</b>\n\n` +
+            const msg =
+                `<b>👤 Artist: ${artist.name}</b>\n\n` +
                 `⬇️ <b>Download Discography</b>: /dl_artist_${id}`;
             await this.sendMessage(msg);
         }
@@ -332,7 +358,11 @@ export class TelegramService {
             const title = info.data.title;
             await this.sendDownloadStart(title, 'album', qualityName);
 
-            const progressMsg = await this.bot!.telegram.sendMessage(this.chatId!, `<b>${title}</b>\n\n⏳ Initializing Batch Download...`, { parse_mode: 'HTML' });
+            const progressMsg = await this.bot!.telegram.sendMessage(
+                this.chatId!,
+                `<b>${title}</b>\n\n⏳ Initializing Batch Download...`,
+                { parse_mode: 'HTML' }
+            );
             const messageId = progressMsg.message_id;
 
             const res = await this.downloadService.downloadAlbum(id, quality, {
@@ -341,14 +371,22 @@ export class TelegramService {
                 }
             });
 
-            try { await this.bot!.telegram.deleteMessage(this.chatId!, messageId); } catch { /* empty */ }
+            try {
+                await this.bot!.telegram.deleteMessage(this.chatId!, messageId);
+            } catch {
+                /* empty */
+            }
 
             const albumPath = res.tracks?.[0]?.filePath
                 ? path.dirname(res.tracks[0].filePath)
                 : 'Album Directory';
 
             if (res.success) {
-                const uploadMsg = await this.bot!.telegram.sendMessage(this.chatId!, `<b>${title}</b>\n\n📤 Batch Uploading may take a while...`, { parse_mode: 'HTML' });
+                const uploadMsg = await this.bot!.telegram.sendMessage(
+                    this.chatId!,
+                    `<b>${title}</b>\n\n📤 Batch Uploading may take a while...`,
+                    { parse_mode: 'HTML' }
+                );
 
                 await this.sendDownloadComplete(title, albumPath, {
                     trackCount: res.totalTracks
@@ -360,18 +398,25 @@ export class TelegramService {
                         }
                     }
                 }
-                try { await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id); } catch { /* empty */ }
+                try {
+                    await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id);
+                } catch {
+                    /* empty */
+                }
             } else {
                 throw new Error(res.error || 'Unknown error');
             }
-
         } else if (type === 'playlist') {
             const info = await this.api.getPlaylist(id);
             if (!info.success || !info.data) throw new Error('Playlist not found');
             const title = info.data.name;
             await this.sendDownloadStart(title, 'playlist', qualityName);
 
-            const progressMsg = await this.bot!.telegram.sendMessage(this.chatId!, `<b>${title}</b>\n\n⏳ Initializing Playlist...`, { parse_mode: 'HTML' });
+            const progressMsg = await this.bot!.telegram.sendMessage(
+                this.chatId!,
+                `<b>${title}</b>\n\n⏳ Initializing Playlist...`,
+                { parse_mode: 'HTML' }
+            );
             const messageId = progressMsg.message_id;
 
             const res = await this.downloadService.downloadPlaylist(id, quality, {
@@ -380,12 +425,22 @@ export class TelegramService {
                 }
             });
 
-            try { await this.bot!.telegram.deleteMessage(this.chatId!, messageId); } catch { /* empty */ }
+            try {
+                await this.bot!.telegram.deleteMessage(this.chatId!, messageId);
+            } catch {
+                /* empty */
+            }
 
             if (res.success) {
-                const uploadMsg = await this.bot!.telegram.sendMessage(this.chatId!, `<b>${title}</b>\n\n📤 Batch Uploading...`, { parse_mode: 'HTML' });
+                const uploadMsg = await this.bot!.telegram.sendMessage(
+                    this.chatId!,
+                    `<b>${title}</b>\n\n📤 Batch Uploading...`,
+                    { parse_mode: 'HTML' }
+                );
 
-                await this.sendDownloadComplete(title, 'Playlist Directory', { trackCount: res.totalTracks });
+                await this.sendDownloadComplete(title, 'Playlist Directory', {
+                    trackCount: res.totalTracks
+                });
                 if (res.tracks) {
                     for (const trackRes of res.tracks) {
                         if (trackRes.success && trackRes.filePath) {
@@ -393,11 +448,14 @@ export class TelegramService {
                         }
                     }
                 }
-                try { await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id); } catch { /* empty */ }
+                try {
+                    await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id);
+                } catch {
+                    /* empty */
+                }
             } else {
                 throw new Error(res.error || 'Unknown error');
             }
-
         } else if (type === 'artist') {
             const info = await this.api.getArtist(id);
             if (!info.success || !info.data) throw new Error('Artist not found');
@@ -407,8 +465,12 @@ export class TelegramService {
 
             const res = await this.downloadService.downloadArtist(id, quality);
             if (res.success) {
-                await this.sendDownloadComplete(title, 'Artist Directory', { trackCount: res.totalTracks });
-                await this.sendMessage('⚠️ Bulk Artist upload is not supported to avoid flooding. Files are saved on server.');
+                await this.sendDownloadComplete(title, 'Artist Directory', {
+                    trackCount: res.totalTracks
+                });
+                await this.sendMessage(
+                    '⚠️ Bulk Artist upload is not supported to avoid flooding. Files are saved on server.'
+                );
             } else {
                 throw new Error(res.error || 'Unknown error');
             }
@@ -423,7 +485,11 @@ export class TelegramService {
 
             const title = info.data.title;
 
-            const progressMsg = await this.bot!.telegram.sendMessage(this.chatId!, `<b>${title}</b>\n\n⏳ Initializing...`, { parse_mode: 'HTML' });
+            const progressMsg = await this.bot!.telegram.sendMessage(
+                this.chatId!,
+                `<b>${title}</b>\n\n⏳ Initializing...`,
+                { parse_mode: 'HTML' }
+            );
             const messageId = progressMsg.message_id;
 
             const res = await this.downloadService.downloadTrack(id, quality, {
@@ -432,15 +498,27 @@ export class TelegramService {
                 }
             });
 
-            try { await this.bot!.telegram.deleteMessage(this.chatId!, messageId); } catch { /* empty */ }
+            try {
+                await this.bot!.telegram.deleteMessage(this.chatId!, messageId);
+            } catch {
+                /* empty */
+            }
 
             if (res.success && res.filePath) {
-                const uploadMsg = await this.bot!.telegram.sendMessage(this.chatId!, `<b>${title}</b>\n\n📤 Uploading to Telegram...`, { parse_mode: 'HTML' });
+                const uploadMsg = await this.bot!.telegram.sendMessage(
+                    this.chatId!,
+                    `<b>${title}</b>\n\n📤 Uploading to Telegram...`,
+                    { parse_mode: 'HTML' }
+                );
 
                 await this.sendDownloadComplete(title, res.filePath, { totalSize: 0 });
                 await this.uploadFile(res.filePath);
 
-                try { await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id); } catch { /* empty */ }
+                try {
+                    await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id);
+                } catch {
+                    /* empty */
+                }
             } else {
                 throw new Error(res.error || 'Unknown error');
             }
@@ -462,8 +540,14 @@ export class TelegramService {
                 tracksRes.data.tracks.items.forEach((track: any) => {
                     const title = track.title;
                     const artist = track.performer?.name || 'Unknown Artist';
-                    const safeTitle = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    const safeArtist = artist.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const safeTitle = title
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    const safeArtist = artist
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
                     resultMsg += `• ${safeTitle} - ${safeArtist}\n  ⬇️ /dl_track_${track.id}\n\n`;
                 });
             }
@@ -473,8 +557,14 @@ export class TelegramService {
                 albumsRes.data.albums.items.forEach((album: any) => {
                     const title = album.title;
                     const artist = album.artist?.name || 'Unknown Artist';
-                    const safeTitle = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    const safeArtist = artist.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const safeTitle = title
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    const safeArtist = artist
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
                     resultMsg += `• ${safeTitle} - ${safeArtist}\n  ⬇️ /dl_album_${album.id}\n\n`;
                 });
             }
@@ -484,7 +574,6 @@ export class TelegramService {
             }
 
             await ctx.reply(resultMsg, { parse_mode: 'HTML' });
-
         } catch (error: unknown) {
             const err = error as Error;
             await ctx.reply(`⚠️ Search Failed: ${err.message}`);

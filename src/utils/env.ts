@@ -7,9 +7,6 @@ const _OPTIONAL_VARS = [
     'QOBUZ_USER_ID',
     'SPOTIFY_CLIENT_ID',
     'SPOTIFY_CLIENT_SECRET',
-    'DOWNLOAD_PATH',
-    'FOLDER_TEMPLATE',
-    'FILE_TEMPLATE',
     'TELEGRAM_BOT_TOKEN',
     'TELEGRAM_CHAT_ID'
 ];
@@ -35,7 +32,7 @@ export function validateEnvironment(exitOnError = true) {
     if (missing.length > 0) {
         const error = new ConfigurationError(
             `Missing required environment variables:\n${missing.map((v) => `  • ${v}`).join('\n')}\n\n` +
-            'Please copy .env.example to .env and fill in your credentials.',
+                'Please copy .env.example to .env and fill in your credentials.',
             missing
         );
 

@@ -213,11 +213,18 @@ export async function downloadAlbumInteractive(
     });
 
     if (downloadResult.success) {
-        await telegramService.sendDownloadComplete(album.title, downloadResult.filePath || 'Album Directory', {
-            trackCount: downloadResult.totalTracks
-        });
+        await telegramService.sendDownloadComplete(
+            album.title,
+            downloadResult.filePath || 'Album Directory',
+            {
+                trackCount: downloadResult.totalTracks
+            }
+        );
     } else {
-        await telegramService.sendError('Album Download Failed', downloadResult.error || 'Unknown error');
+        await telegramService.sendError(
+            'Album Download Failed',
+            downloadResult.error || 'Unknown error'
+        );
     }
 
     display.displayDownloadSummary(downloadResult);
@@ -326,7 +333,10 @@ export async function downloadTrackInteractive(
     display.stopProgress();
 
     if (result.success) {
-        await telegramService.sendDownloadComplete(track?.title || 'Unknown Track', result.filePath || '');
+        await telegramService.sendDownloadComplete(
+            track?.title || 'Unknown Track',
+            result.filePath || ''
+        );
         display.displaySuccess(`Track downloaded successfully!\n\n📁 ${result.filePath}`);
 
         if (result.lyrics) {
@@ -410,7 +420,11 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
     }
 
     console.log('\n' + chalk.cyan.bold('📥 Starting playlist download...\n'));
-    await telegramService.sendDownloadStart(playlist.name, 'playlist', getQualityName(selectedQuality));
+    await telegramService.sendDownloadStart(
+        playlist.name,
+        'playlist',
+        getQualityName(selectedQuality)
+    );
 
     const result2 = await downloadService.downloadPlaylist(playlistId, selectedQuality, {
         onProgress: (phase: any, loaded: number, total?: number) => {
@@ -429,11 +443,18 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
     });
 
     if (result2.success) {
-        await telegramService.sendDownloadComplete(playlist.name, result2.filePath || 'Playlist Directory', {
-            trackCount: result2.totalTracks
-        });
+        await telegramService.sendDownloadComplete(
+            playlist.name,
+            result2.filePath || 'Playlist Directory',
+            {
+                trackCount: result2.totalTracks
+            }
+        );
     } else {
-        await telegramService.sendError('Playlist Download Failed', result2.error || 'Unknown error');
+        await telegramService.sendError(
+            'Playlist Download Failed',
+            result2.error || 'Unknown error'
+        );
     }
 
     display.displayDownloadSummary(result2);

@@ -76,13 +76,37 @@ Alternatively, copy the example config and edit it manually:
 cp .env.example .env
 ```
 
-Edit `.env` file:
+#### Sensitive Credentials (`.env`)
+The `.env` file is **only** for sensitive secrets:
 
 ```env
 # Qobuz Credentials (REQUIRED)
 QOBUZ_APP_ID=your_app_id
 QOBUZ_APP_SECRET=your_app_secret
 QOBUZ_USER_AUTH_TOKEN=your_user_auth_token
+
+# Telegram (Optional)
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...
+```
+
+#### Application Settings (`settings.json`)
+All other settings (paths, quality, metadata, etc.) are in `settings.json`.
+The app will use default values if this file doesn't exist.
+
+```json
+{
+  "downloads": {
+    "path": "./downloads",
+    "concurrent": 4
+  },
+  "quality": {
+    "default": 27
+  },
+  "display": {
+    "colorScheme": "gradient"
+  }
+}
 ```
 
 ### Getting API Credentials

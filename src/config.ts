@@ -1,8 +1,23 @@
+import fs from 'fs';
+import path from 'path';
+
 const getBool = (key: string, def: boolean): boolean =>
     process.env[key] === undefined ? def : process.env[key] === 'true';
 const getInt = (key: string, def: number): number =>
     process.env[key] ? parseInt(process.env[key]!) : def;
 const getStr = (key: string, def: string): string => process.env[key] || def;
+
+const SETTINGS_FILE = 'settings.json';
+const settingsPath = path.resolve(process.cwd(), SETTINGS_FILE);
+let settings: any = {};
+
+try {
+    if (fs.existsSync(settingsPath)) {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    }
+} catch {
+    console.warn('Failed to load settings.json, using defaults');
+}
 
 export interface Config {
     credentials: {
@@ -96,7 +111,7 @@ export const CONFIG: Config = {
     },
 
     quality: {
-        formats: {
+        formats: settings.quality?.formats || {
             5: { name: 'MP3 320', bitDepth: null, sampleRate: null, extension: 'mp3' },
             6: {
                 name: 'FLAC 16-bit/44.1kHz (CD Quality)',
@@ -117,25 +132,27 @@ export const CONFIG: Config = {
                 extension: 'flac'
             }
         },
-        default: 27
+        default: settings.quality?.default || 27
     },
 
     download: {
-        outputDir: getStr('DOWNLOAD_PATH', './downloads'),
-        folderStructure: getStr('FOLDER_TEMPLATE', '{artist}/{album}'),
-        fileNaming: getStr('FILE_TEMPLATE', '{track_number} {title}'),
-        concurrent: getInt('MAX_CONCURRENCY', 1),
-        retryAttempts: 3,
-        retryDelay: 1000
+        outputDir: settings.downloads?.path || getStr('DOWNLOAD_PATH', './downloads'),
+        folderStructure:
+            settings.downloads?.folderTemplate || getStr('FOLDER_TEMPLATE', '{artist}/{album}'),
+        fileNaming:
+            settings.downloads?.fileTemplate || getStr('FILE_TEMPLATE', '{track_number} {title}'),
+        concurrent: settings.downloads?.concurrent || getInt('MAX_CONCURRENCY', 1),
+        retryAttempts: settings.downloads?.retryAttempts || 3,
+        retryDelay: settings.downloads?.retryDelay || 1000
     },
 
     metadata: {
-        embedCover: getBool('EMBED_COVER_ART', true),
-        saveCoverFile: getBool('SAVE_COVER_FILE', true),
-        saveLrcFile: getBool('SAVE_LRC_FILE', true),
-        coverSize: 'max',
-        embedLyrics: getBool('EMBED_LYRICS', true),
-        lyricsType: 'both',
+        embedCover: settings.metadata?.embedCover ?? getBool('EMBED_COVER_ART', true),
+        saveCoverFile: settings.metadata?.saveCoverFile ?? getBool('SAVE_COVER_FILE', true),
+        saveLrcFile: settings.metadata?.saveLrcFile ?? getBool('SAVE_LRC_FILE', true),
+        coverSize: settings.metadata?.coverSize || 'max',
+        embedLyrics: settings.metadata?.embedLyrics ?? getBool('EMBED_LYRICS', true),
+        lyricsType: settings.metadata?.lyricsType || 'both',
 
         tags: {
             basic: ['title', 'artist', 'album', 'year', 'trackNumber', 'genre'],
@@ -178,17 +195,17 @@ export const CONFIG: Config = {
     },
 
     display: {
-        showProgress: true,
-        showMetadata: true,
-        colorScheme: 'gradient',
-        verbosity: 'detailed'
+        showProgress: settings.display?.showProgress ?? true,
+        showMetadata: settings.display?.showMetadata ?? true,
+        colorScheme: settings.display?.colorScheme || 'gradient',
+        verbosity: settings.display?.verbosity || 'detailed'
     },
 
     telegram: {
         token: getStr('TELEGRAM_BOT_TOKEN', ''),
         chatId: getStr('TELEGRAM_CHAT_ID', ''),
-        uploadFiles: getBool('TELEGRAM_UPLOAD_FILES', true),
-        autoDelete: getBool('TELEGRAM_AUTO_DELETE', true)
+        uploadFiles: settings.telegram?.uploadFiles ?? getBool('TELEGRAM_UPLOAD_FILES', true),
+        autoDelete: settings.telegram?.autoDelete ?? getBool('TELEGRAM_AUTO_DELETE', true)
     }
 };
 

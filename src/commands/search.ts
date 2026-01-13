@@ -81,7 +81,7 @@ export function registerSearchCommand(program: Command) {
                                 onTrackStart: (track, num, total) => {
                                     console.log(
                                         chalk.cyan(`\n[${num}/${total}] `) +
-                                        chalk.white.bold(track.title)
+                                            chalk.white.bold(track.title)
                                     );
                                 },
                                 onProgress: (phase: string, loaded: number, total?: number) => {
