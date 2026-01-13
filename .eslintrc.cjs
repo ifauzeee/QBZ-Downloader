@@ -22,5 +22,6 @@ module.exports = {
         'semi': ['error', 'always'],
         'quotes': ['error', 'single'],
         'indent': 'off',
+        'no-empty': ['error', { 'allowEmptyCatch': true }],
     },
 };

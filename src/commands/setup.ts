@@ -49,6 +49,19 @@ export async function runSetup() {
                 name: 'downloadPath',
                 message: 'Download Directory:',
                 default: currentConfig.DOWNLOAD_PATH || './downloads'
+            },
+            {
+                type: 'input',
+                name: 'telegramToken',
+                message: 'Telegram Bot Token (Optional):',
+                default: currentConfig.TELEGRAM_BOT_TOKEN || ''
+            },
+            {
+                type: 'input',
+                name: 'telegramChatId',
+                message: 'Telegram Chat ID (Optional):',
+                default: currentConfig.TELEGRAM_CHAT_ID || '',
+                when: (answers) => !!answers.telegramToken
             }
         ]);
 
@@ -60,7 +73,11 @@ export async function runSetup() {
             '',
             '# Optional: Spotify Credentials (for enhanced metadata)',
             `SPOTIFY_CLIENT_ID=${currentConfig.SPOTIFY_CLIENT_ID || ''}`,
-            `SPOTIFY_CLIENT_SECRET=${currentConfig.SPOTIFY_CLIENT_SECRET || ''}`
+            `SPOTIFY_CLIENT_SECRET=${currentConfig.SPOTIFY_CLIENT_SECRET || ''}`,
+            '',
+            '# Optional: Telegram Notifications',
+            `TELEGRAM_BOT_TOKEN=${answers.telegramToken || ''}`,
+            `TELEGRAM_CHAT_ID=${answers.telegramChatId || ''}`
         ].join('\n');
 
         const envPath = path.resolve(process.cwd(), '.env');

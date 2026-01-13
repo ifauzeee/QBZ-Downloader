@@ -135,6 +135,49 @@ node dist/index.js
 
 ---
 
+## 🤖 Telegram Bot
+
+Turn your downloader into a personal Telegram cloud music bot!
+
+### Features
+
+- 🔍 **Interactive Search**: Search tracks/albums directly in chat (`/search <query>`)
+- ☁️ **Cloud Download**: Send a Qobuz link, the bot downloads it to the server.
+- 📤 **Auto-Upload**: Smaller files (< 50MB) are uploaded to you and **deleted from the server** to save space.
+- 📦 **Large File Handling**: Files > 50MB are kept on the server and you are notified.
+- 📊 **Real-Time Progress**: Watch the download progress bar update in real-time in your chat.
+
+### Setup
+
+1. **Create a Bot**: Talk to [@BotFather](https://t.me/BotFather) on Telegram to get your `TELEGRAM_BOT_TOKEN`.
+2. **Get Chat ID**: Send a message to your new bot, then check `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` to find your numeric `id` (chat ID).
+3. **Configure `.env`**:
+
+```env
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+TELEGRAM_CHAT_ID=123456789
+TELEGRAM_UPLOAD_FILES=true
+TELEGRAM_AUTO_DELETE=true
+```
+
+### Running the Bot
+
+First, compile the code (required once):
+
+```bash
+npm run build
+```
+
+Then start the bot:
+
+```bash
+npm run bot
+```
+
+The bot is now online! Send it `/start` or any Qobuz URL.
+
+---
+
 ## 📁 Output Structure
 
 ```

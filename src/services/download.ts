@@ -28,7 +28,7 @@ export interface AlbumDownloadOptions {
     trackIndices?: number[];
     onTrackStart?: (track: Track, num: number, total: number) => void;
     onTrackComplete?: (result: DownloadResult) => void;
-    onProgress?: (phase: string, loaded: number, total: number) => void;
+    onProgress?: (phase: string, loaded: number, total?: number) => void;
     batch?: boolean;
 }
 
@@ -36,7 +36,7 @@ export interface ArtistDownloadOptions {
     onAlbumInfo?: (album: Album) => void;
     onTrackStart?: (track: Track, num: number, total: number) => void;
     onTrackComplete?: (result: DownloadResult) => void;
-    onProgress?: (phase: string, loaded: number, total: number) => void;
+    onProgress?: (phase: string, loaded: number, total?: number) => void;
 }
 
 interface DownloadResult {
@@ -390,6 +390,7 @@ class DownloadService {
                         } else if (phase === 'lyrics') {
                             bar.update(0, { status: chalk.yellow('Lyrics') });
                         }
+                        if (options.onProgress) options.onProgress(phase, loaded, total);
                     }
                 });
 
@@ -470,6 +471,7 @@ class DownloadService {
                         } else if (phase === 'lyrics') {
                             bar.update(0, { status: chalk.yellow('Lyrics') });
                         }
+                        if (options.onProgress) options.onProgress(phase, loaded, total);
                     }
                 });
 

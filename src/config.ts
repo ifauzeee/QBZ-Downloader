@@ -64,6 +64,12 @@ export interface Config {
         colorScheme: string;
         verbosity: string;
     };
+    telegram: {
+        token?: string;
+        chatId?: string;
+        uploadFiles?: boolean;
+        autoDelete?: boolean;
+    };
 }
 
 export const CONFIG: Config = {
@@ -176,6 +182,13 @@ export const CONFIG: Config = {
         showMetadata: true,
         colorScheme: 'gradient',
         verbosity: 'detailed'
+    },
+
+    telegram: {
+        token: getStr('TELEGRAM_BOT_TOKEN', ''),
+        chatId: getStr('TELEGRAM_CHAT_ID', ''),
+        uploadFiles: getBool('TELEGRAM_UPLOAD_FILES', true),
+        autoDelete: getBool('TELEGRAM_AUTO_DELETE', true)
     }
 };
 

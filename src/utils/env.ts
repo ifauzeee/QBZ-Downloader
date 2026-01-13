@@ -9,7 +9,9 @@ const _OPTIONAL_VARS = [
     'SPOTIFY_CLIENT_SECRET',
     'DOWNLOAD_PATH',
     'FOLDER_TEMPLATE',
-    'FILE_TEMPLATE'
+    'FILE_TEMPLATE',
+    'TELEGRAM_BOT_TOKEN',
+    'TELEGRAM_CHAT_ID'
 ];
 
 export function validateEnvironment(exitOnError = true) {
@@ -33,7 +35,7 @@ export function validateEnvironment(exitOnError = true) {
     if (missing.length > 0) {
         const error = new ConfigurationError(
             `Missing required environment variables:\n${missing.map((v) => `  • ${v}`).join('\n')}\n\n` +
-                'Please copy .env.example to .env and fill in your credentials.',
+            'Please copy .env.example to .env and fill in your credentials.',
             missing
         );
 
@@ -73,6 +75,10 @@ export function getEnvSummary() {
             downloadPath: process.env.DOWNLOAD_PATH || './downloads',
             folderTemplate: process.env.FOLDER_TEMPLATE || '{artist}/{album}',
             fileTemplate: process.env.FILE_TEMPLATE || '{trackNumber}. {title}'
+        },
+        telegram: {
+            botToken: !!process.env.TELEGRAM_BOT_TOKEN,
+            chatId: !!process.env.TELEGRAM_CHAT_ID
         }
     };
 }

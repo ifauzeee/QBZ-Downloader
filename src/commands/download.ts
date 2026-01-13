@@ -1,13 +1,14 @@
 import inquirer from 'inquirer';
 import ora from 'ora';
 import chalk from 'chalk';
-import { CONFIG } from '../config.js';
+import { CONFIG, getQualityName } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import DownloadService from '../services/download.js';
 import * as display from '../utils/display.js';
 import { parseSelection } from '../utils/input.js';
 import * as prompts from './download/prompts.js';
 import { settingsService } from '../services/settings.js';
+import { telegramService } from '../services/telegram.js';
 import { Command } from 'commander';
 
 const api = new QobuzAPI();
@@ -184,6 +185,7 @@ export async function downloadAlbumInteractive(
     }
 
     console.log('\n' + chalk.cyan.bold('📥 Starting album download...\n'));
+    await telegramService.sendDownloadStart(album.title, 'album', qualityLabel);
 
     const downloadResult = await downloadService.downloadAlbum(albumId, selectedQuality, {
         trackIndices,
@@ -209,6 +211,14 @@ export async function downloadAlbumInteractive(
             }
         }
     });
+
+    if (downloadResult.success) {
+        await telegramService.sendDownloadComplete(album.title, downloadResult.filePath || 'Album Directory', {
+            trackCount: downloadResult.totalTracks
+        });
+    } else {
+        await telegramService.sendError('Album Download Failed', downloadResult.error || 'Unknown error');
+    }
 
     display.displayDownloadSummary(downloadResult);
 
@@ -305,6 +315,7 @@ export async function downloadTrackInteractive(
     }
 
     console.log('\n' + chalk.cyan.bold('📥 Starting download...\n'));
+    await telegramService.sendDownloadStart(track?.title || 'Unknown Track', 'track', qualityLabel);
 
     const result = await downloadService.downloadTrack(trackId, selectedQuality, {
         onProgress: (phase, loaded, total) => {
@@ -315,6 +326,7 @@ export async function downloadTrackInteractive(
     display.stopProgress();
 
     if (result.success) {
+        await telegramService.sendDownloadComplete(track?.title || 'Unknown Track', result.filePath || '');
         display.displaySuccess(`Track downloaded successfully!\n\n📁 ${result.filePath}`);
 
         if (result.lyrics) {
@@ -398,9 +410,10 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
     }
 
     console.log('\n' + chalk.cyan.bold('📥 Starting playlist download...\n'));
+    await telegramService.sendDownloadStart(playlist.name, 'playlist', getQualityName(selectedQuality));
 
     const result2 = await downloadService.downloadPlaylist(playlistId, selectedQuality, {
-        onProgress: (phase: any, loaded: number, total: number) => {
+        onProgress: (phase: any, loaded: number, total?: number) => {
             display.displayProgress(phase, loaded, total);
         },
         onTrackStart: (track, num, total) => {
@@ -414,6 +427,14 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
             }
         }
     });
+
+    if (result2.success) {
+        await telegramService.sendDownloadComplete(playlist.name, result2.filePath || 'Playlist Directory', {
+            trackCount: result2.totalTracks
+        });
+    } else {
+        await telegramService.sendError('Playlist Download Failed', result2.error || 'Unknown error');
+    }
 
     display.displayDownloadSummary(result2);
 }
@@ -483,6 +504,7 @@ export async function downloadArtistInteractive(artistId: string | number, _opti
     }
 
     console.log('\n' + chalk.cyan.bold('📥 Starting artist discography download...\n'));
+    await telegramService.sendDownloadStart(artist.name, 'artist', getQualityName(selectedQuality));
 
     await downloadService.downloadArtist(artistId, selectedQuality, {
         onAlbumInfo: (album) => {
