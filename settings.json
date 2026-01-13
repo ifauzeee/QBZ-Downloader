@@ -1,5 +1,10 @@
 {
+  "_help": "Official Documentation: https://github.com/ifauzeee/QBZ-Downloader",
+  "defaultQuality": "ask",
+  "embedLyrics": true,
+  "embedCover": true,
   "downloads": {
+    "_description": "Download engine and folder structure settings",
     "path": "./downloads",
     "concurrent": 4,
     "retryAttempts": 3,
@@ -8,6 +13,7 @@
     "fileTemplate": "{track_number} {title}"
   },
   "quality": {
+    "_description": "Audio quality settings. 27=Hi-Res, 7=CD, 6=MP3 320",
     "default": 27,
     "formats": {
       "5": {
@@ -37,6 +43,7 @@
     }
   },
   "metadata": {
+    "_description": "Tagging and artwork embedding options",
     "embedCover": true,
     "saveCoverFile": false,
     "saveLrcFile": false,
@@ -45,12 +52,14 @@
     "lyricsType": "both"
   },
   "display": {
+    "_description": "CLI UI and Terminal appearance",
     "showProgress": true,
     "showMetadata": true,
     "colorScheme": "gradient",
     "verbosity": "detailed"
   },
   "telegram": {
+    "_description": "Telegram Bot notification and auto-upload settings",
     "uploadFiles": true,
     "autoDelete": true
   }

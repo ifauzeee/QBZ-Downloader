@@ -301,7 +301,7 @@ class DownloadService {
 
                     const vorbisComment = flac.data.MetaDataBlockVorbisComment.create(
                         false,
-                        'Qobuz-DL',
+                        '',
                         tags.map(([key, value]) => `${key}=${value}`)
                     );
                     processor.push(vorbisComment.publish());

@@ -7,7 +7,6 @@ import DownloadService from '../services/download.js';
 import * as display from '../utils/display.js';
 import { parseSelection } from '../utils/input.js';
 import * as prompts from './download/prompts.js';
-import { settingsService } from '../services/settings.js';
 import { telegramService } from '../services/telegram.js';
 import { Command } from 'commander';
 
@@ -128,17 +127,10 @@ export async function downloadAlbumInteractive(
 
     console.log(chalk.cyan('\n🎚️ Detected quality: ') + chalk.white.bold(qualityLabel));
 
-    const defaultQualitySetting = settingsService.get('defaultQuality');
     let selectedQuality = bestQuality;
     let action = 'download';
 
-    if (defaultQualitySetting === 'min') {
-        selectedQuality = 5;
-        console.log(chalk.yellow('ℹ️  Settings: Using minimum quality (MP3).'));
-    } else if (defaultQualitySetting === 'max') {
-        selectedQuality = bestQuality;
-        console.log(chalk.green('ℹ️  Settings: Using maximum quality.'));
-    } else {
+    if (CONFIG.quality.default === 'ask') {
         if (!options.batch) {
             const qualityAnswer = await inquirer.prompt([
                 {
@@ -155,6 +147,16 @@ export async function downloadAlbumInteractive(
             ]);
             selectedQuality = qualityAnswer.quality;
         }
+    } else {
+        selectedQuality = CONFIG.quality.default === 'min' ? 5 :
+            CONFIG.quality.default === 'max' ? bestQuality :
+                (typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : bestQuality);
+
+        if (typeof selectedQuality === 'number' && selectedQuality > bestQuality && bestQuality !== 5) {
+            selectedQuality = bestQuality;
+        }
+
+        console.log(chalk.green(`ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`));
     }
 
     if (!options.batch) {
@@ -280,17 +282,10 @@ export async function downloadTrackInteractive(
 
     console.log(chalk.cyan('\n🎚️ Detected quality: ') + chalk.white.bold(qualityLabel));
 
-    const defaultQualitySetting = settingsService.get('defaultQuality');
     let selectedQuality = bestQuality;
     let proceed = 'y';
 
-    if (defaultQualitySetting === 'min') {
-        selectedQuality = 5;
-        console.log(chalk.yellow('ℹ️  Settings: Using minimum quality (MP3).'));
-    } else if (defaultQualitySetting === 'max') {
-        selectedQuality = bestQuality;
-        console.log(chalk.green('ℹ️  Settings: Using maximum quality.'));
-    } else {
+    if (CONFIG.quality.default === 'ask') {
         if (!options.batch) {
             const choices = [{ name: `🔥 Max Available (${qualityLabel})`, value: bestQuality }];
 
@@ -311,6 +306,21 @@ export async function downloadTrackInteractive(
             ]);
             selectedQuality = qualityAnswer.quality;
 
+            const confirmAnswer = await inquirer.prompt([prompts.getTrackDownloadPrompt()]);
+            proceed = confirmAnswer.proceed;
+        }
+    } else {
+        selectedQuality = CONFIG.quality.default === 'min' ? 5 :
+            CONFIG.quality.default === 'max' ? bestQuality :
+                (typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : bestQuality);
+
+        if (typeof selectedQuality === 'number' && selectedQuality > bestQuality && bestQuality !== 5) {
+            selectedQuality = bestQuality;
+        }
+
+        console.log(chalk.green(`ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`));
+
+        if (!options.batch) {
             const confirmAnswer = await inquirer.prompt([prompts.getTrackDownloadPrompt()]);
             proceed = confirmAnswer.proceed;
         }
@@ -377,17 +387,10 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
     console.log(`${chalk.white(playlist.description || 'No description')}\n`);
     console.log(`${chalk.green(playlist.tracks?.items?.length || 0)} tracks found\n`);
 
-    const defaultQualitySetting = settingsService.get('defaultQuality');
-    let selectedQuality = CONFIG.quality.default;
+    let selectedQuality = 27;
     let proceed = true;
 
-    if (defaultQualitySetting === 'min') {
-        selectedQuality = 5;
-        console.log(chalk.yellow('ℹ️  Settings: Using minimum quality (MP3).'));
-    } else if (defaultQualitySetting === 'max') {
-        selectedQuality = 27;
-        console.log(chalk.green('ℹ️  Settings: Using maximum quality.'));
-    } else {
+    if (CONFIG.quality.default === 'ask') {
         const qualityAnswer = await inquirer.prompt([
             {
                 type: 'list',
@@ -402,6 +405,22 @@ export async function downloadPlaylistInteractive(playlistId: string | number, _
             }
         ]);
         selectedQuality = qualityAnswer.quality;
+
+        const confirm = await inquirer.prompt([
+            {
+                type: 'confirm',
+                name: 'proceed',
+                message: chalk.cyan(`Download all ${playlist.tracks?.items?.length} tracks?`),
+                default: true
+            }
+        ]);
+        proceed = confirm.proceed;
+    } else {
+        selectedQuality = CONFIG.quality.default === 'min' ? 5 :
+            CONFIG.quality.default === 'max' ? 27 :
+                (typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : 27);
+
+        console.log(chalk.green(`ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`));
 
         const confirm = await inquirer.prompt([
             {
@@ -482,17 +501,10 @@ export async function downloadArtistInteractive(artistId: string | number, _opti
     console.log(`${chalk.bold.white(artist.name)}`);
     console.log(`${chalk.green(albums.length)} albums found\n`);
 
-    const defaultQualitySetting = settingsService.get('defaultQuality');
-    let selectedQuality = CONFIG.quality.default;
+    let selectedQuality = 27;
     let proceed = true;
 
-    if (defaultQualitySetting === 'min') {
-        selectedQuality = 5;
-        console.log(chalk.yellow('ℹ️  Settings: Using minimum quality (MP3).'));
-    } else if (defaultQualitySetting === 'max') {
-        selectedQuality = 27;
-        console.log(chalk.green('ℹ️  Settings: Using maximum quality.'));
-    } else {
+    if (CONFIG.quality.default === 'ask') {
         const qualityAnswer = await inquirer.prompt([
             {
                 type: 'list',
@@ -507,6 +519,22 @@ export async function downloadArtistInteractive(artistId: string | number, _opti
             }
         ]);
         selectedQuality = qualityAnswer.quality;
+
+        const confirm = await inquirer.prompt([
+            {
+                type: 'confirm',
+                name: 'proceed',
+                message: chalk.cyan(`Download all ${albums.length} albums by ${artist.name}?`),
+                default: true
+            }
+        ]);
+        proceed = confirm.proceed;
+    } else {
+        selectedQuality = CONFIG.quality.default === 'min' ? 5 :
+            CONFIG.quality.default === 'max' ? 27 :
+                (typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : 27);
+
+        console.log(chalk.green(`ℹ️  Settings: Using configured quality (${getQualityName(selectedQuality)}).`));
 
         const confirm = await inquirer.prompt([
             {

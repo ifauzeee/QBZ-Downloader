@@ -50,7 +50,7 @@ export interface Config {
                 extension: string;
             }
         >;
-        default: number;
+        default: number | 'ask' | 'min' | 'max';
     };
     download: {
         outputDir: string;
@@ -132,7 +132,7 @@ export const CONFIG: Config = {
                 extension: 'flac'
             }
         },
-        default: settings.quality?.default || 27
+        default: settings.quality?.default || settings.defaultQuality || 27
     },
 
     download: {

@@ -2,7 +2,6 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import chalk from 'chalk';
 import QobuzAPI from '../api/qobuz.js';
-import DownloadService from '../services/download.js';
 import * as display from '../utils/display.js';
 import { parseSelection, validateSelection } from '../utils/input.js';
 import { downloadAlbumInteractive, downloadTrackInteractive } from './download.js';
@@ -10,7 +9,6 @@ import { Command } from 'commander';
 import { Track, Album } from '../types/qobuz.js';
 
 const api = new QobuzAPI();
-const downloadService = new DownloadService();
 
 export function registerSearchCommand(program: Command) {
     program
@@ -57,47 +55,9 @@ export function registerSearchCommand(program: Command) {
                     ]);
 
                     if (answer.albumId) {
-                        const downloadAnswer = await inquirer.prompt([
-                            {
-                                type: 'list',
-                                name: 'quality',
-                                message: chalk.cyan('🎚️ Select quality:'),
-                                choices: [
-                                    { name: '🔥 Hi-Res Max (24/192)', value: 27 },
-                                    { name: '✨ Hi-Res (24/96)', value: 7 },
-                                    { name: '💿 CD Quality', value: 6 },
-                                    { name: '🎵 MP3 320', value: 5 }
-                                ],
-                                default: 27
-                            }
-                        ]);
-
                         console.log('\n' + chalk.cyan.bold('📥 Starting download...\n'));
 
-                        const downloadResult = await downloadService.downloadAlbum(
-                            answer.albumId,
-                            downloadAnswer.quality,
-                            {
-                                onTrackStart: (track, num, total) => {
-                                    console.log(
-                                        chalk.cyan(`\n[${num}/${total}] `) +
-                                            chalk.white.bold(track.title)
-                                    );
-                                },
-                                onProgress: (phase: string, loaded: number, total?: number) => {
-                                    display.displayProgress(phase as any, loaded, total);
-                                },
-                                onTrackComplete: (trackResult) => {
-                                    if (trackResult.success) {
-                                        console.log(chalk.green('    ✅ Complete'));
-                                    } else {
-                                        console.log(chalk.red('    ❌ Failed'));
-                                    }
-                                }
-                            }
-                        );
-
-                        display.displayDownloadSummary(downloadResult);
+                        await downloadAlbumInteractive(answer.albumId);
                     }
                 }
             } catch (error: unknown) {

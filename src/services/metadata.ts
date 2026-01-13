@@ -161,8 +161,8 @@ class MetadataService {
             coverUrl: album.image?.large || album.image?.small || '',
 
             description: album.description || '',
-            comment: `Downloaded by Zee Downloader | ${fileInfo.bitDepth || 16}bit/${fileInfo.sampleRate || 44.1}kHz`,
-            encodedBy: 'Zee Downloader',
+            comment: '',
+            encodedBy: '',
 
             performers: performers,
             credits: credits,
@@ -353,12 +353,6 @@ class MetadataService {
                 { description: 'CATALOGNUMBER', value: metadata.catalogNumber },
                 { description: 'LABEL', value: metadata.label },
                 { description: 'RELEASETYPE', value: metadata.releaseType },
-                { description: 'QOBUZ_TRACK_ID', value: metadata.qobuzTrackId },
-                { description: 'QOBUZ_ALBUM_ID', value: metadata.qobuzAlbumId },
-                {
-                    description: 'AUDIO_QUALITY',
-                    value: `${metadata.bitDepth}bit/${metadata.sampleRate}kHz`
-                }
             ].filter((t) => t.value)
         };
 
@@ -432,13 +426,7 @@ class MetadataService {
 
             ['ENCODER', metadata.encodedBy],
             ['COMMENT', metadata.comment],
-            ['REPLAYGAIN_TRACK_GAIN', metadata.replayGain || ''],
-            ['AUDIO_QUALITY', `${metadata.bitDepth}bit/${metadata.sampleRate}kHz`],
-            ['SOURCE', 'Qobuz'],
 
-            ['QOBUZ_TRACK_ID', metadata.qobuzTrackId],
-            ['QOBUZ_ALBUM_ID', metadata.qobuzAlbumId],
-            ['QOBUZ_ARTIST_ID', metadata.qobuzArtistId]
         ];
 
         if (lyrics) {
