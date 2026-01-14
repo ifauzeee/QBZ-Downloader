@@ -197,7 +197,8 @@ class LyricsProvider {
         title: string,
         artist: string,
         album = '',
-        duration = 0
+        duration = 0,
+        albumArtist = ''
     ): Promise<ProcessedLyrics> {
         let result = await this.searchLrclib(title, artist, album, duration);
         if (result.success) return this.formatResult(result);
@@ -205,14 +206,28 @@ class LyricsProvider {
         result = await this.searchLrclibBest(title, artist);
         if (result.success) return this.formatResult(result);
 
+        if (albumArtist && albumArtist !== artist) {
+            result = await this.searchLrclibBest(title, albumArtist);
+            if (result.success) return this.formatResult(result);
+        }
+
         const cleanTitle = this.cleanTitle(title);
         const cleanArtist = artist.split(/[,&]/)[0].trim();
+        const cleanAlbumArtist = albumArtist ? albumArtist.split(/[,&]/)[0].trim() : '';
 
-        if (cleanTitle !== title || cleanArtist !== artist) {
+        if (cleanTitle !== title || (cleanArtist !== artist && cleanArtist !== '')) {
             logger.warn(
                 `Retrying lyrics with cleaned metadata: "${cleanTitle}" by "${cleanArtist}"`
             );
             result = await this.searchLrclibBest(cleanTitle, cleanArtist);
+            if (result.success) return this.formatResult(result);
+        }
+
+        if (albumArtist && cleanAlbumArtist !== albumArtist && cleanAlbumArtist !== cleanArtist) {
+            logger.warn(
+                `Retrying lyrics with cleaned album artist: "${cleanTitle}" by "${cleanAlbumArtist}"`
+            );
+            result = await this.searchLrclibBest(cleanTitle, cleanAlbumArtist);
             if (result.success) return this.formatResult(result);
         }
 

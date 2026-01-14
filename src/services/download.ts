@@ -229,7 +229,8 @@ class DownloadService {
                     track!.title,
                     metadata.artist,
                     metadata.album,
-                    track!.duration
+                    track!.duration,
+                    metadata.albumArtist
                 );
                 if (lyricsRes.success) {
                     logger.success(`Lyrics found via ${lyricsRes.source}`);

@@ -19,7 +19,11 @@ export function registerLyricsCommand(program: Command) {
         .action(async (url, options) => {
             display.displayBanner();
 
-            let title, artist, album, duration;
+            let title = '',
+                artist = '',
+                album = '',
+                duration = 0,
+                albumArtist = '';
 
             const parsed = api.parseUrl(url);
 
@@ -40,6 +44,7 @@ export function registerLyricsCommand(program: Command) {
                     title = result.data!.title;
                     artist = result.data!.performer?.name || '';
                     album = result.data!.album?.title || '';
+                    albumArtist = (result.data!.album as any)?.artist?.name || '';
                     duration = result.data!.duration || 0;
 
                     spinner.succeed(chalk.green('Track found!'));
@@ -57,6 +62,7 @@ export function registerLyricsCommand(program: Command) {
                     title = track.title;
                     artist = track.performer?.name || '';
                     album = track.album?.title || '';
+                    albumArtist = (track.album as any)?.artist?.name || '';
                     duration = track.duration || 0;
 
                     spinner.succeed(chalk.green('Track found!'));
@@ -72,15 +78,21 @@ export function registerLyricsCommand(program: Command) {
                     spinner: 'dots12'
                 }).start();
 
-                const lyrics = await lyricsProvider.getLyrics(title, artist, album, duration);
+                const lyrics = await lyricsProvider.getLyrics(
+                    title,
+                    artist,
+                    album,
+                    duration,
+                    albumArtist
+                );
 
                 if (lyrics.success) {
                     lyricsSpinner.succeed(chalk.green('Lyrics found!'));
 
                     console.log(
                         '\n' +
-                            chalk.bold.magenta('🎤 Lyrics for: ') +
-                            chalk.white(`${title} - ${artist}`)
+                        chalk.bold.magenta('🎤 Lyrics for: ') +
+                        chalk.white(`${title} - ${artist}`)
                     );
                     console.log(chalk.gray('━'.repeat(50)) + '\n');
 

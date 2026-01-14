@@ -83,7 +83,8 @@ export function registerInfoCommand(program: Command) {
                             result.data!.title,
                             result.data!.performer?.name || '',
                             result.data!.album?.title || '',
-                            result.data!.duration || 0
+                            result.data!.duration || 0,
+                            (result.data!.album as any)?.artist?.name || ''
                         );
 
                         if (lyrics.success) {

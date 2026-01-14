@@ -179,9 +179,16 @@ export async function downloadAlbumInteractive(
         selectedQuality = typeof CONFIG.quality.default === 'number' ? CONFIG.quality.default : bestQuality;
     }
 
+    const tracks = album.tracks?.items || [];
+    const trackCount = album.tracks_count || tracks.length;
+
     if (!options.batch) {
-        const confirmAnswer = await inquirer.prompt([prompts.getActionPrompt()]);
-        action = confirmAnswer.action;
+        if (trackCount > 1) {
+            const confirmAnswer = await inquirer.prompt([prompts.getActionPrompt()]);
+            action = confirmAnswer.action;
+        } else {
+            action = 'download';
+        }
     }
 
     if (action === 'cancel') {
@@ -189,7 +196,6 @@ export async function downloadAlbumInteractive(
         return;
     }
 
-    const tracks = album.tracks?.items || [];
     let trackIndices: number[] | undefined;
 
     if (action === 'select') {
