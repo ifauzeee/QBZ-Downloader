@@ -91,8 +91,8 @@ export function registerLyricsCommand(program: Command) {
 
                     console.log(
                         '\n' +
-                        chalk.bold.magenta('🎤 Lyrics for: ') +
-                        chalk.white(`${title} - ${artist}`)
+                            chalk.bold.magenta('🎤 Lyrics for: ') +
+                            chalk.white(`${title} - ${artist}`)
                     );
                     console.log(chalk.gray('━'.repeat(50)) + '\n');
 

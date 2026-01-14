@@ -78,11 +78,11 @@ const DownloadDashboard: React.FC<Props> = ({ items, title, completedCount, tota
                                     <Box width={30}>
                                         <ProgressBar percent={percent} color="green" />
                                     </Box>
-                                    <Box width={6} marginLeft={1}>
+                                    <Box width={5} marginLeft={1}>
                                         <Text>{Math.round(percent * 100)}%</Text>
                                     </Box>
-                                    <Box width={10}>
-                                        <Text>{formatBytes(item.downloadedBytes)}</Text>
+                                    <Box width={22}>
+                                        <Text>{formatBytes(item.downloadedBytes)} / {formatBytes(item.totalBytes)}</Text>
                                     </Box>
                                     {item.speed !== undefined && (
                                         <Box width={14}>

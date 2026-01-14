@@ -212,15 +212,17 @@ export async function downloadAlbumInteractive(
     const downloadResult = await runDownloadTUI(async (emitter) => {
         return await downloadService.downloadAlbum(albumId, selectedQuality, {
             trackIndices,
-            onProgress: (id, data) => emitter.emit('update', {
-                id,
-                state: {
-                    ...data,
+            onProgress: (id, data) => {
+                emitter.emit('update', {
                     id,
-                    downloadedBytes: data.loaded,
-                    totalBytes: data.total
-                }
-            }),
+                    state: {
+                        ...data,
+                        id,
+                        downloadedBytes: data.loaded,
+                        totalBytes: data.total
+                    }
+                });
+            },
             batch: options.batch,
             skipExisting: options.skipExisting
         });
@@ -279,15 +281,17 @@ export async function downloadPlaylistInteractive(playlistId: string | number, o
 
     const result = await runDownloadTUI(async (emitter) => {
         return await downloadService.downloadPlaylist(playlistId, selectedQuality, {
-            onProgress: (id, data) => emitter.emit('update', {
-                id,
-                state: {
-                    ...data,
+            onProgress: (id, data) => {
+                emitter.emit('update', {
                     id,
-                    downloadedBytes: data.loaded,
-                    totalBytes: data.total
-                }
-            }),
+                    state: {
+                        ...data,
+                        id,
+                        downloadedBytes: data.loaded,
+                        totalBytes: data.total
+                    }
+                });
+            },
             skipExisting: options.skipExisting
         });
     }, playlist.name, tracks.length);
@@ -326,15 +330,17 @@ export async function downloadArtistInteractive(artistId: string | number, optio
         await runDownloadTUI(async (emitter) => {
             return await downloadService.downloadAlbum(album.id, 27, {
                 onAlbumInfo: (album) => console.log(chalk.yellow(`\nProcessing: ${album.title}`)),
-                onProgress: (id, data) => emitter.emit('update', {
-                    id,
-                    state: {
-                        ...data,
+                onProgress: (id, data) => {
+                    emitter.emit('update', {
                         id,
-                        downloadedBytes: data.loaded,
-                        totalBytes: data.total
-                    }
-                }),
+                        state: {
+                            ...data,
+                            id,
+                            downloadedBytes: data.loaded,
+                            totalBytes: data.total
+                        }
+                    });
+                },
                 skipExisting: options.skipExisting
             });
         }, album.title, trackCount);
@@ -353,6 +359,8 @@ export async function downloadTrackInteractive(trackId: string | number, options
     const result = await runDownloadTUI(async (emitter) => {
         return await downloadService.downloadTrack(trackId, selectedQuality, {
             onProgress: (p) => {
+                const total = p.total || 0;
+                const status = (p as any).status || (p.phase === 'tagging' ? 'processing' : (p.loaded >= total && total > 0 ? 'done' : 'downloading'));
                 emitter.emit('update', {
                     id: trackId.toString(),
                     state: {
@@ -360,8 +368,8 @@ export async function downloadTrackInteractive(trackId: string | number, options
                         filename: track.title,
                         ...p,
                         downloadedBytes: p.loaded,
-                        totalBytes: p.total,
-                        status: p.phase === 'download' ? 'downloading' : 'processing'
+                        totalBytes: total,
+                        status: status as any
                     }
                 });
             },

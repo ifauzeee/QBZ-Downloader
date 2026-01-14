@@ -348,25 +348,36 @@ class DownloadService {
     }
 
     async embedFlacMetadata(filePath: string, tags: string[][], coverBuffer: Buffer | null) {
+        const tempPath = filePath + '.tagging.tmp';
         try {
-            const tempPath = filePath + '.tmp';
             const reader = createReadStream(filePath);
             const writer = createWriteStream(tempPath);
             const processor = new flac.Processor({ parseMetaDataBlocks: true });
+
             let tagsAdded = false;
 
             processor.on('preprocess', (mdb: any) => {
-                if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) mdb.remove();
-                if (coverBuffer && mdb.type === flac.Processor.MDB_TYPE_PICTURE) mdb.remove();
+                if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
+                    mdb.remove();
+                } else if (mdb.type === flac.Processor.MDB_TYPE_PICTURE && coverBuffer) {
+                    mdb.remove();
+                }
             });
 
             processor.on('postprocess', (mdb: any) => {
                 if (mdb.type === flac.Processor.MDB_TYPE_STREAMINFO && !tagsAdded) {
                     tagsAdded = true;
+
+                    const vendor = 'qbz-downloader';
+                    const validComments = tags.filter(([_key, value]) => {
+                        if (value === undefined || value === null) return false;
+                        const str = value.toString();
+                        return str.trim().length > 0;
+                    });
                     const vorbisComment = flac.data.MetaDataBlockVorbisComment.create(
                         false,
-                        '',
-                        tags.map(([key, value]) => `${key}=${value}`)
+                        vendor,
+                        validComments.map(([key, value]) => `${key}=${value}`)
                     );
                     processor.push(vorbisComment.publish());
 
@@ -387,29 +398,21 @@ class DownloadService {
                 }
             });
 
-            reader.pipe(processor).pipe(writer);
+            await pipeline(reader, processor, writer);
 
-            await new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-                reader.on('error', reject);
-                processor.on('error', reject);
-            });
-
-            let retries = 3;
-            while (retries > 0) {
-                try {
-                    if (existsSync(filePath)) unlinkSync(filePath);
-                    renameSync(tempPath, filePath);
-                    break;
-                } catch (err) {
-                    retries--;
-                    if (retries === 0) throw err;
-                    await new Promise((resolve) => setTimeout(resolve, 500));
-                }
+            if (!existsSync(tempPath)) {
+                throw new Error('Tagging failed: output file not created');
             }
+
+            if (existsSync(filePath)) unlinkSync(filePath);
+            renameSync(tempPath, filePath);
         } catch (error: unknown) {
-            throw new Error(`Tagging failed: ${(error as Error).message}`);
+            if (existsSync(tempPath)) {
+                try {
+                    unlinkSync(tempPath);
+                } catch { }
+            }
+            throw new Error(`FLAC Tagging failed: ${(error as Error).message}`);
         }
     }
 

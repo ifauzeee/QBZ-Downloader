@@ -32,10 +32,12 @@
 | 🔥 **Hi-Res Audio** | Download studio-quality audio up to 24-bit/192kHz FLAC |
 | 📝 **Complete Metadata** | Automatically embed all available tags including credits, composers, conductors |
 | 🎤 **Synced Lyrics** | Fetch and embed time-synced lyrics (LRC format) from LRCLIB |
-| 🖼️ **Cover Art** | High-resolution album artwork embedded in files |
-| 📊 **Beautiful CLI** | Colorful, informative terminal interface with progress tracking |
-| 🔍 **Catalog Search** | Search albums, tracks, and artists directly from CLI |
-| 📚 **Batch Download** | Download entire albums, playlists, or artist discographies |
+| 📋 **Smart Detection** | Auto-detects Qobuz links from your clipboard for faster downloads |
+| 🔄 **History Sync** | Prevents duplicate downloads by tracking your history in `history.json` |
+| 🖼️ **Cover Art** | High-resolution album artwork embedded directly in files |
+| 📊 **Beautiful CLI** | Modern TUI (Terminal User Interface) built with React (Ink) |
+| 🔍 **Catalog Search** | Search albums, tracks, and artists directly from the CLI |
+| 📚 **Batch Download** | Download entire albums, playlists, or artist discographies efficiently |
 
 ---
 
@@ -44,6 +46,7 @@
 ### Prerequisites
 
 - **Node.js** 18.0.0 or higher
+- **Modern Terminal** (Windows Terminal, iTerm2, or any terminal with Unicode/Color support)
 - **Valid Qobuz subscription** (Studio or Hi-Fi plan recommended for Hi-Res)
 
 ### Clone & Install
@@ -119,12 +122,24 @@ The app will use default values if this file doesn't exist.
 
 ## 🚀 Usage
 
-### Development / Direct Run
-
-You can run the tool directly using `npm start`.
-
+### Mode 1: Interactive Menu (Recommended)
+This is the easiest way to use the tool. Just run:
 ```bash
 npm start
+```
+**Pro Tip:** Copy a Qobuz URL before running this command; the tool will automatically detect it from your clipboard!
+
+### Mode 2: Direct CLI
+For automation or power users:
+```bash
+# Download a specific URL
+qbz-dl download <url>
+
+# Download with specific quality (e.g., MP3 320)
+qbz-dl download <url> -q 5
+
+# Search and download
+qbz-dl search "Daft Punk"
 ```
 
 ### Building for Production
@@ -161,15 +176,13 @@ node dist/index.js
 
 ## 🤖 Telegram Bot
 
-Turn your downloader into a personal Telegram cloud music bot!
+Turn your downloader into a personal music cloud bot!
 
 ### Features
 
-- 🔍 **Interactive Search**: Search tracks/albums directly in chat (`/search <query>`)
-- ☁️ **Cloud Download**: Send a Qobuz link, the bot downloads it to the server.
-- 📤 **Auto-Upload**: Smaller files (< 50MB) are uploaded to you and **deleted from the server** to save space.
-- 📦 **Large File Handling**: Files > 50MB are kept on the server and you are notified.
-- 📊 **Real-Time Progress**: Watch the download progress bar update in real-time in your chat.
+- 🔍 **Interactive Search**: `/search <query>`
+- ☁️ **Cloud Download**: Send any Qobuz link directly.
+- 🛡️ **Security**: Use `TELEGRAM_ALLOWED_USERS` in `.env` to restrict access.
 
 ### Setup
 
@@ -226,12 +239,20 @@ downloads/
 
 ---
 
+## 💡 Quality Assurance & Pro Tips
+
+While this tool strives for metadata perfection, sometimes external tools can provide that extra "polish":
+
+- **Metadata Refinement:** If you feel the downloaded metadata needs further adjustment, we highly recommend using [Tagger](https://appteka.store/app/9e0r102377). For the most consistent results, we suggest setting the **Tag Combination** to **iTunes only**.
+- **Lyrics Management:** Should you encounter missing or incomplete lyrics, [SongSync](https://github.com/Lambada10/SongSync) is an excellent tool for manually fetching and syncing lyrics with precision.
+
+---
+
 ## 📝 Notes
 
-- ⚠️ **Valid Qobuz subscription required**
-- 🔒 **Hi-Res downloads** require Qobuz Studio subscription
-- 📖 This tool is for **personal use only**
-- 🎵 Lyrics sourced from [LRCLIB](https://lrclib.net)
+- ⚠️ **Valid Qobuz subscription required** (Hi-Res downloads require a Studio plan).
+- 🔒 This tool is intended for **personal use and archival purposes only**.
+- 🎵 Lyrics are primarily sourced from [LRCLIB](https://lrclib.net).
 
 ---
 

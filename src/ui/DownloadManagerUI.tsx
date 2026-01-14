@@ -10,35 +10,40 @@ interface Props {
 
 const DownloadManagerUI: React.FC<Props> = ({ emitter, title, totalTracks }) => {
     const [items, setItems] = useState<DownloadItemState[]>([]);
-    const [completedCount, setCompletedCount] = useState(0);
+    const [completedIds] = useState(new Set<string>());
+    const [, forceUpdate] = useState({});
 
     useEffect(() => {
         const handleUpdate = (data: { id: string; state: Partial<DownloadItemState> }) => {
+            const { id, state } = data;
+
+            if (state.status === 'done' || state.status === 'failed') {
+                if (!completedIds.has(id)) {
+                    completedIds.add(id);
+                    forceUpdate({});
+                }
+            }
+
             setItems((prev) => {
-                const idx = prev.findIndex(i => i.id === data.id);
+                const idx = prev.findIndex(i => i.id === id);
                 if (idx === -1) {
-                    if (!data.state.id) return prev;
-                    return [...prev, { ...data.state as DownloadItemState }];
+                    if (!state.id) return prev;
+                    return [...prev, { ...state as DownloadItemState }];
                 }
                 const newItems = [...prev];
-                newItems[idx] = { ...newItems[idx], ...data.state };
-
+                newItems[idx] = { ...newItems[idx], ...state };
                 return newItems;
             });
         };
 
-        const handleComplete = () => {
-            setCompletedCount(c => c + 1);
-        };
-
         emitter.on('update', handleUpdate);
-        emitter.on('track_complete', handleComplete);
 
         return () => {
             emitter.off('update', handleUpdate);
-            emitter.off('track_complete', handleComplete);
         };
-    }, [emitter]);
+    }, [emitter, completedIds]);
+
+    const completedCount = completedIds.size;
 
     return (
         <DownloadDashboard

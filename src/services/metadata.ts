@@ -494,9 +494,7 @@ class MetadataService {
         if (lyrics) {
             if (lyrics.syncedLyrics) {
                 comments.push(['SYNCEDLYRICS', lyrics.syncedLyrics]);
-                comments.push(['LYRICS_SYNCED', lyrics.syncedLyrics]);
                 comments.push(['LYRICS', lyrics.syncedLyrics]);
-                comments.push(['UNSYNCEDLYRICS', lyrics.syncedLyrics]);
             }
 
             if (lyrics.source) {
@@ -504,7 +502,11 @@ class MetadataService {
             }
         }
 
-        const validComments = comments.filter(([_key, value]) => value && value.toString().trim());
+        const validComments = comments.filter(([_key, value]) => {
+            if (value === undefined || value === null) return false;
+            const str = value.toString();
+            return str.trim().length > 0;
+        });
 
         const expandedComments: string[][] = [];
         for (const [key, value] of validComments) {
