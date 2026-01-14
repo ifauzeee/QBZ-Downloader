@@ -9,7 +9,7 @@ interface LrclibResponse {
     duration: number;
 }
 
-interface LyricsResult {
+interface LyricsSearchResult {
     success: boolean;
     source?: string;
     data?: LrclibResponse;
@@ -45,7 +45,7 @@ class LyricsProvider {
         artist: string,
         album = '',
         duration = 0
-    ): Promise<LyricsResult> {
+    ): Promise<LyricsSearchResult> {
         try {
             const response = await axios.get('https://lrclib.net/api/get', {
                 params: {
@@ -75,7 +75,7 @@ class LyricsProvider {
         }
     }
 
-    async searchLrclibBest(title: string, artist: string): Promise<LyricsResult> {
+    async searchLrclibBest(title: string, artist: string): Promise<LyricsSearchResult> {
         try {
             const response = await axios.get('https://lrclib.net/api/search', {
                 params: {
@@ -103,7 +103,7 @@ class LyricsProvider {
         }
     }
 
-    async searchGenius(title: string, artist: string): Promise<LyricsResult> {
+    async searchGenius(title: string, artist: string): Promise<LyricsSearchResult> {
         try {
             logger.debug('Searching Genius fallback...');
 
@@ -260,7 +260,7 @@ class LyricsProvider {
             .trim();
     }
 
-    formatResult(result: LyricsResult): ProcessedLyrics {
+    formatResult(result: LyricsSearchResult): ProcessedLyrics {
         return {
             success: true,
             source: result.source,

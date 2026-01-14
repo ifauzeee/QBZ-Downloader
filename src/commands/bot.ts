@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { telegramService } from '../services/telegram.js';
+import { telegramService } from '../services/telegram/index.js';
 import * as display from '../utils/display.js';
 
 export function registerBotCommand(program: Command) {

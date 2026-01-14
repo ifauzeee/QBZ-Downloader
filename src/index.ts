@@ -10,6 +10,7 @@ import { registerAccountCommand } from './commands/account.js';
 import { registerQualityCommand } from './commands/quality.js';
 import { registerSetupCommand } from './commands/setup.js';
 import { registerBotCommand } from './commands/bot.js';
+import { registerDashboardCommand } from './commands/dashboard.js';
 import { showMainMenu } from './commands/menu.js';
 import * as display from './utils/display.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
@@ -45,6 +46,7 @@ registerAccountCommand(program);
 registerQualityCommand(program);
 registerSetupCommand(program);
 registerBotCommand(program);
+registerDashboardCommand(program);
 
 program.action(async () => {
     displayEnvWarnings(warnings);

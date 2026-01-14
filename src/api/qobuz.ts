@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { CONFIG } from '../config.js';
 import { APIError, AuthenticationError } from '../utils/errors.js';
 import { refreshUserToken } from '../utils/token.js';
+import { URL_PATTERNS } from '../constants.js';
 
 import { Album, Track, UserInfo, SearchResults, LyricsResult, Playlist } from '../types/qobuz.js';
 
@@ -263,11 +264,11 @@ class QobuzAPI {
 
     parseUrl(url: string) {
         const patterns = {
-            track: new RegExp('/track/(\\d+)'),
-            album: new RegExp('/album/[^/]+/([a-zA-Z0-9]+)'),
-            artist: new RegExp('/artist/(\\d+)'),
-            playlist: new RegExp('/playlist/(\\d+)'),
-            label: new RegExp('/label/[^/]+/(\\d+)')
+            track: URL_PATTERNS.TRACK,
+            album: URL_PATTERNS.ALBUM,
+            artist: URL_PATTERNS.ARTIST,
+            playlist: URL_PATTERNS.PLAYLIST,
+            label: URL_PATTERNS.LABEL
         };
 
         for (const [type, pattern] of Object.entries(patterns)) {
@@ -277,7 +278,7 @@ class QobuzAPI {
             }
         }
 
-        if (/^\d+$/.test(url)) {
+        if (URL_PATTERNS.NUMERIC_ID.test(url)) {
             return { type: 'album', id: url };
         }
 

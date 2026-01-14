@@ -1,0 +1,62 @@
+{
+    "_help": "Official Documentation: https://github.com/ifauzeee/QBZ-Downloader",
+    "defaultQuality": "27",
+    "embedLyrics": true,
+    "embedCover": true,
+    "downloads": {
+        "path": "./downloads",
+        "concurrent": 4,
+        "folderTemplate": "{artist}/{album}",
+        "fileTemplate": "{track_number}. {title}"
+    },
+    "quality": {
+        "_description": "Audio quality settings. 5=MP3 320, 6=CD Quality, 7=Hi-Res, 27=Hi-Res Max",
+        "default": 27,
+        "formats": {
+            "5": {
+                "name": "MP3 320",
+                "bitDepth": null,
+                "sampleRate": null,
+                "extension": "mp3"
+            },
+            "6": {
+                "name": "FLAC 16-bit/44.1kHz (CD Quality)",
+                "bitDepth": 16,
+                "sampleRate": 44100,
+                "extension": "flac"
+            },
+            "7": {
+                "name": "FLAC 24-bit/96kHz (Hi-Res)",
+                "bitDepth": 24,
+                "sampleRate": 96000,
+                "extension": "flac"
+            },
+            "27": {
+                "name": "FLAC 24-bit/192kHz (Hi-Res Max)",
+                "bitDepth": 24,
+                "sampleRate": 192000,
+                "extension": "flac"
+            }
+        }
+    },
+    "metadata": {
+        "_description": "Tagging and artwork embedding options",
+        "embedCover": true,
+        "saveCoverFile": false,
+        "saveLrcFile": false,
+        "coverSize": "max",
+        "embedLyrics": true,
+        "lyricsType": "both"
+    },
+    "display": {
+        "_description": "CLI UI and Terminal appearance",
+        "showProgress": true,
+        "showMetadata": true,
+        "colorScheme": "gradient",
+        "verbosity": "detailed"
+    },
+    "telegram": {
+        "uploadFiles": true,
+        "autoDelete": true
+    }
+}

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qobuz Downloader Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body class="dark-theme">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">🎵</span>
+                <h1>QBZ-DL</h1>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-tab="queue">
+                    <span class="icon">📥</span> Queue
+                </a>
+                <a href="#" class="nav-item" data-tab="search">
+                    <span class="icon">🔍</span> Search
+                </a>
+                <a href="#" class="nav-item" data-tab="history">
+                    <span class="icon">📜</span> History
+                </a>
+                <a href="#" class="nav-item" data-tab="settings">
+                    <span class="icon">⚙️</span> Settings
+                </a>
+            </nav>
+            <div class="status-card">
+                <h3>Status</h3>
+                <div class="status-indicator online">
+                    <span class="dot"></span> Online
+                </div>
+                <div class="queue-stats-mini">
+                    <div>Pending: <span id="stat-pending">0</span></div>
+                    <div>Active: <span id="stat-active">0</span></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <h2 id="page-title">Download Queue</h2>
+                <button id="add-btn" class="btn primary">
+                    <span class="icon">+</span> Add URL
+                </button>
+            </header>
+
+            <div id="view-queue" class="view-section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total</h3>
+                        <div class="number" id="q-total">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Downloading</h3>
+                        <div class="number text-accent" id="q-downloading">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Completed</h3>
+                        <div class="number text-success" id="q-completed">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Failed</h3>
+                        <div class="number text-danger" id="q-failed">0</div>
+                    </div>
+                </div>
+
+                <div class="queue-toolbar">
+                    <div class="queue-actions">
+                        <button class="btn secondary" onclick="queueAction('pause')">⏸️ Pause</button>
+                        <button class="btn secondary" onclick="queueAction('resume')">▶️ Resume</button>
+                        <button class="btn danger" onclick="queueAction('clear')">🗑️ Clear All</button>
+                    </div>
+                </div>
+
+                <div class="list-container">
+                    <div class="list-header">
+                        <div>Title</div>
+                        <div>Type</div>
+                        <div>Quality</div>
+                        <div>Status</div>
+                        <div>Progress</div>
+                        <div>Action</div>
+                    </div>
+                    <div id="queue-list" class="list-body">
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-search" class="view-section" style="display: none;">
+                <div class="search-container">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search track, album, artist...">
+                        <select id="search-type">
+                            <option value="albums">Albums</option>
+                            <option value="tracks">Tracks</option>
+                            <option value="artists">Artists</option>
+                        </select>
+                        <button class="btn primary" id="search-btn">Search</button>
+                    </div>
+                </div>
+                <div id="search-results" class="results-grid">
+                    <div style="grid-column: 1/-1; text-align: center; color: #666; padding: 50px;">
+                        Start searching to see results
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-album" class="view-section" style="display: none;">
+                <button class="btn secondary" onclick="switchTab('search')" style="margin-bottom: 20px;">
+                    <span class="icon">⬅️</span> Back to Search
+                </button>
+                <div id="album-full-content">
+                    <!-- Album content here -->
+                </div>
+            </div>
+
+            <div id="view-history" class="view-section" style="display: none;">
+                <div class="list-container">
+                    <div class="list-header">
+                        <div>Date</div>
+                        <div>Title</div>
+                        <div>Quality</div>
+                        <div>Filename</div>
+                        <div>Action</div>
+                    </div>
+                    <div id="history-list" class="list-body">
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-settings" class="view-section" style="display: none;">
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <h3>General Settings</h3>
+                        <div class="form-group">
+                            <label>Default Quality</label>
+                            <select id="setting-defaultQuality">
+                                <option value="27">FLAC 24-bit (Hi-Res Max)</option>
+                                <option value="7">FLAC 24-bit (Hi-Res)</option>
+                                <option value="6">FLAC 16-bit (CD Quality)</option>
+                                <option value="5">MP3 320kbps</option>
+                                <option value="ask">Ask every time</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting-embedLyrics"> Embed Lyrics in file
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting-embedCover"> Embed Cover Art in file
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>Download Engine</h3>
+                        <div class="form-group">
+                            <label>Download Path</label>
+                            <input type="text" id="setting-downloads-path" placeholder="./downloads">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Concurrent Downloads</label>
+                            <input type="number" id="setting-downloads-concurrent" min="1" max="10">
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>File & Folder Naming</h3>
+                        <div class="form-group">
+                            <label>Folder Template</label>
+                            <input type="text" id="setting-downloads-folderTemplate">
+                            <small>{artist}, {album}, {year}, {quality}</small>
+                        </div>
+                        <div class="form-group">
+                            <label>File Template</label>
+                            <input type="text" id="setting-downloads-fileTemplate">
+                            <small>{track_number}, {title}, {artist}, {album}</small>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>Telegram Integration</h3>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting-telegram-uploadFiles"> Auto-upload to Telegram
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting-telegram-autoDelete"> Delete local file after upload
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="btn primary" onclick="saveSettings()">Save All Settings</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="add-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('add-modal')">&times;</span>
+            <h2>Add Download</h2>
+            <form id="add-form">
+                <div class="form-group">
+                    <label>Qobuz URL</label>
+                    <input type="text" id="url-input" placeholder="https://play.qobuz.com/album/..." required>
+                </div>
+                <div class="form-group">
+                    <label>Quality</label>
+                    <select id="quality-input">
+                        <option value="27">Hi-Res 24/192 (Default)</option>
+                        <option value="7">Hi-Res 24/96</option>
+                        <option value="6">CD Quality (16/44.1)</option>
+                        <option value="5">MP3 320kbps</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn primary">Add to Queue</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" style="display: none;">
+        <div class="login-split-container">
+            <!-- Left Side: Brand Section -->
+            <div class="login-brand-side">
+                <div class="brand-content">
+                    <div class="logo">
+                        <span class="logo-icon">🎵</span>
+                        <h1>QBZ-DL</h1>
+                    </div>
+                    <h2>Premium Hi-Res Downloader</h2>
+                    <p>Access the ultimate toolkit for high-fidelity audio. Manage your queue, search the library, and
+                        enjoy your music with complete metadata and lyrics.</p>
+                    <div class="brand-features">
+                        <div class="feature-item"><span class="feat-icon">🚀</span> Fast Downloads</div>
+                        <div class="feature-item"><span class="feat-icon">✨</span> Hi-Res Audio</div>
+                        <div class="feature-item"><span class="feat-icon">📜</span> Auto Metadata</div>
+                        <div class="feature-item"><span class="feat-icon">🧹</span> Auto Clean</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Login Section -->
+            <div class="login-form-side">
+                <div class="login-card">
+                    <h2>Authentication</h2>
+                    <p>Please enter your dashboard password to continue.</p>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <input type="password" id="login-password" placeholder="Dashboard Password" required
+                                autofocus>
+                        </div>
+                        <button type="submit" class="btn primary" style="width: 100%;">Login to Dashboard</button>
+                    </form>
+                    <div id="login-error" class="login-error"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

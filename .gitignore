@@ -55,3 +55,14 @@ coverage/
 settings.json
 bot-settings.json
 history.json
+history.json.bak
+*.bak
+
+# Local Data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Documentation
+docs/

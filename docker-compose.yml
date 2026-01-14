@@ -1,0 +1,65 @@
+# Docker Compose for QBZ-Downloader
+# Supports both CLI and Bot modes
+
+services:
+  # ==========================================
+  # Telegram Bot Service (Long-running)
+  # ==========================================
+  qbz-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qbz-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./downloads:/app/downloads
+      - ./config:/app/config
+      - ./history.json:/app/history.json
+      - ./settings.json:/app/settings.json
+    command: ["bot"]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - qbz-network
+
+  # ==========================================
+  # CLI Service (One-shot, for manual downloads)
+  # ==========================================
+  qbz-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qbz-cli
+    profiles:
+      - cli
+    env_file:
+      - .env
+    volumes:
+      - ./downloads:/app/downloads
+      - ./config:/app/config
+      - ./history.json:/app/history.json
+      - ./settings.json:/app/settings.json
+    # Override with: docker compose run qbz-cli download <url>
+    networks:
+      - qbz-network
+
+networks:
+  qbz-network:
+    driver: bridge
+
+volumes:
+  downloads:
+  config:

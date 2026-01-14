@@ -86,6 +86,11 @@ export interface Config {
         autoDelete?: boolean;
         allowedUsers?: string[];
     };
+    dashboard: {
+        port: number;
+        password?: string;
+        autoCleanHours: number;
+    };
 }
 
 export const CONFIG: Config = {
@@ -137,7 +142,7 @@ export const CONFIG: Config = {
     },
 
     download: {
-        outputDir: settings.downloads?.path || getStr('DOWNLOAD_PATH', './downloads'),
+        outputDir: settings.downloads?.path || getStr('DOWNLOADS_PATH', './downloads'),
         folderStructure:
             settings.downloads?.folderTemplate || getStr('FOLDER_TEMPLATE', '{artist}/{album}'),
         fileNaming:
@@ -211,6 +216,11 @@ export const CONFIG: Config = {
             .split(',')
             .map((u) => u.trim())
             .filter((u) => u.length > 0)
+    },
+    dashboard: {
+        port: getInt('DASHBOARD_PORT', 3000),
+        password: getStr('DASHBOARD_PASSWORD', ''),
+        autoCleanHours: getInt('DASHBOARD_AUTO_CLEAN_HOURS', 24)
     }
 };
 

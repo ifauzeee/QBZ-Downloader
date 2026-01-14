@@ -1,0 +1,58 @@
+# Docker ignore file
+# Exclude files not needed in container
+
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Development files
+# src (needed for build)
+# *.ts (needed for build)
+!dist/**/*.js
+# tsconfig.json (needed for build)
+vitest.config.js
+.eslintrc.cjs
+.prettierrc
+
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test files
+*.test.ts
+*.test.js
+coverage
+.vitest
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Environment (will be mounted)
+.env
+.env.local
+.env.*.local
+
+# Artifacts
+*.log
+*.tmp
+downloads
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# Husky
+.husky
+
+# Cache
+.npm
+.cache

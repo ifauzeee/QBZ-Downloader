@@ -32,7 +32,7 @@ export function validateEnvironment(exitOnError = true) {
     if (missing.length > 0) {
         const error = new ConfigurationError(
             `Missing required environment variables:\n${missing.map((v) => `  • ${v}`).join('\n')}\n\n` +
-                'Please copy .env.example to .env and fill in your credentials.',
+            'Please copy .env.example to .env and fill in your credentials.',
             missing
         );
 
@@ -69,9 +69,9 @@ export function getEnvSummary() {
             clientSecret: !!process.env.SPOTIFY_CLIENT_SECRET
         },
         paths: {
-            downloadPath: process.env.DOWNLOAD_PATH || './downloads',
+            downloadPath: process.env.DOWNLOADS_PATH || './downloads',
             folderTemplate: process.env.FOLDER_TEMPLATE || '{artist}/{album}',
-            fileTemplate: process.env.FILE_TEMPLATE || '{trackNumber}. {title}'
+            fileTemplate: process.env.FILE_TEMPLATE || '{track_number}. {title}'
         },
         telegram: {
             botToken: !!process.env.TELEGRAM_BOT_TOKEN,

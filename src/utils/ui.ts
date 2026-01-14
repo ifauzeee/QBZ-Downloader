@@ -1,6 +1,7 @@
 import boxen from 'boxen';
 import chalk from 'chalk';
 import figlet from 'figlet';
+import { APP_VERSION } from '../constants.js';
 import { COLORS, GRADIENTS, SYMBOLS } from './theme.js';
 
 export const printLogo = () => {
@@ -10,9 +11,9 @@ export const printLogo = () => {
     console.log(
         (chalk as unknown as { center: (str: string) => string }).center
             ? (chalk as unknown as { center: (str: string) => string }).center(
-                  'v2.0.0 • Premium High-Res Downloader'
-              )
-            : '       v2.0.0 • Premium High-Res Downloader'
+                `v${APP_VERSION} • Premium High-Res Downloader`
+            )
+            : `       v${APP_VERSION} • Premium High-Res Downloader`
     );
     console.log();
 };

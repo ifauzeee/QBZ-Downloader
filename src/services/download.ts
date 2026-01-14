@@ -334,7 +334,7 @@ class DownloadService {
 
             result.success = true;
             historyService.add(trackId, {
-                filename: path.basename(filePath),
+                filename: filePath,
                 quality,
                 title: metadata.title
             });

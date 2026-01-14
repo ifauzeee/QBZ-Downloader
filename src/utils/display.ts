@@ -17,7 +17,13 @@ export { printLogo as displayBanner };
 let progressBar: cliProgress.SingleBar | null = null;
 
 const stripAnsi = (str: string) => {
-    return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+    const pattern =
+        '[' +
+        String.fromCharCode(27) +
+        String.fromCharCode(155) +
+        ']' +
+        '[[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]';
+    return str.replace(new RegExp(pattern, 'g'), '');
 };
 
 const getVisibleWidth = (str: string) => {
@@ -25,7 +31,7 @@ const getVisibleWidth = (str: string) => {
     let width = 0;
     for (const char of stripped) {
         const code = char.charCodeAt(0);
-        if (code >= 0x1F000 || (code >= 0xD800 && code <= 0xDBFF)) {
+        if (code >= 0x1f000 || (code >= 0xd800 && code <= 0xdbff)) {
             width += 2;
         } else {
             width += 1;

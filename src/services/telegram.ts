@@ -17,6 +17,10 @@ const resolveQuality = (quality: number | 'ask' | 'min' | 'max'): number => {
     return 27;
 };
 
+const escapeHtml = (str: string): string => {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+};
+
 export class TelegramService {
     private bot: Telegraf | null = null;
     private chatId: string | null = null;
@@ -89,7 +93,7 @@ export class TelegramService {
 
             if (sizeInMB > 49) {
                 await this.sendMessage(
-                    '⚠️ <b>File > 50MB (Telegram Limit)</b>\n' +
+                    '⚠️ <b>File &gt; 50MB (Telegram Limit)</b>\n' +
                         `📄 <code>${path.basename(filePath)}</code> (${this.formatSize(fileSizeInBytes)})\n` +
                         '<i>Saved on server. Cannot auto-delete.</i>'
                 );
@@ -137,8 +141,8 @@ export class TelegramService {
         const msg =
             '✨ <b>INCOMING DOWNLOAD</b> ✨\n' +
             '━━━━━━━━━━━━━━━━━━\n' +
-            `${icon} <b>Item:</b> <code>${title}</code>\n` +
-            `💎 <b>Quality:</b> <code>${quality}</code>\n` +
+            `${icon} <b>Item:</b> <code>${escapeHtml(title)}</code>\n` +
+            `💎 <b>Quality:</b> <code>${escapeHtml(quality)}</code>\n` +
             `📂 <b>Type:</b> <i>${type.toUpperCase()}</i>\n` +
             '━━━━━━━━━━━━━━━━━━\n' +
             `⏱️ <b>Time:</b> <code>${new Date().toLocaleTimeString()}</code>`;
@@ -168,7 +172,7 @@ export class TelegramService {
         const msg =
             '✅ <b>SUCCESSFULLY DOWNLOADED</b>\n' +
             '━━━━━━━━━━━━━━━━━━\n' +
-            `🎧 <b>Title:</b> <code>${title}</code>\n` +
+            `🎧 <b>Title:</b> <code>${escapeHtml(title)}</code>\n` +
             `${statsMsg}` +
             `${pathLine}` +
             '━━━━━━━━━━━━━━━━━━\n' +
@@ -181,8 +185,8 @@ export class TelegramService {
         const msg =
             '❌ <b>ERROR DETECTED</b>\n' +
             '━━━━━━━━━━━━━━━━━━\n' +
-            `❗ <b>Context:</b> <code>${context}</code>\n` +
-            `⚠️ <b>Message:</b> <i>${error}</i>\n` +
+            `❗ <b>Context:</b> <code>${escapeHtml(context)}</code>\n` +
+            `⚠️ <b>Message:</b> <i>${escapeHtml(error)}</i>\n` +
             '━━━━━━━━━━━━━━━━━━\n' +
             '<i>Please check your settings or try again later.</i>';
 
@@ -227,7 +231,7 @@ export class TelegramService {
         const msgCode =
             `🛰️ <b>ACTIVITY: ${phase.toUpperCase()}</b>\n` +
             '━━━━━━━━━━━━━━━━━━\n' +
-            `🎵 <b>Track:</b> <code>${title}</code>\n` +
+            `🎵 <b>Track:</b> <code>${escapeHtml(title)}</code>\n` +
             '━━━━━━━━━━━━━━━━━━\n' +
             `${statusText}`;
 
@@ -276,7 +280,7 @@ export class TelegramService {
                     '1️⃣ Send any Qobuz Link (Track/Album/Playlist)\n' +
                     '2️⃣ Use /search to find your favorite music\n' +
                     '3️⃣ Configure your /settings\n\n' +
-                    '🔒 <i>All files < 50MB are automatically uploaded.</i>',
+                    '🔒 <i>All files &lt; 50MB are automatically uploaded.</i>',
                 { parse_mode: 'HTML' }
             );
         });
@@ -449,8 +453,8 @@ export class TelegramService {
             let msg =
                 '💿 <b>ALBUM INFORMATION</b>\n' +
                 '━━━━━━━━━━━━━━━━━━\n' +
-                `💽 <b>Title:</b> <code>${album.title}</code>\n` +
-                `👤 <b>Artist:</b> <code>${album.artist.name}</code>\n` +
+                `💽 <b>Title:</b> <code>${escapeHtml(album.title)}</code>\n` +
+                `👤 <b>Artist:</b> <code>${escapeHtml(album.artist.name)}</code>\n` +
                 `📅 <b>Year:</b> <code>${album.release_date_original || 'N/A'}</code>\n` +
                 `🎼 <b>Tracks:</b> <code>${album.tracks_count}</code>\n` +
                 '━━━━━━━━━━━━━━━━━━\n' +
@@ -481,7 +485,7 @@ export class TelegramService {
 
             if (album.tracks && album.tracks.items) {
                 album.tracks.items.forEach((track, index) => {
-                    msg += `<code>${index + 1}.</code> ${track.title}\n`;
+                    msg += `<code>${index + 1}.</code> ${escapeHtml(track.title)}\n`;
                     keyboardRows.push([
                         {
                             text: `🎵 ${track.title.substring(0, 30)}`,
@@ -506,8 +510,8 @@ export class TelegramService {
             let msg =
                 '📜 <b>PLAYLIST INFORMATION</b>\n' +
                 '━━━━━━━━━━━━━━━━━━\n' +
-                `� <b>Name:</b> <code>${playlist.name}</code>\n` +
-                `👤 <b>Owner:</b> <code>${playlist.owner?.name || 'N/A'}</code>\n` +
+                `📝 <b>Name:</b> <code>${escapeHtml(playlist.name)}</code>\n` +
+                `👤 <b>Owner:</b> <code>${escapeHtml(playlist.owner?.name || 'N/A')}</code>\n` +
                 `🎼 <b>Tracks:</b> <code>${playlist.tracks.total}</code>\n` +
                 '━━━━━━━━━━━━━━━━━━\n' +
                 '<b>Tracklist:</b>\n';
@@ -537,7 +541,7 @@ export class TelegramService {
 
             if (playlist.tracks && playlist.tracks.items) {
                 playlist.tracks.items.forEach((track, index) => {
-                    msg += `<code>${index + 1}.</code> ${track.title}\n`;
+                    msg += `<code>${index + 1}.</code> ${escapeHtml(track.title)}\n`;
                     keyboardRows.push([
                         {
                             text: `🎵 ${track.title.substring(0, 30)}`,
@@ -561,7 +565,7 @@ export class TelegramService {
             const msg =
                 '👤 <b>ARTIST PROFILE</b>\n' +
                 '━━━━━━━━━━━━━━━━━━\n' +
-                `🎤 <b>Name:</b> <code>${artist.name}</code>\n` +
+                `🎤 <b>Name:</b> <code>${escapeHtml(artist.name)}</code>\n` +
                 `💿 <b>Albums:</b> <code>${artist.albums_count || 'N/A'}</code>\n` +
                 '━━━━━━━━━━━━━━━━━━\n' +
                 '<i>Select a quality to download discography:</i>';
@@ -610,7 +614,7 @@ export class TelegramService {
                 this.chatId!,
                 '📦 <b>BATCH INITIALIZING</b>\n' +
                     '━━━━━━━━━━━━━━━━━━\n' +
-                    `💿 <b>Album:</b> <code>${title}</code>\n` +
+                    `💿 <b>Album:</b> <code>${escapeHtml(title)}</code>\n` +
                     '━━━━━━━━━━━━━━━━━━\n' +
                     '⏳ <i>Please wait while we prepare your tracks...</i>',
                 { parse_mode: 'HTML' }
@@ -638,7 +642,7 @@ export class TelegramService {
                     this.chatId!,
                     '📤 <b>BATCH UPLOADING</b>\n' +
                         '━━━━━━━━━━━━━━━━━━\n' +
-                        `💿 <b>Album:</b> <code>${title}</code>\n` +
+                        `💿 <b>Album:</b> <code>${escapeHtml(title)}</code>\n` +
                         '━━━━━━━━━━━━━━━━━━\n' +
                         '⏳ <i>Transferring tracks to Telegram...</i>',
                     { parse_mode: 'HTML' }
@@ -678,7 +682,7 @@ export class TelegramService {
                 this.chatId!,
                 '📜 <b>PLAYLIST INITIALIZING</b>\n' +
                     '━━━━━━━━━━━━━━━━━━\n' +
-                    `📝 <b>Playlist:</b> <code>${title}</code>\n` +
+                    `📝 <b>Playlist:</b> <code>${escapeHtml(title)}</code>\n` +
                     '━━━━━━━━━━━━━━━━━━\n' +
                     '⏳ <i>Preparing playlist tracks...</i>',
                 { parse_mode: 'HTML' }
@@ -698,7 +702,7 @@ export class TelegramService {
                     this.chatId!,
                     '📤 <b>PLAYLIST UPLOADING</b>\n' +
                         '━━━━━━━━━━━━━━━━━━\n' +
-                        `📝 <b>Playlist:</b> <code>${title}</code>\n` +
+                        `📝 <b>Playlist:</b> <code>${escapeHtml(title)}</code>\n` +
                         '━━━━━━━━━━━━━━━━━━\n' +
                         '⏳ <i>Sending tracks to Telegram...</i>',
                     { parse_mode: 'HTML' }
@@ -749,7 +753,7 @@ export class TelegramService {
 
             const progressMsg = await this.bot!.telegram.sendMessage(
                 this.chatId!,
-                `<b>${title}</b>\n\n⏳ Initializing...`,
+                `<b>${escapeHtml(title)}</b>\n\n⏳ Initializing...`,
                 { parse_mode: 'HTML' }
             );
             const messageId = progressMsg.message_id;
@@ -769,7 +773,7 @@ export class TelegramService {
                     this.chatId!,
                     '📤 <b>TRACK UPLOADING</b>\n' +
                         '━━━━━━━━━━━━━━━━━━\n' +
-                        `🎵 <b>Track:</b> <code>${title}</code>\n` +
+                        `🎵 <b>Track:</b> <code>${escapeHtml(title)}</code>\n` +
                         '━━━━━━━━━━━━━━━━━━\n' +
                         '⏳ <i>Uploading to your chat...</i>',
                     { parse_mode: 'HTML' }
@@ -791,7 +795,7 @@ export class TelegramService {
         const msg =
             '🔍 <b>SEARCH OPERATOR</b>\n' +
             '━━━━━━━━━━━━━━━━━━\n' +
-            `Query: <code>${query}</code>\n\n` +
+            `Query: <code>${escapeHtml(query)}</code>\n\n` +
             'Select a category to view results:';
 
         const keyboard = {
@@ -843,7 +847,7 @@ export class TelegramService {
             }
 
             if (items.length === 0) {
-                await ctx.reply(`❌ No ${type} found for "<code>${query}</code>"`, {
+                await ctx.reply(`❌ No ${type} found for "<code>${escapeHtml(query)}</code>"`, {
                     parse_mode: 'HTML'
                 });
                 return;
@@ -881,7 +885,7 @@ export class TelegramService {
             const msg =
                 `${header}\n` +
                 '━━━━━━━━━━━━━━━━━━\n' +
-                `Results for: <code>${query}</code>\n\n` +
+                `Results for: <code>${escapeHtml(query)}</code>\n\n` +
                 '<i>Select an item to view or download:</i>';
 
             await ctx.editMessageText(msg, {

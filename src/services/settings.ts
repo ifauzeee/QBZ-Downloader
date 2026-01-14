@@ -30,10 +30,10 @@ class SettingsService {
                 retryAttempts: 3,
                 retryDelay: 1000,
                 folderTemplate: '{artist}/{album}',
-                fileTemplate: '{track_number} {title}'
+                fileTemplate: '{track_number}. {title}'
             },
             quality: {
-                _description: 'Audio quality settings. 27=Hi-Res, 7=CD, 6=MP3 320',
+                _description: 'Audio quality settings. 5=MP3 320, 6=CD Quality, 7=Hi-Res, 27=Hi-Res Max',
                 default: 27,
                 formats: {
                     '5': {
