@@ -1,5 +1,6 @@
 import path from 'path';
 import axios from 'axios';
+import { execFileSync } from 'child_process';
 import { pipeline } from 'stream/promises';
 import {
     createWriteStream,
@@ -292,33 +293,34 @@ class DownloadService {
 
     async embedFlacMetadata(filePath: string, tags: string[][], coverBuffer: Buffer | null) {
         try {
-            const { execSync } = await import('child_process');
-            try {
-                execSync('metaflac --version', { stdio: 'ignore' });
+            execFileSync('metaflac', ['--version'], { stdio: 'ignore' });
 
-                execSync(`metaflac --remove-all-tags "${filePath}"`, { stdio: 'ignore' });
-                for (const [key, value] of tags) {
-                    if (value) {
-                        const escaped = String(value).replace(/"/g, '\\"');
-                        execSync(`metaflac --set-tag="${key}=${escaped}" "${filePath}"`, {
-                            stdio: 'ignore'
-                        });
-                    }
-                }
-                if (coverBuffer) {
-                    const coverPath = filePath + '.cover.jpg';
-                    writeFileSync(coverPath, coverBuffer);
-                    execSync(`metaflac --import-picture-from="${coverPath}" "${filePath}"`, {
+            execFileSync('metaflac', ['--remove-all-tags', filePath], { stdio: 'ignore' });
+
+            for (const [key, value] of tags) {
+                if (value) {
+                    execFileSync('metaflac', [`--set-tag=${key}=${value}`, filePath], {
                         stdio: 'ignore'
                     });
-                    unlinkSync(coverPath);
                 }
-                return;
-            } catch (e) {
-                void e;
             }
 
-            console.log('    ℹ️  Using JS fallback for FLAC tagging...');
+            if (coverBuffer) {
+                const coverPath = filePath + '.cover.jpg';
+                writeFileSync(coverPath, coverBuffer);
+                execFileSync('metaflac', [`--import-picture-from=${coverPath}`, filePath], {
+                    stdio: 'ignore'
+                });
+                try {
+                    unlinkSync(coverPath);
+                } catch {}
+            }
+            return;
+        } catch {}
+
+        console.log('    ℹ️  Using JS fallback for FLAC tagging...');
+
+        try {
             const tempPath = filePath + '.tmp';
             const reader = createReadStream(filePath);
             const writer = createWriteStream(tempPath);
@@ -373,10 +375,21 @@ class DownloadService {
                 processor.on('error', reject);
             });
 
-            unlinkSync(filePath);
-            renameSync(tempPath, filePath);
+            let retries = 3;
+            while (retries > 0) {
+                try {
+                    if (existsSync(filePath)) unlinkSync(filePath);
+                    renameSync(tempPath, filePath);
+                    break;
+                } catch (err) {
+                    retries--;
+                    if (retries === 0) throw err;
+                    await new Promise((resolve) => setTimeout(resolve, 500));
+                }
+            }
         } catch (error: unknown) {
             console.error('Tagging Error:', (error as Error).message);
+            throw new Error(`Tagging failed: ${(error as Error).message}`);
         }
     }
 

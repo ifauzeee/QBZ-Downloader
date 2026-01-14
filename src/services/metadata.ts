@@ -121,15 +121,36 @@ class MetadataService {
             genre: album.genre?.name || album.genres_list?.[0] || '',
 
             albumArtist: album.artist?.name || artist.name || '',
-            composer: composer.name || trackData.composer?.name || '',
+            composer: (
+                performers.composers.map((p: any) => p.name).join('; ') ||
+                trackData.composer?.name ||
+                composer.name ||
+                ''
+            ).trim(),
             conductor: performers.conductor || '',
-            producer: credits.producer || '',
-            mixer: credits.mixer || '',
+            producer: (
+                performers.producers.map((p: any) => p.name).join('; ') ||
+                credits.producer ||
+                ''
+            ).trim(),
+            mixer: (
+                performers.mixers.map((p: any) => p.name).join('; ') ||
+                credits.mixer ||
+                ''
+            ).trim(),
             remixer: credits.remixer || '',
             lyricist: credits.lyricist || '',
-            writer: credits.writer || '',
+            writer: (
+                performers.writers.map((p: any) => p.name).join('; ') ||
+                credits.writer ||
+                ''
+            ).trim(),
             arranger: credits.arranger || '',
-            engineer: credits.engineer || '',
+            engineer: (
+                performers.engineers.map((p: any) => p.name).join('; ') ||
+                credits.engineer ||
+                ''
+            ).trim(),
 
             label: album.label?.name || '',
             copyright: album.copyright || '',
@@ -182,7 +203,12 @@ class MetadataService {
             conductor: '',
             orchestra: '',
             choir: '',
-            ensemble: ''
+            ensemble: '',
+            composers: [],
+            producers: [],
+            writers: [],
+            engineers: [],
+            mixers: []
         };
 
         const seenNames = new Set();
@@ -205,22 +231,24 @@ class MetadataService {
                 if (role && name) {
                     const roleLower = role.toLowerCase();
 
-                    if (
-                        roleLower.includes('producer') ||
-                        roleLower.includes('engineer') ||
-                        roleLower.includes('mixer') ||
-                        roleLower.includes('mastering') ||
+                    if (roleLower.includes('composer')) {
+                        addPerformer(name, role, performers.composers);
+                    } else if (roleLower.includes('producer')) {
+                        addPerformer(name, role, performers.producers);
+                    } else if (
                         roleLower.includes('writer') ||
-                        roleLower.includes('composer') ||
-                        roleLower.includes('programmer') ||
-                        roleLower.includes('arranger') ||
-                        roleLower.includes('designer') ||
-                        roleLower.includes('director') ||
-                        roleLower.includes('art direction') ||
-                        roleLower.includes('legal') ||
-                        roleLower.includes('management')
+                        roleLower.includes('lyricist') ||
+                        roleLower.includes('author')
                     ) {
-                        continue;
+                        addPerformer(name, role, performers.writers);
+                    } else if (
+                        roleLower.includes('engineer') ||
+                        roleLower.includes('mastering') ||
+                        roleLower.includes('recording')
+                    ) {
+                        addPerformer(name, role, performers.engineers);
+                    } else if (roleLower.includes('mixer')) {
+                        addPerformer(name, role, performers.mixers);
                     }
 
                     if (roleLower.includes('conductor')) performers.conductor = name;
@@ -235,15 +263,7 @@ class MetadataService {
                             performers.featured.push(name);
                             seenNames.add(normalized);
                         }
-                    } else if (
-                        roleLower.includes('main artist') ||
-                        roleLower === 'artist' ||
-                        roleLower === 'performer' ||
-                        roleLower.includes('vocalist') ||
-                        roleLower.includes('singer')
-                    ) {
-                        addPerformer(name, role, performers.main);
-                    } else {
+                    } else if (roleLower.includes('main artist')) {
                         addPerformer(name, role, performers.main);
                     }
                 }
@@ -284,7 +304,10 @@ class MetadataService {
             for (const credit of albumData.credits) {
                 for (const [key, field] of Object.entries(creditMap)) {
                     if (credit.role?.includes(key)) {
-                        credits[field] = credit.name || '';
+                        const existing = credits[field];
+                        credits[field] = existing
+                            ? `${existing}; ${credit.name}`
+                            : credit.name || '';
                     }
                 }
             }
