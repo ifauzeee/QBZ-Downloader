@@ -12,8 +12,23 @@ import { handleSearch } from './search.js';
 import { handleAccount } from './account.js';
 import { handleSettings } from './settings.js';
 import { COLORS, SYMBOLS } from '../utils/theme.js';
+import { execSync } from 'child_process';
 
 const api = new QobuzAPI();
+
+function readClipboardWindows(): string {
+    if (process.platform !== 'win32') return '';
+    try {
+        const output = execSync('powershell -command "Get-Clipboard"', {
+            encoding: 'utf8',
+            timeout: 2000,
+            stdio: ['ignore', 'pipe', 'ignore']
+        });
+        return output.trim();
+    } catch {
+        return '';
+    }
+}
 
 export async function showMainMenu() {
     ui.printLogo();
@@ -69,17 +84,32 @@ export async function showMainMenu() {
 
 async function handleSmartDownload() {
     ui.printHeader('Smart Download');
+
+    const clipboardContent = readClipboardWindows();
+    let defaultInput = undefined;
+
+    if (
+        clipboardContent &&
+        (clipboardContent.includes('qobuz.com') || /^\d+$/.test(clipboardContent))
+    ) {
+        defaultInput = clipboardContent;
+    }
+
     console.log(
         chalk.gray(
             'Paste a Qobuz link (Track, Album, Artist, Playlist) or just press Enter to go back.'
         )
     );
+    if (defaultInput) {
+        console.log(chalk.green('✨ Detected link from clipboard!'));
+    }
 
     const { input } = await inquirer.prompt([
         {
             type: 'input',
             name: 'input',
             message: chalk.cyan('🔗 Link / ID:'),
+            default: defaultInput,
             validate: (input: string) => {
                 if (!input) return true;
                 if (!input.includes('qobuz.com') && !/^\d+$/.test(input)) {

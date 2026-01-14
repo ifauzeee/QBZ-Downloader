@@ -32,7 +32,8 @@ class QobuzAPI {
             timeout: 30000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'X-App-Id': this.appId
+                'X-App-Id': this.appId,
+                'Accept-Language': 'en-US,en;q=0.9'
             }
         });
 

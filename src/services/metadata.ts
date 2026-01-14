@@ -96,17 +96,29 @@ class MetadataService {
         const performers = this.extractPerformers(trackData, albumData);
         const credits = this.extractCredits(albumData);
 
-        let mainArtist = '';
+        const allArtistNames = new Set<string>();
+
         if (performers.main.length > 0) {
-            mainArtist = performers.main.map((p: any) => p.name).join('; ');
+            performers.main.forEach((p: any) => allArtistNames.add(p.name));
         } else {
-            mainArtist = artist.name || trackData.performer?.name || 'Unknown';
+            const fallback = artist.name || trackData.performer?.name || 'Unknown';
+            allArtistNames.add(fallback);
         }
 
         if (performers.featured.length > 0) {
-            const featuredStr = performers.featured.join('; ');
-            if (mainArtist) mainArtist += '; ' + featuredStr;
-            else mainArtist = featuredStr;
+            performers.featured.forEach((f: string) => allArtistNames.add(f));
+        }
+
+        const names = Array.from(allArtistNames);
+        let mainArtist = '';
+
+        if (names.length === 1) {
+            mainArtist = names[0];
+        } else if (names.length === 2) {
+            mainArtist = `${names[0]} & ${names[1]}`;
+        } else if (names.length > 2) {
+            const last = names.pop();
+            mainArtist = `${names.join(', ')} & ${last}`;
         }
 
         const metadata: Metadata = {
@@ -118,7 +130,20 @@ class MetadataService {
             totalTracks: album.tracks_count || 1,
             discNumber: trackData.media_number || 1,
             totalDiscs: album.media_count || 1,
-            genre: album.genre?.name || album.genres_list?.[0] || '',
+            genre: (() => {
+                const list = album.genres_list || [];
+                let bestGenre = '';
+
+                if (list.length > 0) {
+                    const lastItem = list[list.length - 1];
+                    const name = typeof lastItem === 'string' ? lastItem : lastItem.name;
+                    bestGenre = name.split('→').pop()!.trim();
+                } else if (album.genre?.name) {
+                    bestGenre = album.genre.name;
+                }
+
+                return bestGenre;
+            })(),
 
             albumArtist: album.artist?.name || artist.name || '',
             composer: (
@@ -211,13 +236,11 @@ class MetadataService {
             mixers: []
         };
 
-        const seenNames = new Set();
-
         const addPerformer = (name: string, role: string, targetList: any[]) => {
             const normalized = this.normalizeName(name);
-            if (!seenNames.has(normalized)) {
+            const exists = targetList.some((p: any) => this.normalizeName(p.name) === normalized);
+            if (!exists) {
                 targetList.push({ name, role });
-                seenNames.add(normalized);
             }
         };
 
@@ -233,37 +256,53 @@ class MetadataService {
 
                     if (roleLower.includes('composer')) {
                         addPerformer(name, role, performers.composers);
-                    } else if (roleLower.includes('producer')) {
+                    }
+                    if (roleLower.includes('producer')) {
                         addPerformer(name, role, performers.producers);
-                    } else if (
+                    }
+                    if (
                         roleLower.includes('writer') ||
                         roleLower.includes('lyricist') ||
                         roleLower.includes('author')
                     ) {
                         addPerformer(name, role, performers.writers);
-                    } else if (
+                    }
+                    if (
                         roleLower.includes('engineer') ||
                         roleLower.includes('mastering') ||
                         roleLower.includes('recording')
                     ) {
                         addPerformer(name, role, performers.engineers);
-                    } else if (roleLower.includes('mixer')) {
+                    }
+                    if (roleLower.includes('mixer')) {
                         addPerformer(name, role, performers.mixers);
                     }
 
                     if (roleLower.includes('conductor')) performers.conductor = name;
                     else if (roleLower.includes('orchestra')) performers.orchestra = name;
                     else if (roleLower.includes('choir')) performers.choir = name;
-                    else if (
-                        roleLower.includes('featured artist') ||
-                        roleLower.includes('featuring')
-                    ) {
+
+                    if (roleLower.includes('featured artist') || roleLower.includes('featuring')) {
                         const normalized = this.normalizeName(name);
-                        if (!seenNames.has(normalized)) {
+                        const exists = performers.featured.some(
+                            (n: string) => this.normalizeName(n) === normalized
+                        );
+                        if (!exists) {
                             performers.featured.push(name);
-                            seenNames.add(normalized);
                         }
-                    } else if (roleLower.includes('main artist')) {
+                    }
+
+                    const subRoles = roleLower.split(', ');
+
+                    if (
+                        roleLower.includes('main artist') ||
+                        roleLower.includes('mainartist') ||
+                        roleLower === 'performer' ||
+                        subRoles.includes('vocal') ||
+                        subRoles.includes('vocals') ||
+                        subRoles.includes('rap') ||
+                        subRoles.includes('rapper')
+                    ) {
                         addPerformer(name, role, performers.main);
                     }
                 }
@@ -416,7 +455,8 @@ class MetadataService {
             ['TITLE', metadata.title],
             ['ARTIST', metadata.artist],
             ['ALBUM', metadata.album],
-            ['DATE', metadata.year?.toString()],
+            ['DATE', metadata.releaseDate],
+            ['YEAR', metadata.year?.toString()],
             ['TRACKNUMBER', metadata.trackNumber?.toString()],
             ['TRACKTOTAL', metadata.totalTracks?.toString()],
             ['DISCNUMBER', metadata.discNumber?.toString()],
@@ -464,7 +504,19 @@ class MetadataService {
             }
         }
 
-        return comments.filter(([_key, value]) => value && value.toString().trim());
+        const validComments = comments.filter(([_key, value]) => value && value.toString().trim());
+
+        const expandedComments: string[][] = [];
+        for (const [key, value] of validComments) {
+            if (typeof value === 'string' && value.includes('; ')) {
+                const parts = value.split('; ');
+                parts.forEach((p) => expandedComments.push([key, p]));
+            } else {
+                expandedComments.push([key, value?.toString() || '']);
+            }
+        }
+
+        return expandedComments;
     }
 
     async writeId3Tags(filePath: string, tags: any) {

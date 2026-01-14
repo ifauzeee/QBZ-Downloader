@@ -19,33 +19,41 @@ import MetadataService, { Metadata } from './metadata.js';
 import { settingsService } from './settings.js';
 import pLimit from 'p-limit';
 import flac from 'flac-metadata';
-import cliProgress from 'cli-progress';
-import chalk from 'chalk';
 import { Track, LyricsResult, Album } from '../types/qobuz.js';
+
+export interface DownloadProgress {
+    phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging';
+    loaded: number;
+    total?: number;
+    speed?: number;
+}
 
 interface DownloadOptions {
     outputDir?: string;
-    onProgress?: (
-        phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging',
-        loaded: number,
-        total?: number
-    ) => void;
+    onProgress?: (progress: DownloadProgress) => void;
     trackIndices?: number[];
+}
+
+export interface BatchProgressCallback {
+    (
+        trackId: string,
+        data: {
+            filename?: string;
+            status?: 'pending' | 'downloading' | 'processing' | 'done' | 'failed';
+            phase?: string;
+            loaded?: number;
+            total?: number;
+            speed?: number;
+            error?: string;
+        }
+    ): void;
 }
 
 export interface AlbumDownloadOptions {
     trackIndices?: number[];
-    onTrackStart?: (track: Track, num: number, total: number) => void;
-    onTrackComplete?: (result: DownloadResult) => void;
-    onProgress?: (phase: string, loaded: number, total?: number) => void;
-    batch?: boolean;
-}
-
-export interface ArtistDownloadOptions {
+    onProgress?: BatchProgressCallback;
     onAlbumInfo?: (album: Album) => void;
-    onTrackStart?: (track: Track, num: number, total: number) => void;
-    onTrackComplete?: (result: DownloadResult) => void;
-    onProgress?: (phase: string, loaded: number, total?: number) => void;
+    batch?: boolean;
 }
 
 interface DownloadResult {
@@ -196,7 +204,7 @@ class DownloadService {
 
             let lyrics = null;
             if (embedLyrics) {
-                if (options.onProgress) options.onProgress('lyrics', 0);
+                if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
                 const lyricsRes = await this.lyricsProvider.getLyrics(
                     track!.title,
                     metadata.artist,
@@ -212,7 +220,8 @@ class DownloadService {
 
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
-                    if (options.onProgress) options.onProgress('download_start', 0);
+                    if (options.onProgress)
+                        options.onProgress({ phase: 'download_start', loaded: 0 });
 
                     const fileStreamData = fileUrl.data as { url: string };
                     const response = await axios({
@@ -222,15 +231,31 @@ class DownloadService {
                         timeout: 0
                     });
 
-                    const totalSize = parseInt(response.headers['content-length'], 10);
+                    const contentLength = response.headers['content-length'];
+                    const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
                     const writer = createWriteStream(filePath);
                     const progressStream = new PassThrough();
 
                     let downloaded = 0;
+                    let lastTick = Date.now();
+                    let lastLoaded = 0;
+
                     progressStream.on('data', (chunk: Buffer) => {
                         downloaded += chunk.length;
-                        if (options.onProgress)
-                            options.onProgress('download', downloaded, totalSize);
+                        const now = Date.now();
+                        if (now - lastTick > 500) {
+                            const diff = now - lastTick;
+                            const speed = ((downloaded - lastLoaded) / diff) * 1000;
+                            if (options.onProgress)
+                                options.onProgress({
+                                    phase: 'download',
+                                    loaded: downloaded,
+                                    total: totalSize,
+                                    speed
+                                });
+                            lastTick = now;
+                            lastLoaded = downloaded;
+                        }
                     });
 
                     await pipeline(response.data, progressStream, writer);
@@ -258,7 +283,7 @@ class DownloadService {
                 throw lastError;
             }
 
-            if (options.onProgress) options.onProgress('cover', 0);
+            if (options.onProgress) options.onProgress({ phase: 'cover', loaded: 0 });
             const coverBuffer =
                 embedCover || CONFIG.metadata.saveCoverFile
                     ? await this.getCoverBuffer(metadata.coverUrl)
@@ -268,7 +293,7 @@ class DownloadService {
                 writeFileSync(path.join(folderPath, 'cover.jpg'), coverBuffer);
             }
 
-            if (options.onProgress) options.onProgress('tagging', 0);
+            if (options.onProgress) options.onProgress({ phase: 'tagging', loaded: 0 });
             if (extension === 'mp3') {
                 const tags = this.metadataService.buildId3Tags(
                     metadata,
@@ -294,7 +319,6 @@ class DownloadService {
     async embedFlacMetadata(filePath: string, tags: string[][], coverBuffer: Buffer | null) {
         try {
             execFileSync('metaflac', ['--version'], { stdio: 'ignore' });
-
             execFileSync('metaflac', ['--remove-all-tags', filePath], { stdio: 'ignore' });
 
             for (const [key, value] of tags) {
@@ -318,30 +342,21 @@ class DownloadService {
             return;
         } catch {}
 
-        console.log('    ℹ️  Using JS fallback for FLAC tagging...');
-
         try {
             const tempPath = filePath + '.tmp';
             const reader = createReadStream(filePath);
             const writer = createWriteStream(tempPath);
-
             const processor = new flac.Processor({ parseMetaDataBlocks: true });
-
             let tagsAdded = false;
 
             processor.on('preprocess', (mdb: any) => {
-                if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
-                    mdb.remove();
-                }
-                if (coverBuffer && mdb.type === flac.Processor.MDB_TYPE_PICTURE) {
-                    mdb.remove();
-                }
+                if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) mdb.remove();
+                if (coverBuffer && mdb.type === flac.Processor.MDB_TYPE_PICTURE) mdb.remove();
             });
 
             processor.on('postprocess', (mdb: any) => {
                 if (mdb.type === flac.Processor.MDB_TYPE_STREAMINFO && !tagsAdded) {
                     tagsAdded = true;
-
                     const vorbisComment = flac.data.MetaDataBlockVorbisComment.create(
                         false,
                         '',
@@ -388,7 +403,6 @@ class DownloadService {
                 }
             }
         } catch (error: unknown) {
-            console.error('Tagging Error:', (error as Error).message);
             throw new Error(`Tagging failed: ${(error as Error).message}`);
         }
     }
@@ -398,17 +412,6 @@ class DownloadService {
         quality = 27,
         options: AlbumDownloadOptions = {}
     ): Promise<DownloadResult> {
-        const multibar = new cliProgress.MultiBar(
-            {
-                clearOnComplete: false,
-                hideCursor: true,
-                format: ' {bar} | {percentage}% | {value}/{total} | {status} | {filename}',
-                barCompleteChar: '\u2588',
-                barIncompleteChar: '\u2591'
-            },
-            cliProgress.Presets.shades_classic
-        );
-
         const albumInfo = await this.api.getAlbum(albumId);
         if (!albumInfo.success) return { success: false, error: albumInfo.error };
         const album = albumInfo.data;
@@ -420,47 +423,67 @@ class DownloadService {
 
         const limit = pLimit(CONFIG.download.concurrent);
 
-        console.log(
-            chalk.bold.cyan(`\n📥 Downloading ${tracks.length} tracks from "${album!.title}"\n`)
-        );
-
         const promises = tracks.map((track) => {
             return limit(async () => {
-                const trackNum = track.track_number.toString().padStart(2, '0');
-                if (options.onTrackStart)
-                    options.onTrackStart(track, parseInt(track.track_number), tracks.length);
-                const bar = multibar.create(100, 0, {
-                    status: 'Starting',
-                    filename: `${trackNum}. ${track.title.substring(0, 20)}...`
-                });
+                const trackId = track.id.toString();
+                if (options.onProgress) {
+                    options.onProgress(trackId, {
+                        filename: `${track.track_number}. ${track.title}`,
+                        status: 'downloading',
+                        phase: 'Initializing',
+                        loaded: 0,
+                        total: 0
+                    });
+                }
 
                 const res = await this.downloadTrack(track.id, quality, {
-                    onProgress: (phase, loaded, total) => {
-                        if (phase === 'download' && total) {
-                            bar.setTotal(total);
-                            bar.update(loaded, { status: chalk.cyan('Downloading') });
-                        } else if (phase === 'tagging') {
-                            bar.update(100, { status: chalk.magenta('Tagging') });
-                        } else if (phase === 'lyrics') {
-                            bar.update(0, { status: chalk.yellow('Lyrics') });
+                    onProgress: (p) => {
+                        if (options.onProgress) {
+                            options.onProgress(trackId, {
+                                status:
+                                    p.phase === 'download_start' ? 'downloading' : 'downloading',
+                                phase: p.phase === 'download' ? 'Downloading' : p.phase,
+                                loaded: p.loaded,
+                                total: p.total,
+                                speed: p.speed
+                            });
+
+                            if (p.phase === 'tagging') {
+                                options.onProgress(trackId, {
+                                    status: 'processing',
+                                    phase: 'Tagging'
+                                });
+                            } else if (p.phase === 'lyrics') {
+                                options.onProgress(trackId, {
+                                    status: 'processing',
+                                    phase: 'Lyrics'
+                                });
+                            }
                         }
-                        if (options.onProgress) options.onProgress(phase, loaded, total);
                     }
                 });
 
                 if (res.success) {
-                    bar.update(bar.getTotal(), { status: chalk.green('Done') });
-                    if (options.onTrackComplete) options.onTrackComplete(res);
+                    if (options.onProgress)
+                        options.onProgress(trackId, {
+                            status: 'done',
+                            phase: 'Complete',
+                            loaded: 100,
+                            total: 100
+                        });
                 } else {
-                    bar.update(bar.getTotal(), { status: chalk.red('Failed') });
-                    if (options.onTrackComplete) options.onTrackComplete(res);
+                    if (options.onProgress)
+                        options.onProgress(trackId, {
+                            status: 'failed',
+                            phase: 'Failed',
+                            error: res.error || 'Error'
+                        });
                 }
                 return res;
             });
         });
 
         const results = await Promise.all(promises);
-        multibar.stop();
 
         return {
             success: results.every((r) => r.success),
@@ -478,17 +501,6 @@ class DownloadService {
         quality = 27,
         options: AlbumDownloadOptions = {}
     ): Promise<DownloadResult> {
-        const multibar = new cliProgress.MultiBar(
-            {
-                clearOnComplete: false,
-                hideCursor: true,
-                format: ' {bar} | {percentage}% | {value}/{total} | {status} | {filename}',
-                barCompleteChar: '\u2588',
-                barIncompleteChar: '\u2591'
-            },
-            cliProgress.Presets.shades_classic
-        );
-
         const playlistInfo = await this.api.getPlaylist(playlistId);
         if (!playlistInfo.success) return { success: false, error: playlistInfo.error };
         const playlist = playlistInfo.data!;
@@ -499,49 +511,46 @@ class DownloadService {
 
         const limit = pLimit(CONFIG.download.concurrent);
 
-        console.log(
-            chalk.bold.cyan(
-                `\n📥 Downloading ${tracks.length} tracks from playlist "${playlist.name}"\n`
-            )
-        );
-
         const promises = tracks.map((track) => {
             return limit(async () => {
-                const trackNum = (tracks.indexOf(track) + 1).toString().padStart(2, '0');
-                if (options.onTrackStart)
-                    options.onTrackStart(track, parseInt(trackNum), tracks.length);
-                const bar = multibar.create(100, 0, {
-                    status: 'Starting',
-                    filename: `${trackNum}. ${track.title.substring(0, 20)}...`
-                });
+                const trackId = track.id.toString();
+                if (options.onProgress) {
+                    options.onProgress(trackId, {
+                        filename: track.title,
+                        status: 'downloading',
+                        phase: 'Starting'
+                    });
+                }
 
                 const res = await this.downloadTrack(track.id, quality, {
-                    onProgress: (phase, loaded, total) => {
-                        if (phase === 'download' && total) {
-                            bar.setTotal(total);
-                            bar.update(loaded, { status: chalk.cyan('Downloading') });
-                        } else if (phase === 'tagging') {
-                            bar.update(100, { status: chalk.magenta('Tagging') });
-                        } else if (phase === 'lyrics') {
-                            bar.update(0, { status: chalk.yellow('Lyrics') });
+                    onProgress: (p) => {
+                        if (options.onProgress) {
+                            options.onProgress(trackId, {
+                                phase: p.phase,
+                                loaded: p.loaded,
+                                total: p.total,
+                                speed: p.speed,
+                                status:
+                                    p.phase === 'tagging' || p.phase === 'lyrics'
+                                        ? 'processing'
+                                        : 'downloading'
+                            });
                         }
-                        if (options.onProgress) options.onProgress(phase, loaded, total);
                     }
                 });
 
                 if (res.success) {
-                    bar.update(bar.getTotal(), { status: chalk.green('Done') });
-                    if (options.onTrackComplete) options.onTrackComplete(res);
+                    if (options.onProgress)
+                        options.onProgress(trackId, { status: 'done', phase: 'Complete' });
                 } else {
-                    bar.update(bar.getTotal(), { status: chalk.red('Failed') });
-                    if (options.onTrackComplete) options.onTrackComplete(res);
+                    if (options.onProgress)
+                        options.onProgress(trackId, { status: 'failed', phase: 'Failed' });
                 }
                 return res;
             });
         });
 
         const results = await Promise.all(promises);
-        multibar.stop();
 
         return {
             success: results.every((r) => r.success),
@@ -556,7 +565,7 @@ class DownloadService {
     async downloadArtist(
         artistId: string | number,
         quality = 27,
-        options: ArtistDownloadOptions = {}
+        options: AlbumDownloadOptions = {}
     ): Promise<DownloadResult> {
         const artistInfo = await this.api.getArtist(artistId);
         if (!artistInfo.success) return { success: false, error: artistInfo.error };
@@ -565,21 +574,10 @@ class DownloadService {
         const albums = artist.albums?.items || [];
         const results: DownloadResult[] = [];
 
-        console.log(
-            chalk.bold.cyan(
-                `\n📥 Downloading discography for "${artist.name}" (${albums.length} albums)\n`
-            )
-        );
-
         for (const album of albums) {
             if (options.onAlbumInfo) options.onAlbumInfo(album as Album);
-
             try {
-                const res = await this.downloadAlbum(album.id, quality, {
-                    onTrackStart: options.onTrackStart,
-                    onTrackComplete: options.onTrackComplete,
-                    onProgress: options.onProgress
-                });
+                const res = await this.downloadAlbum(album.id, quality, options);
                 results.push(res);
             } catch (e: unknown) {
                 results.push({ success: false, error: (e as Error).message });
