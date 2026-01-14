@@ -437,6 +437,11 @@ class MetadataService {
                     language: 'eng',
                     text: lyrics.syncedLyrics
                 };
+            } else if (lyrics.plainLyrics) {
+                tags.unsynchronisedLyrics = {
+                    language: 'eng',
+                    text: lyrics.plainLyrics
+                };
             }
 
             if (lyrics.syltFormat) {
@@ -495,6 +500,8 @@ class MetadataService {
             if (lyrics.syncedLyrics) {
                 comments.push(['SYNCEDLYRICS', lyrics.syncedLyrics]);
                 comments.push(['LYRICS', lyrics.syncedLyrics]);
+            } else if (lyrics.plainLyrics) {
+                comments.push(['LYRICS', lyrics.plainLyrics]);
             }
 
             if (lyrics.source) {

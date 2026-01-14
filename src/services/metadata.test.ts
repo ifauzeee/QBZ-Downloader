@@ -28,6 +28,13 @@ describe('MetadataService', () => {
         source: 'Genius'
     };
 
+    const mockNoLyrics = {
+        plainLyrics: null,
+        syncedLyrics: null,
+        syltFormat: null,
+        source: null
+    };
+
     describe('buildId3Tags', () => {
         it('should include synced lyrics when available', () => {
             const tags = metadataService.buildId3Tags(mockMetadata, null, mockLyricsSynced);
@@ -37,9 +44,16 @@ describe('MetadataService', () => {
         });
 
         it('should not include lyrics when none available', () => {
-            const tags = metadataService.buildId3Tags(mockMetadata, null, mockLyricsPlainOnly);
+            const tags = metadataService.buildId3Tags(mockMetadata, null, mockNoLyrics);
             expect(tags.synchronisedLyrics).toBeUndefined();
             expect(tags.unsynchronisedLyrics).toBeUndefined();
+        });
+
+        it('should include plain lyrics in ID3 when synced is not available', () => {
+            const tags = metadataService.buildId3Tags(mockMetadata, null, mockLyricsPlainOnly);
+            expect(tags.unsynchronisedLyrics).toBeDefined();
+            expect(tags.unsynchronisedLyrics.text).toBe(mockLyricsPlainOnly.plainLyrics);
+            expect(tags.synchronisedLyrics).toBeUndefined();
         });
     });
 
@@ -53,11 +67,19 @@ describe('MetadataService', () => {
         });
 
         it('should not include lyrics tags when none available', () => {
-            const tags = metadataService.buildFlacTags(mockMetadata, mockLyricsPlainOnly);
+            const tags = metadataService.buildFlacTags(mockMetadata, mockNoLyrics);
             const tagObj = Object.fromEntries(tags);
 
             expect(tagObj['SYNCEDLYRICS']).toBeUndefined();
             expect(tagObj['LYRICS']).toBeUndefined();
+        });
+
+        it('should include plain lyrics when synced lyrics are not available', () => {
+            const tags = metadataService.buildFlacTags(mockMetadata, mockLyricsPlainOnly);
+            const tagObj = Object.fromEntries(tags);
+
+            expect(tagObj['SYNCEDLYRICS']).toBeUndefined();
+            expect(tagObj['LYRICS']).toBe(mockLyricsPlainOnly.plainLyrics);
         });
     });
 

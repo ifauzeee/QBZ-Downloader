@@ -16,11 +16,30 @@ export { printLogo as displayBanner };
 
 let progressBar: cliProgress.SingleBar | null = null;
 
+const stripAnsi = (str: string) => {
+    return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+};
+
+const getVisibleWidth = (str: string) => {
+    const stripped = stripAnsi(str);
+    let width = 0;
+    for (const char of stripped) {
+        const code = char.charCodeAt(0);
+        if (code >= 0x1F000 || (code >= 0xD800 && code <= 0xDBFF)) {
+            width += 2;
+        } else {
+            width += 1;
+        }
+    }
+    return width;
+};
+
 const center = (text: string, width: number) => {
-    const len = text.length;
-    if (len >= width) return text;
-    const padding = Math.floor((width - len) / 2);
-    return ' '.repeat(padding) + text + ' '.repeat(width - len - padding);
+    const visibleWidth = getVisibleWidth(text);
+    if (visibleWidth >= width) return text;
+    const padding = Math.floor((width - visibleWidth) / 2);
+    const rightPadding = width - visibleWidth - padding;
+    return ' '.repeat(padding) + text + ' '.repeat(rightPadding);
 };
 
 const truncate = (text: string, length: number) => {
@@ -95,8 +114,9 @@ export function displayAlbumInfo(album: Album) {
     const title = chalk.bold.white(album.title);
     const artist = chalk.hex(COLORS.secondary)(album.artist?.name || 'Unknown Artist');
 
-    const header = `${center(title, 50)}\n${center(artist, 50)}`;
-    const divider = chalk.gray('─'.repeat(50));
+    const width = 50;
+    const header = `${center(title, width)}\n${center(artist, width)}`;
+    const divider = chalk.gray('─'.repeat(width));
 
     const meta = [
         `${SYMBOLS.time} ${chalk.white(year)}`,
@@ -104,7 +124,9 @@ export function displayAlbumInfo(album: Album) {
         `${SYMBOLS.music} ${chalk.white(album.genre?.name || 'Unknown Genre')}`,
         `⏱️ ${chalk.white(duration)}`,
         `${SYMBOLS.quality} ${quality}`
-    ].join('\n');
+    ]
+        .map((line) => ` ${line}`)
+        .join('\n');
 
     printBox(`${header}\n\n${divider}\n\n${meta}`, '💿 Album Details');
 }
@@ -113,11 +135,12 @@ export function displayTrackInfo(track: Track) {
     const title = chalk.bold.white(track.title);
     const artist = chalk.hex(COLORS.secondary)(track.performer?.name);
 
+    const width = 40;
     const content = `
-${center(title, 40)}
-${center(artist, 40)}
+${center(title, width)}
+${center(artist, width)}
 
-${chalk.gray('─'.repeat(40))}
+${chalk.gray('─'.repeat(width))}
 
 ⏱️  ${chalk.white(formatDuration(track.duration))}
 ${SYMBOLS.quality}  ${track.hires ? chalk.hex(COLORS.success)('Hi-Res') : chalk.yellow('CD Quality')}
@@ -210,8 +233,8 @@ export function displayLyrics(lyrics: LyricsResult) {
 
     const lines = lyrics.syncedLyrics
         ? lyrics
-              .parsedLyrics!.slice(0, 8)
-              .map((l) => `${chalk.hex(COLORS.secondary)(l.timeStr)}  ${chalk.white(l.text)}`)
+            .parsedLyrics!.slice(0, 8)
+            .map((l) => `${chalk.hex(COLORS.secondary)(l.timeStr)}  ${chalk.white(l.text)}`)
         : lyrics.plainLyrics!.split('\n').slice(0, 8);
 
     const text = Array.isArray(lines) ? lines.join('\n') : lines;
