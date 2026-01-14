@@ -89,6 +89,10 @@ export class HistoryService {
             filepath: entry.filename
         });
     }
+
+    clearAll() {
+        db.clearHistory();
+    }
 }
 
 export const historyService = new HistoryService();

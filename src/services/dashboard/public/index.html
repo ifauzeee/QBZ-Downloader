@@ -96,13 +96,13 @@
             <div id="view-search" class="view-section" style="display: none;">
                 <div class="search-container">
                     <div class="search-box">
-                        <input type="text" id="search-input" placeholder="Search track, album, artist...">
-                        <select id="search-type">
-                            <option value="albums">Albums</option>
-                            <option value="tracks">Tracks</option>
-                            <option value="artists">Artists</option>
-                        </select>
+                        <input type="text" id="search-input" placeholder="Search...">
                         <button class="btn primary" id="search-btn">Search</button>
+                    </div>
+                    <div class="search-types">
+                        <button class="type-btn active" data-type="albums">Albums</button>
+                        <button class="type-btn" data-type="tracks">Tracks</button>
+                        <button class="type-btn" data-type="artists">Artists</button>
                     </div>
                 </div>
                 <div id="search-results" class="results-grid">
@@ -110,6 +110,7 @@
                         Start searching to see results
                     </div>
                 </div>
+                <div id="search-pagination" class="pagination"></div>
             </div>
 
             <div id="view-album" class="view-section" style="display: none;">
@@ -121,7 +122,21 @@
                 </div>
             </div>
 
+            <div id="view-artist" class="view-section" style="display: none;">
+                <button class="btn secondary" onclick="switchTab('search')" style="margin-bottom: 20px;">
+                    <span class="icon">⬅️</span> Back to Search
+                </button>
+                <div id="artist-full-content">
+                </div>
+                <div id="artist-pagination" class="pagination"></div>
+            </div>
+
             <div id="view-history" class="view-section" style="display: none;">
+                <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
+                    <button id="clear-history-btn" class="btn danger">
+                        <span class="icon">🗑️</span> Delete All History
+                    </button>
+                </div>
                 <div class="list-container">
                     <div class="list-header">
                         <div>Date</div>
@@ -137,6 +152,42 @@
 
             <div id="view-settings" class="view-section" style="display: none;">
                 <div class="settings-grid">
+                    <div class="settings-card">
+                        <h3>Qobuz Credentials</h3>
+                        <div class="form-group">
+                            <label>App ID</label>
+                            <input type="password" id="setting-QOBUZ_APP_ID">
+                        </div>
+                        <div class="form-group">
+                            <label>App Secret</label>
+                            <input type="password" id="setting-QOBUZ_APP_SECRET">
+                        </div>
+                        <div class="form-group">
+                            <label>User Auth Token</label>
+                            <input type="password" id="setting-QOBUZ_USER_AUTH_TOKEN">
+                        </div>
+                        <div class="form-group">
+                            <label>User ID</label>
+                            <input type="text" id="setting-QOBUZ_USER_ID">
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>Telegram Bot Config</h3>
+                        <div class="form-group">
+                            <label>Bot Token</label>
+                            <input type="password" id="setting-TELEGRAM_BOT_TOKEN">
+                        </div>
+                        <div class="form-group">
+                            <label>Chat ID</label>
+                            <input type="text" id="setting-TELEGRAM_CHAT_ID">
+                        </div>
+                        <div class="form-group">
+                            <label>Allowed User IDs (comma separated)</label>
+                            <input type="text" id="setting-telegram-allowedUsers" placeholder="Leave empty for all">
+                        </div>
+                    </div>
+
                     <div class="settings-card">
                         <h3>General Settings</h3>
                         <div class="form-group">
@@ -159,6 +210,14 @@
                                 <input type="checkbox" id="setting-embedCover"> Embed Cover Art in file
                             </label>
                         </div>
+                        <div class="form-group">
+                            <label>Lyrics Format</label>
+                            <select id="setting-metadata-lyricsType">
+                                <option value="both">Both (LRC + TXT)</option>
+                                <option value="synced">Synced (LRC) Only</option>
+                                <option value="plain">Plain Text (TXT) Only</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="settings-card">
@@ -170,6 +229,40 @@
                         <div class="form-group">
                             <label>Max Concurrent Downloads</label>
                             <input type="number" id="setting-downloads-concurrent" min="1" max="10">
+                        </div>
+                        <div class="form-group">
+                            <label>Retry Attempts</label>
+                            <input type="number" id="setting-downloads-retryAttempts" min="0" max="5">
+                        </div>
+                        <div class="form-group">
+                            <label>Retry Delay (ms)</label>
+                            <input type="number" id="setting-downloads-retryDelay" min="500" step="500">
+                        </div>
+                        <div class="form-group">
+                            <label>HTTP Proxy URL</label>
+                            <input type="text" id="setting-downloads-proxy" placeholder="http://user:pass@host:port">
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>Metadata & Assets</h3>
+                        <div class="form-group">
+                            <label>Cover Art Size</label>
+                            <select id="setting-metadata-coverSize">
+                                <option value="max">Maximum (Original)</option>
+                                <option value="600">Large (600x600)</option>
+                                <option value="300">Small (300x300)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting-metadata-saveCoverFile"> Save cover.jpg separately
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting-metadata-saveLrcFile"> Save .lrc file separately
+                            </label>
                         </div>
                     </div>
 
@@ -188,6 +281,30 @@
                     </div>
 
                     <div class="settings-card">
+                        <h3>Interface & Cleanup</h3>
+                        <div class="form-group">
+                            <label>Dashboard Auto-Clean (hours, 0 to disable)</label>
+                            <input type="number" id="setting-dashboard-autoCleanHours" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Color Scheme</label>
+                            <select id="setting-display-colorScheme">
+                                <option value="gradient">Gradient (Default)</option>
+                                <option value="dark">Dark / Minimal</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Terminal Verbosity</label>
+                            <select id="setting-display-verbosity">
+                                <option value="detailed">Detailed (Show All)</option>
+                                <option value="normal">Normal</option>
+                                <option value="quiet">Quiet (Errors Only)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
                         <h3>Telegram Integration</h3>
                         <div class="form-group">
                             <label class="checkbox-label">
@@ -201,7 +318,7 @@
                         </div>
                     </div>
                 </div>
-                <div style="margin-top: 20px; text-align: right;">
+                <div style="margin-top: 20px; text-align: right; padding-bottom: 40px;">
                     <button class="btn primary" onclick="saveSettings()">Save All Settings</button>
                 </div>
             </div>
@@ -272,6 +389,7 @@
         </div>
     </div>
 
+    <div id="toast-container" class="toast-container"></div>
     <script src="app.js"></script>
 </body>
 

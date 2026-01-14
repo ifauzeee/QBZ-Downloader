@@ -2,6 +2,8 @@
 
 import 'dotenv/config';
 import { Command } from 'commander';
+import chalk from 'chalk';
+import inquirer from 'inquirer';
 import { registerDownloadCommand } from './commands/download.js';
 import { registerSearchCommand } from './commands/search.js';
 import { registerInfoCommand } from './commands/info.js';
@@ -16,6 +18,9 @@ import * as display from './utils/display.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
 import { handleError } from './utils/errors.js';
 import { APP_VERSION } from './constants.js';
+import { settingsService } from './services/settings.js';
+import { runSetup } from './commands/setup.js';
+import { displayBanner } from './utils/display.js';
 
 const isMetaCommand =
     process.argv.includes('--help') ||
@@ -48,17 +53,35 @@ registerSetupCommand(program);
 registerBotCommand(program);
 registerDashboardCommand(program);
 
-program.action(async () => {
-    displayEnvWarnings(warnings);
-    await showMainMenu();
-});
-
 program.exitOverride();
 
 const hasCommand = process.argv.length > 2;
+const isSetupCommand = process.argv[2] === 'setup';
 
 async function main() {
     try {
+        if (!settingsService.isConfigured() && !isSetupCommand && !isMetaCommand) {
+            displayBanner();
+            console.log(chalk.yellow('\n⚠️  Application is not configured yet!'));
+            const { proceed } = await inquirer.prompt([
+                {
+                    type: 'confirm',
+                    name: 'proceed',
+                    message: 'Would you like to run the setup wizard now?',
+                    default: true
+                }
+            ]);
+
+            if (proceed) {
+                await runSetup();
+            } else {
+                console.log(
+                    chalk.red('\nPlease run "qobuz-dl setup" to configure the app before use.')
+                );
+                process.exit(1);
+            }
+        }
+
         if (hasCommand) {
             await program.parseAsync(process.argv);
         } else {

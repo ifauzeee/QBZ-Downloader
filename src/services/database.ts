@@ -41,6 +41,13 @@ export class DatabaseService {
         `);
 
         this.db.exec(`
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+        `);
+
+        this.db.exec(`
             CREATE TABLE IF NOT EXISTS queue (
                 id TEXT PRIMARY KEY,
                 type TEXT NOT NULL,
@@ -52,6 +59,41 @@ export class DatabaseService {
                 priority TEXT
             );
         `);
+    }
+
+    saveSetting(key: string, value: any) {
+        const stmt = this.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+        stmt.run(key, typeof value === 'string' ? value : JSON.stringify(value));
+    }
+
+    getSetting(key: string, defaultValue: any = null) {
+        try {
+            const stmt = this.db.prepare('SELECT value FROM settings WHERE key = ?');
+            const result = stmt.get(key) as { value: string } | undefined;
+            if (!result) return defaultValue;
+
+            try {
+                return JSON.parse(result.value);
+            } catch {
+                return result.value;
+            }
+        } catch {
+            return defaultValue;
+        }
+    }
+
+    getAllSettings(): Record<string, any> {
+        const stmt = this.db.prepare('SELECT * FROM settings');
+        const rows = stmt.all() as { key: string; value: string }[];
+        const config: Record<string, any> = {};
+        for (const row of rows) {
+            try {
+                config[row.key] = JSON.parse(row.value);
+            } catch {
+                config[row.key] = row.value;
+            }
+        }
+        return config;
     }
 
     addToHistory(entry: {
@@ -135,7 +177,7 @@ export class DatabaseService {
 
     getPendingQueue() {
         const stmt = this.db.prepare(
-            'SELECT * FROM queue WHERE status = \'pending\' ORDER BY added_at ASC'
+            "SELECT * FROM queue WHERE status = 'pending' ORDER BY added_at ASC"
         );
         return stmt.all().map((row: any) => ({
             id: row.id,
@@ -150,6 +192,10 @@ export class DatabaseService {
 
     clearQueue() {
         this.db.exec('DELETE FROM queue');
+    }
+
+    clearHistory() {
+        this.db.exec('DELETE FROM history');
     }
 }
 

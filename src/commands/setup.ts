@@ -1,14 +1,14 @@
+import fs from 'fs';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import fs from 'fs';
-import path from 'path';
 import { displayBanner, displaySuccess } from '../utils/display.js';
 import { Command } from 'commander';
+import { settingsService } from '../services/settings.js';
 
 export function registerSetupCommand(program: Command) {
     program
         .command('setup')
-        .description('Configure Qobuz-DL credentials')
+        .description('Configure essential credentials and generate .env')
         .action(async () => {
             displayBanner();
             await runSetup();
@@ -17,93 +17,117 @@ export function registerSetupCommand(program: Command) {
 
 export async function runSetup() {
     console.log(chalk.cyan('🛠️  Qobuz-DL Configuration Wizard\n'));
-    console.log(chalk.gray('This wizard will help you create the .env configuration file.\n'));
+    console.log(chalk.gray('This wizard will help you initialize the application.\n'));
 
     try {
-        const currentConfig = loadCurrentConfig();
-
         const answers = await inquirer.prompt([
             {
                 type: 'input',
-                name: 'appId',
-                message: 'Enter Qobuz App ID:',
-                default: currentConfig.QOBUZ_APP_ID,
-                validate: (input) => input.length > 0 || 'App ID is required'
+                name: 'QOBUZ_APP_ID',
+                message: 'Qobuz App ID:',
+                default: settingsService.get('QOBUZ_APP_ID') || process.env.QOBUZ_APP_ID,
+                validate: (input) => input.length > 0 || 'Required'
             },
             {
                 type: 'password',
-                name: 'appSecret',
-                message: 'Enter Qobuz App Secret:',
-                default: currentConfig.QOBUZ_APP_SECRET,
-                validate: (input) => input.length > 0 || 'App Secret is required'
+                name: 'QOBUZ_APP_SECRET',
+                message: 'Qobuz App Secret:',
+                default: settingsService.get('QOBUZ_APP_SECRET') || process.env.QOBUZ_APP_SECRET,
+                validate: (input) => input.length > 0 || 'Required'
             },
             {
                 type: 'password',
-                name: 'token',
-                message: 'Enter User Auth Token:',
-                default: currentConfig.QOBUZ_USER_AUTH_TOKEN,
-                validate: (input) => input.length > 0 || 'User Auth Token is required'
+                name: 'QOBUZ_USER_AUTH_TOKEN',
+                message: 'User Auth Token:',
+                default:
+                    settingsService.get('QOBUZ_USER_AUTH_TOKEN') ||
+                    process.env.QOBUZ_USER_AUTH_TOKEN,
+                validate: (input) => input.length > 0 || 'Required'
             },
             {
                 type: 'input',
-                name: 'downloadPath',
-                message: 'Download Directory:',
-                default: currentConfig.DOWNLOAD_PATH || './downloads'
+                name: 'QOBUZ_USER_ID',
+                message: 'User ID:',
+                default: settingsService.get('QOBUZ_USER_ID') || process.env.QOBUZ_USER_ID,
+                validate: (input) => input.length > 0 || 'Required'
             },
             {
                 type: 'input',
-                name: 'telegramToken',
+                name: 'TELEGRAM_BOT_TOKEN',
                 message: 'Telegram Bot Token (Optional):',
-                default: currentConfig.TELEGRAM_BOT_TOKEN || ''
+                default: settingsService.get('TELEGRAM_BOT_TOKEN') || ''
             },
             {
                 type: 'input',
-                name: 'telegramChatId',
+                name: 'TELEGRAM_CHAT_ID',
                 message: 'Telegram Chat ID (Optional):',
-                default: currentConfig.TELEGRAM_CHAT_ID || '',
-                when: (answers) => !!answers.telegramToken
+                default: settingsService.get('TELEGRAM_CHAT_ID') || '',
+                when: (ans) => !!ans.TELEGRAM_BOT_TOKEN
+            },
+            {
+                type: 'number',
+                name: 'DASHBOARD_PORT',
+                message: 'Dashboard Port:',
+                default: 3000
+            },
+            {
+                type: 'input',
+                name: 'DASHBOARD_PASSWORD',
+                message: 'Dashboard Password (Optional):',
+                default: ''
             }
         ]);
 
-        const envContent = [
-            `QOBUZ_APP_ID=${answers.appId}`,
-            `QOBUZ_APP_SECRET=${answers.appSecret}`,
-            `QOBUZ_USER_AUTH_TOKEN=${answers.token}`,
-            `DOWNLOAD_PATH=${answers.downloadPath}`,
-            '',
-            '# Optional: Spotify Credentials (for enhanced metadata)',
-            `SPOTIFY_CLIENT_ID=${currentConfig.SPOTIFY_CLIENT_ID || ''}`,
-            `SPOTIFY_CLIENT_SECRET=${currentConfig.SPOTIFY_CLIENT_SECRET || ''}`,
-            '',
-            '# Optional: Telegram Notifications',
-            `TELEGRAM_BOT_TOKEN=${answers.telegramToken || ''}`,
-            `TELEGRAM_CHAT_ID=${answers.telegramChatId || ''}`
-        ].join('\n');
+        const envContent = `# ==============================================================================
+# QBZ-DOWNLOADER - REQUIRED CONFIGURATION
+# ==============================================================================
+# Fill these in to initialize the application. 
+# Once configured, you can use the Web Dashboard to manage other settings.
+# ==============================================================================
 
-        const envPath = path.resolve(process.cwd(), '.env');
-        fs.writeFileSync(envPath, envContent, 'utf8');
+# QOBUZ CREDENTIALS (REQUIRED)
+QOBUZ_APP_ID=${answers.QOBUZ_APP_ID}
+QOBUZ_APP_SECRET=${answers.QOBUZ_APP_SECRET}
+QOBUZ_USER_AUTH_TOKEN=${answers.QOBUZ_USER_AUTH_TOKEN}
+QOBUZ_USER_ID=${answers.QOBUZ_USER_ID}
 
-        displaySuccess(`Configuration saved to ${chalk.bold('.env')} successfully!`);
+# TELEGRAM BOT (OPTIONAL)
+TELEGRAM_BOT_TOKEN=${answers.TELEGRAM_BOT_TOKEN || ''}
+TELEGRAM_CHAT_ID=${answers.TELEGRAM_CHAT_ID || ''}
+
+# WEB DASHBOARD (OPTIONAL)
+DASHBOARD_PORT=${answers.DASHBOARD_PORT}
+DASHBOARD_PASSWORD=${answers.DASHBOARD_PASSWORD}
+
+# MISC
+NODE_ENV=production
+`;
+
+        fs.writeFileSync('.env', envContent);
+
+        settingsService.set('QOBUZ_APP_ID', answers.QOBUZ_APP_ID);
+        settingsService.set('QOBUZ_APP_SECRET', answers.QOBUZ_APP_SECRET);
+        settingsService.set('QOBUZ_USER_AUTH_TOKEN', answers.QOBUZ_USER_AUTH_TOKEN);
+        settingsService.set('QOBUZ_USER_ID', answers.QOBUZ_USER_ID);
+        settingsService.set('TELEGRAM_BOT_TOKEN', answers.TELEGRAM_BOT_TOKEN || '');
+        settingsService.set('TELEGRAM_CHAT_ID', answers.TELEGRAM_CHAT_ID || '');
+        settingsService.set('DASHBOARD_PORT', answers.DASHBOARD_PORT);
+        settingsService.set('DASHBOARD_PASSWORD', answers.DASHBOARD_PASSWORD);
+
+        displaySuccess('Configuration saved and .env file generated!');
+
+        console.log(chalk.bold.green('\n🚀 Setup Complete!'));
         console.log(
-            chalk.yellow('\nTip: You might need to restart the CLI for changes to take effect.\n')
+            chalk.white('1. Your ') + chalk.cyan('.env') + chalk.white(' file has been created.')
         );
+        console.log(chalk.white('2. Essential credentials are saved to the database.'));
+        console.log(
+            chalk.white('3. To manage quality, naming, and other settings, use the ') +
+                chalk.bold.yellow('Web Dashboard') +
+                chalk.white('.')
+        );
+        console.log(chalk.gray('\nRun "qbz-dl dashboard" to start the interface.\n'));
     } catch (error: unknown) {
         console.error(chalk.red('Setup failed:'), (error as Error).message);
     }
-}
-
-function loadCurrentConfig(): Record<string, string> {
-    const config: Record<string, string> = {};
-    const envPath = path.resolve(process.cwd(), '.env');
-
-    if (fs.existsSync(envPath)) {
-        const content = fs.readFileSync(envPath, 'utf8');
-        content.split('\n').forEach((line) => {
-            const [key, ...valueParts] = line.split('=');
-            if (key && valueParts.length > 0) {
-                config[key.trim()] = valueParts.join('=').trim();
-            }
-        });
-    }
-    return config;
 }

@@ -1,6 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { getQualityName } from '../../../config.js';
-import { botSettingsService } from '../../bot-settings.js';
+import { settingsService } from '../../settings.js';
 import { logger } from '../../../utils/logger.js';
 import { TelegramContext } from '../types.js';
 import { createKeyboard } from '../utils.js';
@@ -17,7 +17,7 @@ export class SettingsHandler {
     }
 
     async handleSettings(ctx: TelegramContext, isUpdate: boolean = false): Promise<void> {
-        const currentQuality = botSettingsService.quality;
+        const currentQuality = settingsService.get('defaultQuality') as number | 'ask';
         const qualityName =
             currentQuality === 'ask'
                 ? 'Interactive (Ask Every Time)'
@@ -47,7 +47,7 @@ export class SettingsHandler {
     }
 
     async updateQuality(ctx: TelegramContext, value: string): Promise<void> {
-        botSettingsService.quality = value === 'ask' ? 'ask' : parseInt(value, 10);
+        settingsService.set('defaultQuality', value === 'ask' ? 'ask' : parseInt(value, 10));
         logger.success(`Settings: Quality updated to ${value} by user ${ctx.from?.id}`);
         await ctx.answerCbQuery(`✅ Quality updated to ${value}`);
         await this.handleSettings(ctx, true);

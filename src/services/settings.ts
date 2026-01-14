@@ -1,87 +1,80 @@
-import fs from 'fs';
-import path from 'path';
-
-const SETTINGS_FILE = 'settings.json';
+import { db } from './database.js';
+import { logger } from '../utils/logger.js';
 
 interface Settings {
     _help?: string;
     defaultQuality?: string | number;
     embedLyrics?: boolean;
     embedCover?: boolean;
+    downloads?: {
+        path: string;
+        concurrent: number;
+        retryAttempts: number;
+        retryDelay: number;
+        folderTemplate: string;
+        fileTemplate: string;
+        proxy: string;
+    };
+    metadata?: {
+        saveCoverFile: boolean;
+        saveLrcFile: boolean;
+        coverSize: string;
+        lyricsType: string;
+    };
+    display?: {
+        showProgress: boolean;
+        showMetadata: boolean;
+        colorScheme: string;
+        verbosity: string;
+    };
+    telegram?: {
+        uploadFiles: boolean;
+        autoDelete: boolean;
+        allowedUsers: string;
+    };
     [key: string]: unknown;
 }
 
 class SettingsService {
-    settingsPath: string;
     defaultSettings: Settings;
     settings: Settings;
 
     constructor() {
-        this.settingsPath = path.resolve(process.cwd(), SETTINGS_FILE);
         this.defaultSettings = {
             _help: 'Official Documentation: https://github.com/ifauzeee/QBZ-Downloader',
-            defaultQuality: 'ask',
+            defaultQuality: 27,
             embedLyrics: true,
             embedCover: true,
             downloads: {
-                _description: 'Download engine and folder structure settings',
                 path: './downloads',
                 concurrent: 4,
                 retryAttempts: 3,
                 retryDelay: 1000,
                 folderTemplate: '{artist}/{album}',
-                fileTemplate: '{track_number}. {title}'
-            },
-            quality: {
-                _description: 'Audio quality settings. 5=MP3 320, 6=CD Quality, 7=Hi-Res, 27=Hi-Res Max',
-                default: 27,
-                formats: {
-                    '5': {
-                        name: 'MP3 320',
-                        bitDepth: null,
-                        sampleRate: null,
-                        extension: 'mp3'
-                    },
-                    '6': {
-                        name: 'FLAC 16-bit/44.1kHz (CD Quality)',
-                        bitDepth: 16,
-                        sampleRate: 44100,
-                        extension: 'flac'
-                    },
-                    '7': {
-                        name: 'FLAC 24-bit/96kHz (Hi-Res)',
-                        bitDepth: 24,
-                        sampleRate: 96000,
-                        extension: 'flac'
-                    },
-                    '27': {
-                        name: 'FLAC 24-bit/192kHz (Hi-Res Max)',
-                        bitDepth: 24,
-                        sampleRate: 192000,
-                        extension: 'flac'
-                    }
-                }
+                fileTemplate: '{track_number}. {title}',
+                proxy: ''
             },
             metadata: {
-                _description: 'Tagging and artwork embedding options',
-                embedCover: true,
                 saveCoverFile: false,
                 saveLrcFile: false,
                 coverSize: 'max',
-                embedLyrics: true,
                 lyricsType: 'both'
             },
             display: {
-                _description: 'CLI UI and Terminal appearance',
                 showProgress: true,
                 showMetadata: true,
                 colorScheme: 'gradient',
                 verbosity: 'detailed'
             },
             telegram: {
-                _description: 'Telegram Bot notification and auto-upload settings',
                 uploadFiles: true,
-                autoDelete: true
+                autoDelete: true,
+                allowedUsers: ''
+            },
+            dashboard: {
+                port: 3000,
+                password: '',
+                autoCleanHours: 24
             }
         };
         this.settings = this.loadSettings();
@@ -89,21 +82,60 @@ class SettingsService {
 
     loadSettings(): Settings {
         try {
-            if (fs.existsSync(this.settingsPath)) {
-                const data = fs.readFileSync(this.settingsPath, 'utf8');
-                return { ...this.defaultSettings, ...JSON.parse(data) };
+            let dbSettings = db.getAllSettings();
+
+            if (Object.keys(dbSettings).length <= 5) {
+                this.migrateFromEnv();
+                dbSettings = db.getAllSettings();
             }
+
+            return { ...this.defaultSettings, ...dbSettings };
         } catch (error: unknown) {
-            console.error('Failed to load settings:', (error as Error).message);
+            logger.error(`Failed to load settings: ${(error as Error).message}`);
         }
         return { ...this.defaultSettings };
     }
 
+    private migrateFromEnv() {
+        const envKeys = [
+            'QOBUZ_APP_ID',
+            'QOBUZ_APP_SECRET',
+            'QOBUZ_USER_AUTH_TOKEN',
+            'QOBUZ_TOKEN',
+            'QOBUZ_USER_ID',
+            'TELEGRAM_BOT_TOKEN',
+            'TELEGRAM_CHAT_ID',
+            'DASHBOARD_PASSWORD',
+            'DASHBOARD_PORT'
+        ];
+
+        for (const key of envKeys) {
+            const val = process.env[key];
+            if (val && db.getSetting(key) === null) {
+                db.saveSetting(key, val);
+            }
+        }
+    }
+
+    isConfigured(): boolean {
+        const s = this.settings;
+        const appId = s.QOBUZ_APP_ID || db.getSetting('QOBUZ_APP_ID');
+        const appSecret = s.QOBUZ_APP_SECRET || db.getSetting('QOBUZ_APP_SECRET');
+        const token =
+            s.QOBUZ_USER_AUTH_TOKEN || s.QOBUZ_TOKEN || db.getSetting('QOBUZ_USER_AUTH_TOKEN');
+        const userId = s.QOBUZ_USER_ID || db.getSetting('QOBUZ_USER_ID');
+
+        return !!(appId && appSecret && token && userId);
+    }
+
     saveSettings() {
         try {
-            fs.writeFileSync(this.settingsPath, JSON.stringify(this.settings, null, 2));
+            for (const [key, value] of Object.entries(this.settings)) {
+                if (key.startsWith('_')) continue;
+                db.saveSetting(key, value);
+            }
         } catch (error: unknown) {
-            console.error('Failed to save settings:', (error as Error).message);
+            logger.error(`Failed to save settings: ${(error as Error).message}`);
         }
     }
 

@@ -48,7 +48,9 @@ export class DashboardCleaner {
                 const age = now - stats.mtimeMs;
 
                 if (age > maxAge) {
-                    logger.info(`Auto-cleaning: Deleting ${path.basename(filePath)} (${Math.round(age / 3600000)}h old)`);
+                    logger.info(
+                        `Auto-cleaning: Deleting ${path.basename(filePath)} (${Math.round(age / 3600000)}h old)`
+                    );
 
                     if (fs.lstatSync(filePath).isDirectory()) {
                         fs.rmSync(filePath, { recursive: true, force: true });
@@ -62,7 +64,6 @@ export class DashboardCleaner {
                 logger.error(`Failed to auto-clean ${filePath}: ${err}`);
             }
         }
-
     }
 }
 

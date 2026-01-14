@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
+import { createAxiosInstance } from '../utils/network.js';
+import { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import crypto from 'crypto';
 import { CONFIG } from '../config.js';
 import { APIError, AuthenticationError } from '../utils/errors.js';
@@ -28,7 +29,7 @@ class QobuzAPI {
         this.token = CONFIG.credentials.token;
         this.userId = CONFIG.credentials.userId;
 
-        this.client = axios.create({
+        this.client = createAxiosInstance({
             baseURL: this.baseUrl,
             timeout: 30000,
             headers: {
@@ -115,16 +116,24 @@ class QobuzAPI {
         }
     }
 
-    async getArtist(artistId: string | number, offset = 0, limit = 20): Promise<ApiResponse> {
+    async getArtist(
+        artistId: string | number,
+        albumOffset = 0,
+        albumLimit = 20,
+        trackOffset = 0,
+        trackLimit = 25
+    ): Promise<ApiResponse> {
         try {
             const response = await this.client.get('/artist/get', {
                 params: {
                     artist_id: artistId,
                     app_id: this.appId,
                     user_auth_token: this.token,
-                    extra: 'albums,focus',
-                    album_offset: offset,
-                    album_limit: limit
+                    extra: 'albums,tracks,focus',
+                    album_offset: albumOffset,
+                    album_limit: albumLimit,
+                    track_offset: trackOffset,
+                    track_limit: trackLimit
                 }
             });
             return { success: true, data: response.data };
@@ -151,13 +160,19 @@ class QobuzAPI {
         }
     }
 
-    async search(query: string, type = 'albums', limit = 20): Promise<ApiResponse<SearchResults>> {
+    async search(
+        query: string,
+        type = 'albums',
+        limit = 20,
+        offset = 0
+    ): Promise<ApiResponse<SearchResults>> {
         try {
             const response = await this.client.get('/catalog/search', {
                 params: {
                     query: query,
                     type: type,
                     limit: limit,
+                    offset: offset,
                     app_id: this.appId,
                     user_auth_token: this.token
                 }

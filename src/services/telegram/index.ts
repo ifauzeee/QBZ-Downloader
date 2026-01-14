@@ -5,7 +5,7 @@ import QobuzAPI from '../../api/qobuz.js';
 import DownloadService from '../download.js';
 import LyricsProvider from '../../api/lyrics.js';
 import MetadataService from '../metadata.js';
-import { botSettingsService } from '../bot-settings.js';
+import { settingsService } from '../settings.js';
 import { logger } from '../../utils/logger.js';
 import { DownloadHandler, SearchHandler, SettingsHandler } from './handlers/index.js';
 import { downloadQueue } from './queue.js';
@@ -152,7 +152,7 @@ export class TelegramService {
                 logger.warn(`Rate limited user: ${userId} (${ctx.from?.username})`);
                 await ctx.reply(
                     '⏳ <b>Rate Limited</b>\n\n' +
-                        'You\'re sending too many requests.\n' +
+                        "You're sending too many requests.\n" +
                         `Please wait <b>${resetTime}</b> seconds before trying again.`,
                     { parse_mode: 'HTML' }
                 );
@@ -281,7 +281,7 @@ export class TelegramService {
             const processingMsg = await ctx.reply(`🔍 Processing ${parsed.type}: ${parsed.id}...`);
 
             if (parsed.type === 'track') {
-                const botQuality = botSettingsService.quality;
+                const botQuality = settingsService.get('defaultQuality') as number | 'ask';
                 if (botQuality === 'ask') {
                     await this.searchHandler.askQuality(ctx as any, parsed.type, parsed.id);
                 } else {

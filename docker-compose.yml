@@ -17,9 +17,7 @@ services:
       - NODE_ENV=production
     volumes:
       - ./downloads:/app/downloads
-      - ./config:/app/config
-      - ./history.json:/app/history.json
-      - ./settings.json:/app/settings.json
+      - ./data:/app/data
     command: ["bot"]
     deploy:
       resources:
@@ -49,9 +47,7 @@ services:
       - .env
     volumes:
       - ./downloads:/app/downloads
-      - ./config:/app/config
-      - ./history.json:/app/history.json
-      - ./settings.json:/app/settings.json
+      - ./data:/app/data
     # Override with: docker compose run qbz-cli download <url>
     networks:
       - qbz-network
@@ -62,4 +58,4 @@ networks:
 
 volumes:
   downloads:
-  config:
+  data:

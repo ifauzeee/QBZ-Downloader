@@ -122,7 +122,7 @@ export class DownloadQueue {
 
         try {
             db.updateQueueStatus(id, 'downloading');
-        } catch { }
+        } catch {}
 
         this.emit('item:started', item);
         logger.debug(`Queue: Started ${id}`);
@@ -139,7 +139,7 @@ export class DownloadQueue {
             item.status = status;
             try {
                 db.updateQueueStatus(id, status);
-            } catch { }
+            } catch {}
         }
         this.emit('item:progress', item, progress);
     }
@@ -156,7 +156,7 @@ export class DownloadQueue {
 
         try {
             db.removeQueueItem(id);
-        } catch { }
+        } catch {}
 
         this.emit('item:completed', item);
         logger.debug(`Queue: Completed ${id}`);
@@ -181,7 +181,7 @@ export class DownloadQueue {
 
             try {
                 db.updateQueueStatus(id, 'failed');
-            } catch { }
+            } catch {}
 
             this.emit('item:failed', item, error);
             logger.error(`Queue: Failed ${id}: ${error}`);
@@ -199,7 +199,7 @@ export class DownloadQueue {
 
         try {
             db.removeQueueItem(id);
-        } catch { }
+        } catch {}
 
         item.status = 'failed';
 
@@ -243,7 +243,7 @@ export class DownloadQueue {
                 this.items.delete(id);
                 try {
                     db.removeQueueItem(id);
-                } catch { }
+                } catch {}
                 count++;
             }
         }
@@ -261,7 +261,7 @@ export class DownloadQueue {
                 this.items.delete(id);
                 try {
                     db.removeQueueItem(id);
-                } catch { }
+                } catch {}
                 count++;
             }
         }
@@ -269,7 +269,7 @@ export class DownloadQueue {
 
         try {
             db.clearQueue();
-        } catch { }
+        } catch {}
 
         return count;
     }

@@ -11,8 +11,8 @@ export const printLogo = () => {
     console.log(
         (chalk as unknown as { center: (str: string) => string }).center
             ? (chalk as unknown as { center: (str: string) => string }).center(
-                `v${APP_VERSION} • Premium High-Res Downloader`
-            )
+                  `v${APP_VERSION} • Premium High-Res Downloader`
+              )
             : `       v${APP_VERSION} • Premium High-Res Downloader`
     );
     console.log();

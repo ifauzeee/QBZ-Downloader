@@ -1,7 +1,7 @@
 import { Telegraf } from 'telegraf';
 import QobuzAPI from '../../../api/qobuz.js';
 
-import { botSettingsService } from '../../bot-settings.js';
+import { settingsService } from '../../settings.js';
 import { getQualityName } from '../../../config.js';
 import { SearchCategory, TelegramContext, InlineKeyboardRow } from '../types.js';
 import { escapeHtml, truncate, createKeyboard } from '../utils.js';
@@ -81,7 +81,7 @@ export class SearchHandler {
                 return;
             }
 
-            const botQuality = botSettingsService.quality;
+            const botQuality = settingsService.get('defaultQuality') as number | 'ask';
             const keyboardRows: InlineKeyboardRow[] = items.map((item) => {
                 let text = '';
                 let cb = '';
@@ -126,7 +126,7 @@ export class SearchHandler {
         id: string | number,
         type: string
     ): Promise<void> {
-        const botQuality = botSettingsService.quality;
+        const botQuality = settingsService.get('defaultQuality') as number | 'ask';
 
         if (type === 'album') {
             await this.handleAlbumInfo(ctx, id, botQuality);

@@ -23,7 +23,7 @@ export async function handleSettings() {
         console.clear();
         display.displayBanner();
 
-        const qual = getSetting('quality', 'default', 27);
+        const qual = settingsService.get('defaultQuality') || 27;
         let qualityText = 'Unknown';
         if (qual === 'max' || qual === 27) qualityText = chalk.green('Hi-Res (Max)');
         else if (qual === 'min' || qual === 5) qualityText = chalk.yellow('MP3 (Min)');
@@ -33,13 +33,14 @@ export async function handleSettings() {
         const dlPath = getSetting('downloads', 'path', './downloads');
         const dlConc = getSetting('downloads', 'concurrent', 4);
 
-        const metaLyrics = getSetting('metadata', 'embedLyrics', true)
-            ? chalk.green('Yes')
-            : chalk.red('No');
-        const metaCover = getSetting('metadata', 'embedCover', true)
-            ? chalk.green('Yes')
-            : chalk.red('No');
+        const metaLyrics =
+            settingsService.get('embedLyrics') !== false ? chalk.green('Yes') : chalk.red('No');
+        const metaCover =
+            settingsService.get('embedCover') !== false ? chalk.green('Yes') : chalk.red('No');
         const saveCover = getSetting('metadata', 'saveCoverFile', false)
+            ? chalk.green('Yes')
+            : chalk.red('No');
+        const saveLrc = getSetting('metadata', 'saveLrcFile', false)
             ? chalk.green('Yes')
             : chalk.red('No');
 
@@ -47,6 +48,9 @@ export async function handleSettings() {
         const tgUpload = getSetting('telegram', 'uploadFiles', true)
             ? chalk.green('Yes')
             : chalk.red('No');
+
+        const dbPort = getSetting('dashboard', 'port', 3000);
+        const dbClean = getSetting('dashboard', 'autoCleanHours', 24);
 
         console.log(chalk.bold.cyan('\n⚙️  Settings & Configuration:\n'));
 
@@ -59,7 +63,7 @@ export async function handleSettings() {
         console.log(chalk.bold.white('  3) 🏷️  Metadata & Assets'));
         console.log(
             chalk.gray(
-                `     Lyrics: ${metaLyrics} | Cover: ${metaCover} | Save Folder.jpg: ${saveCover}`
+                `     Lyrics: ${metaLyrics} | Cover: ${metaCover} | Save: .jpg: ${saveCover}, .lrc: ${saveLrc}`
             )
         );
 
@@ -69,8 +73,11 @@ export async function handleSettings() {
         console.log(chalk.bold.white('  5) 🤖 Telegram Bot'));
         console.log(chalk.gray(`     Auto-Upload: ${tgUpload}`));
 
-        console.log(chalk.bold.white('  6) 🔄 Reset to Default Settings'));
-        console.log(chalk.bold.white('  7) 📖 Settings Documentation (Help)'));
+        console.log(chalk.bold.white('  6) 💻 Web Dashboard & Cleanup'));
+        console.log(chalk.gray(`     Port: ${dbPort} | Auto-Clean: ${dbClean}h`));
+
+        console.log(chalk.bold.white('  7) 🔄 Reset to Default Settings'));
+        console.log(chalk.bold.white('  8) 📖 Settings Documentation (Help)'));
 
         console.log(chalk.bold.red('  0) 🔙 Back to Main Menu'));
         console.log();
@@ -79,11 +86,11 @@ export async function handleSettings() {
             {
                 type: 'input',
                 name: 'action',
-                message: chalk.cyan('Select option (0-5):'),
+                message: chalk.cyan('Select option (0-8):'),
                 validate: (input) => {
                     const num = parseInt(input);
-                    if (!isNaN(num) && num >= 0 && num <= 7) return true;
-                    return 'Please enter a number between 0 and 7';
+                    if (!isNaN(num) && num >= 0 && num <= 8) return true;
+                    return 'Please enter a number between 0 and 8';
                 }
             }
         ]);
@@ -107,9 +114,12 @@ export async function handleSettings() {
                 await handleTelegramSettings();
                 break;
             case 6:
-                await handleResetSettings();
+                await handleDashboardSettings();
                 break;
             case 7:
+                await handleResetSettings();
+                break;
+            case 8:
                 await showSettingsHelp();
                 break;
             case 0:
@@ -117,6 +127,39 @@ export async function handleSettings() {
                 break;
         }
     }
+}
+
+async function handleDashboardSettings() {
+    console.log(chalk.bold.cyan('\n💻 Web Dashboard & Cleanup:\n'));
+
+    const answers = await inquirer.prompt([
+        {
+            type: 'number',
+            name: 'port',
+            message: chalk.cyan('Dashboard Port:'),
+            default: getSetting('dashboard', 'port', 3000)
+        },
+        {
+            type: 'input',
+            name: 'password',
+            message: chalk.cyan('Dashboard Password (leave empty for none):'),
+            default: getSetting('dashboard', 'password', '')
+        },
+        {
+            type: 'number',
+            name: 'autoCleanHours',
+            message: chalk.cyan('Auto-clean Temporary Files (hours, 0 to disable):'),
+            default: getSetting('dashboard', 'autoCleanHours', 24),
+            validate: (n) => n >= 0 || 'Must be a positive number'
+        }
+    ]);
+
+    setSetting('dashboard', 'port', answers.port);
+    setSetting('dashboard', 'password', answers.password);
+    setSetting('dashboard', 'autoCleanHours', answers.autoCleanHours);
+
+    console.log(chalk.green('\n✅ Dashboard settings saved!'));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
 async function handleQualitySettings() {
@@ -127,7 +170,7 @@ async function handleQualitySettings() {
             type: 'list',
             name: 'quality',
             message: chalk.cyan('Choose default quality preference:'),
-            default: getSetting('quality', 'default'),
+            default: settingsService.get('defaultQuality') || 27,
             choices: [
                 { name: '🔥 Always Maximum (Hi-Res 24-bit/192kHz)', value: 27 },
                 { name: '✨ Hi-Res (24-bit/96kHz)', value: 7 },
@@ -138,7 +181,7 @@ async function handleQualitySettings() {
         }
     ]);
 
-    setSetting('quality', 'default', answer.quality);
+    settingsService.set('defaultQuality', answer.quality);
     console.log(chalk.green('\n✅ Quality settings saved!'));
     await new Promise((resolve) => setTimeout(resolve, 1000));
 }
@@ -171,6 +214,24 @@ async function handleDownloadSettings() {
             message: chalk.cyan('Concurrency Limit (1-10):'),
             default: getSetting('downloads', 'concurrent', 4),
             validate: (n) => (n > 0 && n <= 10) || 'Please enter 1-10'
+        },
+        {
+            type: 'number',
+            name: 'retryAttempts',
+            message: chalk.cyan('Retry Attempts on failure:'),
+            default: getSetting('downloads', 'retryAttempts', 3)
+        },
+        {
+            type: 'number',
+            name: 'retryDelay',
+            message: chalk.cyan('Retry Delay (ms):'),
+            default: getSetting('downloads', 'retryDelay', 1000)
+        },
+        {
+            type: 'input',
+            name: 'proxy',
+            message: chalk.cyan('HTTP Proxy URL (Optional):'),
+            default: getSetting('downloads', 'proxy', '')
         }
     ]);
 
@@ -178,6 +239,9 @@ async function handleDownloadSettings() {
     setSetting('downloads', 'folderTemplate', answers.folderTemplate);
     setSetting('downloads', 'fileTemplate', answers.fileTemplate);
     setSetting('downloads', 'concurrent', answers.concurrent);
+    setSetting('downloads', 'retryAttempts', answers.retryAttempts);
+    setSetting('downloads', 'retryDelay', answers.retryDelay);
+    setSetting('downloads', 'proxy', answers.proxy);
 
     console.log(chalk.green('\n✅ Download settings saved!'));
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -221,14 +285,26 @@ async function handleMetadataSettings() {
                 { name: 'Large (600x600)', value: '600' },
                 { name: 'Small (300x300)', value: '300' }
             ]
+        },
+        {
+            type: 'list',
+            name: 'lyricsType',
+            message: chalk.cyan('Select Lyrics Format:'),
+            default: getSetting('metadata', 'lyricsType', 'both'),
+            choices: [
+                { name: 'Synced (LRC) - Best for players', value: 'synced' },
+                { name: 'Plain Text (TXT)', value: 'plain' },
+                { name: 'Both (LRC + TXT)', value: 'both' }
+            ]
         }
     ]);
 
-    setSetting('metadata', 'embedLyrics', answers.embedLyrics);
-    setSetting('metadata', 'embedCover', answers.embedCover);
+    settingsService.set('embedLyrics', answers.embedLyrics);
+    settingsService.set('embedCover', answers.embedCover);
     setSetting('metadata', 'saveCoverFile', answers.saveCoverFile);
     setSetting('metadata', 'saveLrcFile', answers.saveLrcFile);
     setSetting('metadata', 'coverSize', answers.coverSize);
+    setSetting('metadata', 'lyricsType', answers.lyricsType);
 
     console.log(chalk.green('\n✅ Metadata settings saved!'));
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -260,12 +336,24 @@ async function handleDisplaySettings() {
                 { name: '🌑 Dark/Minimal', value: 'dark' },
                 { name: '💡 Light', value: 'light' }
             ]
+        },
+        {
+            type: 'list',
+            name: 'verbosity',
+            message: chalk.cyan('Terminal Verbosity:'),
+            default: getSetting('display', 'verbosity', 'detailed'),
+            choices: [
+                { name: 'Detailed (Show all logs)', value: 'detailed' },
+                { name: 'Normal', value: 'normal' },
+                { name: 'Quiet (Errors only)', value: 'quiet' }
+            ]
         }
     ]);
 
     setSetting('display', 'showProgress', answers.showProgress);
     setSetting('display', 'showMetadata', answers.showMetadata);
     setSetting('display', 'colorScheme', answers.colorScheme);
+    setSetting('display', 'verbosity', answers.verbosity);
 
     console.log(chalk.green('\n✅ Display settings saved!'));
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -273,10 +361,20 @@ async function handleDisplaySettings() {
 
 async function handleTelegramSettings() {
     console.log(chalk.bold.cyan('\n🤖 Telegram Bot Integration:\n'));
-    console.log(chalk.yellow('ℹ️  Token and ChatID must be set in Environment Variables (.env)'));
-    console.log();
 
     const answers = await inquirer.prompt([
+        {
+            type: 'input',
+            name: 'token',
+            message: chalk.cyan('Bot Token:'),
+            default: settingsService.get('TELEGRAM_BOT_TOKEN') || ''
+        },
+        {
+            type: 'input',
+            name: 'chatId',
+            message: chalk.cyan('Chat ID:'),
+            default: settingsService.get('TELEGRAM_CHAT_ID') || ''
+        },
         {
             type: 'confirm',
             name: 'uploadFiles',
@@ -288,11 +386,20 @@ async function handleTelegramSettings() {
             name: 'autoDelete',
             message: chalk.cyan('🗑️  Delete local files after upload?'),
             default: getSetting('telegram', 'autoDelete', true)
+        },
+        {
+            type: 'input',
+            name: 'allowedUsers',
+            message: chalk.cyan('Allowed User IDs (comma separated, leave empty for all):'),
+            default: getSetting('telegram', 'allowedUsers', '')
         }
     ]);
 
+    settingsService.set('TELEGRAM_BOT_TOKEN', answers.token);
+    settingsService.set('TELEGRAM_CHAT_ID', answers.chatId);
     setSetting('telegram', 'uploadFiles', answers.uploadFiles);
     setSetting('telegram', 'autoDelete', answers.autoDelete);
+    setSetting('telegram', 'allowedUsers', answers.allowedUsers);
 
     console.log(chalk.green('\n✅ Telegram settings saved!'));
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -375,6 +482,20 @@ async function showSettingsHelp() {
     console.log(
         chalk.white('autoDelete        ') +
             chalk.gray(': Delete the local file after a successful Telegram upload.')
+    );
+
+    console.log(chalk.bold.yellow('\n--- DASHBOARD ---'));
+    console.log(
+        chalk.white('port              ') +
+            chalk.gray(': Port for the Web Dashboard (default: 3000).')
+    );
+    console.log(
+        chalk.white('password          ') +
+            chalk.gray(': Leave empty to disable password protection.')
+    );
+    console.log(
+        chalk.white('autoCleanHours    ') +
+            chalk.gray(': How long to keep temporary download files (history remains).')
     );
 
     console.log(chalk.cyan('\nPress any key to return to settings menu...'));

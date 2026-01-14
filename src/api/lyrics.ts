@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { createAxiosInstance } from '../utils/network.js';
 import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger.js';
 
@@ -30,6 +30,7 @@ interface ProcessedLyrics {
 class LyricsProvider {
     providers: { name: string; enabled: boolean }[];
     userAgent: string;
+    client: any;
 
     constructor() {
         this.providers = [
@@ -38,6 +39,10 @@ class LyricsProvider {
         ];
         this.userAgent =
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+        this.client = createAxiosInstance({
+            timeout: 10000,
+            headers: { 'User-Agent': this.userAgent }
+        });
     }
 
     async searchLrclib(
@@ -47,7 +52,7 @@ class LyricsProvider {
         duration = 0
     ): Promise<LyricsSearchResult> {
         try {
-            const response = await axios.get('https://lrclib.net/api/get', {
+            const response = await this.client.get('https://lrclib.net/api/get', {
                 params: {
                     track_name: title,
                     artist_name: artist,
@@ -77,7 +82,7 @@ class LyricsProvider {
 
     async searchLrclibBest(title: string, artist: string): Promise<LyricsSearchResult> {
         try {
-            const response = await axios.get('https://lrclib.net/api/search', {
+            const response = await this.client.get('https://lrclib.net/api/search', {
                 params: {
                     q: `${title} ${artist}`
                 },
@@ -110,7 +115,7 @@ class LyricsProvider {
             const query = `${title} ${artist}`;
             const searchUrl = `https://genius.com/api/search/multi?per_page=1&q=${encodeURIComponent(query)}`;
 
-            const searchRes = await axios.get(searchUrl, {
+            const searchRes = await this.client.get(searchUrl, {
                 headers: { 'User-Agent': this.userAgent }
             });
 
@@ -119,7 +124,9 @@ class LyricsProvider {
 
             const songUrl = hits[0].result.url;
 
-            const pageRes = await axios.get(songUrl, { headers: { 'User-Agent': this.userAgent } });
+            const pageRes = await this.client.get(songUrl, {
+                headers: { 'User-Agent': this.userAgent }
+            });
             const $ = cheerio.load(pageRes.data);
 
             let lyrics = '';

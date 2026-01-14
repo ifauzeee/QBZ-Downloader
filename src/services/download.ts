@@ -1,5 +1,5 @@
 import path from 'path';
-import axios from 'axios';
+import { createAxiosInstance, downloadFile } from '../utils/network.js';
 import { logger } from '../utils/logger.js';
 
 import { pipeline } from 'stream/promises';
@@ -137,21 +137,23 @@ class DownloadService {
         if (!url) return null;
         try {
             const highResUrl = url.replace(/_\d+\.jpg/, '_max.jpg').replace('/600/', '/1200/');
-            const response = await axios({
+            const instance = createAxiosInstance({
                 method: 'GET',
                 url: highResUrl,
                 responseType: 'arraybuffer',
                 timeout: 30000
             });
+            const response = await instance.get(highResUrl);
             return response.data;
         } catch {
             try {
-                const response = await axios({
+                const instance = createAxiosInstance({
                     method: 'GET',
                     url: url,
                     responseType: 'arraybuffer',
                     timeout: 30000
                 });
+                const response = await instance.get(url);
                 return response.data;
             } catch {
                 return null;
@@ -250,10 +252,7 @@ class DownloadService {
                         options.onProgress({ phase: 'download_start', loaded: 0 });
 
                     const fileStreamData = fileUrl.data as { url: string };
-                    const response = await axios({
-                        method: 'GET',
-                        url: fileStreamData.url,
-                        responseType: 'stream',
+                    const response = await downloadFile(fileStreamData.url, {
                         timeout: 0
                     });
 
@@ -410,7 +409,7 @@ class DownloadService {
             if (existsSync(tempPath)) {
                 try {
                     unlinkSync(tempPath);
-                } catch { }
+                } catch {}
             }
             throw new Error(`FLAC Tagging failed: ${(error as Error).message}`);
         }

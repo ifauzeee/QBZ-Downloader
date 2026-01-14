@@ -119,7 +119,7 @@ describe('InputValidator', () => {
             expect(result.sanitized).not.toContain('<');
             expect(result.sanitized).not.toContain('>');
             expect(result.sanitized).not.toContain('"');
-            expect(result.sanitized).not.toContain('\'');
+            expect(result.sanitized).not.toContain("'");
         });
     });
 

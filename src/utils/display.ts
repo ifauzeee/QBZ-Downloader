@@ -239,8 +239,8 @@ export function displayLyrics(lyrics: LyricsResult) {
 
     const lines = lyrics.syncedLyrics
         ? lyrics
-            .parsedLyrics!.slice(0, 8)
-            .map((l) => `${chalk.hex(COLORS.secondary)(l.timeStr)}  ${chalk.white(l.text)}`)
+              .parsedLyrics!.slice(0, 8)
+              .map((l) => `${chalk.hex(COLORS.secondary)(l.timeStr)}  ${chalk.white(l.text)}`)
         : lyrics.plainLyrics!.split('\n').slice(0, 8);
 
     const text = Array.isArray(lines) ? lines.join('\n') : lines;

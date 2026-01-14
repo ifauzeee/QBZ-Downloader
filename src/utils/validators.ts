@@ -37,9 +37,9 @@ export function validateQobuzUrl(url: string | null | undefined): QobuzUrlInfo {
 
     throw new ValidationError(
         'Invalid Qobuz URL. Supported formats:\n' +
-        '  • https://www.qobuz.com/us-en/album/...\n' +
-        '  • https://www.qobuz.com/us-en/track/...\n' +
-        '  • Album ID (numeric)',
+            '  • https://www.qobuz.com/us-en/album/...\n' +
+            '  • https://www.qobuz.com/us-en/track/...\n' +
+            '  • Album ID (numeric)',
         'url'
     );
 }
@@ -57,10 +57,10 @@ export function validateQuality(quality: string | number): number {
     if (!VALID_QUALITIES.includes(qualityId)) {
         throw new ValidationError(
             `Invalid quality ID: ${qualityId}. Valid options:\n` +
-            '  • 5  - MP3 320\n' +
-            '  • 6  - FLAC 16-bit/44.1kHz (CD)\n' +
-            '  • 7  - FLAC 24-bit/96kHz (Hi-Res)\n' +
-            '  • 27 - FLAC 24-bit/192kHz (Hi-Res Max)',
+                '  • 5  - MP3 320\n' +
+                '  • 6  - FLAC 16-bit/44.1kHz (CD)\n' +
+                '  • 7  - FLAC 24-bit/96kHz (Hi-Res)\n' +
+                '  • 27 - FLAC 24-bit/192kHz (Hi-Res Max)',
             'quality'
         );
     }

@@ -55,7 +55,7 @@ ENV NODE_ENV=production
 ENV DOWNLOADS_PATH=/app/downloads
 
 # Volume for downloads and configuration
-VOLUME ["/app/downloads", "/app/config"]
+VOLUME ["/app/downloads", "/app/data"]
 
 # Switch to non-root user
 USER qbzuser
