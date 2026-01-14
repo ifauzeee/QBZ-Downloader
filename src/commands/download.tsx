@@ -8,18 +8,23 @@ import { Command } from 'commander';
 import { CONFIG, getQualityName } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import DownloadService from '../services/download.js';
+import LyricsProvider from '../api/lyrics.js';
+import MetadataService from '../services/metadata.js';
 import * as display from '../utils/display.js';
 import * as prompts from './download/prompts.js';
-import { telegramService } from '../services/telegram.js';
+
 import TrackSelector from '../ui/TrackSelector.js';
 import DownloadManagerUI from '../ui/DownloadManagerUI.js';
 import { Track } from '../types/qobuz.js';
 
 const api = new QobuzAPI();
-const downloadService = new DownloadService();
+const lyricsProvider = new LyricsProvider();
+const metadataService = new MetadataService();
+const downloadService = new DownloadService(api, lyricsProvider, metadataService);
 
 interface InteractiveOptions {
     batch?: boolean;
+    skipExisting?: boolean;
 }
 
 const selectTracksTUI = async (tracks: Track[]): Promise<number[]> => {
@@ -64,6 +69,7 @@ export function registerDownloadCommand(program: Command) {
         .option('-o, --output <path>', 'Output directory', './downloads')
         .option('--no-lyrics', 'Skip lyrics embedding')
         .option('--no-cover', 'Skip cover art embedding')
+        .option('-s, --skip-existing', 'Skip tracks that are already in history')
         .option('-i, --interactive', 'Interactive mode')
         .action(async (url, options) => {
             display.displayBanner();
@@ -194,7 +200,7 @@ export async function downloadAlbumInteractive(
         }
     }
 
-    await telegramService.sendDownloadStart(album.title, 'album', qualityLabel);
+
 
     console.log('');
     const downloadResult = await runDownloadTUI(async (emitter) => {
@@ -209,19 +215,16 @@ export async function downloadAlbumInteractive(
                     totalBytes: data.total
                 }
             }),
-            batch: options.batch
+            batch: options.batch,
+            skipExisting: options.skipExisting
         });
     }, album.title, trackIndices ? trackIndices.length : tracks.length);
 
     if (downloadResult.success) {
-        await telegramService.sendDownloadComplete(
-            album.title,
-            downloadResult.filePath || 'Album Directory',
-            { trackCount: downloadResult.totalTracks }
-        );
+
         display.displaySuccess(`Album downloaded to: ${downloadResult.filePath || 'downloads'}`);
     } else {
-        await telegramService.sendError('Album Download Failed', downloadResult.error || 'Unknown error');
+
         display.displayError(`Download completed with errors: ${downloadResult.failedTracks} failed.`);
     }
 
@@ -266,7 +269,7 @@ export async function downloadPlaylistInteractive(playlistId: string | number, o
 
     if (!proceed) return;
 
-    await telegramService.sendDownloadStart(playlist.name, 'playlist', getQualityName(selectedQuality));
+
 
     const result = await runDownloadTUI(async (emitter) => {
         return await downloadService.downloadPlaylist(playlistId, selectedQuality, {
@@ -278,7 +281,8 @@ export async function downloadPlaylistInteractive(playlistId: string | number, o
                     downloadedBytes: data.loaded,
                     totalBytes: data.total
                 }
-            })
+            }),
+            skipExisting: options.skipExisting
         });
     }, playlist.name, tracks.length);
 
@@ -304,7 +308,7 @@ export async function downloadArtistInteractive(artistId: string | number, optio
     }
 
     if (!proceed) return;
-    await telegramService.sendDownloadStart(artist.name, 'artist', 'Max');
+
 
     console.log(chalk.cyan('Starting discography download...'));
 
@@ -324,7 +328,8 @@ export async function downloadArtistInteractive(artistId: string | number, optio
                         downloadedBytes: data.loaded,
                         totalBytes: data.total
                     }
-                })
+                }),
+                skipExisting: options.skipExisting
             });
         }, album.title, trackCount);
     }
@@ -353,7 +358,8 @@ export async function downloadTrackInteractive(trackId: string | number, options
                         status: p.phase === 'download' ? 'downloading' : 'processing'
                     }
                 });
-            }
+            },
+            skipExisting: options.skipExisting
         });
     }, track.title, 1);
 

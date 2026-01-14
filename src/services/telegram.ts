@@ -3,9 +3,13 @@ import { CONFIG } from '../config.js';
 import chalk from 'chalk';
 import QobuzAPI from '../api/qobuz.js';
 import DownloadService, { DownloadProgress } from './download.js';
+import LyricsProvider from '../api/lyrics.js';
+import MetadataService from './metadata.js';
 import { getQualityName } from '../config.js';
 import fs from 'fs';
 import path from 'path';
+import { botSettingsService } from './bot-settings.js';
+import { logger } from '../utils/logger.js';
 
 const resolveQuality = (quality: number | 'ask' | 'min' | 'max'): number => {
     if (typeof quality === 'number') return quality;
@@ -21,6 +25,7 @@ export class TelegramService {
     private api: QobuzAPI;
     private downloadService: DownloadService;
     private lastProgressUpdate: number = 0;
+    private currentActivity: string = '';
 
     constructor() {
         const token = CONFIG.telegram.token;
@@ -28,7 +33,9 @@ export class TelegramService {
         this.uploadEnabled = CONFIG.telegram.uploadFiles ?? true;
 
         this.api = new QobuzAPI();
-        this.downloadService = new DownloadService();
+        const lyricsProvider = new LyricsProvider();
+        const metadataService = new MetadataService();
+        this.downloadService = new DownloadService(this.api, lyricsProvider, metadataService);
 
         if (token && chatId) {
             try {
@@ -36,7 +43,7 @@ export class TelegramService {
                 this.chatId = chatId;
                 this.enabled = true;
             } catch (error) {
-                console.warn(chalk.yellow('⚠️  Failed to initialize Telegram bot:'), error);
+                logger.warn(`Failed to initialize Telegram bot: ${error}`);
                 this.enabled = false;
             }
         }
@@ -56,6 +63,7 @@ export class TelegramService {
             const files = fs.readdirSync(dir);
             if (files.length === 0) {
                 fs.rmdirSync(dir);
+                logger.debug(`Cleaned up empty directory: ${path.basename(dir)}`);
                 this.deleteEmptyDirs(path.dirname(dir));
             }
         } catch {}
@@ -88,7 +96,9 @@ export class TelegramService {
                 return;
             }
 
-            console.log(chalk.cyan(`    📤 Uploading to Telegram: ${path.basename(filePath)}`));
+            logger.info(
+                `Uploading to Telegram: ${path.basename(filePath)} (${this.formatSize(fileSizeInBytes)})`
+            );
             await this.bot.telegram.sendAudio(
                 this.chatId,
                 { source: filePath },
@@ -96,17 +106,19 @@ export class TelegramService {
                     caption: caption || path.basename(filePath)
                 }
             );
+            logger.success(`Upload complete: ${path.basename(filePath)}`);
 
             if (CONFIG.telegram.autoDelete) {
                 try {
                     fs.unlinkSync(filePath);
+                    logger.debug(`Local file deleted (Auto-clean): ${path.basename(filePath)}`);
                     this.deleteEmptyDirs(path.dirname(filePath));
                 } catch (delErr) {
-                    console.error(chalk.red('Failed to delete local file:'), delErr);
+                    logger.warn(`Failed to delete local file: ${delErr}`);
                 }
             }
         } catch (error) {
-            console.error(chalk.red('Failed to upload file to Telegram:'), error);
+            logger.error(`Failed to upload file to Telegram: ${error}`);
             await this.sendError(
                 'Upload Failed',
                 `Could not upload ${path.basename(filePath)}. File kept locally.`
@@ -121,11 +133,15 @@ export class TelegramService {
     ) {
         const icon =
             type === 'track' ? '🎵' : type === 'album' ? '💿' : type === 'artist' ? '👤' : '📜';
+
         const msg =
-            '<b>📥 Started Download</b>\n\n' +
-            `${icon} <b>${title}</b>\n` +
-            `💎 Quality: ${quality}\n` +
-            `⏱️ Time: ${new Date().toLocaleTimeString()}`;
+            '✨ <b>INCOMING DOWNLOAD</b> ✨\n' +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `${icon} <b>Item:</b> <code>${title}</code>\n` +
+            `💎 <b>Quality:</b> <code>${quality}</code>\n` +
+            `📂 <b>Type:</b> <i>${type.toUpperCase()}</i>\n` +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `⏱️ <b>Time:</b> <code>${new Date().toLocaleTimeString()}</code>`;
 
         await this.sendMessage(msg);
     }
@@ -137,24 +153,38 @@ export class TelegramService {
     ) {
         let statsMsg = '';
         if (stats) {
-            if (stats.trackCount) statsMsg += `📊 Tracks: ${stats.trackCount}\n`;
-            if (stats.totalSize) statsMsg += `💾 Size: ${this.formatSize(stats.totalSize)}\n`;
+            if (stats.trackCount)
+                statsMsg += `📊 <b>Tracks:</b> <code>${stats.trackCount}</code>\n`;
+            if (stats.totalSize)
+                statsMsg += `💾 <b>Size:</b> <code>${this.formatSize(stats.totalSize)}</code>\n`;
         }
 
-        let pathLine = `📂 Path: <code>${path}</code>`;
+        let pathLine = `📂 <b>Path:</b> <code>${path}</code>`;
 
         if (CONFIG.telegram.uploadFiles && CONFIG.telegram.autoDelete) {
             pathLine = '';
         }
 
         const msg =
-            '<b>✅ Download Complete</b>\n\n' + `<b>${title}</b>\n` + `${statsMsg}` + `${pathLine}`;
-
+            '✅ <b>SUCCESSFULLY DOWNLOADED</b>\n' +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `🎧 <b>Title:</b> <code>${title}</code>\n` +
+            `${statsMsg}` +
+            `${pathLine}` +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            '<i>Processing complete! Enjoy your music.</i>';
         await this.sendMessage(msg);
     }
 
     async sendError(context: string, error: string) {
-        const msg = '<b>❌ Error</b>\n\n' + `<b>${context}</b>\n` + `⚠️ ${error}`;
+        logger.error(`${context}: ${error}`);
+        const msg =
+            '❌ <b>ERROR DETECTED</b>\n' +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `❗ <b>Context:</b> <code>${context}</code>\n` +
+            `⚠️ <b>Message:</b> <i>${error}</i>\n` +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            '<i>Please check your settings or try again later.</i>';
 
         await this.sendMessage(msg);
     }
@@ -166,6 +196,12 @@ export class TelegramService {
         title: string
     ) {
         const { phase, loaded, total } = progress;
+
+        if (this.currentActivity !== phase) {
+            this.currentActivity = phase;
+            logger.debug(`Activity: ${phase.toUpperCase()} - ${title}`);
+        }
+
         const now = Date.now();
         if (now - this.lastProgressUpdate < 2000 && loaded !== total && phase !== 'tagging') return;
         this.lastProgressUpdate = now;
@@ -173,22 +209,27 @@ export class TelegramService {
         let statusText = '';
         let percent = 0;
 
-        if (phase === 'download_start') statusText = '📥 Starting Download...';
+        if (phase === 'download_start') statusText = '🚀 <b>Initializing...</b>';
         else if (phase === 'download') {
             if (total) {
                 percent = Math.floor((loaded / total) * 100);
-                const barLen = 10;
+                const barLen = 12;
                 const filled = Math.floor((percent / 100) * barLen);
-                const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled);
-                statusText = `📥 Downloading...\n<code>[${bar}] ${percent}%</code>`;
+                const bar = '🟢'.repeat(filled) + '⚪'.repeat(barLen - filled);
+                statusText = `📥 <b>Downloading...</b>\n<code>${bar} ${percent}%</code>\n<i>${(loaded / 1024 / 1024).toFixed(2)} MB / ${(total / 1024 / 1024).toFixed(2)} MB</i>`;
             } else {
-                statusText = `📥 Downloading... ${(loaded / 1024 / 1024).toFixed(2)} MB`;
+                statusText = `📥 <b>Downloading...</b>\n<code>${(loaded / 1024 / 1024).toFixed(2)} MB</code>`;
             }
-        } else if (phase === 'lyrics') statusText = '📝 Fetching Lyrics...';
-        else if (phase === 'cover') statusText = '🖼️ Fetching Cover...';
-        else if (phase === 'tagging') statusText = '🏷️ Tagging Metadata...';
+        } else if (phase === 'lyrics') statusText = '📝 <b>Fetching Lyrics...</b>';
+        else if (phase === 'cover') statusText = '🖼️ <b>Fetching Cover...</b>';
+        else if (phase === 'tagging') statusText = '🏷️ <b>Tagging Metadata...</b>';
 
-        const msgCode = `<b>${title}</b>\n\n${statusText}`;
+        const msgCode =
+            `🛰️ <b>ACTIVITY: ${phase.toUpperCase()}</b>\n` +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `🎵 <b>Track:</b> <code>${title}</code>\n` +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `${statusText}`;
 
         try {
             await this.bot!.telegram.editMessageText(this.chatId!, messageId, undefined, msgCode, {
@@ -199,42 +240,62 @@ export class TelegramService {
 
     async startBot() {
         if (!this.enabled || !this.bot) {
-            console.log(
-                chalk.red('❌ Telegram Bot is not configured. Please check .env settings.')
-            );
+            logger.error('Telegram Bot is not configured. Please check .env settings.');
             return;
         }
 
-        console.log(chalk.cyan('🤖 Starting Qobuz-DL Telegram Bot...'));
-        console.log(chalk.gray(`   Listening for messages from Chat ID: ${this.chatId}`));
+        logger.success('Starting Qobuz-DL Telegram Bot...');
+        logger.info(`Listening for messages from Chat ID: ${this.chatId}`);
 
         this.bot.use(async (ctx, next) => {
-            if (ctx.chat?.id.toString() !== this.chatId) {
+            const userId = ctx.from?.id.toString();
+            const allowedUsers = CONFIG.telegram.allowedUsers;
+            const mainChatId = CONFIG.telegram.chatId;
+
+            const isAllowed =
+                (allowedUsers && allowedUsers.includes(userId || '')) ||
+                (mainChatId && userId === mainChatId);
+
+            if (!isAllowed) {
+                logger.error(`Access denied for user: ${userId} (${ctx.from?.username})`);
+                await ctx.reply('⛔ You are not authorized to use this bot.');
                 return;
+            }
+            if (ctx.message && 'text' in ctx.message) {
+                logger.msg(`Message from ${ctx.from?.username} (${userId}): ${ctx.message.text}`);
             }
             await next();
         });
 
         this.bot.start((ctx) => {
             ctx.reply(
-                '<b>👋 Welcome to Qobuz-DL Bot!</b>\n\n' +
-                    'Send me a Qobuz link to start downloading.\nIf the file is &lt; 50MB, I will send it here.',
+                '🎨 <b>Welcome to Qobuz Premium Bot!</b>\n' +
+                    '━━━━━━━━━━━━━━━━━━\n' +
+                    'I can help you download high-quality music directly from Qobuz.\n\n' +
+                    '🚀 <b>Quick Start:</b>\n' +
+                    '1️⃣ Send any Qobuz Link (Track/Album/Playlist)\n' +
+                    '2️⃣ Use /search to find your favorite music\n' +
+                    '3️⃣ Configure your /settings\n\n' +
+                    '🔒 <i>All files < 50MB are automatically uploaded.</i>',
                 { parse_mode: 'HTML' }
             );
         });
 
         this.bot.help((ctx) => {
             ctx.reply(
-                '<b>Available Commands:</b>\n\n' +
-                    '/search &lt;query&gt; - Search for tracks/albums\n' +
-                    '/help - Show this message\n\n' +
-                    'Or just send a Qobuz link.',
+                '📖 <b>COMMAND GUIDE</b>\n' +
+                    '━━━━━━━━━━━━━━━━━━\n' +
+                    '🔍 <code>/search query</code> - Search everything\n' +
+                    '⚙️ <code>/settings</code> - Bot configuration\n' +
+                    'ℹ️ <code>/help</code> - Show this menu\n\n' +
+                    '💡 <i>Tip: Paste a Qobuz URL for instant info!</i>',
                 { parse_mode: 'HTML' }
             );
         });
 
         this.bot.command('search', async (ctx) => {
             const query = ctx.message.text.split(' ').slice(1).join(' ');
+            logger.info(`Search command: ${query}`);
             if (!query) {
                 await ctx.reply(
                     '⚠️ Please provide a search query.\nExample: <code>/search adele</code>',
@@ -245,23 +306,91 @@ export class TelegramService {
             await this.handleSearch(ctx, query);
         });
 
-        this.bot.hears(/^\/dl_(track|album|playlist|artist)_(\d+)/, async (ctx) => {
-            const match = ctx.message.text.match(/^\/dl_(track|album|playlist|artist)_(\d+)/);
+        this.bot.command(['settings', 'setting'], async (ctx) => {
+            await this.handleSettings(ctx);
+        });
+
+        this.bot.action(/^set_bot_quality_(.+)$/, async (ctx) => {
+            const val = ctx.match[1];
+            botSettingsService.quality = val === 'ask' ? 'ask' : parseInt(val, 10);
+            logger.success(`Settings: Quality updated to ${val} by user ${ctx.from?.id}`);
+            await ctx.answerCbQuery(`✅ Quality updated to ${val}`);
+            await this.handleSettings(ctx, true);
+        });
+
+        this.bot.action(/^search_(tracks|albums|artists|playlists)_(.+)$/, async (ctx) => {
+            const [, type, query] = ctx.match;
+            logger.info(`Search category selected: ${type} for query "${query}"`);
+            await ctx.answerCbQuery(`Searching ${type}...`);
+            await this.handleSearchCategory(ctx, query, type as any);
+        });
+
+        this.bot.action(/^search_back_(.+)$/, async (ctx) => {
+            const query = ctx.match[1];
+            await ctx.answerCbQuery();
+            await this.handleSearch(ctx, query, true);
+        });
+
+        this.bot.action(/^dl_(track|album|playlist|artist)_([a-zA-Z0-9]+)_(.+)$/, async (ctx) => {
+            const match = ctx.match;
+            const [, type, id, quality] = match;
+            logger.info(`Download requested via callback: ${type} ${id} (Quality: ${quality})`);
+            await ctx.answerCbQuery('Queueing download...');
+            await ctx.reply(`🔍 Queueing ${type} download: ${id} with quality ${quality}...`);
+
+            const q = parseInt(quality, 10) || 27;
+
+            if (type === 'track') {
+                this.handleDownloadRequest(id, type, '', q).catch(async (err) => {
+                    await this.sendError('Download Error', err.message);
+                });
+            } else {
+                this.handleBatchDownload(id, type as 'album' | 'playlist' | 'artist', q).catch(
+                    async (err) => {
+                        await this.sendError('Download Error', err.message);
+                    }
+                );
+            }
+        });
+
+        this.bot.action(/^ask_dl_(track|album|playlist|artist)_([a-zA-Z0-9]+)$/, async (ctx) => {
+            const match = ctx.match;
+            const [, type, id] = match;
+            if (type === 'track') {
+                await this.askQuality(ctx, type, id);
+            } else {
+                await ctx.answerCbQuery('Fetching info...');
+                await this.handleInfoRequest(ctx, id, type);
+            }
+        });
+
+        this.bot.hears(/^\/dl_(track|album|playlist|artist)_([a-zA-Z0-9]+)/, async (ctx) => {
+            const match = ctx.message.text.match(
+                /^\/dl_(track|album|playlist|artist)_([a-zA-Z0-9]+)/
+            );
             if (!match) return;
 
             const [, type, id] = match;
             await ctx.reply(`🔍 Queueing ${type} download: ${id}...`);
 
             if (type === 'track') {
-                this.handleDownloadRequest(id, type, '').catch(async (err) => {
+                this.handleDownloadRequest(
+                    id,
+                    type,
+                    '',
+                    resolveQuality(CONFIG.quality.default)
+                ).catch(async (err) => {
+                    console.error(chalk.red(`❌ Download track error: ${err.message}`));
                     await this.sendError('Download Error', err.message);
                 });
             } else {
-                this.handleBatchDownload(id, type as 'album' | 'playlist' | 'artist').catch(
-                    async (err) => {
-                        await this.sendError('Download Error', err.message);
-                    }
-                );
+                this.handleBatchDownload(
+                    id,
+                    type as 'album' | 'playlist' | 'artist',
+                    resolveQuality(CONFIG.quality.default)
+                ).catch(async (err) => {
+                    await this.sendError('Download Error', err.message);
+                });
             }
         });
 
@@ -281,11 +410,18 @@ export class TelegramService {
             const processingMsg = await ctx.reply(`🔍 Processing ${parsed.type}: ${parsed.id}...`);
 
             if (parsed.type === 'track') {
-                this.handleDownloadRequest(parsed.id, parsed.type, message).catch(async (err) => {
-                    await this.sendError('Bot Download Error', err.message);
-                });
+                const botQuality = botSettingsService.quality;
+                if (botQuality === 'ask') {
+                    await this.askQuality(ctx, parsed.type, parsed.id);
+                } else {
+                    this.handleDownloadRequest(parsed.id, parsed.type, message, botQuality).catch(
+                        async (err) => {
+                            await this.sendError('Bot Download Error', err.message);
+                        }
+                    );
+                }
             } else {
-                this.handleInfoRequest(parsed.id, parsed.type).catch(async (err) => {
+                this.handleInfoRequest(ctx, parsed.id, parsed.type).catch(async (err) => {
                     await this.sendError('Info Error', err.message);
                 });
             }
@@ -298,74 +434,185 @@ export class TelegramService {
 
         try {
             await this.bot.launch();
-            console.log(chalk.green('✅ Bot is running! Press Ctrl+C to stop.'));
+            logger.success('Bot is running! Press Ctrl+C to stop.');
         } catch (error) {
-            console.error(chalk.red('❌ Failed to launch bot:'), error);
+            logger.error(`Failed to launch bot: ${error}`);
         }
     }
 
-    private async handleInfoRequest(id: string | number, type: string) {
+    private async handleInfoRequest(ctx: any, id: string | number, type: string) {
         if (type === 'album') {
             const info = await this.api.getAlbum(id);
             if (!info.success || !info.data) throw new Error('Album not found');
             const album = info.data;
 
             let msg =
-                `<b>💿 Album: ${album.title}</b>\n` +
-                `👤 Artist: ${album.artist.name}\n` +
-                `Songs: ${album.tracks_count}\n\n` +
-                `⬇️ <b><a href="/dl_album_${id}">Download All Tracks</a></b> (/dl_album_${id})\n\n` +
+                '💿 <b>ALBUM INFORMATION</b>\n' +
+                '━━━━━━━━━━━━━━━━━━\n' +
+                `💽 <b>Title:</b> <code>${album.title}</code>\n` +
+                `👤 <b>Artist:</b> <code>${album.artist.name}</code>\n` +
+                `📅 <b>Year:</b> <code>${album.release_date_original || 'N/A'}</code>\n` +
+                `🎼 <b>Tracks:</b> <code>${album.tracks_count}</code>\n` +
+                '━━━━━━━━━━━━━━━━━━\n' +
                 '<b>Tracklist:</b>\n';
+
+            const botQuality = botSettingsService.quality;
+            const keyboardRows: any[][] = [];
+
+            if (botQuality === 'ask') {
+                keyboardRows.push(
+                    [
+                        { text: '🔥 Hi-Res 24/192', callback_data: `dl_album_${id}_27` },
+                        { text: '✨ Hi-Res 24/96', callback_data: `dl_album_${id}_7` }
+                    ],
+                    [
+                        { text: '💿 CD Quality', callback_data: `dl_album_${id}_6` },
+                        { text: '🎵 MP3 320', callback_data: `dl_album_${id}_5` }
+                    ]
+                );
+            } else {
+                keyboardRows.push([
+                    {
+                        text: `📥 Download Album (${getQualityName(botQuality)})`,
+                        callback_data: `dl_album_${id}_${botQuality}`
+                    }
+                ]);
+            }
 
             if (album.tracks && album.tracks.items) {
                 album.tracks.items.forEach((track, index) => {
-                    msg += `${index + 1}. ${track.title} - /dl_track_${track.id}\n`;
+                    msg += `<code>${index + 1}.</code> ${track.title}\n`;
+                    keyboardRows.push([
+                        {
+                            text: `🎵 ${track.title.substring(0, 30)}`,
+                            callback_data:
+                                botQuality === 'ask'
+                                    ? `ask_dl_track_${track.id}`
+                                    : `dl_track_${track.id}_${botQuality}`
+                        }
+                    ]);
                 });
             }
 
-            await this.sendMessage(msg);
+            await ctx.reply(msg, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: keyboardRows }
+            });
         } else if (type === 'playlist') {
             const info = await this.api.getPlaylist(id);
             if (!info.success || !info.data) throw new Error('Playlist not found');
             const playlist = info.data;
 
             let msg =
-                `<b>📜 Playlist: ${playlist.name}</b>\n` +
-                `Songs: ${playlist.tracks.total}\n\n` +
-                `⬇️ <b><a href="/dl_playlist_${id}">Download All Tracks</a></b> (/dl_playlist_${id})\n\n` +
+                '📜 <b>PLAYLIST INFORMATION</b>\n' +
+                '━━━━━━━━━━━━━━━━━━\n' +
+                `� <b>Name:</b> <code>${playlist.name}</code>\n` +
+                `👤 <b>Owner:</b> <code>${playlist.owner?.name || 'N/A'}</code>\n` +
+                `🎼 <b>Tracks:</b> <code>${playlist.tracks.total}</code>\n` +
+                '━━━━━━━━━━━━━━━━━━\n' +
                 '<b>Tracklist:</b>\n';
+
+            const botQuality = botSettingsService.quality;
+            const keyboardRows: any[][] = [];
+
+            if (botQuality === 'ask') {
+                keyboardRows.push(
+                    [
+                        { text: '🔥 Hi-Res 24/192', callback_data: `dl_playlist_${id}_27` },
+                        { text: '✨ Hi-Res 24/96', callback_data: `dl_playlist_${id}_7` }
+                    ],
+                    [
+                        { text: '💿 CD Quality', callback_data: `dl_playlist_${id}_6` },
+                        { text: '🎵 MP3 320', callback_data: `dl_playlist_${id}_5` }
+                    ]
+                );
+            } else {
+                keyboardRows.push([
+                    {
+                        text: `📥 Download Playlist (${getQualityName(botQuality)})`,
+                        callback_data: `dl_playlist_${id}_${botQuality}`
+                    }
+                ]);
+            }
 
             if (playlist.tracks && playlist.tracks.items) {
                 playlist.tracks.items.forEach((track, index) => {
-                    msg += `${index + 1}. ${track.title} - /dl_track_${track.id}\n`;
+                    msg += `<code>${index + 1}.</code> ${track.title}\n`;
+                    keyboardRows.push([
+                        {
+                            text: `🎵 ${track.title.substring(0, 30)}`,
+                            callback_data:
+                                botQuality === 'ask'
+                                    ? `ask_dl_track_${track.id}`
+                                    : `dl_track_${track.id}_${botQuality}`
+                        }
+                    ]);
                 });
             }
-            await this.sendMessage(msg);
+            await ctx.reply(msg, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: keyboardRows }
+            });
         } else if (type === 'artist') {
             const info = await this.api.getArtist(id);
             if (!info.success || !info.data) throw new Error('Artist not found');
             const artist = info.data as any;
 
             const msg =
-                `<b>👤 Artist: ${artist.name}</b>\n\n` +
-                `⬇️ <b>Download Discography</b>: /dl_artist_${id}`;
-            await this.sendMessage(msg);
+                '👤 <b>ARTIST PROFILE</b>\n' +
+                '━━━━━━━━━━━━━━━━━━\n' +
+                `🎤 <b>Name:</b> <code>${artist.name}</code>\n` +
+                `💿 <b>Albums:</b> <code>${artist.albums_count || 'N/A'}</code>\n` +
+                '━━━━━━━━━━━━━━━━━━\n' +
+                '<i>Select a quality to download discography:</i>';
+
+            const botQual = botSettingsService.quality;
+            const inlineKeyboard = [];
+
+            if (botQual === 'ask') {
+                inlineKeyboard.push([
+                    { text: '🔥 Hi-Res', callback_data: `dl_artist_${id}_27` },
+                    { text: '💿 CD', callback_data: `dl_artist_${id}_6` },
+                    { text: 'MP3', callback_data: `dl_artist_${id}_5` }
+                ]);
+            } else {
+                inlineKeyboard.push([
+                    {
+                        text: `📥 Download Discography (${getQualityName(botQual)})`,
+                        callback_data: `dl_artist_${id}_${botQual}`
+                    }
+                ]);
+            }
+
+            await ctx.reply(msg, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: inlineKeyboard }
+            });
         }
     }
 
-    private async handleBatchDownload(id: string | number, type: 'album' | 'playlist' | 'artist') {
-        const quality = resolveQuality(CONFIG.quality.default);
+    private async handleBatchDownload(
+        id: string | number,
+        type: 'album' | 'playlist' | 'artist',
+        qualityLevel?: number
+    ) {
+        const quality = qualityLevel || resolveQuality(CONFIG.quality.default);
         const qualityName = getQualityName(quality);
 
         if (type === 'album') {
             const info = await this.api.getAlbum(id);
             if (!info.success || !info.data) throw new Error('Album not found');
             const title = info.data.title;
+            logger.info(`Batch download started: ${title} (${id})`);
             await this.sendDownloadStart(title, 'album', qualityName);
 
             const progressMsg = await this.bot!.telegram.sendMessage(
                 this.chatId!,
-                `<b>${title}</b>\n\n⏳ Initializing Batch Download...`,
+                '📦 <b>BATCH INITIALIZING</b>\n' +
+                    '━━━━━━━━━━━━━━━━━━\n' +
+                    `💿 <b>Album:</b> <code>${title}</code>\n` +
+                    '━━━━━━━━━━━━━━━━━━\n' +
+                    '⏳ <i>Please wait while we prepare your tracks...</i>',
                 { parse_mode: 'HTML' }
             );
             const messageId = progressMsg.message_id;
@@ -386,16 +633,27 @@ export class TelegramService {
                 ? path.dirname(res.tracks[0].filePath)
                 : 'Album Directory';
 
-            if (res.success) {
+            if (res.success || (res.tracks && res.tracks.some((t) => t.success))) {
                 const uploadMsg = await this.bot!.telegram.sendMessage(
                     this.chatId!,
-                    `<b>${title}</b>\n\n📤 Batch Uploading may take a while...`,
+                    '📤 <b>BATCH UPLOADING</b>\n' +
+                        '━━━━━━━━━━━━━━━━━━\n' +
+                        `💿 <b>Album:</b> <code>${title}</code>\n` +
+                        '━━━━━━━━━━━━━━━━━━\n' +
+                        '⏳ <i>Transferring tracks to Telegram...</i>',
                     { parse_mode: 'HTML' }
                 );
 
                 await this.sendDownloadComplete(title, albumPath, {
                     trackCount: res.totalTracks
                 });
+
+                if (!res.success) {
+                    await this.sendMessage(
+                        `⚠️ Some tracks failed to download (${res.failedTracks}/${res.totalTracks})`
+                    );
+                }
+
                 if (res.tracks) {
                     for (const trackRes of res.tracks) {
                         if (trackRes.success && trackRes.filePath) {
@@ -407,7 +665,8 @@ export class TelegramService {
                     await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id);
                 } catch {}
             } else {
-                throw new Error(res.error || 'Unknown error');
+                logger.error(`Batch download failed for ${title}: ${res.error}`);
+                throw new Error(res.error || `All ${res.totalTracks} tracks failed to download.`);
             }
         } else if (type === 'playlist') {
             const info = await this.api.getPlaylist(id);
@@ -417,7 +676,11 @@ export class TelegramService {
 
             const progressMsg = await this.bot!.telegram.sendMessage(
                 this.chatId!,
-                `<b>${title}</b>\n\n⏳ Initializing Playlist...`,
+                '📜 <b>PLAYLIST INITIALIZING</b>\n' +
+                    '━━━━━━━━━━━━━━━━━━\n' +
+                    `📝 <b>Playlist:</b> <code>${title}</code>\n` +
+                    '━━━━━━━━━━━━━━━━━━\n' +
+                    '⏳ <i>Preparing playlist tracks...</i>',
                 { parse_mode: 'HTML' }
             );
             const messageId = progressMsg.message_id;
@@ -430,16 +693,27 @@ export class TelegramService {
                 await this.bot!.telegram.deleteMessage(this.chatId!, messageId);
             } catch {}
 
-            if (res.success) {
+            if (res.success || (res.tracks && res.tracks.some((t) => t.success))) {
                 const uploadMsg = await this.bot!.telegram.sendMessage(
                     this.chatId!,
-                    `<b>${title}</b>\n\n📤 Batch Uploading...`,
+                    '📤 <b>PLAYLIST UPLOADING</b>\n' +
+                        '━━━━━━━━━━━━━━━━━━\n' +
+                        `📝 <b>Playlist:</b> <code>${title}</code>\n` +
+                        '━━━━━━━━━━━━━━━━━━\n' +
+                        '⏳ <i>Sending tracks to Telegram...</i>',
                     { parse_mode: 'HTML' }
                 );
 
                 await this.sendDownloadComplete(title, 'Playlist Directory', {
                     trackCount: res.totalTracks
                 });
+
+                if (!res.success) {
+                    await this.sendMessage(
+                        `⚠️ Some tracks failed to download (${res.failedTracks}/${res.totalTracks})`
+                    );
+                }
+
                 if (res.tracks) {
                     for (const trackRes of res.tracks) {
                         if (trackRes.success && trackRes.filePath) {
@@ -451,15 +725,22 @@ export class TelegramService {
                     await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id);
                 } catch {}
             } else {
-                throw new Error(res.error || 'Unknown error');
+                console.error(chalk.red(`❌ Playlist batch failed for ${title}`));
+                console.error(res);
+                throw new Error(res.error || `All ${res.totalTracks} tracks failed to download.`);
             }
         } else if (type === 'artist') {
             await this.downloadService.downloadArtist(id, quality);
         }
     }
 
-    private async handleDownloadRequest(id: string | number, type: string, _originalUrl: string) {
-        const quality = resolveQuality(CONFIG.quality.default);
+    private async handleDownloadRequest(
+        id: string | number,
+        type: string,
+        _originalUrl: string,
+        qualityLevel?: number
+    ) {
+        const quality = qualityLevel || resolveQuality(CONFIG.quality.default);
         if (type === 'track') {
             const info = await this.api.getTrack(id);
             if (!info.success || !info.data) throw new Error('Track not found');
@@ -486,7 +767,11 @@ export class TelegramService {
             if (res.success && res.filePath) {
                 const uploadMsg = await this.bot!.telegram.sendMessage(
                     this.chatId!,
-                    `<b>${title}</b>\n\n📤 Uploading to Telegram...`,
+                    '📤 <b>TRACK UPLOADING</b>\n' +
+                        '━━━━━━━━━━━━━━━━━━\n' +
+                        `🎵 <b>Track:</b> <code>${title}</code>\n` +
+                        '━━━━━━━━━━━━━━━━━━\n' +
+                        '⏳ <i>Uploading to your chat...</i>',
                     { parse_mode: 'HTML' }
                 );
 
@@ -497,48 +782,174 @@ export class TelegramService {
                     await this.bot!.telegram.deleteMessage(this.chatId!, uploadMsg.message_id);
                 } catch {}
             } else {
+                logger.error(`Download failed for ${title}: ${res.error}`);
                 throw new Error(res.error || 'Unknown error');
             }
         }
     }
+    private async handleSearch(ctx: any, query: string, isUpdate = false) {
+        const msg =
+            '🔍 <b>SEARCH OPERATOR</b>\n' +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `Query: <code>${query}</code>\n\n` +
+            'Select a category to view results:';
 
-    private async handleSearch(ctx: any, query: string) {
+        const keyboard = {
+            inline_keyboard: [
+                [
+                    { text: '🎵 Tracks', callback_data: `search_tracks_${query}` },
+                    { text: '💿 Albums', callback_data: `search_albums_${query}` }
+                ],
+                [
+                    { text: '👤 Artists', callback_data: `search_artists_${query}` },
+                    { text: '📜 Playlists', callback_data: `search_playlists_${query}` }
+                ]
+            ]
+        };
+
+        if (isUpdate) {
+            try {
+                await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: keyboard });
+            } catch {}
+        } else {
+            await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: keyboard });
+        }
+    }
+
+    private async handleSearchCategory(
+        ctx: any,
+        query: string,
+        type: 'tracks' | 'albums' | 'artists' | 'playlists'
+    ) {
         try {
-            await ctx.reply('🔍 Searching...', { parse_mode: 'HTML' });
+            const res = await this.api.search(query, type, 10);
+            if (!res.success || !res.data) throw new Error('No results found.');
 
-            const [tracksRes, albumsRes] = await Promise.all([
-                this.api.search(query, 'tracks', 5),
-                this.api.search(query, 'albums', 5)
+            let items: any[] = [];
+            let header = '';
+
+            if (type === 'tracks') {
+                items = res.data.tracks?.items || [];
+                header = '🎵 <b>TOP TRACKS</b>';
+            } else if (type === 'albums') {
+                items = res.data.albums?.items || [];
+                header = '💿 <b>TOP ALBUMS</b>';
+            } else if (type === 'artists') {
+                items = res.data.artists?.items || [];
+                header = '👤 <b>TOP ARTISTS</b>';
+            } else if (type === 'playlists') {
+                items = res.data.playlists?.items || [];
+                header = '📜 <b>TOP PLAYLISTS</b>';
+            }
+
+            if (items.length === 0) {
+                await ctx.reply(`❌ No ${type} found for "<code>${query}</code>"`, {
+                    parse_mode: 'HTML'
+                });
+                return;
+            }
+
+            const botQual = botSettingsService.quality;
+            const keyboardRows = items.map((item) => {
+                let text = '';
+                let cb = '';
+
+                if (type === 'tracks') {
+                    text = `🎵 ${item.title} - ${item.performer?.name}`;
+                    cb =
+                        botQual === 'ask'
+                            ? `ask_dl_track_${item.id}`
+                            : `dl_track_${item.id}_${botQual}`;
+                } else if (type === 'albums') {
+                    text = `💿 ${item.title} - ${item.artist?.name}`;
+                    cb = `ask_dl_album_${item.id}`;
+                } else if (type === 'artists') {
+                    text = `👤 ${item.name}`;
+                    cb = `ask_dl_artist_${item.id}`;
+                } else if (type === 'playlists') {
+                    text = `📜 ${item.name}`;
+                    cb = `ask_dl_playlist_${item.id}`;
+                }
+
+                return [{ text: text.substring(0, 60), callback_data: cb }];
+            });
+
+            keyboardRows.push([
+                { text: '⬅️ Back to Categories', callback_data: `search_back_${query}` }
             ]);
 
-            let resultMsg = `<b>🔎 Search Results for "${query}"</b>\n\n`;
+            const msg =
+                `${header}\n` +
+                '━━━━━━━━━━━━━━━━━━\n' +
+                `Results for: <code>${query}</code>\n\n` +
+                '<i>Select an item to view or download:</i>';
 
-            if (tracksRes.success && tracksRes.data?.tracks?.items) {
-                resultMsg += '<b>🎵 Tracks</b>\n';
-                tracksRes.data.tracks.items.forEach((track: any) => {
-                    const title = track.title;
-                    const artist = track.performer?.name || 'Unknown Artist';
-                    resultMsg += `• ${title} - ${artist}\n  ⬇️ /dl_track_${track.id}\n\n`;
-                });
+            await ctx.editMessageText(msg, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: keyboardRows }
+            });
+        } catch (error: any) {
+            await ctx.reply(`⚠️ ${error.message}`);
+        }
+    }
+
+    private async askQuality(ctx: any, type: string, id: string | number) {
+        const msg =
+            '💎 <b>SELECT AUDIO QUALITY</b>\n' +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `Item: <code>${type.toUpperCase()} #${id}</code>\n\n` +
+            'Choose your preferred quality:';
+
+        await ctx.reply(msg, {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: '🔥 Hi-Res (192kHz)', callback_data: `dl_${type}_${id}_27` },
+                        { text: '✨ Hi-Res (96kHz)', callback_data: `dl_${type}_${id}_7` }
+                    ],
+                    [
+                        { text: '💿 CD (16-bit)', callback_data: `dl_${type}_${id}_6` },
+                        { text: '🎵 MP3 (320kbps)', callback_data: `dl_${type}_${id}_5` }
+                    ]
+                ]
             }
+        });
+    }
 
-            if (albumsRes.success && albumsRes.data?.albums?.items) {
-                resultMsg += '<b>💿 Albums</b>\n';
-                albumsRes.data.albums.items.forEach((album: any) => {
-                    const title = album.title;
-                    const artist = album.artist?.name || 'Unknown Artist';
-                    resultMsg += `• ${title} - ${artist}\n  ⬇️ /dl_album_${album.id}\n\n`;
-                });
-            }
+    private async handleSettings(ctx: any, isUpdate = false) {
+        const currentQuality = botSettingsService.quality;
+        const qualityName =
+            currentQuality === 'ask'
+                ? 'Interactive (Ask Every Time)'
+                : getQualityName(currentQuality);
 
-            if (!tracksRes.data?.tracks?.items?.length && !albumsRes.data?.albums?.items?.length) {
-                resultMsg += '<i>No results found.</i>';
-            }
+        const msg =
+            '⚙️ <b>BOT CONFIGURATION</b>\n' +
+            '━━━━━━━━━━━━━━━━━━\n' +
+            `Current Default: <b>${qualityName}</b>\n\n` +
+            '<i>Changing this will affect how links and search results behave.</i>';
 
-            await ctx.reply(resultMsg, { parse_mode: 'HTML' });
-        } catch (error: unknown) {
-            const err = error as Error;
-            await ctx.reply(`⚠️ Search Failed: ${err.message}`);
+        const keyboard = {
+            inline_keyboard: [
+                [
+                    { text: '🔥 Hi-Res (192)', callback_data: 'set_bot_quality_27' },
+                    { text: '✨ Hi-Res (96)', callback_data: 'set_bot_quality_7' }
+                ],
+                [
+                    { text: '💿 CD Quality', callback_data: 'set_bot_quality_6' },
+                    { text: '🎵 MP3', callback_data: 'set_bot_quality_5' }
+                ],
+                [{ text: '❓ Interactive (Ask Every Time)', callback_data: 'set_bot_quality_ask' }]
+            ]
+        };
+
+        if (isUpdate) {
+            try {
+                await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: keyboard });
+            } catch {}
+        } else {
+            await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: keyboard });
         }
     }
 }

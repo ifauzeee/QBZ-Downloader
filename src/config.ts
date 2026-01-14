@@ -84,6 +84,7 @@ export interface Config {
         chatId?: string;
         uploadFiles?: boolean;
         autoDelete?: boolean;
+        allowedUsers?: string[];
     };
 }
 
@@ -205,7 +206,11 @@ export const CONFIG: Config = {
         token: getStr('TELEGRAM_BOT_TOKEN', ''),
         chatId: getStr('TELEGRAM_CHAT_ID', ''),
         uploadFiles: settings.telegram?.uploadFiles ?? getBool('TELEGRAM_UPLOAD_FILES', true),
-        autoDelete: settings.telegram?.autoDelete ?? getBool('TELEGRAM_AUTO_DELETE', true)
+        autoDelete: settings.telegram?.autoDelete ?? getBool('TELEGRAM_AUTO_DELETE', true),
+        allowedUsers: getStr('TELEGRAM_ALLOWED_USERS', '')
+            .split(',')
+            .map((u) => u.trim())
+            .filter((u) => u.length > 0)
     }
 };
 

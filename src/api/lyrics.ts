@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { logger } from '../utils/logger.js';
 
 interface LrclibResponse {
     syncedLyrics?: string;
@@ -104,7 +105,7 @@ class LyricsProvider {
 
     async searchGenius(title: string, artist: string): Promise<LyricsResult> {
         try {
-            console.log('    🔍 Searching Genius fallback...');
+            logger.debug('Searching Genius fallback...');
 
             const query = `${title} ${artist}`;
             const searchUrl = `https://genius.com/api/search/multi?per_page=1&q=${encodeURIComponent(query)}`;
@@ -208,8 +209,8 @@ class LyricsProvider {
         const cleanArtist = artist.split(/[,&]/)[0].trim();
 
         if (cleanTitle !== title || cleanArtist !== artist) {
-            console.log(
-                `    ⚠️  Retrying with cleaned metadata: "${cleanTitle}" by "${cleanArtist}"`
+            logger.warn(
+                `Retrying lyrics with cleaned metadata: "${cleanTitle}" by "${cleanArtist}"`
             );
             result = await this.searchLrclibBest(cleanTitle, cleanArtist);
             if (result.success) return this.formatResult(result);

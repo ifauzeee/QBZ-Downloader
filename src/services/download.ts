@@ -1,6 +1,7 @@
 import path from 'path';
 import axios from 'axios';
-import { execFileSync } from 'child_process';
+import { logger } from '../utils/logger.js';
+
 import { pipeline } from 'stream/promises';
 import {
     createWriteStream,
@@ -20,6 +21,7 @@ import { settingsService } from './settings.js';
 import pLimit from 'p-limit';
 import flac from 'flac-metadata';
 import { Track, LyricsResult, Album } from '../types/qobuz.js';
+import { historyService } from './history.js';
 
 export interface DownloadProgress {
     phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging';
@@ -32,6 +34,7 @@ interface DownloadOptions {
     outputDir?: string;
     onProgress?: (progress: DownloadProgress) => void;
     trackIndices?: number[];
+    skipExisting?: boolean;
 }
 
 export interface BatchProgressCallback {
@@ -54,6 +57,7 @@ export interface AlbumDownloadOptions {
     onProgress?: BatchProgressCallback;
     onAlbumInfo?: (album: Album) => void;
     batch?: boolean;
+    skipExisting?: boolean;
 }
 
 interface DownloadResult {
@@ -71,6 +75,7 @@ interface DownloadResult {
     totalTracks?: number;
     name?: string;
     lyrics?: LyricsResult | string;
+    skipped?: boolean;
 }
 
 class DownloadService {
@@ -79,10 +84,10 @@ class DownloadService {
     metadataService: MetadataService;
     outputDir: string;
 
-    constructor() {
-        this.api = new QobuzAPI();
-        this.lyricsProvider = new LyricsProvider();
-        this.metadataService = new MetadataService();
+    constructor(api: QobuzAPI, lyricsProvider: LyricsProvider, metadataService: MetadataService) {
+        this.api = api;
+        this.lyricsProvider = lyricsProvider;
+        this.metadataService = metadataService;
         this.outputDir = CONFIG.download.outputDir;
     }
 
@@ -169,13 +174,26 @@ class DownloadService {
         const embedLyrics = settingsService.get('embedLyrics') ?? CONFIG.metadata.embedLyrics;
         const embedCover = settingsService.get('embedCover') ?? CONFIG.metadata.embedCover;
 
+        if (options.skipExisting && historyService.has(trackId)) {
+            const entry = historyService.get(trackId);
+            return {
+                ...result,
+                success: true,
+                skipped: true,
+                filePath: entry?.filename || 'Skipped (History)',
+                name: entry?.title
+            };
+        }
+
         try {
             const trackInfo = await this.api.getTrack(trackId);
             if (!trackInfo.success) throw new Error(`Track Info Error: ${trackInfo.error}`);
             const track = trackInfo.data;
+            logger.info(`Processing track: ${track?.title} - ${trackId}`);
 
             const fileUrl = await this.api.getFileUrl(trackId, quality);
             if (!fileUrl.success) throw new Error(`File URL Error: ${fileUrl.error}`);
+            logger.debug(`File URL obtained for quality ${quality}`);
 
             const fileUrlData = fileUrl.data as any;
             const actualQuality = fileUrlData.format_id || quality;
@@ -193,6 +211,7 @@ class DownloadService {
                 bitDepth: fileUrlInfo.bit_depth || 16,
                 sampleRate: fileUrlInfo.sampling_rate || 44.1
             });
+            logger.debug('Metadata extracted successfully');
             result.metadata = metadata;
 
             const rootDir = options.outputDir || this.outputDir;
@@ -205,13 +224,19 @@ class DownloadService {
             let lyrics = null;
             if (embedLyrics) {
                 if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
+                logger.debug(`Fetching lyrics for "${track!.title}"...`);
                 const lyricsRes = await this.lyricsProvider.getLyrics(
                     track!.title,
                     metadata.artist,
                     metadata.album,
                     track!.duration
                 );
-                if (lyricsRes.success) lyrics = lyricsRes;
+                if (lyricsRes.success) {
+                    logger.success(`Lyrics found via ${lyricsRes.source}`);
+                    lyrics = lyricsRes;
+                } else {
+                    logger.warn(`No lyrics found: ${lyricsRes.error}`);
+                }
             }
 
             const maxAttempts = CONFIG.download.retryAttempts || 3;
@@ -307,6 +332,11 @@ class DownloadService {
             }
 
             result.success = true;
+            historyService.add(trackId, {
+                filename: path.basename(filePath),
+                quality,
+                title: metadata.title
+            });
             return result;
         } catch (error: unknown) {
             const err = error as any;
@@ -317,31 +347,6 @@ class DownloadService {
     }
 
     async embedFlacMetadata(filePath: string, tags: string[][], coverBuffer: Buffer | null) {
-        try {
-            execFileSync('metaflac', ['--version'], { stdio: 'ignore' });
-            execFileSync('metaflac', ['--remove-all-tags', filePath], { stdio: 'ignore' });
-
-            for (const [key, value] of tags) {
-                if (value) {
-                    execFileSync('metaflac', [`--set-tag=${key}=${value}`, filePath], {
-                        stdio: 'ignore'
-                    });
-                }
-            }
-
-            if (coverBuffer) {
-                const coverPath = filePath + '.cover.jpg';
-                writeFileSync(coverPath, coverBuffer);
-                execFileSync('metaflac', [`--import-picture-from=${coverPath}`, filePath], {
-                    stdio: 'ignore'
-                });
-                try {
-                    unlinkSync(coverPath);
-                } catch {}
-            }
-            return;
-        } catch {}
-
         try {
             const tempPath = filePath + '.tmp';
             const reader = createReadStream(filePath);
@@ -437,6 +442,7 @@ class DownloadService {
                 }
 
                 const res = await this.downloadTrack(track.id, quality, {
+                    skipExisting: options.skipExisting,
                     onProgress: (p) => {
                         if (options.onProgress) {
                             options.onProgress(trackId, {
@@ -523,6 +529,7 @@ class DownloadService {
                 }
 
                 const res = await this.downloadTrack(track.id, quality, {
+                    skipExisting: options.skipExisting,
                     onProgress: (p) => {
                         if (options.onProgress) {
                             options.onProgress(trackId, {
