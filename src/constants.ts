@@ -67,7 +67,7 @@ export const DEFAULTS = {
     QUALITY: 27,
     OUTPUT_DIR: './downloads',
     FOLDER_TEMPLATE: '{artist}/{album}',
-    FILE_TEMPLATE: '{track_number} {title}',
+    FILE_TEMPLATE: '{track_number}. {title}',
     MAX_CONCURRENCY: 4,
     RETRY_ATTEMPTS: 3,
     RETRY_DELAY: 1000,

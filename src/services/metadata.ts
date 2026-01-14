@@ -84,6 +84,16 @@ class MetadataService {
             .toLowerCase();
     }
 
+    joinWithAnd(names: string[]): string {
+        if (!names || names.length === 0) return '';
+        const filteredNames = names.filter(Boolean);
+        if (filteredNames.length === 0) return '';
+        if (filteredNames.length === 1) return filteredNames[0];
+        if (filteredNames.length === 2) return `${filteredNames[0]} & ${filteredNames[1]}`;
+        const last = filteredNames.pop();
+        return `${filteredNames.join(', ')} & ${last}`;
+    }
+
     async extractMetadata(
         trackData: RawData,
         albumData: RawData,
@@ -110,16 +120,7 @@ class MetadataService {
         }
 
         const names = Array.from(allArtistNames);
-        let mainArtist = '';
-
-        if (names.length === 1) {
-            mainArtist = names[0];
-        } else if (names.length === 2) {
-            mainArtist = `${names[0]} & ${names[1]}`;
-        } else if (names.length > 2) {
-            const last = names.pop();
-            mainArtist = `${names.join(', ')} & ${last}`;
-        }
+        const mainArtist = this.joinWithAnd(names);
 
         const metadata: Metadata = {
             title: trackData.title || '',
@@ -146,12 +147,11 @@ class MetadataService {
             })(),
 
             albumArtist: album.artist?.name || artist.name || '',
-            composer: (
-                performers.composers.map((p: any) => p.name).join('; ') ||
-                trackData.composer?.name ||
-                composer.name ||
-                ''
-            ).trim(),
+            composer: this.joinWithAnd(
+                performers.composers.length > 0
+                    ? performers.composers.map((p: any) => p.name)
+                    : [trackData.composer?.name || composer.name].filter(Boolean)
+            ),
             conductor: performers.conductor || '',
             producer: (
                 performers.producers.map((p: any) => p.name).join('; ') ||

@@ -10,7 +10,7 @@
     "retryAttempts": 3,
     "retryDelay": 1000,
     "folderTemplate": "{artist}/{album}",
-    "fileTemplate": "{track_number} {title}"
+    "fileTemplate": "{track_number}. {title}"
   },
   "quality": {
     "_description": "Audio quality settings. 27=Hi-Res, 7=CD, 6=MP3 320",

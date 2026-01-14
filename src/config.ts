@@ -141,7 +141,7 @@ export const CONFIG: Config = {
         folderStructure:
             settings.downloads?.folderTemplate || getStr('FOLDER_TEMPLATE', '{artist}/{album}'),
         fileNaming:
-            settings.downloads?.fileTemplate || getStr('FILE_TEMPLATE', '{track_number} {title}'),
+            settings.downloads?.fileTemplate || getStr('FILE_TEMPLATE', '{track_number}. {title}'),
         concurrent: settings.downloads?.concurrent || getInt('MAX_CONCURRENCY', 1),
         retryAttempts: settings.downloads?.retryAttempts || 3,
         retryDelay: settings.downloads?.retryDelay || 1000

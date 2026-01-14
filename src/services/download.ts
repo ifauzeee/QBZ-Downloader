@@ -433,7 +433,7 @@ class DownloadService {
                 const trackId = track.id.toString();
                 if (options.onProgress) {
                     options.onProgress(trackId, {
-                        filename: `${track.track_number}. ${track.title}`,
+                        filename: `${track.track_number.toString().padStart(2, '0')}. ${track.title}`,
                         status: 'downloading',
                         phase: 'Initializing',
                         loaded: 0,
@@ -522,7 +522,7 @@ class DownloadService {
                 const trackId = track.id.toString();
                 if (options.onProgress) {
                     options.onProgress(trackId, {
-                        filename: track.title,
+                        filename: `${track.track_number.toString().padStart(2, '0')}. ${track.title}`,
                         status: 'downloading',
                         phase: 'Starting'
                     });
