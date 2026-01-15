@@ -147,7 +147,7 @@ export class DownloadHandler {
         if (!isDashboard && messageId) {
             try {
                 await this.bot.telegram.deleteMessage(this.chatId, messageId);
-            } catch {}
+            } catch { }
         }
 
         if (result.success && result.filePath) {
@@ -173,7 +173,10 @@ export class DownloadHandler {
 
                 try {
                     await this.bot.telegram.deleteMessage(this.chatId, uploadMsg.message_id);
-                } catch {}
+                } catch { }
+            } else {
+                await this.sendMessage(`✅ <b>Download Complete (Dashboard)</b>\n${escapeHtml(title)}`);
+                await this.uploadFile(result.filePath);
             }
         } else {
             throw new Error(result.error || 'Unknown error');
@@ -223,13 +226,13 @@ export class DownloadHandler {
         }
 
         const result = await this.downloadService.downloadAlbum(id, quality, {
-            onProgress: () => {}
+            onProgress: () => { }
         });
 
         if (!isDashboard && messageId) {
             try {
                 await this.bot.telegram.deleteMessage(this.chatId, messageId);
-            } catch {}
+            } catch { }
         }
 
         const albumPath = result.tracks?.[0]?.filePath
@@ -271,7 +274,7 @@ export class DownloadHandler {
 
                 try {
                     await this.bot.telegram.deleteMessage(this.chatId, uploadMsg.message_id);
-                } catch {}
+                } catch { }
             }
         } else {
             throw new Error(result.error || `All ${result.totalTracks} tracks failed to download.`);
@@ -303,12 +306,12 @@ export class DownloadHandler {
         const messageId = progressMsg.message_id;
 
         const result = await this.downloadService.downloadPlaylist(id, quality, {
-            onProgress: () => {}
+            onProgress: () => { }
         });
 
         try {
             await this.bot.telegram.deleteMessage(this.chatId, messageId);
-        } catch {}
+        } catch { }
 
         if (result.success || (result.tracks && result.tracks.some((t) => t.success))) {
             downloadQueue.complete(item.id);
@@ -344,7 +347,7 @@ export class DownloadHandler {
 
             try {
                 await this.bot.telegram.deleteMessage(this.chatId, uploadMsg.message_id);
-            } catch {}
+            } catch { }
         } else {
             throw new Error(result.error || `All ${result.totalTracks} tracks failed to download.`);
         }
@@ -380,7 +383,7 @@ export class DownloadHandler {
             await this.bot.telegram.editMessageText(this.chatId, messageId, undefined, msgCode, {
                 parse_mode: 'HTML'
             });
-        } catch {}
+        } catch { }
     }
 
     async uploadFile(filePath: string, caption?: string): Promise<void> {
@@ -437,7 +440,7 @@ export class DownloadHandler {
                 logger.debug(`Cleaned up empty directory: ${path.basename(dir)}`);
                 this.deleteEmptyDirs(path.dirname(dir));
             }
-        } catch {}
+        } catch { }
     }
 
     async sendMessage(message: string): Promise<void> {

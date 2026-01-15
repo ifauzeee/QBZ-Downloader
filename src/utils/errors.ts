@@ -50,26 +50,36 @@ export class ConfigurationError extends QobuzError {
     }
 }
 
+import { humanizeError } from './friendly-errors.js';
+
 export function handleError(error: Error | QobuzError, display: any) {
+    const friendlyError = humanizeError(error);
+
     if (error instanceof ValidationError) {
-        display.displayError(`Validation Error: ${error.message}`);
+        display.displayError(`${friendlyError.emoji} Validation Error: ${error.message}`);
+        console.log(`   💡 ${friendlyError.suggestion}`);
     } else if (error instanceof AuthenticationError) {
-        display.displayError(
-            `Authentication Error: ${error.message}\n\nPlease check your .env file and ensure QOBUZ_APP_ID, QOBUZ_APP_SECRET, and QOBUZ_USER_AUTH_TOKEN are set correctly.`
-        );
+        display.displayError(`🔐 Authentication Error: ${error.message}`);
+        console.log('   💡 Jalankan "qbz-dl setup" untuk memperbarui credentials Anda.');
     } else if (error instanceof APIError) {
         display.displayError(
-            `API Error: ${error.message}${error.statusCode ? ` (Status: ${error.statusCode})` : ''}`
+            `${friendlyError.emoji} ${friendlyError.message}${error.statusCode ? ` (Status: ${error.statusCode})` : ''}`
         );
+        console.log(`   💡 ${friendlyError.suggestion}`);
     } else if (error instanceof DownloadError) {
         display.displayError(
-            `Download Error: ${error.message}${error.trackId ? ` (Track ID: ${error.trackId})` : ''}`
+            `📥 Download Error: ${error.message}${error.trackId ? ` (Track ID: ${error.trackId})` : ''}`
         );
+        console.log(`   💡 ${friendlyError.suggestion}`);
     } else if (error instanceof ConfigurationError) {
-        display.displayError(
-            `Configuration Error: ${error.message}\n\nMissing: ${error.missingVars.join(', ')}`
-        );
+        display.displayError(`⚙️ Configuration Error: ${error.message}`);
+        if (error.missingVars.length > 0) {
+            console.log(`   ❌ Missing: ${error.missingVars.join(', ')}`);
+        }
+        console.log('   💡 Jalankan "qbz-dl setup" untuk konfigurasi ulang.');
     } else {
-        display.displayError(error.message || 'An unexpected error occurred');
+        display.displayError(`${friendlyError.emoji} ${friendlyError.message}`);
+        console.log(`   💡 ${friendlyError.suggestion}`);
     }
 }
+

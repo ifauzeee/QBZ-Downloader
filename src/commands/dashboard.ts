@@ -16,7 +16,7 @@ export function registerDashboardCommand(program: Command) {
             console.log(
                 boxen(
                     chalk.blue('  🎵 QBZ-Downloader Dashboard  \n') +
-                        chalk.white('  Web Interface for Queue Management'),
+                    chalk.white('  Web Interface for Queue Management'),
                     { padding: 1, borderStyle: 'round', borderColor: 'blue' }
                 )
             );
@@ -38,6 +38,10 @@ export function registerDashboardCommand(program: Command) {
             }
 
             dashboardService.start(port);
+
+            import('../services/scheduler/index.js').then(({ schedulerService }) => {
+                schedulerService.start();
+            });
 
             process.on('SIGINT', () => {
                 logger.info('Stopping dashboard...');

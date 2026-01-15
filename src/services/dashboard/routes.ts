@@ -5,7 +5,10 @@ import { downloadQueue } from '../telegram/queue.js';
 import { inputValidator } from '../telegram/security/validator.js';
 import { historyService } from '../history.js';
 import { settingsService } from '../settings.js';
+import { db } from '../database.js';
+import { schedulerService } from '../scheduler/index.js';
 import QobuzAPI from '../../api/qobuz.js';
+import { APP_VERSION } from '../../constants.js';
 
 const api = new QobuzAPI();
 
@@ -14,10 +17,81 @@ export function registerRoutes(app: Express): void {
         const stats = downloadQueue.getStats();
         res.json({
             online: true,
-            version: '2.0.0',
+            version: APP_VERSION,
             stats
         });
     });
+
+    app.get('/api/onboarding', (req: Request, res: Response) => {
+        const isConfigured = settingsService.isConfigured();
+        const settings = settingsService.settings;
+
+        const steps = [
+            {
+                id: 'credentials',
+                title: 'Qobuz Credentials',
+                description: 'App ID, Secret, Token, dan User ID',
+                completed: !!(
+                    settings.QOBUZ_APP_ID &&
+                    settings.QOBUZ_APP_SECRET &&
+                    (settings.QOBUZ_USER_AUTH_TOKEN || settings.QOBUZ_TOKEN) &&
+                    settings.QOBUZ_USER_ID
+                ),
+                required: true
+            },
+            {
+                id: 'download_path',
+                title: 'Download Path',
+                description: 'Folder untuk menyimpan file',
+                completed: !!(settings.downloads?.path),
+                required: false
+            },
+            {
+                id: 'telegram',
+                title: 'Telegram Bot',
+                description: 'Token dan Chat ID untuk remote access',
+                completed: !!(settings.TELEGRAM_BOT_TOKEN && settings.TELEGRAM_CHAT_ID),
+                required: false
+            }
+        ];
+
+        res.json({
+            configured: isConfigured,
+            steps,
+            nextStep: steps.find((s) => s.required && !s.completed)?.id || null,
+            tips: [
+                'Gunakan qbz-dl setup di terminal untuk konfigurasi awal',
+                'Settings dapat diubah kapan saja di halaman Settings',
+                'Bookmark URL ini untuk akses cepat ke dashboard'
+            ]
+        });
+    });
+
+    const SENSITIVE_KEYS = [
+        'QOBUZ_USER_AUTH_TOKEN',
+        'QOBUZ_TOKEN',
+        'QOBUZ_APP_SECRET',
+        'TELEGRAM_BOT_TOKEN',
+        'DASHBOARD_PASSWORD'
+    ];
+
+    const maskSensitiveValue = (value: string): string => {
+        if (!value || typeof value !== 'string') return '';
+        if (value.length <= 8) return '••••••••';
+        return '••••••••' + value.slice(-4);
+    };
+
+    const getMaskedSettings = () => {
+        const settings = { ...settingsService.settings };
+
+        for (const key of SENSITIVE_KEYS) {
+            if (settings[key] && typeof settings[key] === 'string') {
+                settings[key] = maskSensitiveValue(settings[key] as string);
+            }
+        }
+
+        return settings;
+    };
 
     app.get('/api/queue', (req: Request, res: Response) => {
         const items = (downloadQueue as any).getItems ? (downloadQueue as any).getItems() : [];
@@ -25,14 +99,25 @@ export function registerRoutes(app: Express): void {
     });
 
     app.get('/api/settings', (req: Request, res: Response) => {
-        res.json(settingsService.settings);
+        res.json(getMaskedSettings());
     });
 
     app.post('/api/settings', (req: Request, res: Response) => {
         const newSettings = req.body;
+
+        for (const key of SENSITIVE_KEYS) {
+            if (
+                newSettings[key] &&
+                typeof newSettings[key] === 'string' &&
+                newSettings[key].startsWith('••••')
+            ) {
+                delete newSettings[key];
+            }
+        }
+
         settingsService.settings = { ...settingsService.settings, ...newSettings };
         settingsService.saveSettings();
-        res.json({ success: true, settings: settingsService.settings });
+        res.json({ success: true, settings: getMaskedSettings() });
     });
 
     app.post('/api/queue/add', async (req: Request, res: Response): Promise<void> => {
@@ -158,7 +243,7 @@ export function registerRoutes(app: Express): void {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch {}
+                        } catch { }
                     }
                     return item;
                 });
@@ -236,6 +321,41 @@ export function registerRoutes(app: Express): void {
         } else {
             res.status(404).json({ error: 'Physical file missing from server' });
         }
+    });
+    app.get('/api/playlists/watched', (req: Request, res: Response) => {
+        res.json(db.getWatchedPlaylists());
+    });
+
+    app.post('/api/playlists/watch', async (req: Request, res: Response) => {
+        const { playlistId, quality, intervalHours } = req.body;
+        const api = new QobuzAPI();
+
+        try {
+            const result = await api.getPlaylist(playlistId);
+            if (result.success && result.data) {
+                db.addWatchedPlaylist({
+                    id: playlistId,
+                    playlistId,
+                    title: result.data.name,
+                    quality: parseInt(quality) || 27,
+                    intervalHours: parseInt(intervalHours) || 24
+                });
+
+                schedulerService.syncPlaylists();
+
+                res.json({ success: true, title: result.data.name });
+            } else {
+                res.status(404).json({ error: 'Playlist not found' });
+            }
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.delete('/api/playlists/watch/:id', (req: Request, res: Response) => {
+        const id = req.params.id as string;
+        db.removeWatchedPlaylist(id);
+        res.json({ success: true });
     });
 }
 

@@ -72,7 +72,7 @@ export class TelegramService {
             await this.bot.telegram.sendMessage(this.chatId, message, {
                 parse_mode: 'HTML'
             });
-        } catch {}
+        } catch { }
     }
 
     async uploadFile(filePath: string, caption?: string): Promise<void> {
@@ -152,8 +152,8 @@ export class TelegramService {
                 logger.warn(`Rate limited user: ${userId} (${ctx.from?.username})`);
                 await ctx.reply(
                     '⏳ <b>Rate Limited</b>\n\n' +
-                        "You're sending too many requests.\n" +
-                        `Please wait <b>${resetTime}</b> seconds before trying again.`,
+                    'You\'re sending too many requests.\n' +
+                    `Please wait <b>${resetTime}</b> seconds before trying again.`,
                     { parse_mode: 'HTML' }
                 );
                 return;

@@ -5,8 +5,49 @@ const state = {
     activeTab: 'queue',
     searchOffset: 0,
     searchLimit: 20,
-    password: localStorage.getItem('dashboard_password') || ''
+    password: localStorage.getItem('dashboard_password') || '',
+    theme: localStorage.getItem('theme') || 'dark'
 };
+
+if (state.theme === 'light') {
+    document.body.classList.add('light-theme');
+    document.body.classList.remove('dark-theme');
+}
+
+window.toggleSidebar = function () {
+    document.querySelector('.sidebar').classList.toggle('open');
+};
+const menuToggle = document.getElementById('menu-toggle');
+if (menuToggle) menuToggle.onclick = window.toggleSidebar;
+
+const themeBtn = document.getElementById('theme-toggle');
+if (themeBtn) {
+    themeBtn.onclick = () => {
+        const isLight = document.body.classList.toggle('light-theme');
+        document.body.classList.toggle('dark-theme');
+        state.theme = isLight ? 'light' : 'dark';
+        localStorage.setItem('theme', state.theme);
+    };
+}
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(console.error);
+}
+
+function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+    }
+}
+document.body.addEventListener('click', requestNotificationPermission, { once: true });
+
+function notifyDownloadComplete(item) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Download Complete', {
+            body: `${item.title} has finished downloading.`,
+        });
+    }
+}
 
 const loginOverlay = document.getElementById('login-overlay');
 const loginForm = document.getElementById('login-form');
@@ -76,6 +117,7 @@ const views = {
     album: document.getElementById('view-album'),
     artist: document.getElementById('view-artist'),
     history: document.getElementById('view-history'),
+    playlists: document.getElementById('view-playlists'),
     settings: document.getElementById('view-settings')
 };
 
@@ -108,9 +150,10 @@ socket.on('queue:stats', (stats) => {
 });
 
 socket.on('item:added', () => fetchQueue());
-socket.on('item:completed', () => {
+socket.on('item:completed', (item) => {
     fetchQueue();
     fetchHistory();
+    if (item) notifyDownloadComplete(item);
 });
 socket.on('item:progress', (data) => updateItemProgress(data));
 socket.on('item:failed', () => fetchQueue());
@@ -120,6 +163,9 @@ navItems.forEach((item) => {
         e.preventDefault();
         const tab = item.dataset.tab;
         switchTab(tab);
+        if (window.innerWidth <= 768) {
+            document.querySelector('.sidebar').classList.remove('open');
+        }
     });
 });
 
@@ -141,11 +187,13 @@ window.switchTab = function (tab) {
         album: 'Album View',
         artist: 'Artist Detail',
         history: 'Download History',
+        playlists: 'Watched Playlists',
         settings: 'Settings'
     };
     document.getElementById('page-title').textContent = titles[tab] || 'Dashboard';
 
     if (tab === 'history') fetchHistory();
+    if (tab === 'playlists') fetchPlaylists();
     if (tab === 'settings') fetchSettings();
 };
 
@@ -745,7 +793,93 @@ const addBtn = document.getElementById('add-btn');
 if (addBtn) addBtn.onclick = () => (addModal.style.display = 'block');
 window.onclick = (e) => {
     if (e.target == addModal) addModal.style.display = 'none';
+    if (e.target == document.getElementById('add-playlist-modal')) document.getElementById('add-playlist-modal').style.display = 'none';
 };
+
+const addPlaylistModal = document.getElementById('add-playlist-modal');
+const addPlaylistBtn = document.getElementById('add-playlist-btn');
+const addPlaylistForm = document.getElementById('add-playlist-form');
+const playlistsList = document.getElementById('playlists-list');
+
+if (addPlaylistBtn) addPlaylistBtn.onclick = () => (addPlaylistModal.style.display = 'block');
+
+if (addPlaylistForm) {
+    addPlaylistForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('playlist-id-input').value;
+        const quality = document.getElementById('playlist-quality-input').value;
+        const interval = document.getElementById('playlist-interval-input').value;
+
+        let id = input;
+        if (input.includes('qobuz.com')) {
+            const match = input.match(/playlist\/([a-zA-Z0-9]+)/);
+            if (match) id = match[1];
+        }
+
+        try {
+            const res = await smartFetch('/api/playlists/watch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playlistId: id, quality, intervalHours: interval })
+            });
+
+            if (res.ok) {
+                addPlaylistModal.style.display = 'none';
+                document.getElementById('playlist-id-input').value = '';
+                showToast('Playlist synced successfully', 'success');
+                fetchPlaylists();
+            } else {
+                const data = await res.json();
+                showToast('Error: ' + (data.error || 'Failed to sync'), 'error');
+            }
+        } catch (err) {
+            showToast('Connection failed', 'error');
+        }
+    };
+}
+
+async function fetchPlaylists() {
+    try {
+        const res = await smartFetch('/api/playlists/watched');
+        const items = await res.json();
+        renderPlaylists(items);
+    } catch (err) {
+        console.error('Failed to fetch playlists:', err);
+    }
+}
+
+function renderPlaylists(items) {
+    playlistsList.innerHTML = '';
+    if (items.length === 0) {
+        playlistsList.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No watched playlists</div>';
+        return;
+    }
+
+    items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        row.innerHTML = `
+            <div style="font-weight: 500">${item.title || item.playlistId}</div>
+            <div>${getQualityLabel(item.quality)}</div>
+            <div>${item.intervalHours}h</div>
+            <div style="font-size: 12px; color: #888;">${item.lastSyncedAt ? new Date(item.lastSyncedAt).toLocaleString() : 'Never'}</div>
+            <div>
+                <button class="btn danger" style="padding: 4px 8px; font-size: 11px;" onclick="deletePlaylist('${item.id}')">Stop Tracking</button>
+            </div>
+        `;
+        playlistsList.appendChild(row);
+    });
+}
+
+window.deletePlaylist = async function (id) {
+    if (!confirm('Stop tracking this playlist?')) return;
+    try {
+        await smartFetch(`/api/playlists/watch/${id}`, { method: 'DELETE' });
+        fetchPlaylists();
+    } catch (err) {
+        showToast('Failed to delete', 'error');
+    }
+}
 
 const addForm = document.getElementById('add-form');
 if (addForm) {

@@ -1,0 +1,9 @@
+{
+    "name": "QBZ Downloader",
+    "short_name": "QBZ-DL",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#121212",
+    "theme_color": "#0070f3",
+    "orientation": "portrait"
+}

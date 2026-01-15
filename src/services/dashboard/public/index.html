@@ -7,6 +7,7 @@
     <title>Qobuz Downloader Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
     <script src="/socket.io/socket.io.js"></script>
 </head>
 
@@ -23,6 +24,9 @@
                 </a>
                 <a href="#" class="nav-item" data-tab="search">
                     <span class="icon">🔍</span> Search
+                </a>
+                <a href="#" class="nav-item" data-tab="playlists">
+                    <span class="icon">🔄</span> Playlists
                 </a>
                 <a href="#" class="nav-item" data-tab="history">
                     <span class="icon">📜</span> History
@@ -42,13 +46,20 @@
                 </div>
             </div>
         </aside>
+        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
         <main class="main-content">
             <header class="top-bar">
-                <h2 id="page-title">Download Queue</h2>
-                <button id="add-btn" class="btn primary">
-                    <span class="icon">+</span> Add URL
-                </button>
+                <div class="header-left" style="display: flex; align-items: center; gap: 15px;">
+                    <button id="menu-toggle" class="btn secondary icon-btn mobile-only">☰</button>
+                    <h2 id="page-title">Download Queue</h2>
+                </div>
+                <div class="header-right" style="display: flex; gap: 10px;">
+                    <button id="theme-toggle" class="btn secondary icon-btn" title="Toggle Theme">🌓</button>
+                    <button id="add-btn" class="btn primary">
+                        <span class="icon">+</span> <span class="desktop-only">Add URL</span>
+                    </button>
+                </div>
             </header>
 
             <div id="view-queue" class="view-section active">
@@ -129,6 +140,26 @@
                 <div id="artist-full-content">
                 </div>
                 <div id="artist-pagination" class="pagination"></div>
+            </div>
+
+            <div id="view-playlists" class="view-section" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3>Watched Playlists</h3>
+                    <button id="add-playlist-btn" class="btn primary">
+                        <span class="icon">+</span> Track New Playlist
+                    </button>
+                </div>
+                <div class="list-container">
+                    <div class="list-header" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr;">
+                        <div>Title</div>
+                        <div>Quality</div>
+                        <div>Interval (Hrs)</div>
+                        <div>Last Sync</div>
+                        <div>Action</div>
+                    </div>
+                    <div id="playlists-list" class="list-body">
+                    </div>
+                </div>
             </div>
 
             <div id="view-history" class="view-section" style="display: none;">
@@ -348,49 +379,78 @@
                 </div>
             </form>
         </div>
-    </div>
-
-    <div id="login-overlay" class="login-overlay" style="display: none;">
-        <div class="login-split-container">
-            <!-- Left Side: Brand Section -->
-            <div class="login-brand-side">
-                <div class="brand-content">
-                    <div class="logo">
-                        <span class="logo-icon">🎵</span>
-                        <h1>QBZ-DL</h1>
+        <div id="add-playlist-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('add-playlist-modal')">&times;</span>
+                <h2>Track Playlist</h2>
+                <form id="add-playlist-form">
+                    <div class="form-group">
+                        <label>Playlist URL or ID</label>
+                        <input type="text" id="playlist-id-input" placeholder="https://open.qobuz.com/playlist/..."
+                            required>
                     </div>
-                    <h2>Premium Hi-Res Downloader</h2>
-                    <p>Access the ultimate toolkit for high-fidelity audio. Manage your queue, search the library, and
-                        enjoy your music with complete metadata and lyrics.</p>
-                    <div class="brand-features">
-                        <div class="feature-item"><span class="feat-icon">🚀</span> Fast Downloads</div>
-                        <div class="feature-item"><span class="feat-icon">✨</span> Hi-Res Audio</div>
-                        <div class="feature-item"><span class="feat-icon">📜</span> Auto Metadata</div>
-                        <div class="feature-item"><span class="feat-icon">🧹</span> Auto Clean</div>
+                    <div class="form-group">
+                        <label>Quality</label>
+                        <select id="playlist-quality-input">
+                            <option value="27">Hi-Res 24/192</option>
+                            <option value="7">Hi-Res 24/96</option>
+                            <option value="6">CD Quality (16/44.1)</option>
+                            <option value="5">MP3 320kbps</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Sync Interval (Hours)</label>
+                        <input type="number" id="playlist-interval-input" min="1" value="24" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn primary">Start Tracking</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="login-overlay" class="login-overlay" style="display: none;">
+            <div class="login-split-container">
+                <!-- Left Side: Brand Section -->
+                <div class="login-brand-side">
+                    <div class="brand-content">
+                        <div class="logo">
+                            <span class="logo-icon">🎵</span>
+                            <h1>QBZ-DL</h1>
+                        </div>
+                        <h2>Premium Hi-Res Downloader</h2>
+                        <p>Access the ultimate toolkit for high-fidelity audio. Manage your queue, search the library,
+                            and
+                            enjoy your music with complete metadata and lyrics.</p>
+                        <div class="brand-features">
+                            <div class="feature-item"><span class="feat-icon">🚀</span> Fast Downloads</div>
+                            <div class="feature-item"><span class="feat-icon">✨</span> Hi-Res Audio</div>
+                            <div class="feature-item"><span class="feat-icon">📜</span> Auto Metadata</div>
+                            <div class="feature-item"><span class="feat-icon">🧹</span> Auto Clean</div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Right Side: Login Section -->
-            <div class="login-form-side">
-                <div class="login-card">
-                    <h2>Authentication</h2>
-                    <p>Please enter your dashboard password to continue.</p>
-                    <form id="login-form">
-                        <div class="form-group">
-                            <input type="password" id="login-password" placeholder="Dashboard Password" required
-                                autofocus>
-                        </div>
-                        <button type="submit" class="btn primary" style="width: 100%;">Login to Dashboard</button>
-                    </form>
-                    <div id="login-error" class="login-error"></div>
+                <!-- Right Side: Login Section -->
+                <div class="login-form-side">
+                    <div class="login-card">
+                        <h2>Authentication</h2>
+                        <p>Please enter your dashboard password to continue.</p>
+                        <form id="login-form">
+                            <div class="form-group">
+                                <input type="password" id="login-password" placeholder="Dashboard Password" required
+                                    autofocus>
+                            </div>
+                            <button type="submit" class="btn primary" style="width: 100%;">Login to Dashboard</button>
+                        </form>
+                        <div id="login-error" class="login-error"></div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div id="toast-container" class="toast-container"></div>
-    <script src="app.js"></script>
+        <div id="toast-container" class="toast-container"></div>
+        <script src="app.js"></script>
 </body>
 
 </html>

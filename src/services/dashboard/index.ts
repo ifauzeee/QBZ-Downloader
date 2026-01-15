@@ -1,7 +1,8 @@
-import express, { Express } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import { Server as HttpServer, createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
 import cors from 'cors';
+import { rateLimit } from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from '../../utils/logger.js';
@@ -42,9 +43,16 @@ export class DashboardService {
 
     private setupMiddleware(): void {
         this.app.use(cors());
+        const limiter = rateLimit({
+            windowMs: 15 * 60 * 1000,
+            max: 100,
+            message: 'Too many requests'
+        });
+
+        this.app.use('/api', limiter);
         this.app.use(express.json());
 
-        this.app.use((req, res, next) => {
+        this.app.use((req: Request, res: Response, next: NextFunction) => {
             const password = CONFIG.dashboard.password;
             if (!password) return next();
 

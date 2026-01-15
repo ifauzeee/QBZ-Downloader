@@ -2,6 +2,9 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
 import { logger } from '../utils/logger.js';
+import { encryptionService } from '../utils/encryption.js';
+
+const SENSITIVE_KEYS = ['QOBUZ_USER_AUTH_TOKEN', 'QOBUZ_APP_ID', 'QOBUZ_APP_SECRET', 'TELEGRAM_BOT_TOKEN', 'dashboard_password'];
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -59,11 +62,29 @@ export class DatabaseService {
                 priority TEXT
             );
         `);
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS watched_playlists (
+                id TEXT PRIMARY KEY,
+                playlist_id TEXT NOT NULL,
+                title TEXT,
+                quality INTEGER,
+                last_synced_at TEXT,
+                interval_hours INTEGER DEFAULT 24,
+                created_at TEXT
+            );
+        `);
     }
 
     saveSetting(key: string, value: any) {
+        let valToStore = typeof value === 'string' ? value : JSON.stringify(value);
+
+        if (SENSITIVE_KEYS.includes(key)) {
+            valToStore = encryptionService.encrypt(valToStore);
+        }
+
         const stmt = this.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
-        stmt.run(key, typeof value === 'string' ? value : JSON.stringify(value));
+        stmt.run(key, valToStore);
     }
 
     getSetting(key: string, defaultValue: any = null) {
@@ -72,10 +93,15 @@ export class DatabaseService {
             const result = stmt.get(key) as { value: string } | undefined;
             if (!result) return defaultValue;
 
+            let val = result.value;
+            if (SENSITIVE_KEYS.includes(key) && encryptionService.isEncrypted(val)) {
+                val = encryptionService.decrypt(val);
+            }
+
             try {
-                return JSON.parse(result.value);
+                return JSON.parse(val);
             } catch {
-                return result.value;
+                return val;
             }
         } catch {
             return defaultValue;
@@ -87,10 +113,16 @@ export class DatabaseService {
         const rows = stmt.all() as { key: string; value: string }[];
         const config: Record<string, any> = {};
         for (const row of rows) {
+            let val = row.value;
+
+            if (SENSITIVE_KEYS.includes(row.key) && encryptionService.isEncrypted(val)) {
+                val = encryptionService.decrypt(val);
+            }
+
             try {
-                config[row.key] = JSON.parse(row.value);
+                config[row.key] = JSON.parse(val);
             } catch {
-                config[row.key] = row.value;
+                config[row.key] = val;
             }
         }
         return config;
@@ -177,7 +209,7 @@ export class DatabaseService {
 
     getPendingQueue() {
         const stmt = this.db.prepare(
-            "SELECT * FROM queue WHERE status = 'pending' ORDER BY added_at ASC"
+            'SELECT * FROM queue WHERE status = \'pending\' ORDER BY added_at ASC'
         );
         return stmt.all().map((row: any) => ({
             id: row.id,
@@ -196,6 +228,51 @@ export class DatabaseService {
 
     clearHistory() {
         this.db.exec('DELETE FROM history');
+    }
+
+    addWatchedPlaylist(playlist: {
+        id: string;
+        playlistId: string;
+        title: string;
+        quality: number;
+        intervalHours: number;
+    }) {
+        const stmt = this.db.prepare(`
+            INSERT OR REPLACE INTO watched_playlists (id, playlist_id, title, quality, interval_hours, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `);
+
+        stmt.run(
+            playlist.id,
+            playlist.playlistId,
+            playlist.title,
+            playlist.quality,
+            playlist.intervalHours,
+            new Date().toISOString()
+        );
+    }
+
+    getWatchedPlaylists() {
+        const stmt = this.db.prepare('SELECT * FROM watched_playlists');
+        return stmt.all().map((row: any) => ({
+            id: row.id,
+            playlistId: row.playlist_id,
+            title: row.title,
+            quality: row.quality,
+            lastSyncedAt: row.last_synced_at,
+            intervalHours: row.interval_hours,
+            createdAt: row.created_at
+        }));
+    }
+
+    updatePlaylistLastSynced(id: string) {
+        const stmt = this.db.prepare('UPDATE watched_playlists SET last_synced_at = ? WHERE id = ?');
+        stmt.run(new Date().toISOString(), id);
+    }
+
+    removeWatchedPlaylist(id: string) {
+        const stmt = this.db.prepare('DELETE FROM watched_playlists WHERE id = ?');
+        stmt.run(id);
     }
 }
 

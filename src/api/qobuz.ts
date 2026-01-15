@@ -1,4 +1,5 @@
 import { createAxiosInstance } from '../utils/network.js';
+import { cacheService } from '../utils/cache.js';
 import { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import crypto from 'crypto';
 import { CONFIG } from '../config.js';
@@ -83,6 +84,10 @@ class QobuzAPI {
     }
 
     async getTrack(trackId: string | number): Promise<ApiResponse<Track>> {
+        const cacheKey = `track:${trackId}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return { success: true, data: cached };
+
         try {
             const response = await this.client.get('/track/get', {
                 params: {
@@ -92,6 +97,7 @@ class QobuzAPI {
                     extra: 'track_url,lyrics'
                 }
             });
+            await cacheService.set(cacheKey, response.data, 3600);
             return { success: true, data: response.data };
         } catch (error) {
             this.handleApiError(error);
@@ -100,6 +106,10 @@ class QobuzAPI {
     }
 
     async getAlbum(albumId: string | number): Promise<ApiResponse<Album>> {
+        const cacheKey = `album:${albumId}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return { success: true, data: cached };
+
         try {
             const response = await this.client.get('/album/get', {
                 params: {
@@ -109,6 +119,7 @@ class QobuzAPI {
                     extra: 'albumsFromSameArtist,focus'
                 }
             });
+            await cacheService.set(cacheKey, response.data, 3600);
             return { success: true, data: response.data };
         } catch (error) {
             this.handleApiError(error);
@@ -123,6 +134,10 @@ class QobuzAPI {
         trackOffset = 0,
         trackLimit = 25
     ): Promise<ApiResponse> {
+        const cacheKey = `artist:${artistId}:${albumOffset}:${albumLimit}:${trackOffset}:${trackLimit}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return { success: true, data: cached };
+
         try {
             const response = await this.client.get('/artist/get', {
                 params: {
@@ -136,6 +151,7 @@ class QobuzAPI {
                     track_limit: trackLimit
                 }
             });
+            await cacheService.set(cacheKey, response.data, 1800);
             return { success: true, data: response.data };
         } catch (error) {
             this.handleApiError(error);

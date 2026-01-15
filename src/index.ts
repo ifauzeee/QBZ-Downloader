@@ -13,6 +13,7 @@ import { registerQualityCommand } from './commands/quality.js';
 import { registerSetupCommand } from './commands/setup.js';
 import { registerBotCommand } from './commands/bot.js';
 import { registerDashboardCommand } from './commands/dashboard.js';
+import { registerHelpCommand } from './commands/help.js';
 import { showMainMenu } from './commands/menu.js';
 import * as display from './utils/display.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
@@ -52,6 +53,7 @@ registerQualityCommand(program);
 registerSetupCommand(program);
 registerBotCommand(program);
 registerDashboardCommand(program);
+registerHelpCommand(program);
 
 program.exitOverride();
 
@@ -62,12 +64,13 @@ async function main() {
     try {
         if (!settingsService.isConfigured() && !isSetupCommand && !isMetaCommand) {
             displayBanner();
-            console.log(chalk.yellow('\n⚠️  Application is not configured yet!'));
+            console.log(chalk.yellow('\n⚠️  Aplikasi belum dikonfigurasi!'));
+            console.log(chalk.gray('   Anda perlu memasukkan credentials Qobuz untuk memulai.\n'));
             const { proceed } = await inquirer.prompt([
                 {
                     type: 'confirm',
                     name: 'proceed',
-                    message: 'Would you like to run the setup wizard now?',
+                    message: 'Jalankan setup wizard sekarang?',
                     default: true
                 }
             ]);
@@ -76,8 +79,9 @@ async function main() {
                 await runSetup();
             } else {
                 console.log(
-                    chalk.red('\nPlease run "qobuz-dl setup" to configure the app before use.')
+                    chalk.red('\n❌ Jalankan "qbz-dl setup" untuk mengkonfigurasi aplikasi.')
                 );
+                console.log(chalk.gray('   Dokumentasi: https://github.com/ifauzeee/QBZ-Downloader\n'));
                 process.exit(1);
             }
         }
