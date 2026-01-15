@@ -9,6 +9,37 @@ vi.mock('../api/lyrics.js');
 vi.mock('./metadata.js');
 vi.mock('fs');
 vi.mock('axios');
+vi.mock('./history.js', () => ({
+    historyService: {
+        has: vi.fn(),
+        get: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        clearAll: vi.fn()
+    }
+}));
+vi.mock('./settings.js', () => ({
+    settingsService: {
+        get: vi.fn(),
+        set: vi.fn(),
+        saveSettings: vi.fn(),
+        settings: {
+            downloads: {
+                path: './downloads',
+                folderTemplate: '{artist}/{album}',
+                fileTemplate: '{track_number}. {title}',
+                concurrent: 4,
+                retryAttempts: 3,
+                retryDelay: 1000
+            },
+            metadata: {
+                embedLyrics: true,
+                embedCover: true,
+                saveCoverFile: false
+            }
+        }
+    }
+}));
 
 describe('DownloadService', () => {
     let downloadService: DownloadService;

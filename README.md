@@ -30,29 +30,17 @@
 
 ## ✨ Highlights
 
-<table>
-<tr>
-<td width="50%">
-
 ### 🎧 Studio-Quality Audio
 - **Hi-Res Max**: FLAC 24-bit/192kHz
 - **Hi-Res**: FLAC 24-bit/96kHz  
 - **CD Quality**: FLAC 16-bit/44.1kHz
 - **Compressed**: MP3 320kbps
 
-</td>
-<td width="50%">
-
 ### 🎯 Smart Features
-- Auto-detect URLs from clipboard
-- Batch download albums & playlists
-- Skip already downloaded tracks
-- Parallel downloads (configurable)
-
-</td>
-</tr>
-<tr>
-<td>
+- **Auto-detect URLs** from clipboard
+- **Batch download** albums & playlists
+- **Skip already downloaded tracks**
+- **Parallel downloads** (configurable)
 
 ### 📝 Complete Metadata
 - Artist, Album, Track information
@@ -60,18 +48,11 @@
 - **Synchronized lyrics** (LRC format)
 - Genre, Label, Copyright, ISRC
 
-</td>
-<td>
-
 ### 🌐 Multiple Interfaces
 - **CLI** - Command line interface
 - **Web Dashboard** - Modern browser UI
 - **Telegram Bot** - Remote downloads
 - **TUI** - Rich terminal UI
-
-</td>
-</tr>
-</table>
 
 ---
 
@@ -192,38 +173,10 @@ Then open **http://localhost:3000** in your browser.
 
 ### Dashboard Features
 
-<table>
-<tr>
-<td align="center" width="25%">
-
-**📥 Queue**
-<br/>
-Real-time download progress with live updates
-
-</td>
-<td align="center" width="25%">
-
-**🔍 Search**
-<br/>
-Browse & search the entire Qobuz library
-
-</td>
-<td align="center" width="25%">
-
-**📜 History**
-<br/>
-View all downloaded tracks with re-download option
-
-</td>
-<td align="center" width="25%">
-
-**⚙️ Settings**
-<br/>
-Configure all options from the browser
-
-</td>
-</tr>
-</table>
+- **📥 Queue** - Real-time download progress with live updates
+- **🔍 Search** - Browse & search the entire Qobuz library
+- **📜 History** - View all downloaded tracks with re-download option
+- **⚙️ Settings** - Configure all options from the browser
 
 ### Dashboard Security
 
@@ -704,11 +657,3 @@ copies of the Software...
 ### ⭐ Star this repo if you find it useful!
 
 **Made with ❤️ by [ifauzeee](https://github.com/ifauzeee)**
-
-<br/>
-
-[![GitHub stars](https://img.shields.io/github/stars/ifauzeee/QBZ-Downloader?style=social)](https://github.com/ifauzeee/QBZ-Downloader/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/ifauzeee/QBZ-Downloader?style=social)](https://github.com/ifauzeee/QBZ-Downloader/network/members)
-[![GitHub watchers](https://img.shields.io/github/watchers/ifauzeee/QBZ-Downloader?style=social)](https://github.com/ifauzeee/QBZ-Downloader/watchers)
-
-</div>

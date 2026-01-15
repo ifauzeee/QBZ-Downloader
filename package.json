@@ -60,7 +60,7 @@
   },
   "homepage": "https://github.com/ifauzeee/QBZ-Downloader#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.5.0"
   },
   "publishConfig": {
     "access": "public"
