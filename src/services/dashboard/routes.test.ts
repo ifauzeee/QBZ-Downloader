@@ -112,6 +112,15 @@ vi.mock('../../api/qobuz.js', () => {
     };
 });
 
+vi.mock('../database/index.js', () => ({
+    databaseService: {
+        resetStatistics: vi.fn(),
+        addTrack: vi.fn(),
+        addLibraryFile: vi.fn()
+    }
+}));
+
+
 vi.mock('../../constants.js', () => ({
     APP_VERSION: '2.0.0'
 }));

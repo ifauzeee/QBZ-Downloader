@@ -108,9 +108,9 @@ describe('DownloadService', () => {
             expect(downloadService.sanitizeFilename(undefined as any)).toBe('Unknown');
         });
 
-        it('should truncate long names to 200 chars', () => {
+        it('should truncate long names to 128 chars', () => {
             const longName = 'A'.repeat(250);
-            expect(downloadService.sanitizeFilename(longName).length).toBe(200);
+            expect(downloadService.sanitizeFilename(longName).length).toBe(128);
         });
 
         it('should trim leading and trailing spaces', () => {

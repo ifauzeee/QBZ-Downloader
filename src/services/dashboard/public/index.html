@@ -392,8 +392,10 @@ https://play.qobuz.com/album/...
                     </button>
                 </div>
                 <div class="list-container">
-                    <div class="list-header">
+                    <div class="list-header"
+                        style="display:grid; grid-template-columns: 0.8fr 1.2fr 1.5fr 0.8fr 1.5fr 0.5fr; gap:10px;">
                         <div>Date</div>
+                        <div>Artist</div>
                         <div>Title</div>
                         <div>Quality</div>
                         <div>Filename</div>
@@ -406,6 +408,20 @@ https://play.qobuz.com/album/...
 
             <!-- Settings View -->
             <div id="view-settings" class="view-section" style="display: none;">
+                <!-- Danger Zone -->
+                <div class="settings-section"
+                    style="border: 1px solid var(--danger); background: rgba(220, 53, 69, 0.05);">
+                    <h3 class="section-title" style="color: var(--danger)">
+                        <span class="icon">⚠️</span> Danger Zone
+                    </h3>
+                    <p class="section-desc">Irreversible actions that affect your data.</p>
+                    <div class="danger-actions">
+                        <button class="btn danger" onclick="resetApplication()">
+                            <span class="icon">💣</span> Clear All Data (Reset Database)
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Credential Status Section -->
                 <div class="settings-section">
                     <h3 class="section-title">
@@ -618,6 +634,19 @@ https://play.qobuz.com/album/...
         </div>
     </div>
 
+    <!-- Generic Modal -->
+    <div id="generic-modal" class="modal" style="z-index: 2000;">
+        <div class="modal-content small-modal" style="max-width: 400px; text-align: center;">
+            <div id="generic-modal-icon" style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+            <h2 id="generic-modal-title" style="margin-bottom: 12px;">Confirm Action</h2>
+            <p id="generic-modal-message" style="margin-bottom: 24px; color: var(--text-secondary); line-height: 1.5;">
+                Are you sure?</p>
+            <div class="modal-actions" id="generic-modal-actions" style="justify-content: center;">
+                <!-- Buttons injected by JS -->
+            </div>
+        </div>
+    </div>
+
     <!-- Mini Audio Player -->
     <div id="audio-player-bar" class="mini-player">
         <audio id="audio-element"></audio>
@@ -628,9 +657,24 @@ https://play.qobuz.com/album/...
                 <div id="player-artist" class="mini-player-artist">-</div>
             </div>
             <div class="mini-player-controls">
-                <button id="player-play" class="mini-player-btn">
+                <button id="player-prev" class="mini-player-btn" title="Previous">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                    </svg>
+                </button>
+                <button id="player-play" class="mini-player-btn" title="Play/Pause">
                     <svg viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
+                    </svg>
+                </button>
+                <button id="player-next" class="mini-player-btn" title="Next">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                    </svg>
+                </button>
+                <button id="player-download" class="mini-player-btn" title="Download Track" style="margin-left:8px;">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
                     </svg>
                 </button>
             </div>
@@ -639,10 +683,27 @@ https://play.qobuz.com/album/...
                 <span id="player-current-time">0:00</span>
             </div>
             <div id="player-quality" class="mini-player-quality">-</div>
+            <div id="player-queue-info" class="mini-player-queue"
+                style="display:none; font-size:11px; color:var(--text-secondary); margin-left:10px;"></div>
             <button class="mini-player-close" onclick="closePlayer()" title="Close">✕</button>
         </div>
         <input type="range" id="player-volume" min="0" max="100" value="80" style="display:none;">
         <span id="player-duration" style="display:none;">0:00</span>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content small-modal">
+            <div class="modal-icon-wrapper">
+                <span class="modal-emoji">🗑️</span>
+            </div>
+            <h2 id="confirm-title">Confirm Action</h2>
+            <p id="confirm-message">Are you sure?</p>
+            <div class="modal-actions-grid">
+                <button id="confirm-cancel" class="btn secondary">Cancel</button>
+                <button id="confirm-ok" class="btn danger">Delete</button>
+            </div>
+        </div>
     </div>
 
     <div id="toast-container" class="toast-container"></div>

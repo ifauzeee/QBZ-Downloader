@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { historyService } from './history.js';
 import { downloadQueue } from './queue/queue.js';
+import { logger } from '../utils/logger.js';
 
 interface DailyStats {
     date: string;
@@ -114,7 +115,7 @@ class StatisticsService {
                 try {
                     const stats = fs.statSync(entry.filename);
                     totalSize += stats.size;
-                } catch {}
+                } catch { }
             }
 
             switch (entry.type) {
@@ -179,7 +180,7 @@ class StatisticsService {
                     try {
                         const fileStats = fs.statSync(entry.filename);
                         stats.totalSize += fileStats.size;
-                    } catch {}
+                    } catch { }
                 }
 
                 switch (entry.type) {
@@ -229,29 +230,91 @@ class StatisticsService {
         return stats.sort((a, b) => b.quality - a.quality);
     }
 
-    /**
-     * Get top artists
-     */
     getTopArtists(limit: number = 10): ArtistStats[] {
         const history = historyService.getAll();
         const entries = Object.values(history);
 
-        const artistMap = new Map<string, { count: number; imageUrl?: string }>();
-
+        const rawCounts = new Map<string, { count: number; imageUrl?: string }>();
         const sortedEntries = entries.sort(
             (a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime()
         );
 
         for (const entry of sortedEntries) {
-            const artistName = entry.albumArtist || entry.artist;
+            if (entry.title && entry.title.includes('Lonely')) {
+                logger.info(
+                    `[STATS DEBUG] Found Lonely: Artist="${entry.artist}", AlbumArtist="${entry.albumArtist}"`,
+                    'STATS'
+                );
+            }
+
+            let artistName = entry.albumArtist;
+
+            const currentName = artistName || entry.artist || '';
+            const separators = [
+                ' featuring ',
+                ' feat. ',
+                ' feat ',
+                ' & ',
+                ' , ',
+                ' x ',
+                ' X ',
+                ' / '
+            ];
+
+            if (entry.filename) {
+                const parts = entry.filename.split(/[/\\]/);
+                if (parts.length >= 3) {
+                    const folderArtist = parts[parts.length - 3];
+                    if (folderArtist && folderArtist.toLowerCase() !== 'downloads') {
+                        if (currentName.toLowerCase().includes(folderArtist.toLowerCase())) {
+                            artistName = folderArtist;
+                            logger.debug(
+                                `[Stats] Simplified artist from "${currentName}" to "${artistName}" (folder match)`,
+                                'STATS'
+                            );
+                        } else if (!artistName) {
+                            artistName = folderArtist;
+                        }
+                    }
+                }
+            }
+
+            if (!artistName || separators.some((sep) => artistName && artistName.includes(sep))) {
+                const nameToSplit = artistName || entry.artist;
+                if (nameToSplit) {
+                    for (const sep of separators) {
+                        if (nameToSplit.includes(sep)) {
+                            const candidate = nameToSplit.split(sep)[0].trim();
+                            if (candidate.length > 2) {
+                                if (!artistName || candidate.length < artistName.length) {
+                                    artistName = candidate;
+                                    logger.debug(
+                                        `[Stats] Split artist "${nameToSplit}" to "${artistName}"`,
+                                        'STATS'
+                                    );
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!artistName) artistName = entry.artist;
+
+            if (!artistName) artistName = entry.artist;
+
             if (artistName) {
                 const artist = artistName.trim();
-                const existing = artistMap.get(artist);
+                const existing = rawCounts.get(artist);
 
                 if (existing) {
                     existing.count++;
+                    if (!existing.imageUrl && entry.artistImageUrl) {
+                        existing.imageUrl = entry.artistImageUrl;
+                    }
                 } else {
-                    artistMap.set(artist, {
+                    rawCounts.set(artist, {
                         count: 1,
                         imageUrl: entry.artistImageUrl
                     });
@@ -259,8 +322,45 @@ class StatisticsService {
             }
         }
 
+        const artists = Array.from(rawCounts.keys());
+
+        const mergedCounts = new Map<string, { count: number; imageUrl?: string }>();
+        const processed = new Set<string>();
+
+        artists.sort((a, b) => a.length - b.length);
+
+        for (const artist of artists) {
+            if (processed.has(artist)) continue;
+
+            const data = rawCounts.get(artist)!;
+            let totalCount = data.count;
+            let imageUrl = data.imageUrl;
+
+            for (const otherArtist of artists) {
+                if (artist === otherArtist || processed.has(otherArtist)) continue;
+
+                const escapedArtist = artist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const sep = '(?:^|\\s*(?:&|,|feat\\.?|ft\\.?|x|\\/)\\s*)';
+                const endSep = '(?:$|\\s*(?:&|,|feat\\.?|ft\\.?|x|\\/)\\s*)';
+                const pattern = new RegExp(`${sep}${escapedArtist}${endSep}`, 'i');
+
+                const isVariation = pattern.test(otherArtist);
+
+                if (isVariation) {
+                    const otherData = rawCounts.get(otherArtist)!;
+                    totalCount += otherData.count;
+                    if (!imageUrl && otherData.imageUrl) imageUrl = otherData.imageUrl;
+
+                    processed.add(otherArtist);
+                }
+            }
+
+            mergedCounts.set(artist, { count: totalCount, imageUrl });
+            processed.add(artist);
+        }
+
         const stats: ArtistStats[] = [];
-        for (const [name, data] of artistMap) {
+        for (const [name, data] of mergedCounts) {
             stats.push({ name, count: data.count, imageUrl: data.imageUrl });
         }
 

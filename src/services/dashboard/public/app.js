@@ -246,9 +246,14 @@ async function fetchQueue() {
     }
 }
 
+setInterval(() => {
+    if (state.connected && state.activeTab === 'queue' && document.visibilityState === 'visible') {
+        fetchQueue();
+    }
+}, 3000);
+
 function renderQueue(items) {
     if (!queueList) return;
-    queueList.innerHTML = '';
 
     if (items.length === 0) {
         queueList.innerHTML = `
@@ -261,33 +266,62 @@ function renderQueue(items) {
         return;
     }
 
+    const emptyState = queueList.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
+
+    const currentIds = new Set();
+
     items.forEach((item) => {
-        const row = document.createElement('div');
-        row.className = 'list-row';
-        row.id = `item-${item.id}`;
-        row.innerHTML = `
-            <div class="title-cell">
-                <div style="font-weight: 600">${item.title || 'Loading...'}</div>
-            </div>
-            <div><span class="badge ${item.type}">${item.type}</span></div>
-            <div class="quality-cell">${getQualityLabel(item.quality)}</div>
-            <div><span class="badge ${item.status} status-badge">${item.status}</span></div>
-            <div class="progress-cell">
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
-                </div>
-            </div>
-            <div>
-                ${item.status === 'downloading' || item.status === 'pending'
-                ? `<button class="btn danger" style="padding: 6px 12px; font-size: 12px;" onclick="cancelItem('${item.id}')">Cancel</button>`
-                : item.status === 'completed'
-                    ? `<button class="btn primary" style="padding: 6px 12px; font-size: 12px;" onclick="downloadFile('${item.contentId}')">Download</button>`
-                    : ''
-            }
-            </div>
-        `;
-        queueList.appendChild(row);
+        const rowId = `item-${item.id}`;
+        currentIds.add(rowId);
+
+        let row = document.getElementById(rowId);
+        if (!row) {
+            row = document.createElement('div');
+            row.className = 'list-row';
+            row.id = rowId;
+            queueList.appendChild(row);
+        }
+
+        const currentStatus = row.getAttribute('data-status');
+        if (currentStatus !== item.status) {
+            row.setAttribute('data-status', item.status);
+            row.innerHTML = getRowHtml(item);
+        } else {
+            const fill = row.querySelector('.progress-fill');
+            if (fill) fill.style.width = `${item.progress || 0}%`;
+        }
     });
+
+    Array.from(queueList.children).forEach(child => {
+        if (!currentIds.has(child.id) && child.classList.contains('list-row')) {
+            child.remove();
+        }
+    });
+}
+
+function getRowHtml(item) {
+    return `
+        <div class="title-cell">
+            <div style="font-weight: 600">${item.title || 'Loading...'}</div>
+        </div>
+        <div><span class="badge ${item.type}">${item.type}</span></div>
+        <div class="quality-cell">${getQualityLabel(item.quality)}</div>
+        <div><span class="badge ${item.status} status-badge">${item.status}</span></div>
+        <div class="progress-cell">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
+            </div>
+        </div>
+        <div>
+            ${item.status === 'downloading' || item.status === 'pending' || item.status === 'processing'
+            ? `<button class="btn danger" style="padding: 6px 12px; font-size: 12px;" onclick="cancelItem('${item.id}')">Cancel</button>`
+            : item.status === 'completed'
+                ? `<button class="btn primary" style="padding: 6px 12px; font-size: 12px;" onclick="downloadFile('${item.contentId}')">Download</button>`
+                : ''
+        }
+        </div>
+    `;
 }
 
 window.queueAction = async function (action) {
@@ -400,21 +434,151 @@ function renderHistory(items) {
     items.forEach((item) => {
         const row = document.createElement('div');
         row.className = 'list-row';
+        row.style.gridTemplateColumns = '0.8fr 1.2fr 1.5fr 0.8fr 1.5fr 0.5fr';
+        row.style.gap = '10px';
+
         const date = new Date(item.downloadedAt).toLocaleString();
+        const artist = item.albumArtist || item.artist || 'Unknown';
+
         row.innerHTML = `
             <div style="color: var(--text-secondary); font-size: 12px;">${date}</div>
-            <div style="font-weight: 600">${item.title}</div>
+            <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${artist}</div>
+            <div style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.title}</div>
             <div>${getQualityLabel(item.quality)}</div>
             <div style="font-family: monospace; font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.filename || '-'}</div>
-            <div>
+            <div style="display: flex; gap: 8px;">
                 <button class="btn primary" style="padding: 6px 12px; font-size: 12px;" onclick="downloadFile('${item.id}')">
                     Download
+                </button>
+                <button class="btn danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteHistoryItem('${item.id}')" title="Delete from History">
+                    🗑️
                 </button>
             </div>
         `;
         historyList.appendChild(row);
     });
 }
+
+window.showConfirm = function (message, title = 'Attention', isDanger = false) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('generic-modal');
+        if (!modal) {
+            resolve(confirm(message));
+            return;
+        }
+        const titleEl = document.getElementById('generic-modal-title');
+        const msgEl = document.getElementById('generic-modal-message');
+        const iconEl = document.getElementById('generic-modal-icon');
+        const actionsEl = document.getElementById('generic-modal-actions');
+
+        titleEl.textContent = title;
+        msgEl.innerHTML = message.replace(/\n/g, '<br>');
+        iconEl.textContent = isDanger ? '⚠️' : '🤔';
+
+        actionsEl.innerHTML = '';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn secondary';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.marginRight = '12px';
+        cancelBtn.onclick = () => {
+            modal.style.display = 'none';
+            resolve(false);
+        };
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = isDanger ? 'btn danger' : 'btn primary';
+        confirmBtn.textContent = 'Confirm';
+        confirmBtn.onclick = () => {
+            modal.style.display = 'none';
+            resolve(true);
+        };
+
+        actionsEl.appendChild(cancelBtn);
+        actionsEl.appendChild(confirmBtn);
+
+        modal.style.display = 'flex';
+    });
+};
+
+window.showAlert = function (message, title = 'Info') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('generic-modal');
+        if (!modal) {
+            alert(message);
+            resolve();
+            return;
+        }
+        const titleEl = document.getElementById('generic-modal-title');
+        const msgEl = document.getElementById('generic-modal-message');
+        const iconEl = document.getElementById('generic-modal-icon');
+        const actionsEl = document.getElementById('generic-modal-actions');
+
+        titleEl.textContent = title;
+        msgEl.innerHTML = message.replace(/\n/g, '<br>');
+        iconEl.textContent = 'ℹ️';
+
+        actionsEl.innerHTML = '';
+
+        const okBtn = document.createElement('button');
+        okBtn.className = 'btn primary';
+        okBtn.textContent = 'OK';
+        okBtn.onclick = () => {
+            modal.style.display = 'none';
+            resolve();
+        };
+
+        actionsEl.appendChild(okBtn);
+        modal.style.display = 'flex';
+    });
+};
+
+window.resetApplication = async function () {
+    const warning1 = await showConfirm(
+        '⚠️ FACTORY RESET WARNING ⚠️\n\nThis will permanently delete:\n- All download history\n- Current queue\n- Statistics database\n\nThis action cannot be undone. Are you sure?',
+        'Factory Reset',
+        true
+    );
+    if (!warning1) return;
+
+    const warning2 = await showConfirm('Are you absolutely sure you want to wipe all data?', 'Final Confirmation', true);
+    if (!warning2) return;
+
+    try {
+        const res = await smartFetch('/api/system/reset', { method: 'POST' });
+        if (res.ok) {
+            showToast('System reset successfully', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            const data = await res.json();
+            showToast('Reset failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (e) {
+        showToast('Connection failed', 'error');
+    }
+};
+
+window.deleteHistoryItem = async function (id) {
+    const confirmed = await showConfirm(
+        'Are you sure you want to delete this item from history?',
+        'Delete History',
+        'Delete'
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const res = await smartFetch(`/api/history/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Item deleted from history', 'success');
+            fetchHistory();
+        } else {
+            showToast('Failed to delete history item', 'error');
+        }
+    } catch (err) {
+        showToast('Connection error', 'error');
+    }
+};
 
 const clearHistoryBtn = document.getElementById('clear-history-btn');
 if (clearHistoryBtn) {
@@ -609,9 +773,30 @@ window.fetchAlbumDetail = async function (id) {
     }
 };
 
+let currentViewTracks = [];
+
+window.startContextPlayback = function (index) {
+    if (!currentViewTracks || currentViewTracks.length === 0) return;
+
+    const queue = currentViewTracks.map(t => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artistName,
+        cover: t.coverUrl
+    }));
+
+    window.playContext(queue, index);
+};
+
 function renderAlbumDetail(album) {
     let cover = album.image?.large || album.image?.medium;
     if (cover) cover = cover.replace('_642', '_600');
+
+    currentViewTracks = album.tracks.items.map(t => ({
+        ...t,
+        artistName: album.artist?.name || 'Unknown',
+        coverUrl: cover
+    }));
 
     const hiresText = album.maximum_sampling_rate
         ? `${album.maximum_bit_depth}-Bit / ${album.maximum_sampling_rate} kHz`
@@ -631,11 +816,14 @@ function renderAlbumDetail(album) {
                     ${hiresText ? `<br><span style="color: var(--warning); font-weight: 600; margin-top: 8px; display: inline-block;">${hiresText}</span>` : ''}
                 </div>
                 <div style="margin-top: 20px; display: flex; gap: 12px;">
-                    <button class="btn primary" onclick="window.addToQueue('album', '${album.id}')">
+                    <button class="btn primary" onclick="window.startContextPlayback(0)">
+                        ▶ Play Album
+                    </button>
+                    <button class="btn secondary" onclick="window.addToQueue('album', '${album.id}')">
                         Download Album
                     </button>
                     <button class="btn secondary" onclick="window.addToBatch('album', '${album.id}')">
-                        + Add to Batch
+                        + Batch
                     </button>
                 </div>
             </div>
@@ -650,7 +838,7 @@ function renderAlbumDetail(album) {
                     </div>
                     <div class="track-duration">${formatDuration(track.duration)}</div>
                     <div class="track-actions">
-                        <button class="btn-track-dl" title="Play" onclick="window.playTrack('${track.id}', '${track.title.replace(/'/g, "\\'")}', '${album.artist?.name?.replace(/'/g, "\\'") || ''}', '${cover}')">
+                        <button class="btn-track-dl" title="Play" onclick="window.startContextPlayback(${index})">
                             <svg class="icon-svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </button>
                         <button class="btn-track-dl" title="Add to Batch" onclick="window.addToBatch('track', '${track.id}')">
@@ -719,8 +907,16 @@ function renderArtistDetail(artist, viewType, offset = 0) {
         if (tracks.length === 0) {
             contentHtml = '<div class="empty-state"><p>No tracks found</p></div>';
         } else {
+            currentViewTracks = tracks.map(t => ({
+                ...t,
+                artistName: artist.name,
+                coverUrl: t.album?.image?.small || cover
+            }));
+
             contentHtml = '<div class="track-list">';
             tracks.forEach((track, index) => {
+                const trackCover = track.album?.image?.small || cover;
+
                 contentHtml += `
                     <div class="track-item">
                         <div class="track-number">${offset + index + 1}</div>
@@ -731,7 +927,7 @@ function renderArtistDetail(artist, viewType, offset = 0) {
                         </div>
                         <div class="track-duration">${formatDuration(track.duration)}</div>
                         <div class="track-actions">
-                            <button class="btn-track-dl" title="Play" onclick="window.playTrack('${track.id}', '${track.title.replace(/'/g, "\\'")}', '${artist.name.replace(/'/g, "\\'")}', '${cover}')">
+                            <button class="btn-track-dl" title="Play" onclick="window.startContextPlayback(${index})">
                                 <svg class="icon-svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                             </button>
                             <button class="btn-track-dl" title="Add to Batch" onclick="window.addToBatch('track', '${track.id}')">
@@ -757,6 +953,7 @@ function renderArtistDetail(artist, viewType, offset = 0) {
                 <div style="margin-top: 20px; display: flex; gap: 12px;">
                     <button class="btn ${viewType === 'albums' ? 'primary' : 'secondary'}" onclick="window.fetchArtistDetail('${artist.id}', 'albums')">Albums</button>
                     <button class="btn ${viewType === 'tracks' ? 'primary' : 'secondary'}" onclick="window.fetchArtistDetail('${artist.id}', 'tracks')">Tracks</button>
+                    ${viewType === 'tracks' && tracks.length > 0 ? `<button class="btn secondary" onclick="window.startContextPlayback(0)">▶ Play Top Tracks</button>` : ''}
                 </div>
             </div>
         </div>
@@ -1427,6 +1624,9 @@ const player = {
     audio: document.getElementById('audio-element'),
     bar: document.getElementById('audio-player-bar'),
     playBtn: document.getElementById('player-play'),
+    prevBtn: document.getElementById('player-prev'),
+    nextBtn: document.getElementById('player-next'),
+    downloadBtn: document.getElementById('player-download'),
     seek: document.getElementById('player-seek'),
     volume: document.getElementById('player-volume'),
     currentTime: document.getElementById('player-current-time'),
@@ -1435,11 +1635,55 @@ const player = {
     title: document.getElementById('player-title'),
     artist: document.getElementById('player-artist'),
     quality: document.getElementById('player-quality'),
-    isPlaying: false
+    queueInfo: document.getElementById('player-queue-info'),
+    isPlaying: false,
+    queue: [],
+    currentIndex: -1,
+    currentTrackId: null
 };
 
-window.playTrack = async function (id, title, artist, cover) {
+async function playCurrentQueueItem() {
+    if (player.currentIndex < 0 || player.currentIndex >= player.queue.length) return;
+
+    const track = player.queue[player.currentIndex];
+    await window.playTrack(track.id, track.title, track.artist, track.cover, true);
+    updatePlayerControls();
+}
+
+window.playContext = function (tracks, startIndex = 0) {
+    if (!tracks || tracks.length === 0) return;
+    player.queue = tracks;
+    player.currentIndex = startIndex;
+    playCurrentQueueItem();
+    updatePlayerControls();
+};
+
+window.playNext = function () {
+    if (player.currentIndex < player.queue.length - 1) {
+        player.currentIndex++;
+        playCurrentQueueItem();
+    }
+};
+
+window.playPrev = function () {
+    if (player.currentIndex > 0) {
+        player.currentIndex--;
+        playCurrentQueueItem();
+    } else {
+        if (player.audio) player.audio.currentTime = 0;
+    }
+};
+
+window.playTrack = async function (id, title, artist, cover, isInternal = false) {
     if (!player.audio) return;
+
+    if (!isInternal) {
+        player.queue = [{ id, title, artist, cover }];
+        player.currentIndex = 0;
+    }
+
+    player.currentTrackId = id;
+    updatePlayerControls();
 
     if (player.quality) player.quality.textContent = 'Loading...';
     if (cover) cover = cover.replace(/&amp;/g, '&');
@@ -1447,6 +1691,14 @@ window.playTrack = async function (id, title, artist, cover) {
     player.title.textContent = title;
     player.artist.textContent = artist;
     if (cover && player.cover) player.cover.src = cover;
+
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: title,
+            artist: artist,
+            artwork: [{ src: cover || '/favicon.ico', sizes: '512x512', type: 'image/jpeg' }]
+        });
+    }
 
     try {
         const infoRes = await smartFetch(`/api/stream/info/${id}`);
@@ -1488,6 +1740,9 @@ window.playTrack = async function (id, title, artist, cover) {
         } else {
             if (player.quality) player.quality.textContent = 'Error';
             showToast('Stream unavailable', 'error');
+            if (isInternal && player.currentIndex < player.queue.length - 1) {
+                setTimeout(() => window.playNext(), 2000);
+            }
         }
     } catch (e) {
         showToast('Network error', 'error');
@@ -1499,6 +1754,17 @@ function updatePlayButton() {
     player.playBtn.innerHTML = player.isPlaying
         ? '<svg class="icon-svg" viewBox="0 0 24 24" style="fill:currentColor; width:28px; height:28px;"><path d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"/></svg>'
         : '<svg class="icon-svg" viewBox="0 0 24 24" style="fill:currentColor; width:28px; height:28px;"><path d="M8 5v14l11-7z"/></svg>';
+}
+
+function updatePlayerControls() {
+    if (player.queueInfo) {
+        if (player.queue && player.queue.length > 1) {
+            player.queueInfo.style.display = 'block';
+            player.queueInfo.textContent = `Queue: ${player.currentIndex + 1} / ${player.queue.length}`;
+        } else {
+            player.queueInfo.style.display = 'none';
+        }
+    }
 }
 
 if (player.playBtn) {
@@ -1514,6 +1780,32 @@ if (player.playBtn) {
     };
 }
 
+if (player.prevBtn) {
+    player.prevBtn.onclick = () => window.playPrev();
+}
+
+if (player.nextBtn) {
+    player.nextBtn.onclick = () => window.playNext();
+}
+
+if (player.downloadBtn) {
+    player.downloadBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (player.currentTrackId) {
+            window.addToQueue('track', player.currentTrackId);
+        } else {
+            showToast('No track playing', 'error');
+        }
+    };
+}
+
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', () => { player.audio.play(); player.isPlaying = true; updatePlayButton(); });
+    navigator.mediaSession.setActionHandler('pause', () => { player.audio.pause(); player.isPlaying = false; updatePlayButton(); });
+    navigator.mediaSession.setActionHandler('previoustrack', () => window.playPrev());
+    navigator.mediaSession.setActionHandler('nexttrack', () => window.playNext());
+}
+
 if (player.audio) {
     player.audio.ontimeupdate = () => {
         if (!player.seek || isNaN(player.audio.duration)) return;
@@ -1524,15 +1816,28 @@ if (player.audio) {
     };
 
     player.audio.onended = () => {
-        player.isPlaying = false;
-        updatePlayButton();
+        if (player.currentIndex < player.queue.length - 1) {
+            window.playNext();
+        } else {
+            player.isPlaying = false;
+            updatePlayButton();
+        }
     };
+
+    player.audio.onplay = () => { player.isPlaying = true; updatePlayButton(); };
+    player.audio.onpause = () => { player.isPlaying = false; updatePlayButton(); };
 
     player.audio.onerror = () => {
         player.isPlaying = false;
         updatePlayButton();
+        if (player.currentIndex < player.queue.length - 1) {
+            console.log('Track error, skipping to next...');
+            setTimeout(() => window.playNext(), 1000);
+        }
     };
 }
+
+
 
 if (player.seek) {
     player.seek.oninput = (e) => {
@@ -1592,6 +1897,46 @@ function showToast(message, type = 'success') {
         setTimeout(() => toast.remove(), 500);
     }, 3000);
 }
+
+window.showConfirm = function (message, title = 'Confirm Action', okText = 'Confirm') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirm-modal');
+        const titleEl = document.getElementById('confirm-title');
+        const msgEl = document.getElementById('confirm-message');
+        const okBtn = document.getElementById('confirm-ok');
+        const cancelBtn = document.getElementById('confirm-cancel');
+
+        if (!modal) {
+            return resolve(confirm(message));
+        }
+
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+        okBtn.textContent = okText;
+
+        const handleOk = () => {
+            modal.style.display = 'none';
+            cleanup();
+            resolve(true);
+        };
+
+        const handleCancel = () => {
+            modal.style.display = 'none';
+            cleanup();
+            resolve(false);
+        };
+
+        const cleanup = () => {
+            okBtn.removeEventListener('click', handleOk);
+            cancelBtn.removeEventListener('click', handleCancel);
+        };
+
+        okBtn.addEventListener('click', handleOk);
+        cancelBtn.addEventListener('click', handleCancel);
+
+        modal.style.display = 'block';
+    });
+};
 
 window.closePlayer = function () {
     if (player.audio) {
@@ -1800,6 +2145,12 @@ function updateScanStatus(scanning) {
 }
 
 window.startLibraryScan = async function () {
+    const btn = document.getElementById('scan-library-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Starting...';
+    }
+
     try {
         const res = await smartFetch('/api/library/scan', {
             method: 'POST',
@@ -1814,9 +2165,17 @@ window.startLibraryScan = async function () {
         } else {
             const data = await res.json();
             showToast(data.error || 'Failed to start scan', 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Start Scan';
+            }
         }
     } catch (err) {
         showToast('Failed to start scan', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Start Scan';
+        }
     }
 };
 

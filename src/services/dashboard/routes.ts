@@ -157,6 +157,28 @@ export function registerRoutes(app: Express): void {
         });
     });
 
+    app.post('/api/system/reset', async (req: Request, res: Response) => {
+        try {
+            logger.warn('System Reset initiated by user', 'SYSTEM');
+
+            downloadQueue.clear();
+
+            historyService.clearAll();
+
+            try {
+                const { databaseService } = await import('../../services/database/index.js');
+                databaseService.resetStatistics();
+            } catch (e) {
+                logger.error('Failed to reset database: ' + e);
+            }
+
+            res.json({ success: true, message: 'System reset complete' });
+        } catch (error: any) {
+            logger.error(`Reset failed: ${error.message}`);
+            res.status(500).json({ error: 'System reset failed' });
+        }
+    });
+
     const maskSensitiveValue = (value: string): string => {
         if (!value || typeof value !== 'string') return '';
         if (value.length <= 8) return '••••••••';
@@ -304,6 +326,17 @@ export function registerRoutes(app: Express): void {
         }
 
         res.json({ success: true });
+    });
+
+    app.delete('/api/history/:id', (req: Request, res: Response) => {
+        const id = req.params.id as string;
+        const success = historyService.remove(id);
+
+        if (success) {
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: 'History item not found' });
+        }
     });
 
     app.get('/api/search', async (req: Request, res: Response) => {

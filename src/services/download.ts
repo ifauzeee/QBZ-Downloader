@@ -89,10 +89,11 @@ export default class DownloadService {
         return (
             name
                 .replace(/[<>:"/\\|?*]/g, '')
+                .replace(/&/g, 'and')
                 .replace(/\s+/g, ' ')
                 .trim()
-                .replace(/^\\.+|\\.+$/g, '')
-                .substring(0, 200) || 'Unknown'
+                .replace(/^\.+|\.+$/g, '')
+                .substring(0, 128) || 'Unknown'
         );
     }
 
@@ -329,7 +330,7 @@ export default class DownloadService {
                 quality: actualQuality,
                 title: metadata.title,
                 artist: metadata.artist,
-                albumArtist: metadata.albumArtist,
+                albumArtist: metadata.albumArtist || metadata.artist,
                 artistImageUrl: artistImageUrl,
                 album: metadata.album
             });
