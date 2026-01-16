@@ -20,7 +20,7 @@ module.exports = {
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/ban-ts-comment': 'warn',
         'semi': ['error', 'always'],
-        'quotes': ['error', 'single'],
+        'quotes': ['error', 'single', { 'avoidEscape': true }],
         'indent': 'off',
         'no-empty': ['error', { 'allowEmptyCatch': true }],
     },

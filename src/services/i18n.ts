@@ -230,7 +230,7 @@ const translations: Record<Locale, TranslationSet> = {
         download: 'Télécharger',
         settings: 'Paramètres',
         history: 'Historique',
-        queue: 'File d\'attente',
+        queue: "File d'attente",
         statistics: 'Statistiques',
 
         queueEmpty: 'La file est vide',
@@ -238,7 +238,7 @@ const translations: Record<Locale, TranslationSet> = {
         queueResume: 'Reprendre',
         queueClear: 'Vider la file',
         addToQueue: 'Ajouter à la file',
-        pasteUrl: 'Collez l\'URL Qobuz ici...',
+        pasteUrl: "Collez l'URL Qobuz ici...",
         downloading: 'Téléchargement',
         pending: 'En attente',
         completed: 'Terminé',
@@ -262,7 +262,7 @@ const translations: Record<Locale, TranslationSet> = {
         networkError: 'Erreur réseau, réessayez',
 
         totalDownloads: 'Total des Téléchargements',
-        todayDownloads: 'Aujourd\'hui',
+        todayDownloads: "Aujourd'hui",
         totalSize: 'Taille Totale',
         averagePerDay: 'Moyenne/Jour',
 

@@ -15,7 +15,11 @@ if (state.theme === 'light') {
 }
 
 window.toggleSidebar = function () {
-    document.querySelector('.sidebar').classList.toggle('open');
+    if (window.innerWidth <= 768) {
+        document.querySelector('.sidebar').classList.toggle('open');
+    } else {
+        document.body.classList.toggle('sidebar-collapsed');
+    }
 };
 
 const menuToggle = document.getElementById('menu-toggle');
@@ -1769,6 +1773,17 @@ function updateLibraryStats(stats) {
     document.getElementById('lib-duplicates').textContent = stats.duplicates || 0;
     document.getElementById('lib-upgradeable').textContent = stats.upgradeable || 0;
     document.getElementById('lib-size').textContent = formatBytes(stats.totalSize || 0);
+
+    if (stats.processedFiles !== undefined && stats.totalFiles > 0) {
+        const percentage = Math.round((stats.processedFiles / stats.totalFiles) * 100);
+        const progressEl = document.getElementById('scan-progress');
+        const percentageEl = document.getElementById('scan-percentage');
+
+        if (progressEl) progressEl.value = percentage;
+        if (percentageEl) percentageEl.textContent = `${percentage}%`;
+
+
+    }
 }
 
 function updateScanStatus(scanning) {

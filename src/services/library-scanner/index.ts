@@ -124,6 +124,7 @@ class LibraryScannerService extends EventEmitter {
     private scanAborted = false;
     private supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
     private api: QobuzAPI;
+    private currentProgress: ScanProgress | null = null;
 
     constructor() {
         super();
@@ -147,6 +148,13 @@ class LibraryScannerService extends EventEmitter {
 
         this.isScanning = true;
         this.scanAborted = false;
+        this.currentProgress = {
+            current: 0,
+            total: 0,
+            percentage: 0,
+            currentFile: 'Starting scan...',
+            status: 'scanning'
+        };
 
         const result: ScanResult = {
             totalFiles: 0,
@@ -166,6 +174,8 @@ class LibraryScannerService extends EventEmitter {
 
             const allFiles = await this.collectAudioFiles(scanDir);
             result.totalFiles = allFiles.length;
+
+            this.currentProgress.total = result.totalFiles;
 
             this.emit('scan:started', { totalFiles: result.totalFiles, directory: scanDir });
             logger.info(
@@ -214,36 +224,42 @@ class LibraryScannerService extends EventEmitter {
                     logger.debug(`Error scanning ${filePath}: ${error.message}`, 'SCANNER');
                 }
 
-                if (i % 10 === 0 || i === allFiles.length - 1) {
-                    this.emit('scan:progress', {
+                if (i % 5 === 0 || i === allFiles.length - 1) {
+                    const progress: ScanProgress = {
                         current: i + 1,
                         total: result.totalFiles,
                         percentage: Math.round(((i + 1) / result.totalFiles) * 100),
                         currentFile: path.basename(filePath),
                         status: 'scanning'
-                    } as ScanProgress);
+                    };
+                    this.currentProgress = progress;
+                    this.emit('scan:progress', progress);
                 }
             }
 
             if (options.detectDuplicates !== false) {
-                this.emit('scan:progress', {
+                const progress: ScanProgress = {
                     current: result.totalFiles,
                     total: result.totalFiles,
                     percentage: 100,
                     currentFile: 'Analyzing duplicates...',
                     status: 'analyzing'
-                } as ScanProgress);
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
                 result.duplicates = await this.detectDuplicates();
             }
 
             if (options.checkUpgrades !== false) {
-                this.emit('scan:progress', {
+                const progress: ScanProgress = {
                     current: 0,
                     total: result.scannedFiles,
                     percentage: 0,
                     currentFile: 'Checking available upgrades from Qobuz...',
                     status: 'checking_upgrades'
-                } as ScanProgress);
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
 
                 const upgradeCount = await this.checkQobuzUpgrades();
                 result.upgradeableFiles = upgradeCount;
@@ -262,6 +278,7 @@ class LibraryScannerService extends EventEmitter {
             return result;
         } finally {
             this.isScanning = false;
+            this.currentProgress = null;
         }
     }
 
@@ -670,6 +687,8 @@ class LibraryScannerService extends EventEmitter {
         duplicates: number;
         upgradeable: number;
         totalSize: number;
+        processedFiles?: number;
+        currentFile?: string;
     } {
         const upgradeable = databaseService.getUpgradeableFiles();
         const duplicates = databaseService.getDuplicates();
@@ -677,12 +696,25 @@ class LibraryScannerService extends EventEmitter {
         const totalRow = db
             .prepare('SELECT COUNT(*) as count, SUM(file_size) as size FROM library_files')
             .get() as any;
-        return {
+
+        const stats = {
             totalFiles: totalRow?.count || 0,
             duplicates: duplicates.length,
             upgradeable: upgradeable.length,
             totalSize: totalRow?.size || 0
         };
+
+        if (this.isScanning && this.currentProgress) {
+            return {
+                ...stats,
+                totalFiles:
+                    this.currentProgress.total > 0 ? this.currentProgress.total : stats.totalFiles,
+                processedFiles: this.currentProgress.current,
+                currentFile: this.currentProgress.currentFile
+            };
+        }
+
+        return stats;
     }
 
     async findMissingTracks(): Promise<any[]> {
