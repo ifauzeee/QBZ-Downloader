@@ -362,7 +362,7 @@ export default class DownloadService {
                     file_path: filePath,
                     track_id: trackId.toString(),
                     title: metadata.title,
-                    artist: metadata.artist,
+                    artist: metadata.albumArtist || metadata.artist,
                     album: metadata.album,
                     duration: metadata.duration,
                     quality: actualQuality,

@@ -115,7 +115,7 @@ class StatisticsService {
                 try {
                     const stats = fs.statSync(entry.filename);
                     totalSize += stats.size;
-                } catch { }
+                } catch {}
             }
 
             switch (entry.type) {
@@ -180,7 +180,7 @@ class StatisticsService {
                     try {
                         const fileStats = fs.statSync(entry.filename);
                         stats.totalSize += fileStats.size;
-                    } catch { }
+                    } catch {}
                 }
 
                 switch (entry.type) {

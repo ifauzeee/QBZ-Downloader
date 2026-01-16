@@ -120,7 +120,6 @@ vi.mock('../database/index.js', () => ({
     }
 }));
 
-
 vi.mock('../../constants.js', () => ({
     APP_VERSION: '2.0.0'
 }));

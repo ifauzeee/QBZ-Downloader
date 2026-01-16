@@ -145,7 +145,30 @@ class MetadataService {
                     bestGenre = album.genre.name;
                 }
 
-                return bestGenre;
+                const GENRE_TRANSLATIONS: Record<string, string> = {
+                    'Bandes originales de films': 'Soundtrack',
+                    'Musique de film': 'Soundtrack',
+                    Filmsoundtracks: 'Soundtrack',
+                    Soundtracks: 'Soundtrack',
+                    Électronique: 'Electronic',
+                    Classique: 'Classical',
+                    'Musique du monde': 'World',
+                    'Musique africaine': 'African Music',
+                    'Musique asiatique': 'Asian Music',
+                    'Livres audio': 'Audiobooks',
+                    Jeunesse: 'Kids',
+                    'Variété française': 'French Pop',
+                    'Chanson française': 'French Chanson',
+                    Ambience: 'Ambient',
+                    'Hard Rock': 'Hard Rock',
+                    'Heavy Metal': 'Heavy Metal',
+                    Alternative: 'Alternative',
+                    Indé: 'Indie',
+                    Pop: 'Pop',
+                    Rock: 'Rock'
+                };
+
+                return GENRE_TRANSLATIONS[bestGenre] || bestGenre;
             })(),
 
             albumArtist: album.artist?.name || artist.name || '',
