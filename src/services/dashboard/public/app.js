@@ -88,11 +88,20 @@ async function smartFetch(url, options = {}) {
             'x-password': state.password
         };
     }
-    const res = await fetch(url, options);
-    if (res.status === 401) {
-        showLogin();
+    try {
+        const res = await fetch(url, options);
+        if (res.status === 401) {
+            showLogin();
+        }
+        if (res.status === 429) {
+            console.warn('Rate limited by server');
+            return null;
+        }
+        return res;
+    } catch (err) {
+        console.error(`Fetch error for ${url}:`, err);
+        return null;
     }
-    return res;
 }
 
 const socket = io({
@@ -239,8 +248,13 @@ window.switchTab = function (tab) {
 async function fetchQueue() {
     try {
         const response = await smartFetch('/api/queue');
-        const items = await response.json();
-        renderQueue(items);
+        if (!response || !response.ok) return;
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            const items = await response.json();
+            renderQueue(items);
+        }
     } catch (err) {
         console.error('Failed to fetch queue:', err);
     }
@@ -250,7 +264,7 @@ setInterval(() => {
     if (state.connected && state.activeTab === 'queue' && document.visibilityState === 'visible') {
         fetchQueue();
     }
-}, 3000);
+}, 5000);
 
 function renderQueue(items) {
     if (!queueList) return;
@@ -409,8 +423,13 @@ function updateConnectionStatus(online) {
 async function fetchHistory() {
     try {
         const response = await smartFetch('/api/history');
-        const items = await response.json();
-        renderHistory(items);
+        if (!response || !response.ok) return;
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            const items = await response.json();
+            renderHistory(items);
+        }
     } catch (err) {
         console.error('Failed to fetch history:', err);
     }
@@ -666,6 +685,13 @@ function renderResults(data, type) {
         let cover = '';
         let id = item.id;
         let isHiRes = !!item.hires;
+        let bitDepth = item.maximum_bit_depth || (isHiRes ? 24 : 16);
+        let samplingRate = item.maximum_sampling_rate || 44.1;
+
+        let qualityText = isHiRes ? 'HI-RES' : 'CD';
+        if (bitDepth && samplingRate) {
+            qualityText = `${bitDepth}-bit / ${samplingRate}kHz`;
+        }
 
         if (itemType === 'artist') {
             cover = item.image?.large || item.image?.medium || item.image?.small ||
@@ -706,7 +732,7 @@ function renderResults(data, type) {
 
         card.innerHTML = `
             ${cover ? `<img src="${cover}" class="result-cover" loading="lazy">` : '<div class="result-cover"></div>'}
-            ${isHiRes ? '<div class="hires-badge">HI-RES</div>' : ''}
+            <div class="hires-badge ${isHiRes ? 'hires' : 'cd'}">${qualityText}</div>
             <div class="result-badge">${itemType}</div>
             <div class="result-info">
                 <div class="result-title" title="${title}">${title}</div>

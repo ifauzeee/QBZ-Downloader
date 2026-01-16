@@ -554,13 +554,27 @@ body {
     position: absolute;
     top: 12px;
     left: 12px;
-    background: linear-gradient(135deg, #f59e0b, #d97706);
     color: #000;
     padding: 4px 10px;
     border-radius: 6px;
     font-size: 9px;
     font-weight: 800;
     letter-spacing: 0.5px;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.hires-badge.hires {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.hires-badge.cd {
+    background: linear-gradient(135deg, #94a3b8, #64748b);
+    color: white;
+}
+
+.result-card.artist .hires-badge {
+    display: none;
 }
 
 .download-overlay {
@@ -2678,8 +2692,6 @@ body.sidebar-collapsed .nav-item:hover::after {
     max-width: 400px;
     text-align: center;
 }
-
-
 
 .small-modal {
     max-width: 360px !important;
