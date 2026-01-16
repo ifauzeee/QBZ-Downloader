@@ -1,107 +1,102 @@
 #!/usr/bin/env node
 
 import 'dotenv/config';
-import { Command } from 'commander';
-import chalk from 'chalk';
-import inquirer from 'inquirer';
-import { registerDownloadCommand } from './commands/download.js';
-import { registerSearchCommand } from './commands/search.js';
-import { registerInfoCommand } from './commands/info.js';
-import { registerLyricsCommand } from './commands/lyrics.js';
-import { registerAccountCommand } from './commands/account.js';
-import { registerQualityCommand } from './commands/quality.js';
-import { registerSetupCommand } from './commands/setup.js';
-import { registerBotCommand } from './commands/bot.js';
-import { registerDashboardCommand } from './commands/dashboard.js';
-import { registerHelpCommand } from './commands/help.js';
-import { showMainMenu } from './commands/menu.js';
-import * as display from './utils/display.js';
+import { dashboardService } from './services/dashboard/index.js';
+import { queueProcessor } from './services/queue-processor.js';
+import { historyService } from './services/history.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
-import { handleError } from './utils/errors.js';
-import { APP_VERSION } from './constants.js';
-import { settingsService } from './services/settings.js';
-import { runSetup } from './commands/setup.js';
-import { displayBanner } from './utils/display.js';
+import { logger } from './utils/logger.js';
+import figlet from 'figlet';
+import gradient from 'gradient-string';
 
-const isMetaCommand =
-    process.argv.includes('--help') ||
-    process.argv.includes('-h') ||
-    process.argv.includes('--version') ||
-    process.argv.includes('-V') ||
-    process.argv.includes('quality') ||
-    process.argv.includes('q');
+async function gracefulShutdown(signal: string) {
+    console.log('');
+    logger.system(`Received ${signal} signal. Initiating graceful shutdown...`, 'SYSTEM');
 
-let warnings: string[] = [];
-if (!isMetaCommand) {
-    const result = validateEnvironment();
-    warnings = result.warnings;
+    try {
+        const { databaseService } = await import('./services/database/index.js');
+        databaseService.close();
+        logger.info('Database connection closed.', 'DB');
+    } catch {}
+
+    historyService.flush();
+    logger.info('History buffers flushed to storage.', 'STORAGE');
+
+    dashboardService.stop();
+    logger.info('Dashboard service terminated.', 'WEB');
+
+    logger.success('System shutdown sequence completed successfully.', 'SYSTEM');
+    process.exit(0);
 }
 
-const program = new Command();
+function displayBanner() {
+    console.clear();
+    const title = figlet.textSync('QBZ-DL v3.0', {
+        font: 'Slant',
+        horizontalLayout: 'default',
+        verticalLayout: 'default'
+    });
 
-program
-    .name('qobuz-dl')
-    .description('🎵 Premium Qobuz Downloader CLI - Hi-Res Audio with Complete Metadata & Lyrics')
-    .version(APP_VERSION);
+    console.log(gradient.pastel.multiline(title));
+    console.log(gradient.pastel('  Premium High-Res Audio Downloader & Manager\n'));
+    console.log(gradient.cristal('  Developed by Muhammad Ibnu Fauzi\n'));
 
-registerDownloadCommand(program);
-registerSearchCommand(program);
-registerInfoCommand(program);
-registerLyricsCommand(program);
-registerAccountCommand(program);
-registerQualityCommand(program);
-registerSetupCommand(program);
-registerBotCommand(program);
-registerDashboardCommand(program);
-registerHelpCommand(program);
-
-program.exitOverride();
-
-const hasCommand = process.argv.length > 2;
-const isSetupCommand = process.argv[2] === 'setup';
+    logger.system('Initializing application components...', 'BOOT');
+}
 
 async function main() {
     try {
-        if (!settingsService.isConfigured() && !isSetupCommand && !isMetaCommand) {
-            displayBanner();
-            console.log(chalk.yellow('\n⚠️  Aplikasi belum dikonfigurasi!'));
-            console.log(chalk.gray('   Anda perlu memasukkan credentials Qobuz untuk memulai.\n'));
-            const { proceed } = await inquirer.prompt([
-                {
-                    type: 'confirm',
-                    name: 'proceed',
-                    message: 'Jalankan setup wizard sekarang?',
-                    default: true
-                }
-            ]);
+        displayBanner();
 
-            if (proceed) {
-                await runSetup();
-            } else {
-                console.log(
-                    chalk.red('\n❌ Jalankan "qbz-dl setup" untuk mengkonfigurasi aplikasi.')
-                );
-                console.log(chalk.gray('   Dokumentasi: https://github.com/ifauzeee/QBZ-Downloader\n'));
-                process.exit(1);
-            }
-        }
+        logger.info('Validating environment configuration...', 'ENV');
+        const { warnings, valid, missing } = validateEnvironment();
 
-        if (hasCommand) {
-            await program.parseAsync(process.argv);
-        } else {
+        if (warnings.length > 0) {
             displayEnvWarnings(warnings);
-            await showMainMenu();
         }
+
+        if (!valid) {
+            logger.warn(`Missing required credentials: ${missing?.join(', ')}`, 'AUTH');
+            logger.info(
+                'Please configure your credentials via the Web Dashboard settings.',
+                'CONFIG'
+            );
+        } else {
+            logger.success('Environment configuration validated.', 'ENV');
+        }
+
+        logger.info('Initializing Database Service...', 'DB');
+        try {
+            const { databaseService } = await import('./services/database/index.js');
+            databaseService.initialize();
+            logger.success('Database service initialized.', 'DB');
+        } catch (error: any) {
+            logger.warn(`Database init skipped: ${error.message}`, 'DB');
+        }
+
+        logger.info('Starting Queue Processor...', 'QUEUE');
+        queueProcessor.start();
+        logger.success('Queue Processor active and listening.', 'QUEUE');
+
+        logger.info('Initializing Dashboard Service...', 'WEB');
+        dashboardService.start();
+
+        logger.success('System initialization complete. Waiting for commands.', 'SYSTEM');
+
+        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+        process.on('uncaughtException', (error) => {
+            logger.error(`Uncaught Exception detected: ${error.message}`, 'FATAL');
+            gracefulShutdown('uncaughtException');
+        });
+
+        process.on('unhandledRejection', (reason) => {
+            logger.error(`Unhandled Promise Rejection: ${reason}`, 'FATAL');
+        });
     } catch (error: unknown) {
-        const err = error as any;
-        if (
-            err.exitCode === 0 ||
-            err.code === 'commander.help' ||
-            err.code === 'commander.version'
-        ) {
-            process.exit(0);
-        }
-        handleError(error as Error, display);
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`Fatal system error during startup: ${message}`, 'BOOT');
         process.exit(1);
     }
 }

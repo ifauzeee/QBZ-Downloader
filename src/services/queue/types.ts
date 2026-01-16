@@ -1,10 +1,3 @@
-import { Context } from 'telegraf';
-import { DownloadProgress } from '../download.js';
-
-export interface TelegramContext extends Context {
-    match?: RegExpExecArray;
-}
-
 export type QualityOption = number | 'ask' | 'min' | 'max';
 
 export type DownloadType = 'track' | 'album' | 'playlist' | 'artist';
@@ -32,6 +25,8 @@ export interface QueueItem {
     priority: QueuePriority;
     progress: number;
     title?: string;
+    artist?: any;
+    album?: any;
     error?: string;
     filePath?: string;
     addedAt: Date;
@@ -67,33 +62,6 @@ export interface InfoResult {
     tracksCount?: number;
     releaseDate?: string;
     coverUrl?: string;
-}
-
-export interface TelegramProgress {
-    phase: DownloadProgress['phase'];
-    loaded: number;
-    total?: number;
-    speed?: number;
-    trackTitle?: string;
-    currentTrack?: number;
-    totalTracks?: number;
-}
-
-export interface MessageOptions {
-    parseMode?: 'HTML' | 'Markdown';
-    disableNotification?: boolean;
-    replyToMessageId?: number;
-}
-
-export interface InlineButton {
-    text: string;
-    callback_data: string;
-}
-
-export type InlineKeyboardRow = InlineButton[];
-
-export interface InlineKeyboard {
-    inline_keyboard: InlineKeyboardRow[];
 }
 
 export type QueueEvents = {

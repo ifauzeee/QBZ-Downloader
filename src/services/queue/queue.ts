@@ -2,7 +2,6 @@ import { EventEmitter } from 'events';
 import { QueueItem, QueueItemStatus, QueuePriority, QueueStats, DownloadType } from './types.js';
 import { generateQueueId } from './utils.js';
 import { logger } from '../../utils/logger.js';
-import { db } from '../database.js';
 
 export class DownloadQueue {
     private items: Map<string, QueueItem> = new Map();
@@ -13,34 +12,6 @@ export class DownloadQueue {
 
     constructor(maxConcurrent: number = 2) {
         this.maxConcurrent = maxConcurrent;
-        this.restoreQueue();
-    }
-
-    private restoreQueue() {
-        try {
-            const pendingItems = db.getPendingQueue();
-            for (const row of pendingItems) {
-                const item: QueueItem = {
-                    id: row.id,
-                    type: row.type as DownloadType,
-                    contentId: row.contentId,
-                    quality: row.quality,
-                    status: 'pending',
-                    priority: (row.priority as QueuePriority) || 'normal',
-                    progress: 0,
-                    title: row.title,
-                    addedAt: new Date(),
-                    retryCount: 0,
-                    maxRetries: 3
-                };
-                this.items.set(item.id, item);
-            }
-            if (pendingItems.length > 0) {
-                logger.info(`Restored ${pendingItems.length} items from queue history`);
-            }
-        } catch (error) {
-            logger.warn(`Failed to restore queue: ${error}`);
-        }
     }
 
     add(
@@ -71,20 +42,6 @@ export class DownloadQueue {
         };
 
         this.items.set(id, item);
-
-        try {
-            db.saveQueueItem({
-                id: item.id,
-                type: item.type,
-                contentId: item.contentId,
-                quality: item.quality,
-                status: item.status,
-                title: item.title,
-                priority: item.priority
-            });
-        } catch (e) {
-            logger.error(`Failed to save queue item to DB: ${e}`);
-        }
 
         this.emit('item:added', item);
         logger.debug(`Queue: Added ${type} ${contentId} (${id})`);
@@ -120,10 +77,6 @@ export class DownloadQueue {
         item.startedAt = new Date();
         this.processing.add(id);
 
-        try {
-            db.updateQueueStatus(id, 'downloading');
-        } catch {}
-
         this.emit('item:started', item);
         logger.debug(`Queue: Started ${id}`);
 
@@ -137,11 +90,27 @@ export class DownloadQueue {
         item.progress = Math.min(100, Math.max(0, progress));
         if (status) {
             item.status = status;
-            try {
-                db.updateQueueStatus(id, status);
-            } catch {}
         }
         this.emit('item:progress', item, progress);
+    }
+
+    updateMetadata(id: string, metadata: { title?: string; artist?: any; album?: any }): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        if (metadata.title) item.title = metadata.title;
+        if (metadata.artist) item.artist = metadata.artist;
+        if (metadata.album) item.album = metadata.album;
+
+        this.emit('item:progress', item, item.progress);
+    }
+
+    updateQuality(id: string, quality: number): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        item.quality = quality;
+        this.emit('item:progress', item, item.progress);
     }
 
     complete(id: string, filePath?: string): void {
@@ -153,10 +122,6 @@ export class DownloadQueue {
         item.completedAt = new Date();
         if (filePath) item.filePath = filePath;
         this.processing.delete(id);
-
-        try {
-            db.removeQueueItem(id);
-        } catch {}
 
         this.emit('item:completed', item);
         logger.debug(`Queue: Completed ${id}`);
@@ -179,16 +144,19 @@ export class DownloadQueue {
             item.status = 'failed';
             item.completedAt = new Date();
 
-            try {
-                db.updateQueueStatus(id, 'failed');
-            } catch {}
-
             this.emit('item:failed', item, error);
             logger.error(`Queue: Failed ${id}: ${error}`);
         }
-
         this.processing.delete(id);
         this.checkQueueEmpty();
+    }
+
+    getPendingItems(): QueueItem[] {
+        return Array.from(this.items.values()).filter((item) => item.status === 'pending');
+    }
+
+    get(id: string): QueueItem | undefined {
+        return this.items.get(id);
     }
 
     cancel(id: string): boolean {
@@ -196,10 +164,6 @@ export class DownloadQueue {
         if (!item) return false;
 
         this.processing.delete(id);
-
-        try {
-            db.removeQueueItem(id);
-        } catch {}
 
         item.status = 'failed';
 
@@ -241,9 +205,6 @@ export class DownloadQueue {
         for (const [id, item] of this.items) {
             if (item.status === 'pending') {
                 this.items.delete(id);
-                try {
-                    db.removeQueueItem(id);
-                } catch {}
                 count++;
             }
         }
@@ -259,27 +220,16 @@ export class DownloadQueue {
                 item.status !== 'uploading'
             ) {
                 this.items.delete(id);
-                try {
-                    db.removeQueueItem(id);
-                } catch {}
                 count++;
             }
         }
         this.emit('queue:empty');
-
-        try {
-            db.clearQueue();
-        } catch {}
 
         return count;
     }
 
     getAll(): QueueItem[] {
         return Array.from(this.items.values());
-    }
-
-    get(id: string): QueueItem | undefined {
-        return this.items.get(id);
     }
 
     getByStatus(status: QueueItemStatus): QueueItem[] {

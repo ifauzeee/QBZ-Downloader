@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 
-export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'msg';
+export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'system';
 
 class Logger {
     private static instance: Logger;
@@ -14,48 +14,70 @@ class Logger {
         return Logger.instance;
     }
 
-    log(message: string, type: LogType = 'info') {
-        const timestamp = new Date().toLocaleTimeString();
-        const prefix = chalk.gray(`[${timestamp}] `);
+    private getTimestamp(): string {
+        return new Date().toLocaleTimeString('en-US', { hour12: false });
+    }
+
+    private formatScope(scope?: string): string {
+        return scope ? chalk.gray(`[${scope.toUpperCase()}]`) : '';
+    }
+
+    log(message: string, type: LogType = 'info', scope?: string) {
+        const timestamp = chalk.dim(this.getTimestamp());
+        const scopeStr = this.formatScope(scope);
+        const separator = chalk.dim('│');
+
+        let levelBadge = '';
+        let msgColor = (msg: string) => msg;
 
         switch (type) {
             case 'success':
-                console.log(`${prefix}${chalk.green('✅ ' + message)}`);
+                levelBadge = chalk.bold.green(' SUCCESS ');
+                msgColor = chalk.green;
                 break;
             case 'warn':
-                console.log(`${prefix}${chalk.yellow('⚠️ ' + message)}`);
+                levelBadge = chalk.bold.yellow(' WARNING ');
+                msgColor = chalk.yellow;
                 break;
             case 'error':
-                console.log(`${prefix}${chalk.red('❌ ' + message)}`);
+                levelBadge = chalk.bold.red('  ERROR  ');
+                msgColor = chalk.red;
                 break;
             case 'debug':
-                console.log(`${prefix}${chalk.magenta('🔍 ' + message)}`);
+                levelBadge = chalk.bold.magenta('  DEBUG  ');
+                msgColor = chalk.magenta;
                 break;
-            case 'msg':
-                console.log(`${prefix}${chalk.white('📩 ' + message)}`);
+            case 'system':
+                levelBadge = chalk.bold.cyan('  SYSTEM ');
+                msgColor = chalk.cyan;
                 break;
             default:
-                console.log(`${prefix}${chalk.blue('ℹ️ ' + message)}`);
+                levelBadge = chalk.bold.blue('  INFO   ');
+                msgColor = chalk.white;
         }
+
+        const content = scope ? `${scopeStr.padEnd(10)} ${message}` : message;
+
+        console.log(`${timestamp} ${separator} ${levelBadge} ${separator} ${msgColor(content)}`);
     }
 
-    info(message: string) {
-        this.log(message, 'info');
+    info(message: string, scope?: string) {
+        this.log(message, 'info', scope);
     }
-    success(message: string) {
-        this.log(message, 'success');
+    success(message: string, scope?: string) {
+        this.log(message, 'success', scope);
     }
-    warn(message: string) {
-        this.log(message, 'warn');
+    warn(message: string, scope?: string) {
+        this.log(message, 'warn', scope);
     }
-    error(message: string) {
-        this.log(message, 'error');
+    error(message: string, scope?: string) {
+        this.log(message, 'error', scope);
     }
-    debug(message: string) {
-        this.log(message, 'debug');
+    debug(message: string, scope?: string) {
+        this.log(message, 'debug', scope);
     }
-    msg(message: string) {
-        this.log(message, 'msg');
+    system(message: string, scope?: string) {
+        this.log(message, 'system', scope);
     }
 }
 

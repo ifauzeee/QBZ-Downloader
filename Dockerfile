@@ -1,69 +1,86 @@
-# Multi-stage Dockerfile for QBZ-Downloader
-# Optimized for production use
+# ===========================================
+# QBZ-Downloader - Optimized Multi-stage Build
+# ===========================================
 
-# ==========================================
-# Stage 1: Build
-# ==========================================
-FROM node:20-alpine AS builder
+# Stage 1: Dependencies
+# ------------------------------------------------
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies for native modules
 RUN apk add --no-cache python3 make g++
 
-# Copy package files
-COPY package*.json ./
+# Copy package files only (better layer caching)
+COPY package.json package-lock.json ./
 
-# Install all dependencies (including dev)
+# Install production dependencies only
+RUN npm ci --only=production && \
+    cp -R node_modules prod_modules
+
+# Install all dependencies for build
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Stage 2: Build
+# ------------------------------------------------
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json tsconfig.json ./
+COPY src ./src
 
 # Build TypeScript
 RUN npm run build
 
-# Prune dev dependencies
-RUN npm prune --production
-
-# ==========================================
-# Stage 2: Production
-# ==========================================
-FROM node:20-alpine AS production
+# Stage 3: Production
+# ------------------------------------------------
+FROM node:22-alpine AS production
 
 LABEL maintainer="ifauzeee"
-LABEL description="Premium Qobuz Downloader CLI with Hi-Res Audio"
-LABEL version="2.0.0"
+LABEL description="Premium Qobuz Downloader Web Dashboard"
+LABEL version="3.0.0"
+LABEL org.opencontainers.image.source="https://github.com/ifauzeee/QBZ-Downloader"
 
 WORKDIR /app
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S qbzgroup && \
-    adduser -S qbzuser -u 1001 -G qbzgroup
+# Create non-root user
+RUN addgroup -g 1001 -S qbz && \
+    adduser -S -u 1001 -G qbz qbz
 
-# Copy built application from builder
+# Copy production dependencies (smaller than full node_modules)
+COPY --from=deps /app/prod_modules ./node_modules
+
+# Copy built application
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+COPY package.json ./
 
-# Create directories with proper permissions
-RUN mkdir -p /app/downloads /app/logs && \
-    chown -R qbzuser:qbzgroup /app
+# Copy only necessary config files
+COPY .env.example ./
 
-# Environment variables
+# Create required directories
+RUN mkdir -p /app/downloads /app/data /app/logs && \
+    chown -R qbz:qbz /app
+
+# Environment
 ENV NODE_ENV=production
 ENV DOWNLOADS_PATH=/app/downloads
+ENV DASHBOARD_PORT=3000
 
-# Volume for downloads and configuration
+# Volumes for persistent data
 VOLUME ["/app/downloads", "/app/data"]
 
+# Expose dashboard port
+EXPOSE 3000
+
 # Switch to non-root user
-USER qbzuser
+USER qbz
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "console.log('healthy')" || exit 1
+# Health check using the API status endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${DASHBOARD_PORT}/api/status || exit 1
 
-# Default command (can be overridden)
-ENTRYPOINT ["node", "dist/index.js"]
-CMD ["--help"]
+# Start the web dashboard
+CMD ["node", "dist/index.js"]

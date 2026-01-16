@@ -1,27 +1,16 @@
 import path from 'path';
-import { createAxiosInstance, downloadFile } from '../utils/network.js';
+import { downloadFile } from '../utils/network.js';
 import { logger } from '../utils/logger.js';
 
-import { pipeline } from 'stream/promises';
-import {
-    createWriteStream,
-    mkdirSync,
-    writeFileSync,
-    unlinkSync,
-    renameSync,
-    createReadStream,
-    existsSync
-} from 'fs';
-import { PassThrough } from 'stream';
+import { createWriteStream, mkdirSync, unlinkSync, existsSync } from 'fs';
 import { CONFIG } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import MetadataService, { Metadata } from './metadata.js';
-import { settingsService } from './settings.js';
 import pLimit from 'p-limit';
-import flac from 'flac-metadata';
-import { Track, LyricsResult, Album } from '../types/qobuz.js';
+import { Track, LyricsResult, Album, FileUrlData } from '../types/qobuz.js';
 import { historyService } from './history.js';
+import { resumeService } from './batch.js';
 
 export interface DownloadProgress {
     phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging';
@@ -33,6 +22,8 @@ export interface DownloadProgress {
 interface DownloadOptions {
     outputDir?: string;
     onProgress?: (progress: DownloadProgress) => void;
+    onMetadata?: (metadata: Metadata) => void;
+    onQuality?: (quality: number) => void;
     trackIndices?: number[];
     skipExisting?: boolean;
 }
@@ -58,6 +49,8 @@ export interface AlbumDownloadOptions {
     onAlbumInfo?: (album: Album) => void;
     batch?: boolean;
     skipExisting?: boolean;
+    onMetadata?: (metadata: { title?: string; artist?: string; album?: string }) => void;
+    onQuality?: (quality: number) => void;
 }
 
 interface DownloadResult {
@@ -78,7 +71,7 @@ interface DownloadResult {
     skipped?: boolean;
 }
 
-class DownloadService {
+export default class DownloadService {
     api: QobuzAPI;
     lyricsProvider: LyricsProvider;
     metadataService: MetadataService;
@@ -103,62 +96,49 @@ class DownloadService {
         );
     }
 
-    buildFolderPath(metadata: Metadata, quality: number) {
-        const template = CONFIG.download.folderStructure;
+    private applyTemplate(template: string, metadata: Metadata, quality: number): string {
         const qualityName = CONFIG.quality.formats[quality]?.name || 'FLAC';
+        let result = template;
 
-        return template
-            .replace('{artist}', this.sanitizeFilename(metadata.albumArtist || metadata.artist))
-            .replace('{album}', this.sanitizeFilename(metadata.album))
-            .replace('{year}', metadata.year?.toString() || 'Unknown')
-            .replace('{quality}', qualityName.replace('/', '-'))
-            .replace(
-                '{album_artist}',
-                this.sanitizeFilename(metadata.albumArtist || metadata.artist)
-            )
-            .replace('{track_number}', metadata.trackNumber?.toString().padStart(2, '0') || '00');
-    }
-
-    buildFilename(metadata: Metadata, extension: string) {
-        const template = CONFIG.download.fileNaming;
-        const trackNum = metadata.trackNumber?.toString().padStart(2, '0') || '00';
-        return (
-            template
-                .replace('{trackNumber}', trackNum)
-                .replace('{track_number}', trackNum)
-                .replace('{title}', this.sanitizeFilename(metadata.title))
-                .replace('{artist}', this.sanitizeFilename(metadata.artist))
-                .replace('{album}', this.sanitizeFilename(metadata.album))
-                .replace('{year}', metadata.year?.toString() || 'Unknown') + `.${extension}`
+        logger.info(
+            `Processing template: "${template}" for ${metadata.artist} - ${metadata.title}`,
+            'DEBUG'
         );
-    }
 
-    async getCoverBuffer(url: string) {
-        if (!url) return null;
-        try {
-            const highResUrl = url.replace(/_\d+\.jpg/, '_max.jpg').replace('/600/', '/1200/');
-            const instance = createAxiosInstance({
-                method: 'GET',
-                url: highResUrl,
-                responseType: 'arraybuffer',
-                timeout: 30000
-            });
-            const response = await instance.get(highResUrl);
-            return response.data;
-        } catch {
-            try {
-                const instance = createAxiosInstance({
-                    method: 'GET',
-                    url: url,
-                    responseType: 'arraybuffer',
-                    timeout: 30000
-                });
-                const response = await instance.get(url);
-                return response.data;
-            } catch {
-                return null;
+        const data: Record<string, any> = {
+            artist: metadata.artist || 'Unknown Artist',
+            albumArtist: metadata.albumArtist || metadata.artist || 'Unknown Artist',
+            album: metadata.album || 'Unknown Album',
+            title: metadata.title || 'Unknown Title',
+            year: metadata.year?.toString() || 'Unknown',
+            quality: qualityName,
+            format: qualityName,
+            track_number: metadata.trackNumber?.toString().padStart(2, '0') || '01',
+            tracknumber: metadata.trackNumber?.toString().padStart(2, '0') || '01',
+            track: metadata.trackNumber?.toString().padStart(2, '0') || '01'
+        };
+
+        for (const [key, value] of Object.entries(data)) {
+            const sanitizedValue = this.sanitizeFilename(String(value));
+            const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\{${escapedKey}\\}`, 'gi');
+
+            if (regex.test(result)) {
+                result = result.replace(regex, sanitizedValue);
+                logger.debug(`Replaced {${key}} with "${sanitizedValue}"`, 'DEBUG');
             }
         }
+
+        return result;
+    }
+
+    buildFolderPath(metadata: Metadata, quality: number) {
+        return this.applyTemplate(CONFIG.download.folderStructure, metadata, quality);
+    }
+
+    buildFilename(metadata: Metadata, quality: number) {
+        const filename = this.applyTemplate(CONFIG.download.fileNaming, metadata, quality);
+        return filename.endsWith('.flac') ? filename : filename + '.flac';
     }
 
     async downloadTrack(
@@ -166,252 +146,198 @@ class DownloadService {
         quality = 27,
         options: DownloadOptions = {}
     ): Promise<DownloadResult> {
-        const result: DownloadResult = {
-            success: false,
-            trackId,
-            quality,
-            filePath: '',
-            error: null
-        };
-        const embedLyrics = settingsService.get('embedLyrics') ?? CONFIG.metadata.embedLyrics;
-        const embedCover = settingsService.get('embedCover') ?? CONFIG.metadata.embedCover;
+        const trackInfo = await this.api.getTrack(trackId);
+        if (!trackInfo.success) return { success: false, error: trackInfo.error };
 
-        if (options.skipExisting && historyService.has(trackId)) {
-            const entry = historyService.get(trackId);
+        const track = trackInfo.data!;
+        const album = track.album;
+
+        const fileUrl = await this.api.getFileUrl(trackId, quality);
+
+        if (!fileUrl.success) {
+            return { success: false, error: fileUrl.error };
+        }
+
+        const fileUrlData = fileUrl.data as FileUrlData;
+        const actualQuality = fileUrlData.format_id || quality;
+
+        if (options.onQuality) options.onQuality(actualQuality);
+
+        const metadata = await this.metadataService.extractMetadata(track, album!, {});
+        if (options.onMetadata) options.onMetadata(metadata);
+
+        const folderPath = path.join(this.outputDir, this.buildFolderPath(metadata, actualQuality));
+        if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true });
+
+        const filename = this.buildFilename(metadata, actualQuality);
+        const filePath = path.join(folderPath, filename);
+
+        if (options.skipExisting && existsSync(filePath)) {
             return {
-                ...result,
                 success: true,
                 skipped: true,
-                filePath: entry?.filename || 'Skipped (History)',
-                name: entry?.title
+                filePath,
+                quality: actualQuality,
+                metadata
             };
         }
 
+        if (options.onProgress) {
+            options.onProgress({ phase: 'download_start', loaded: 0, total: 0 });
+        }
+
         try {
-            const trackInfo = await this.api.getTrack(trackId);
-            if (!trackInfo.success) throw new Error(`Track Info Error: ${trackInfo.error}`);
-            const track = trackInfo.data;
-            logger.info(`Processing track: ${track?.title} - ${trackId}`);
+            const response = await downloadFile(fileUrlData.url);
+            const totalLength = parseInt(response.headers['content-length'] || '0', 10);
+            let downloaded = 0;
+            const startTime = Date.now();
 
-            const fileUrl = await this.api.getFileUrl(trackId, quality);
-            if (!fileUrl.success) throw new Error(`File URL Error: ${fileUrl.error}`);
-            logger.debug(`File URL obtained for quality ${quality}`);
+            const writer = createWriteStream(filePath);
 
-            const fileUrlData = fileUrl.data as any;
-            const actualQuality = fileUrlData.format_id || quality;
-            const extension = CONFIG.quality.formats[actualQuality]?.extension || 'flac';
+            await new Promise<void>((resolve, reject) => {
+                response.data.on('data', (chunk: Buffer) => {
+                    downloaded += chunk.length;
 
-            let albumData: Record<string, any> = track!.album || {};
-            if (track!.album?.id) {
-                const albumInfo = await this.api.getAlbum(track!.album!.id!);
-                if (albumInfo.success && albumInfo.data)
-                    albumData = albumInfo.data as unknown as Record<string, any>;
-            }
+                    if (options.onProgress) {
+                        const currentTime = Date.now();
+                        const elapsed = (currentTime - startTime) / 1000;
+                        const speed = elapsed > 0 ? downloaded / elapsed : 0;
 
-            const fileUrlInfo = fileUrl.data as { bit_depth?: number; sampling_rate?: number };
-            const metadata = await this.metadataService.extractMetadata(track!, albumData, {
-                bitDepth: fileUrlInfo.bit_depth || 16,
-                sampleRate: fileUrlInfo.sampling_rate || 44.1
+                        options.onProgress({
+                            phase: 'download',
+                            loaded: downloaded,
+                            total: totalLength,
+                            speed
+                        });
+                    }
+                });
+
+                response.data.pipe(writer);
+
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+                response.data.on('error', reject);
             });
-            logger.debug('Metadata extracted successfully');
-            result.metadata = metadata;
 
-            const rootDir = options.outputDir || this.outputDir;
-            const folderPath = path.join(rootDir, this.buildFolderPath(metadata, actualQuality));
-            mkdirSync(folderPath, { recursive: true });
+            if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
 
-            const filePath = path.join(folderPath, this.buildFilename(metadata, extension));
-            result.filePath = filePath;
-
-            let lyrics = null;
-            if (embedLyrics) {
-                if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
-                logger.debug(`Fetching lyrics for "${track!.title}"...`);
-                const lyricsRes = await this.lyricsProvider.getLyrics(
-                    track!.title,
+            let lyricsResult = null;
+            try {
+                const processedLyrics = await this.lyricsProvider.getLyrics(
+                    metadata.title,
                     metadata.artist,
                     metadata.album,
-                    track!.duration,
+                    metadata.duration,
                     metadata.albumArtist
                 );
-                if (lyricsRes.success) {
-                    logger.success(`Lyrics found via ${lyricsRes.source}`);
-                    lyrics = lyricsRes;
+
+                if (processedLyrics.success) {
+                    lyricsResult = processedLyrics;
+                    logger.info(
+                        `Lyrics found for ${metadata.title}: ${processedLyrics.source}`,
+                        'LYRICS'
+                    );
                 } else {
-                    logger.warn(`No lyrics found: ${lyricsRes.error}`);
+                    logger.warn(`No lyrics found for ${metadata.title}`, 'LYRICS');
                 }
+            } catch (e: any) {
+                logger.error(`Error fetching lyrics: ${e.message}`, 'LYRICS');
             }
 
-            const maxAttempts = CONFIG.download.retryAttempts || 3;
-            const retryDelay = CONFIG.download.retryDelay || 1000;
-            let lastError = null;
+            if (options.onProgress) options.onProgress({ phase: 'tagging', loaded: 100 });
+            await this.metadataService.writeMetadata(
+                filePath,
+                metadata,
+                actualQuality,
+                lyricsResult
+            );
 
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                try {
-                    if (options.onProgress)
-                        options.onProgress({ phase: 'download_start', loaded: 0 });
+            resumeService.completeDownload(trackId.toString());
 
-                    const fileStreamData = fileUrl.data as { url: string };
-                    const response = await downloadFile(fileStreamData.url, {
-                        timeout: 0
-                    });
+            let artistImageUrl =
+                track?.performer?.image?.large || track?.artist?.image?.large || '';
 
-                    const contentLength = response.headers['content-length'];
-                    const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-                    const writer = createWriteStream(filePath);
-                    const progressStream = new PassThrough();
-
-                    let downloaded = 0;
-                    let lastTick = Date.now();
-                    let lastLoaded = 0;
-
-                    progressStream.on('data', (chunk: Buffer) => {
-                        downloaded += chunk.length;
-                        const now = Date.now();
-                        if (now - lastTick > 500) {
-                            const diff = now - lastTick;
-                            const speed = ((downloaded - lastLoaded) / diff) * 1000;
-                            if (options.onProgress)
-                                options.onProgress({
-                                    phase: 'download',
-                                    loaded: downloaded,
-                                    total: totalSize,
-                                    speed
-                                });
-                            lastTick = now;
-                            lastLoaded = downloaded;
+            if (!artistImageUrl) {
+                const artistId =
+                    track?.performer?.id || track?.artist?.id || (track?.album?.artist as any)?.id;
+                if (artistId) {
+                    try {
+                        const artistRes = await this.api.getArtist(artistId);
+                        if (artistRes.success && artistRes.data) {
+                            const artistData = artistRes.data as any;
+                            artistImageUrl =
+                                artistData.image?.large ||
+                                artistData.image?.medium ||
+                                artistData.image?.small ||
+                                '';
                         }
-                    });
-
-                    await pipeline(response.data, progressStream, writer);
-
-                    if (totalSize && downloaded < totalSize) {
-                        throw new Error(
-                            `Incomplete download: Expected ${totalSize} bytes, got ${downloaded}`
-                        );
-                    }
-
-                    lastError = null;
-                    break;
-                } catch (error) {
-                    lastError = error;
-                    if (attempt < maxAttempts) {
-                        const delay = retryDelay * attempt;
-                        if (existsSync(filePath)) unlinkSync(filePath);
-                        await new Promise((resolve) => setTimeout(resolve, delay));
-                        continue;
+                    } catch (e) {
+                        logger.debug(`Failed to fetch artist image: ${e}`);
                     }
                 }
             }
 
-            if (lastError) {
-                throw lastError;
-            }
-
-            if (options.onProgress) options.onProgress({ phase: 'cover', loaded: 0 });
-            const coverBuffer =
-                embedCover || CONFIG.metadata.saveCoverFile
-                    ? await this.getCoverBuffer(metadata.coverUrl)
-                    : null;
-
-            if (coverBuffer && CONFIG.metadata.saveCoverFile) {
-                writeFileSync(path.join(folderPath, 'cover.jpg'), coverBuffer);
-            }
-
-            if (options.onProgress) options.onProgress({ phase: 'tagging', loaded: 0 });
-            if (extension === 'mp3') {
-                const tags = this.metadataService.buildId3Tags(
-                    metadata,
-                    embedCover ? coverBuffer : null,
-                    lyrics
-                );
-                await this.metadataService.writeId3Tags(filePath, tags);
-            } else if (extension === 'flac') {
-                const tags = this.metadataService.buildFlacTags(metadata, lyrics);
-                await this.embedFlacMetadata(filePath, tags, embedCover ? coverBuffer : null);
-            }
-
-            result.success = true;
             historyService.add(trackId, {
                 filename: filePath,
-                quality,
-                title: metadata.title
-            });
-            return result;
-        } catch (error: unknown) {
-            const err = error as any;
-            result.error = err.message || 'Unknown error';
-            if (err.code) result.error += ` (${err.code})`;
-            return result;
-        }
-    }
-
-    async embedFlacMetadata(filePath: string, tags: string[][], coverBuffer: Buffer | null) {
-        const tempPath = filePath + '.tagging.tmp';
-        try {
-            const reader = createReadStream(filePath);
-            const writer = createWriteStream(tempPath);
-            const processor = new flac.Processor({ parseMetaDataBlocks: true });
-
-            let tagsAdded = false;
-
-            processor.on('preprocess', (mdb: any) => {
-                if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
-                    mdb.remove();
-                } else if (mdb.type === flac.Processor.MDB_TYPE_PICTURE && coverBuffer) {
-                    mdb.remove();
-                }
+                quality: actualQuality,
+                title: metadata.title,
+                artist: metadata.artist,
+                albumArtist: metadata.albumArtist,
+                artistImageUrl: artistImageUrl,
+                album: metadata.album
             });
 
-            processor.on('postprocess', (mdb: any) => {
-                if (mdb.type === flac.Processor.MDB_TYPE_STREAMINFO && !tagsAdded) {
-                    tagsAdded = true;
+            try {
+                const { databaseService } = await import('./database/index.js');
+                const trackAny = track as any;
 
-                    const vendor = 'qbz-downloader';
-                    const validComments = tags.filter(([_key, value]) => {
-                        if (value === undefined || value === null) return false;
-                        const str = value.toString();
-                        return str.trim().length > 0;
-                    });
-                    const vorbisComment = flac.data.MetaDataBlockVorbisComment.create(
-                        false,
-                        vendor,
-                        validComments.map(([key, value]) => `${key}=${value}`)
-                    );
-                    processor.push(vorbisComment.publish());
+                databaseService.addTrack({
+                    id: trackId.toString(),
+                    title: metadata.title,
+                    artist: metadata.artist,
+                    album_artist: metadata.albumArtist,
+                    album: metadata.album,
+                    album_id: track.album?.id?.toString(),
+                    duration: metadata.duration,
+                    quality: actualQuality,
+                    file_path: filePath,
+                    file_size: totalLength,
+                    cover_url: track.album?.image?.large || track.album?.image?.medium,
+                    genre: metadata.genre,
+                    year: metadata.year ? parseInt(metadata.year.toString()) : undefined,
+                    downloaded_at: new Date().toISOString(),
+                    label: trackAny.album?.label?.name,
+                    isrc: trackAny.isrc
+                });
 
-                    if (coverBuffer) {
-                        const picture = flac.data.MetaDataBlockPicture.create(
-                            false,
-                            3,
-                            'image/jpeg',
-                            'Cover',
-                            0,
-                            0,
-                            0,
-                            0,
-                            coverBuffer
-                        );
-                        processor.push(picture.publish());
-                    }
-                }
-            });
-
-            await pipeline(reader, processor, writer);
-
-            if (!existsSync(tempPath)) {
-                throw new Error('Tagging failed: output file not created');
+                databaseService.addLibraryFile({
+                    file_path: filePath,
+                    track_id: trackId.toString(),
+                    title: metadata.title,
+                    artist: metadata.artist,
+                    album: metadata.album,
+                    duration: metadata.duration,
+                    quality: actualQuality,
+                    file_size: totalLength,
+                    format: filePath.split('.').pop()?.toUpperCase() || 'FLAC',
+                    bit_depth: metadata.bitDepth,
+                    sample_rate: metadata.sampleRate,
+                    needs_upgrade: false
+                });
+            } catch (error: any) {
+                logger.warn(`Failed to update analytics database: ${error.message}`, 'DB');
             }
 
+            return {
+                success: true,
+                filePath,
+                quality: actualQuality,
+                metadata,
+                lyrics: (lyricsResult as any) || undefined
+            };
+        } catch (error: any) {
             if (existsSync(filePath)) unlinkSync(filePath);
-            renameSync(tempPath, filePath);
-        } catch (error: unknown) {
-            if (existsSync(tempPath)) {
-                try {
-                    unlinkSync(tempPath);
-                } catch {}
-            }
-            throw new Error(`FLAC Tagging failed: ${(error as Error).message}`);
+            return { success: false, error: error.message };
         }
     }
 
@@ -424,10 +350,18 @@ class DownloadService {
         if (!albumInfo.success) return { success: false, error: albumInfo.error };
         const album = albumInfo.data;
 
+        if (options.onMetadata && album) {
+            options.onMetadata({
+                title: album.title,
+                artist: album.artist?.name,
+                album: album.title
+            });
+        }
+
         const tracksItems = album?.tracks?.items || [];
-        let tracks: any[] = tracksItems;
+        let tracks: Track[] = tracksItems;
         if (options.trackIndices)
-            tracks = tracks.filter((_: unknown, i: number) => options.trackIndices!.includes(i));
+            tracks = tracks.filter((_: Track, i: number) => options.trackIndices!.includes(i));
 
         const limit = pLimit(CONFIG.download.concurrent);
 
@@ -446,6 +380,7 @@ class DownloadService {
 
                 const res = await this.downloadTrack(track.id, quality, {
                     skipExisting: options.skipExisting,
+                    onQuality: options.onQuality,
                     onProgress: (p) => {
                         if (options.onProgress) {
                             options.onProgress(trackId, {
@@ -471,36 +406,20 @@ class DownloadService {
                         }
                     }
                 });
-
-                if (res.success) {
-                    if (options.onProgress)
-                        options.onProgress(trackId, {
-                            status: 'done',
-                            phase: 'Complete',
-                            loaded: 100,
-                            total: 100
-                        });
-                } else {
-                    if (options.onProgress)
-                        options.onProgress(trackId, {
-                            status: 'failed',
-                            phase: 'Failed',
-                            error: res.error || 'Error'
-                        });
-                }
                 return res;
             });
         });
 
         const results = await Promise.all(promises);
+        const success = results.every((r) => r.success || r.skipped);
+        const completedTracks = results.filter((r) => r.success).length;
+        const failedTracks = results.filter((r) => !r.success && !r.skipped).length;
 
         return {
-            success: results.every((r) => r.success),
+            success,
             tracks: results,
-            title: album?.title || 'Unknown Album',
-            artist: album?.artist?.name || 'Unknown Artist',
-            completedTracks: results.filter((r) => r.success).length,
-            failedTracks: results.filter((r) => !r.success).length,
+            completedTracks,
+            failedTracks,
             totalTracks: results.length
         };
     }
@@ -513,6 +432,14 @@ class DownloadService {
         const playlistInfo = await this.api.getPlaylist(playlistId);
         if (!playlistInfo.success) return { success: false, error: playlistInfo.error };
         const playlist = playlistInfo.data!;
+
+        if (options.onMetadata && playlist) {
+            options.onMetadata({
+                title: playlist.name,
+                artist: 'Various Artists',
+                album: playlist.name
+            });
+        }
 
         let tracks = playlist.tracks.items;
         if (options.trackIndices)
@@ -533,6 +460,7 @@ class DownloadService {
 
                 const res = await this.downloadTrack(track.id, quality, {
                     skipExisting: options.skipExisting,
+                    onQuality: options.onQuality,
                     onProgress: (p) => {
                         if (options.onProgress) {
                             options.onProgress(trackId, {
@@ -548,27 +476,18 @@ class DownloadService {
                         }
                     }
                 });
-
-                if (res.success) {
-                    if (options.onProgress)
-                        options.onProgress(trackId, { status: 'done', phase: 'Complete' });
-                } else {
-                    if (options.onProgress)
-                        options.onProgress(trackId, { status: 'failed', phase: 'Failed' });
-                }
                 return res;
             });
         });
 
         const results = await Promise.all(promises);
-
+        const success = results.every((r) => r.success || r.skipped);
         return {
-            success: results.every((r) => r.success),
+            success,
             tracks: results,
-            title: playlist.name,
-            totalTracks: results.length,
             completedTracks: results.filter((r) => r.success).length,
-            failedTracks: results.filter((r) => !r.success).length
+            failedTracks: results.filter((r) => !r.success && !r.skipped).length,
+            totalTracks: results.length
         };
     }
 
@@ -580,6 +499,14 @@ class DownloadService {
         const artistInfo = await this.api.getArtist(artistId);
         if (!artistInfo.success) return { success: false, error: artistInfo.error };
         const artist = artistInfo.data as Record<string, any>;
+
+        if (options.onMetadata && artist) {
+            options.onMetadata({
+                title: artist.name,
+                artist: artist.name,
+                album: 'Discography'
+            });
+        }
 
         const albums = artist.albums?.items || [];
         const results: DownloadResult[] = [];
@@ -603,5 +530,3 @@ class DownloadService {
         };
     }
 }
-
-export default DownloadService;

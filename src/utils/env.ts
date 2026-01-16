@@ -1,13 +1,8 @@
-import chalk from 'chalk';
 import { CONFIG } from '../config.js';
-import { settingsService } from '../services/settings.js';
+import { logger } from './logger.js';
 
 export function validateEnvironment(_exitOnError = true) {
     const warnings: string[] = [];
-
-    if (settingsService.isConfigured()) {
-        return { valid: true, warnings };
-    }
 
     const missing: string[] = [];
     const creds = CONFIG.credentials;
@@ -15,6 +10,7 @@ export function validateEnvironment(_exitOnError = true) {
     if (!creds.appId) missing.push('QOBUZ_APP_ID');
     if (!creds.appSecret) missing.push('QOBUZ_APP_SECRET');
     if (!creds.token) missing.push('QOBUZ_USER_AUTH_TOKEN');
+    if (!creds.userId) missing.push('QOBUZ_USER_ID');
 
     if (missing.length > 0) {
         return { valid: false, warnings, missing };
@@ -26,7 +22,7 @@ export function validateEnvironment(_exitOnError = true) {
 export function displayEnvWarnings(warnings: string[]) {
     if (warnings && warnings.length > 0) {
         for (const warning of warnings) {
-            console.log(chalk.yellow(`⚠️  ${warning}`));
+            logger.warn(warning, 'ENV');
         }
     }
 }
@@ -44,9 +40,9 @@ export function getEnvSummary() {
             folderTemplate: CONFIG.download.folderStructure,
             fileNaming: CONFIG.download.fileNaming
         },
-        telegram: {
-            botToken: !!CONFIG.telegram.token,
-            chatId: !!CONFIG.telegram.chatId
+        dashboard: {
+            port: CONFIG.dashboard.port,
+            password: !!CONFIG.dashboard.password
         }
     };
 }

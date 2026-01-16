@@ -154,7 +154,7 @@ describe('DownloadService', () => {
             expect(result).toContain('05');
         });
 
-        it('should use 00 for missing track number', () => {
+        it('should use 01 as default for missing track number', () => {
             const metadata = {
                 title: 'Track',
                 artist: 'Artist',
@@ -162,17 +162,17 @@ describe('DownloadService', () => {
             };
 
             const result = downloadService.buildFilename(metadata as any, 'flac');
-            expect(result).toContain('00');
+            expect(result).toContain('01');
         });
 
-        it('should support mp3 extension', () => {
+        it('should always use flac extension regardless of quality parameter', () => {
             const metadata = {
                 title: 'Track',
                 trackNumber: 1
             };
 
-            const result = downloadService.buildFilename(metadata as any, 'mp3');
-            expect(result).toMatch(/\.mp3$/);
+            const result = downloadService.buildFilename(metadata as any, 5);
+            expect(result).toMatch(/\.flac$/);
         });
     });
 

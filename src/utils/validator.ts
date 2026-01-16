@@ -1,30 +1,22 @@
-import { logger } from '../../../utils/logger.js';
+import { logger } from './logger.js';
 
 export interface UrlValidationResult {
     valid: boolean;
-
     type?: string;
-
     id?: string;
-
     error?: string;
 }
 
 export interface QueryValidationResult {
     valid: boolean;
-
     sanitized?: string;
-
     error?: string;
 }
 
 export interface ValidatorConfig {
     maxQueryLength: number;
-
     maxUrlLength: number;
-
     allowedHosts: string[];
-
     strictMode: boolean;
 }
 

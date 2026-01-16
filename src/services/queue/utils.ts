@@ -1,4 +1,4 @@
-import { InlineKeyboard, InlineKeyboardRow, DownloadType, QueueItemStatus } from './types.js';
+import { DownloadType, QueueItemStatus } from './types.js';
 
 export function escapeHtml(str: string): string {
     if (!str) return '';
@@ -63,34 +63,8 @@ export function truncate(str: string, maxLength: number): string {
     return str.substring(0, maxLength - 3) + '...';
 }
 
-export function createKeyboard(rows: InlineKeyboardRow[]): InlineKeyboard {
-    return { inline_keyboard: rows };
-}
-
 export function generateQueueId(): string {
     return `q_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
-
-export function parseDownloadCallback(data: string): {
-    type: DownloadType;
-    id: string;
-    quality: number;
-} | null {
-    const match = data.match(/^dl_(track|album|playlist|artist)_([a-zA-Z0-9]+)_(\d+)$/);
-    if (!match) return null;
-    return {
-        type: match[1] as DownloadType,
-        id: match[2],
-        quality: parseInt(match[3], 10)
-    };
-}
-
-export function createDownloadCallback(
-    type: DownloadType,
-    id: string | number,
-    quality: number
-): string {
-    return `dl_${type}_${id}_${quality}`;
 }
 
 export function formatTimestamp(date?: Date): string {
@@ -107,15 +81,4 @@ export function calculateEta(remaining: number, speed: number): string {
     if (!speed || speed <= 0) return '--:--';
     const seconds = Math.floor(remaining / speed);
     return formatDuration(seconds);
-}
-
-export const SEPARATOR = '━━━━━━━━━━━━━━━━━━';
-
-export function createHeader(text: string, icon?: string): string {
-    const headerIcon = icon || '📢';
-    return `${headerIcon} <b>${text}</b>\n${SEPARATOR}`;
-}
-
-export function createFooter(text: string): string {
-    return `${SEPARATOR}\n<i>${text}</i>`;
 }

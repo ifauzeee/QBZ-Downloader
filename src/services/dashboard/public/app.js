@@ -2,7 +2,7 @@ const state = {
     connected: false,
     queue: [],
     stats: {},
-    activeTab: 'queue',
+    activeTab: localStorage.getItem('lastTab') || 'queue',
     searchOffset: 0,
     searchLimit: 20,
     password: localStorage.getItem('dashboard_password') || '',
@@ -17,6 +17,7 @@ if (state.theme === 'light') {
 window.toggleSidebar = function () {
     document.querySelector('.sidebar').classList.toggle('open');
 };
+
 const menuToggle = document.getElementById('menu-toggle');
 if (menuToggle) menuToggle.onclick = window.toggleSidebar;
 
@@ -29,6 +30,28 @@ if (themeBtn) {
         localStorage.setItem('theme', state.theme);
     };
 }
+
+window.openModal = function (id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.style.display = 'block';
+        const input = modal.querySelector('input');
+        if (input) input.focus();
+    } else {
+        console.error(`Modal with ID '${id}' not found`);
+    }
+};
+
+window.closeModal = function (id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.style.display = 'none';
+};
+
+window.addEventListener('click', (event) => {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+});
 
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(console.error);
@@ -45,6 +68,7 @@ function notifyDownloadComplete(item) {
     if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Download Complete', {
             body: `${item.title} has finished downloading.`,
+            icon: '/favicon.ico'
         });
     }
 }
@@ -60,7 +84,6 @@ async function smartFetch(url, options = {}) {
             'x-password': state.password
         };
     }
-
     const res = await fetch(url, options);
     if (res.status === 401) {
         showLogin();
@@ -110,14 +133,18 @@ if (loginForm) {
     };
 }
 
-
 const views = {
     queue: document.getElementById('view-queue'),
     search: document.getElementById('view-search'),
+    batch: document.getElementById('view-batch'),
+    statistics: document.getElementById('view-statistics'),
+    analytics: document.getElementById('view-analytics'),
+    library: document.getElementById('view-library'),
+
     album: document.getElementById('view-album'),
     artist: document.getElementById('view-artist'),
-    history: document.getElementById('view-history'),
     playlists: document.getElementById('view-playlists'),
+    history: document.getElementById('view-history'),
     settings: document.getElementById('view-settings')
 };
 
@@ -171,6 +198,7 @@ navItems.forEach((item) => {
 
 window.switchTab = function (tab) {
     state.activeTab = tab;
+    localStorage.setItem('lastTab', tab);
 
     navItems.forEach((i) => i.classList.remove('active'));
     const navItem = document.querySelector(`[data-tab="${tab}"]`);
@@ -184,37 +212,25 @@ window.switchTab = function (tab) {
     const titles = {
         queue: 'Download Queue',
         search: 'Library Search',
+        batch: 'Batch Import',
+        statistics: 'Analytics Dashboard',
+        library: 'Music Library',
+
         album: 'Album View',
         artist: 'Artist Detail',
-        history: 'Download History',
         playlists: 'Watched Playlists',
+        history: 'Download History',
         settings: 'Settings'
     };
     document.getElementById('page-title').textContent = titles[tab] || 'Dashboard';
 
     if (tab === 'history') fetchHistory();
+    if (tab === 'statistics') loadStatistics();
+    if (tab === 'settings') loadSettings();
     if (tab === 'playlists') fetchPlaylists();
-    if (tab === 'settings') fetchSettings();
+    if (tab === 'library') loadLibraryStats();
+
 };
-
-const clearHistoryBtn = document.getElementById('clear-history-btn');
-if (clearHistoryBtn) {
-    clearHistoryBtn.onclick = async () => {
-        if (!confirm('Are you sure you want to delete ALL history? This cannot be undone.')) return;
-
-        try {
-            const res = await smartFetch('/api/history/clear', { method: 'POST' });
-            if (res.ok) {
-                showToast('History cleared successfully', 'success');
-                fetchHistory();
-            } else {
-                showToast('Failed to clear history', 'error');
-            }
-        } catch (err) {
-            showToast('Connection error', 'error');
-        }
-    };
-}
 
 async function fetchQueue() {
     try {
@@ -223,6 +239,133 @@ async function fetchQueue() {
         renderQueue(items);
     } catch (err) {
         console.error('Failed to fetch queue:', err);
+    }
+}
+
+function renderQueue(items) {
+    if (!queueList) return;
+    queueList.innerHTML = '';
+
+    if (items.length === 0) {
+        queueList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📥</div>
+                <h3>Queue is Empty</h3>
+                <p>Add URLs to start downloading</p>
+            </div>
+        `;
+        return;
+    }
+
+    items.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        row.id = `item-${item.id}`;
+        row.innerHTML = `
+            <div class="title-cell">
+                <div style="font-weight: 600">${item.title || 'Loading...'}</div>
+            </div>
+            <div><span class="badge ${item.type}">${item.type}</span></div>
+            <div class="quality-cell">${getQualityLabel(item.quality)}</div>
+            <div><span class="badge ${item.status} status-badge">${item.status}</span></div>
+            <div class="progress-cell">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
+                </div>
+            </div>
+            <div>
+                ${item.status === 'downloading' || item.status === 'pending'
+                ? `<button class="btn danger" style="padding: 6px 12px; font-size: 12px;" onclick="cancelItem('${item.id}')">Cancel</button>`
+                : item.status === 'completed'
+                    ? `<button class="btn primary" style="padding: 6px 12px; font-size: 12px;" onclick="downloadFile('${item.contentId}')">Download</button>`
+                    : ''
+            }
+            </div>
+        `;
+        queueList.appendChild(row);
+    });
+}
+
+window.queueAction = async function (action) {
+    try {
+        await smartFetch('/api/queue/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action })
+        });
+        fetchQueue();
+        showToast(`Queue ${action} successful`, 'success');
+    } catch (err) {
+        showToast('Action failed', 'error');
+    }
+};
+
+window.cancelItem = async function (id) {
+    if (!confirm('Cancel this download?')) return;
+    await smartFetch(`/api/item/${id}/cancel`, { method: 'POST' });
+    fetchQueue();
+};
+
+window.downloadFile = function (id) {
+    window.location.href = `/api/download/${id}`;
+};
+
+function updateItemProgress(data) {
+    const row = document.getElementById(`item-${data.id}`);
+    if (row) {
+        const fill = row.querySelector('.progress-fill');
+        if (fill) fill.style.width = `${data.progress}%`;
+
+        if (data.title) {
+            const titleEl = row.querySelector('.title-cell div');
+            if (titleEl && titleEl.textContent !== data.title) {
+                titleEl.textContent = data.title;
+            }
+        }
+
+        if (data.quality) {
+            const qualityEl = row.querySelector('.quality-cell');
+            const newLabel = getQualityLabel(data.quality);
+            if (qualityEl && qualityEl.textContent !== newLabel) {
+                qualityEl.textContent = newLabel;
+            }
+        }
+
+        if (data.status) {
+            const statusEl = row.querySelector('.status-badge');
+            if (statusEl) {
+                statusEl.textContent = data.status;
+                statusEl.className = `badge ${data.status} status-badge`;
+            }
+        }
+    }
+}
+
+function updateStats(stats) {
+    const pending = document.getElementById('stat-pending');
+    const active = document.getElementById('stat-active');
+    const total = document.getElementById('q-total');
+    const downloading = document.getElementById('q-downloading');
+    const completed = document.getElementById('q-completed');
+    const failed = document.getElementById('q-failed');
+
+    if (pending) pending.textContent = stats.pending;
+    if (active) active.textContent = stats.downloading;
+    if (total) total.textContent = stats.total;
+    if (downloading) downloading.textContent = stats.downloading;
+    if (completed) completed.textContent = stats.completed;
+    if (failed) failed.textContent = stats.failed;
+}
+
+function updateConnectionStatus(online) {
+    const el = document.querySelector('.status-indicator');
+    if (!el) return;
+    if (online) {
+        el.innerHTML = '<span class="dot"></span> Online';
+        el.style.color = 'var(--success)';
+    } else {
+        el.innerHTML = '<span class="dot"></span> Disconnected';
+        el.style.color = 'var(--danger)';
     }
 }
 
@@ -236,83 +379,62 @@ async function fetchHistory() {
     }
 }
 
-window.queueAction = async function (action) {
-    try {
-        await smartFetch('/api/queue/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action })
-        });
-        fetchQueue();
-    } catch (err) {
-        alert('Action failed');
-    }
-};
+function renderHistory(items) {
+    if (!historyList) return;
+    historyList.innerHTML = '';
 
-function renderQueue(items) {
-    queueList.innerHTML = '';
     if (items.length === 0) {
-        queueList.innerHTML =
-            '<div style="padding: 20px; text-align: center; color: #666;">Queue is empty</div>';
-        return;
-    }
-    items.forEach((item) => {
-        const row = document.createElement('div');
-        row.className = 'list-row';
-        row.id = `item-${item.id}`;
-        row.innerHTML = `
-            <div class="title-cell">
-                <div style="font-weight: 500">${item.title || 'Loading...'}</div>
-            </div>
-            <div><span class="badge ${item.type}">${item.type}</span></div>
-            <div>${getQualityLabel(item.quality)}</div>
-            <div><span class="badge ${item.status}">${item.status}</span></div>
-            <div class="progress-cell">
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
-                </div>
-            </div>
-            <div>
-                ${item.status === 'downloading' || item.status === 'pending'
-                ? `<button class="btn danger" style="padding: 4px 8px; font-size: 11px;" onclick="cancelItem('${item.id}')">Cancel</button>`
-                : item.status === 'completed'
-                    ? `<button class="btn primary" style="padding: 4px 8px; font-size: 11px;" onclick="downloadFile('${item.contentId}')">Save to Device</button>`
-                    : ''
-            }
+        historyList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📜</div>
+                <h3>No History</h3>
+                <p>Completed downloads will appear here</p>
             </div>
         `;
-        queueList.appendChild(row);
-    });
-}
-
-window.downloadFile = function (id) {
-    window.location.href = `/api/download/${id}`;
-};
-
-
-function renderHistory(items) {
-    historyList.innerHTML = '';
-    if (items.length === 0) {
-        historyList.innerHTML =
-            '<div style="padding: 20px; text-align: center; color: #666;">No history found</div>';
         return;
     }
+
     items.forEach((item) => {
         const row = document.createElement('div');
         row.className = 'list-row';
         const date = new Date(item.downloadedAt).toLocaleString();
         row.innerHTML = `
-            <div style="color: #666; font-size: 12px;">${date}</div>
-            <div style="font-weight: 500">${item.title}</div>
+            <div style="color: var(--text-secondary); font-size: 12px;">${date}</div>
+            <div style="font-weight: 600">${item.title}</div>
             <div>${getQualityLabel(item.quality)}</div>
-            <div style="font-family: monospace; font-size: 11px; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.filename}</div>
+            <div style="font-family: monospace; font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.filename || '-'}</div>
             <div>
-                <button class="btn primary" style="padding: 4px 8px; font-size: 11px;" onclick="downloadFile('${item.id}')">Download</button>
+                <button class="btn primary" style="padding: 6px 12px; font-size: 12px;" onclick="downloadFile('${item.id}')">
+                    Download
+                </button>
             </div>
         `;
         historyList.appendChild(row);
     });
 }
+
+const clearHistoryBtn = document.getElementById('clear-history-btn');
+if (clearHistoryBtn) {
+    clearHistoryBtn.onclick = async () => {
+        if (!confirm('Delete ALL history? This cannot be undone.')) return;
+
+        try {
+            const res = await smartFetch('/api/history/clear', { method: 'POST' });
+            if (res.ok) {
+                showToast('History cleared', 'success');
+                fetchHistory();
+            } else {
+                showToast('Failed to clear history', 'error');
+            }
+        } catch (err) {
+            showToast('Connection error', 'error');
+        }
+    };
+}
+
+window.exportHistory = function (format) {
+    window.location.href = `/api/history/export?format=${format}`;
+};
 
 const searchBtn = document.getElementById('search-btn');
 const searchInput = document.getElementById('search-input');
@@ -329,10 +451,8 @@ document.querySelectorAll('.type-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-
         currentSearchType = btn.dataset.type;
-
-        if (searchInput.value.trim()) {
+        if (searchInput && searchInput.value.trim()) {
             doSearch(0);
         }
     });
@@ -345,8 +465,7 @@ async function doSearch(offset = 0) {
     state.searchOffset = offset;
     const type = currentSearchType;
 
-    resultsGrid.innerHTML =
-        '<div style="grid-column: 1/-1; text-align: center; padding: 50px;">Searching...</div>';
+    resultsGrid.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Searching...</p></div>';
     document.getElementById('search-pagination').innerHTML = '';
 
     try {
@@ -355,8 +474,7 @@ async function doSearch(offset = 0) {
         const data = await res.json();
         renderResults(data, type);
     } catch (err) {
-        resultsGrid.innerHTML =
-            '<div style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 50px;">Search failed</div>';
+        resultsGrid.innerHTML = '<div class="empty-state"><p style="color: var(--danger);">Search failed</p></div>';
     }
 }
 
@@ -366,17 +484,11 @@ function renderResults(data, type) {
     const list = itemsData.items || [];
 
     if (list.length === 0) {
-        resultsGrid.innerHTML =
-            '<div style="grid-column: 1/-1; text-align: center; color: #666; padding: 50px;">No results found</div>';
+        resultsGrid.innerHTML = '<div class="empty-state"><h3>No Results</h3><p>Try different keywords</p></div>';
         return;
     }
 
-    renderPagination(
-        'search-pagination',
-        itemsData.total,
-        itemsData.offset,
-        (newOffset) => doSearch(newOffset)
-    );
+    renderPagination('search-pagination', itemsData.total, itemsData.offset, (newOffset) => doSearch(newOffset));
 
     list.forEach((item) => {
         const card = document.createElement('div');
@@ -384,66 +496,46 @@ function renderResults(data, type) {
         card.className = `result-card ${itemType}`;
 
         let title = item.title || item.name;
-        let artist = item.artist?.name || item.performer?.name || 'Various Artists';
+        let artist = item.artist?.name || item.performer?.name || '';
         let cover = '';
         let id = item.id;
         let isHiRes = !!item.hires;
 
         if (itemType === 'artist') {
-            cover =
-                item.image?.large ||
-                item.image?.medium ||
-                item.image?.small ||
-                item.picture?.large ||
-                item.picture?.medium ||
-                item.picture?.small ||
-                item.picture_large ||
-                item.picture_medium ||
-                item.picture_small;
-
-            if (!cover && typeof item.image === 'string') cover = item.image;
-            if (!cover && typeof item.picture === 'string') cover = item.picture;
-
-            if (!cover) {
-                console.warn('Missing cover for artist:', item);
-            }
-
+            cover = item.image?.large || item.image?.medium || item.image?.small ||
+                item.picture?.large || item.picture?.medium || item.picture?.small;
             artist = '';
             isHiRes = false;
         } else if (itemType === 'track') {
-            cover =
-                item.album?.image?.large ||
-                item.album?.image?.medium ||
-                item.album?.image?.small ||
-                item.image?.large ||
-                item.image?.medium;
+            cover = item.album?.image?.large || item.album?.image?.medium || item.image?.large;
         } else {
             cover = item.image?.large || item.image?.medium || item.image?.small;
         }
 
-        if (cover && cover.replace) {
-            cover = cover.replace('_642', '_600').replace('_50', '_600');
-        }
-
-        const openHandler = () => {
-            if (itemType === 'album') fetchAlbumDetail(id);
-            else if (itemType === 'track') addToQueue('track', id);
-            else if (itemType === 'artist') fetchArtistDetail(id, 'albums');
-        };
-
-        card.onclick = (e) => {
-            if (e.target.tagName !== 'BUTTON') openHandler();
-        };
+        if (cover) cover = cover.replace('_642', '_600').replace('_50', '_600');
 
         let overlayButtons = '';
         if (itemType === 'album') {
-            overlayButtons = `<button class="btn secondary" onclick="window.fetchAlbumDetail('${id}')">View Tracks</button>
-                             <button class="btn primary" onclick="event.stopPropagation(); window.addToQueue('${itemType}', '${id}')">Full Download</button>`;
+            overlayButtons = `
+                <button class="btn secondary" onclick="window.fetchAlbumDetail('${id}')">View Tracks</button>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="btn primary" onclick="event.stopPropagation(); window.addToQueue('${itemType}', '${id}')">Download</button>
+                    <button class="btn secondary" onclick="event.stopPropagation(); window.addToBatch('${itemType}', '${id}')" title="Add to Batch">+</button>
+                </div>
+            `;
         } else if (itemType === 'artist') {
-            overlayButtons = `<button class="btn secondary" onclick="window.fetchArtistDetail('${id}', 'albums')">View Albums</button>
-                              <button class="btn secondary" onclick="window.fetchArtistDetail('${id}', 'tracks')">View Tracks</button>`;
+            overlayButtons = `
+                <button class="btn secondary" onclick="window.fetchArtistDetail('${id}', 'albums')">Albums</button>
+                <button class="btn secondary" onclick="window.fetchArtistDetail('${id}', 'tracks')">Tracks</button>
+            `;
         } else {
-            overlayButtons = `<button class="btn primary" onclick="event.stopPropagation(); window.addToQueue('${itemType}', '${id}')">Full Download</button>`;
+            overlayButtons = `
+                <button class="btn primary" onclick="event.stopPropagation(); window.addToQueue('${itemType}', '${id}')">Download</button>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="btn secondary" onclick="event.stopPropagation(); window.playTrack('${id}', '${title.replace(/'/g, "\\'")}', '${artist.replace(/'/g, "\\'")}', '${cover}')" title="Play">▶</button>
+                    <button class="btn secondary" onclick="event.stopPropagation(); window.addToBatch('${itemType}', '${id}')" title="Add to Batch">+</button>
+                </div>
+            `;
         }
 
         card.innerHTML = `
@@ -454,10 +546,15 @@ function renderResults(data, type) {
                 <div class="result-title" title="${title}">${title}</div>
                 ${artist ? `<div class="result-artist" title="${artist}">${artist}</div>` : ''}
             </div>
-            <div class="download-overlay">
-                ${overlayButtons}
-            </div>
+            <div class="download-overlay">${overlayButtons}</div>
         `;
+        card.onclick = (e) => {
+            if (!e.target.closest('button')) {
+                if (itemType === 'album') fetchAlbumDetail(id);
+                else if (itemType === 'artist') fetchArtistDetail(id, 'albums');
+                else addToQueue('track', id);
+            }
+        };
         resultsGrid.appendChild(card);
     });
 }
@@ -497,150 +594,22 @@ function renderPagination(containerId, total, offset, callback) {
     container.appendChild(nextBtn);
 }
 
-window.fetchArtistDetail = async function (id, viewType, offset = 0) {
-    window.switchTab('artist');
-    if (offset === 0) {
-        artistFullContent.innerHTML =
-            '<div style="text-align: center; padding: 50px;">Loading artist details...</div>';
-    }
-
-    const pagContainer = document.getElementById('artist-pagination');
-    if (pagContainer) pagContainer.innerHTML = '';
-
-    try {
-        const res = await smartFetch(`/api/artist/${id}?offset=${offset}&limit=${state.searchLimit}&type=${viewType}`);
-        const data = await res.json();
-        renderArtistDetail(data, viewType, offset);
-    } catch (err) {
-        artistFullContent.innerHTML =
-            '<div style="text-align: center; color: var(--danger); padding: 50px;">Failed to load artist</div>';
-    }
-};
-
-function renderArtistDetail(artist, viewType, offset = 0) {
-    let cover = artist.image?.large || artist.image?.medium || artist.image?.small ||
-        artist.picture?.large || artist.picture?.medium || artist.picture?.small;
-
-    if (cover && cover.replace) cover = cover.replace('_642', '_600').replace('_50', '_600');
-
-    if (!cover && artist.albums && artist.albums.items.length > 0) {
-        cover = artist.albums.items[0].image?.large || artist.albums.items[0].image?.medium;
-    }
-
-    let contentHtml = '';
-
-    if (viewType === 'albums') {
-        const albums = artist.albums?.items || [];
-        if (albums.length === 0) {
-            contentHtml = '<div style="text-align: center; padding: 30px;">No albums found</div>';
-        } else {
-            contentHtml = '<div class="results-grid">';
-            albums.forEach(album => {
-                let albumCover = album.image?.large || album.image?.medium;
-                if (albumCover && albumCover.replace) albumCover = albumCover.replace('_642', '_600');
-
-                contentHtml += `
-                    <div class="result-card album" onclick="window.fetchAlbumDetail('${album.id}')">
-                        <img src="${albumCover}" class="result-cover" loading="lazy">
-                        ${album.hires ? '<div class="hires-badge">HI-RES</div>' : ''}
-                        <div class="result-info">
-                            <div class="result-title">${album.title}</div>
-                            <div class="result-artist">${formatDate(album.release_date_original)}</div>
-                        </div>
-                         <div class="download-overlay">
-                            <button class="btn secondary">View Tracks</button>
-                        </div>
-                    </div>
-                 `;
-            });
-            contentHtml += '</div>';
-
-        }
-    } else {
-        const tracks = artist.tracks?.items || [];
-        if (tracks.length === 0) {
-            contentHtml = '<div style="text-align: center; padding: 30px;">No tracks found</div>';
-        } else {
-            contentHtml = '<div class="track-list">';
-            tracks.forEach((track, index) => {
-                contentHtml += `
-                <div class="track-item">
-                    <div class="track-number">${offset + index + 1}</div>
-                    <div class="track-title">
-                        ${track.title}
-                        ${track.hires ? '<span class="hires-indicator" style="font-size: 8px; padding: 1px 3px;">HI-RES</span>' : ''}
-                        <div style="font-size: 11px; color: #888;">${track.album?.title || ''}</div>
-                    </div>
-                    <div class="track-duration">${formatDuration(track.duration)}</div>
-                    <div class="track-actions">
-                        <button class="btn" title="Download this track" onclick="window.addToQueue('track', '${track.id}')">📥</button>
-                    </div>
-                </div>
-                 `;
-            });
-            contentHtml += '</div>';
-        }
-    }
-
-    artistFullContent.innerHTML = `
-        <div class="album-header">
-            ${cover ? `<img src="${cover}" class="album-header-cover">` : '<div class="album-header-cover" style="background:#333"></div>'}
-            <div class="album-header-info">
-                <div class="album-header-title">${artist.name}</div>
-                <div class="album-header-meta">
-                   ${artist.albums_count || 0} Albums
-                </div>
-                 <div style="margin-top: 15px; display: flex; gap: 10px;">
-                    <button class="btn ${viewType === 'albums' ? 'primary' : 'secondary'}" onclick="window.fetchArtistDetail('${artist.id}', 'albums')">Albums</button>
-                    <button class="btn ${viewType === 'tracks' ? 'primary' : 'secondary'}" onclick="window.fetchArtistDetail('${artist.id}', 'tracks')">Top Tracks</button>
-                </div>
-            </div>
-        </div>
-        <h3 style="margin: 20px 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
-            ${viewType === 'albums' ? 'Albums' : 'Top Tracks'}
-        </h3>
-        ${contentHtml}
-    `;
-
-    if (viewType === 'albums' && artist.albums) {
-        renderPagination(
-            'artist-pagination',
-            artist.albums.total,
-            offset,
-            (newOffset) => window.fetchArtistDetail(artist.id, 'albums', newOffset)
-        );
-    } else if (viewType === 'tracks' && artist.tracks) {
-        renderPagination(
-            'artist-pagination',
-            artist.tracks.total,
-            offset,
-            (newOffset) => window.fetchArtistDetail(artist.id, 'tracks', newOffset)
-        );
-    }
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '';
-    return new Date(dateStr).getFullYear();
-}
-
 window.fetchAlbumDetail = async function (id) {
     window.switchTab('album');
-    albumFullContent.innerHTML =
-        '<div style="text-align: center; padding: 50px;">Loading album details...</div>';
+    albumFullContent.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Loading album...</p></div>';
+
     try {
         const res = await smartFetch(`/api/album/${id}`);
         const album = await res.json();
         renderAlbumDetail(album);
     } catch (err) {
-        albumFullContent.innerHTML =
-            '<div style="text-align: center; color: var(--danger); padding: 50px;">Failed to load album</div>';
+        albumFullContent.innerHTML = '<div class="empty-state"><p style="color: var(--danger);">Failed to load album</p></div>';
     }
 };
 
 function renderAlbumDetail(album) {
-    let cover = album.image?.large || album.image?.medium || album.image?.small;
-    if (cover && cover.replace) cover = cover.replace('_642', '_600').replace('_50', '_600');
+    let cover = album.image?.large || album.image?.medium;
+    if (cover) cover = cover.replace('_642', '_600');
 
     const hiresText = album.maximum_sampling_rate
         ? `${album.maximum_bit_depth}-Bit / ${album.maximum_sampling_rate} kHz`
@@ -652,74 +621,160 @@ function renderAlbumDetail(album) {
             <div class="album-header-info">
                 <div class="album-header-title">
                     ${album.title}
-                    ${album.hires ? '<span class="hires-indicator">HI-RES AUDIO</span>' : ''}
+                    ${album.hires ? '<span class="hires-indicator">HI-RES</span>' : ''}
                 </div>
-                <div class="album-header-artist">${album.artist?.name}</div>
+                <div class="album-header-artist">${album.artist?.name || 'Unknown'}</div>
                 <div class="album-header-meta">
-                    ${album.tracks_count} tracks • ${album.release_date_original || album.release_date_any}
-                    ${hiresText ? `<br><span style="color: #e6b32e; font-weight: 600; font-size: 12px; margin-top: 5px; display: inline-block;">${hiresText}</span>` : ''}
+                    ${album.tracks_count} tracks • ${album.release_date_original || album.release_date_any || ''}
+                    ${hiresText ? `<br><span style="color: var(--warning); font-weight: 600; margin-top: 8px; display: inline-block;">${hiresText}</span>` : ''}
                 </div>
-                <div style="margin-top: 15px">
-                    <button class="btn primary" onclick="window.addToQueue('album', '${album.id}');">Download Full Album</button>
+                <div style="margin-top: 20px; display: flex; gap: 12px;">
+                    <button class="btn primary" onclick="window.addToQueue('album', '${album.id}')">
+                        Download Album
+                    </button>
+                    <button class="btn secondary" onclick="window.addToBatch('album', '${album.id}')">
+                        + Add to Batch
+                    </button>
                 </div>
             </div>
         </div>
         <div class="track-list">
-            ${album.tracks.items
-            .map(
-                (track, index) => `
+            ${album.tracks.items.map((track, index) => `
                 <div class="track-item">
                     <div class="track-number">${index + 1}</div>
                     <div class="track-title">
                         ${track.title}
-                        ${track.hires ? '<span class="hires-indicator" style="font-size: 8px; padding: 1px 3px;">HI-RES</span>' : ''}
+                        ${track.hires ? '<span class="hires-indicator">HI-RES</span>' : ''}
                     </div>
                     <div class="track-duration">${formatDuration(track.duration)}</div>
                     <div class="track-actions">
-                        <button class="btn" title="Download this track" onclick="window.addToQueue('track', '${track.id}')">📥</button>
+                        <button class="btn-track-dl" title="Play" onclick="window.playTrack('${track.id}', '${track.title.replace(/'/g, "\\'")}', '${album.artist?.name?.replace(/'/g, "\\'") || ''}', '${cover}')">
+                            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </button>
+                        <button class="btn-track-dl" title="Add to Batch" onclick="window.addToBatch('track', '${track.id}')">
+                            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+                        </button>
+                        <button class="btn-track-dl" title="Download" onclick="window.addToQueue('track', '${track.id}')">
+                            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        </button>
                     </div>
                 </div>
-            `
-            )
-            .join('')}
+            `).join('')}
         </div>
     `;
 }
 
-function formatDuration(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
+window.fetchArtistDetail = async function (id, viewType, offset = 0) {
+    window.switchTab('artist');
+    artistFullContent.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Loading artist...</p></div>';
 
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
+    try {
+        const res = await smartFetch(`/api/artist/${id}?offset=${offset}&limit=${state.searchLimit}&type=${viewType}`);
+        const data = await res.json();
+        renderArtistDetail(data, viewType, offset);
+    } catch (err) {
+        artistFullContent.innerHTML = '<div class="empty-state"><p style="color: var(--danger);">Failed to load artist</p></div>';
+    }
+};
 
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+function renderArtistDetail(artist, viewType, offset = 0) {
+    let cover = artist.image?.large || artist.image?.medium || artist.picture?.large;
+    if (cover) cover = cover.replace('_642', '_600');
 
-    const icon = type === 'success' ? '✅' : '❌';
+    if (!cover && artist.albums?.items?.length > 0) {
+        cover = artist.albums.items[0].image?.large || artist.albums.items[0].image?.medium;
+    }
 
-    toast.innerHTML = `
-        <span class="toast-icon">${icon}</span>
-        <span class="toast-message">${message}</span>
+    let contentHtml = '';
+
+    if (viewType === 'albums') {
+        const albums = artist.albums?.items || [];
+        if (albums.length === 0) {
+            contentHtml = '<div class="empty-state"><p>No albums found</p></div>';
+        } else {
+            contentHtml = '<div class="results-grid">';
+            albums.forEach(album => {
+                let albumCover = album.image?.large || album.image?.medium;
+                if (albumCover) albumCover = albumCover.replace('_642', '_600');
+                contentHtml += `
+                    <div class="result-card album" onclick="window.fetchAlbumDetail('${album.id}')">
+                        <img src="${albumCover}" class="result-cover" loading="lazy">
+                        ${album.hires ? '<div class="hires-badge">HI-RES</div>' : ''}
+                        <div class="result-info">
+                            <div class="result-title">${album.title}</div>
+                            <div class="result-artist">${formatDate(album.release_date_original)}</div>
+                        </div>
+                        <div class="download-overlay">
+                            <button class="btn secondary">View Tracks</button>
+                        </div>
+                    </div>
+                `;
+            });
+            contentHtml += '</div>';
+        }
+    } else {
+        const tracks = artist.tracks?.items || [];
+        if (tracks.length === 0) {
+            contentHtml = '<div class="empty-state"><p>No tracks found</p></div>';
+        } else {
+            contentHtml = '<div class="track-list">';
+            tracks.forEach((track, index) => {
+                contentHtml += `
+                    <div class="track-item">
+                        <div class="track-number">${offset + index + 1}</div>
+                        <div class="track-title">
+                            ${track.title}
+                            ${track.hires ? '<span class="hires-indicator">HI-RES</span>' : ''}
+                            <div style="font-size: 11px; color: var(--text-secondary);">${track.album?.title || ''}</div>
+                        </div>
+                        <div class="track-duration">${formatDuration(track.duration)}</div>
+                        <div class="track-actions">
+                            <button class="btn-track-dl" title="Play" onclick="window.playTrack('${track.id}', '${track.title.replace(/'/g, "\\'")}', '${artist.name.replace(/'/g, "\\'")}', '${cover}')">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </button>
+                            <button class="btn-track-dl" title="Add to Batch" onclick="window.addToBatch('track', '${track.id}')">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+                            </button>
+                            <button class="btn-track-dl" title="Download" onclick="window.addToQueue('track', '${track.id}')">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            contentHtml += '</div>';
+        }
+    }
+
+    artistFullContent.innerHTML = `
+        <div class="album-header">
+            ${cover ? `<img src="${cover}" class="album-header-cover" style="border-radius: 50%;">` : '<div class="album-header-cover" style="background: var(--bg-hover); border-radius: 50%;"></div>'}
+            <div class="album-header-info">
+                <div class="album-header-title">${artist.name}</div>
+                <div class="album-header-meta">${artist.albums_count || 0} Albums</div>
+                <div style="margin-top: 20px; display: flex; gap: 12px;">
+                    <button class="btn ${viewType === 'albums' ? 'primary' : 'secondary'}" onclick="window.fetchArtistDetail('${artist.id}', 'albums')">Albums</button>
+                    <button class="btn ${viewType === 'tracks' ? 'primary' : 'secondary'}" onclick="window.fetchArtistDetail('${artist.id}', 'tracks')">Tracks</button>
+                </div>
+            </div>
+        </div>
+        <h3 style="margin: 24px 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+            ${viewType === 'albums' ? 'Albums' : 'Popular Tracks'}
+        </h3>
+        ${contentHtml}
     `;
 
-    container.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.animation = 'fadeOut 0.5s ease-out forwards';
-        setTimeout(() => {
-            toast.remove();
-        }, 500);
-    }, 3000);
+    if (viewType === 'albums' && artist.albums) {
+        renderPagination('artist-pagination', artist.albums.total, offset, (newOffset) => window.fetchArtistDetail(artist.id, 'albums', newOffset));
+    } else if (viewType === 'tracks' && artist.tracks) {
+        renderPagination('artist-pagination', artist.tracks.total, offset, (newOffset) => window.fetchArtistDetail(artist.id, 'tracks', newOffset));
+    }
 }
 
-
 window.addToQueue = async function (type, id) {
-    const quality = document.getElementById('quality-input').value;
-    let finalUrl = `https://www.qobuz.com/${type}/${id}`;
+    const quality = document.getElementById('quality-input')?.value || 27;
+    const finalUrl = `https://www.qobuz.com/${type}/${id}`;
+
     try {
         const res = await smartFetch('/api/queue/add', {
             method: 'POST',
@@ -727,7 +782,7 @@ window.addToQueue = async function (type, id) {
             body: JSON.stringify({ url: finalUrl, quality })
         });
         if (res.ok) {
-            showToast('Item added to queue', 'success');
+            showToast('Added to queue', 'success');
             fetchQueue();
         } else {
             const data = await res.json();
@@ -738,71 +793,600 @@ window.addToQueue = async function (type, id) {
     }
 };
 
+const batchUrlsTextarea = document.getElementById('batch-urls');
+
+if (batchUrlsTextarea) {
+    batchUrlsTextarea.addEventListener('input', updateBatchCount);
+}
+
+function updateBatchCount() {
+    const textarea = document.getElementById('batch-urls');
+    const countEl = document.getElementById('batch-url-count');
+    if (!textarea || !countEl) return;
+
+    const urls = textarea.value.split('\n')
+        .map(u => u.trim())
+        .filter(u => u && !u.startsWith('#'));
+    countEl.textContent = urls.length;
+}
+
+window.clearBatchUrls = function () {
+    const textarea = document.getElementById('batch-urls');
+    if (textarea) {
+        textarea.value = '';
+        updateBatchCount();
+    }
+};
+
+window.addToBatch = function (type, id) {
+    const url = `https://www.qobuz.com/${type}/${id}`;
+    const textarea = document.getElementById('batch-urls');
+
+    if (textarea) {
+        const currentVal = textarea.value.trim();
+        if (currentVal.includes(url)) {
+            showToast('Already in batch list', 'info');
+            return;
+        }
+        textarea.value = currentVal ? (currentVal + '\n' + url) : url;
+        updateBatchCount();
+        showToast('Added to batch', 'success');
+    }
+};
+
+window.submitBatchImport = async function () {
+    const textarea = document.getElementById('batch-urls');
+    const quality = document.getElementById('batch-quality')?.value || 27;
+    const resultArea = document.getElementById('batch-result-area');
+
+    const urls = textarea.value.split('\n')
+        .map(u => u.trim())
+        .filter(u => u && !u.startsWith('#'));
+
+    if (urls.length === 0) {
+        showToast('No valid URLs found', 'error');
+        return;
+    }
+
+    resultArea.innerHTML = '<div class="empty-state small"><div class="spinner"></div><p>Importing...</p></div>';
+
+    try {
+        const res = await smartFetch('/api/batch/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls, quality: parseInt(quality) })
+        });
+
+        const data = await res.json();
+
+        let html = '';
+        if (data.imported > 0) {
+            html += `<div class="batch-result-item success">✓ Imported ${data.imported} items successfully</div>`;
+        }
+        if (data.failed > 0) {
+            html += `<div class="batch-result-item error">✗ Failed: ${data.failed} items</div>`;
+            if (data.errors && data.errors.length > 0) {
+                data.errors.slice(0, 5).forEach(err => {
+                    html += `<div class="batch-result-item error" style="font-size: 11px;">${err}</div>`;
+                });
+            }
+        }
+
+        resultArea.innerHTML = html || '<div class="empty-state small"><p>No results</p></div>';
+
+        if (data.imported > 0) {
+            textarea.value = '';
+            updateBatchCount();
+            fetchQueue();
+            showToast(`Imported ${data.imported} items`, 'success');
+        }
+    } catch (err) {
+        resultArea.innerHTML = `<div class="batch-result-item error">Import failed: ${err.message}</div>`;
+        showToast('Import failed', 'error');
+    }
+};
+
+let trendChart = null;
+
+async function loadStatistics() {
+    return loadAdvancedAnalytics();
+}
+
+window.refreshAnalytics = loadStatistics;
+
+function renderStatistics(data, analytics = {}) {
+    document.getElementById('stats-total').textContent = data.overall?.totalDownloads || analytics.summary?.totalTracks || 0;
+    document.getElementById('stats-albums').textContent = analytics.summary?.totalAlbums || data.overall?.totalAlbums || 0;
+    document.getElementById('stats-artists').textContent = analytics.summary?.totalArtists || data.topArtists?.length || 0;
+    document.getElementById('stats-size').textContent = formatBytes(data.overall?.totalSize || 0);
+
+    const todayDownloads = data.daily?.[data.daily.length - 1]?.downloads || 0;
+    document.getElementById('stats-today').textContent = todayDownloads;
+
+    const weekDownloads = data.daily?.slice(-7).reduce((sum, d) => sum + (d.downloads || 0), 0) || 0;
+    const monthDownloads = data.daily?.slice(-30).reduce((sum, d) => sum + (d.downloads || 0), 0) || 0;
+
+    if (document.getElementById('stats-week')) {
+        document.getElementById('stats-week').textContent = weekDownloads;
+    }
+    if (document.getElementById('stats-month')) {
+        document.getElementById('stats-month').textContent = monthDownloads;
+    }
+    document.getElementById('stats-avg').textContent = data.overall?.averagePerDay || 0;
+
+    const insightsEl = document.getElementById('analytics-insights');
+    if (insightsEl) {
+        const insights = analytics.insights || generateInsights(data);
+        insightsEl.innerHTML = insights.length > 0
+            ? insights.map(i => `<div class="insight-item">${i}</div>`).join('')
+            : '<div class="insight-item">Download more music to see personalized insights!</div>';
+    }
+
+    renderTrendChart(data.daily || []);
+    renderQualityStats(data.byQuality || analytics.qualityDistribution || []);
+    renderArtistStats(data.topArtists || analytics.topArtists || []);
+    renderGenreStats(analytics.genreBreakdown || []);
+    renderActivityHeatmap(data.daily || []);
+}
+
+function generateInsights(data) {
+    const insights = [];
+
+    if (data.overall?.totalDownloads > 0) {
+        insights.push(`🎵 You've downloaded ${data.overall.totalDownloads} tracks total`);
+    }
+    if (data.topArtists?.[0]) {
+        insights.push(`🎤 Your most downloaded artist is ${data.topArtists[0].name}`);
+    }
+    if (data.byQuality) {
+        const hiRes = data.byQuality.find(q => q.quality >= 7);
+        if (hiRes && hiRes.count > 0) {
+            insights.push(`✨ ${hiRes.count} of your tracks are Hi-Res quality`);
+        }
+    }
+    if (data.daily?.length > 7) {
+        const trend = data.daily.slice(-7).reduce((sum, d) => sum + d.downloads, 0) / 7;
+        if (trend > data.overall.averagePerDay) {
+            insights.push(`📈 You're downloading more than usual this week!`);
+        }
+    }
+
+    return insights;
+}
+
+function renderGenreStats(genres) {
+    const container = document.getElementById('genre-stats');
+    if (!container) return;
+
+    if (!genres || genres.length === 0) {
+        container.innerHTML = '<div class="empty-state small"><p>No genre data yet</p></div>';
+        return;
+    }
+
+    container.innerHTML = genres.slice(0, 8).map(g => `
+        <div class="genre-item">
+            <span class="genre-name">${g.genre}</span>
+            <span class="genre-count">${g.count} tracks</span>
+        </div>
+    `).join('');
+}
+
+function renderActivityHeatmap(daily) {
+    const container = document.getElementById('activity-heatmap');
+    if (!container || !daily || daily.length === 0) {
+        if (container) container.innerHTML = '<div class="empty-state small"><p>Not enough data</p></div>';
+        return;
+    }
+
+    const last28Days = daily.slice(-28);
+    const maxDownloads = Math.max(...last28Days.map(d => d.downloads || 0), 1);
+
+    let html = '';
+    last28Days.forEach(d => {
+        const level = Math.ceil((d.downloads / maxDownloads) * 5);
+        const date = new Date(d.date).toLocaleDateString();
+        html += `<div class="heatmap-cell level-${level}" title="${date}: ${d.downloads} downloads"></div>`;
+    });
+
+    const remaining = 28 - last28Days.length;
+    for (let i = 0; i < remaining; i++) {
+        html += '<div class="heatmap-cell"></div>';
+    }
+
+    html += `
+        <div class="heatmap-legend" style="grid-column: 1/-1;">
+            <span>Less</span>
+            <div class="heatmap-legend-item level-1"></div>
+            <div class="heatmap-legend-item level-2"></div>
+            <div class="heatmap-legend-item level-3"></div>
+            <div class="heatmap-legend-item level-4"></div>
+            <div class="heatmap-legend-item level-5"></div>
+            <span>More</span>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+function renderTrendChart(daily) {
+    const ctx = document.getElementById('trend-chart');
+    if (!ctx) return;
+
+    if (trendChart) trendChart.destroy();
+
+    const labels = daily.map(d => d.date.slice(5));
+    const downloads = daily.map(d => d.downloads);
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Downloads',
+                data: downloads,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 3,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#8b8b9e' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#8b8b9e' }
+                }
+            }
+        }
+    });
+}
+
+function renderQualityStats(byQuality) {
+    const container = document.getElementById('quality-stats');
+    if (!container) return;
+
+    if (!byQuality || byQuality.length === 0) {
+        container.innerHTML = '<div class="empty-state small"><p>No data yet</p></div>';
+        return;
+    }
+
+    const maxCount = Math.max(...byQuality.map(q => q.count));
+
+    container.innerHTML = byQuality.map(q => `
+        <div class="quality-bar-item">
+            <span class="quality-bar-label">${q.label}</span>
+            <div class="quality-bar-track">
+                <div class="quality-bar-fill" style="width: ${(q.count / maxCount) * 100}%">
+                    ${q.count}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderArtistStats(artists) {
+    const container = document.getElementById('artist-stats');
+    if (!container) return;
+
+    if (!artists || artists.length === 0) {
+        container.innerHTML = '<div class="empty-state small"><p>No data yet</p></div>';
+        return;
+    }
+
+    container.innerHTML = artists.slice(0, 10).map(a => {
+        let imageHtml = '';
+        if (a.imageUrl) {
+            let img = a.imageUrl;
+            if (img.includes('_large')) img = img.replace('_large', '_medium');
+            imageHtml = `<img src="${img}" class="artist-stat-image" loading="lazy" onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\\'artist-stat-image\\' style=\\'display:flex;align-items:center;justify-content:center;background:var(--bg-hover);color:var(--text-secondary);font-weight:700;\\'>${a.name.charAt(0).toUpperCase()}</div>'">`;
+        } else {
+            const initial = a.name.charAt(0).toUpperCase();
+            imageHtml = `<div class="artist-stat-image" style="display:flex;align-items:center;justify-content:center;background:var(--bg-hover);color:var(--text-secondary);font-weight:700;">${initial}</div>`;
+        }
+
+        return `
+        <div class="artist-stat-item">
+            ${imageHtml}
+            <div class="artist-stat-info">
+                <span class="artist-stat-name">${a.name}</span>
+            </div>
+            <div style="text-align:right">
+                <span class="artist-stat-count">${a.count}</span>
+            </div>
+        </div>
+    `}).join('');
+}
+
+async function loadSettings() {
+    try {
+        const [settingsRes, credRes] = await Promise.all([
+            smartFetch('/api/settings'),
+            smartFetch('/api/credentials/status')
+        ]);
+
+        const settings = await settingsRes.json();
+        const creds = await credRes.json();
+
+        document.getElementById('cred-appid').textContent = creds.configured.appId ? '✓ Configured' : '✗ Missing';
+        document.getElementById('cred-appid').className = 'cred-value ' + (creds.configured.appId ? 'valid' : 'invalid');
+
+        document.getElementById('cred-secret').textContent = creds.configured.appSecret ? '✓ Configured' : '✗ Missing';
+        document.getElementById('cred-secret').className = 'cred-value ' + (creds.configured.appSecret ? 'valid' : 'invalid');
+
+        document.getElementById('cred-token').textContent = creds.configured.token ? '✓ Configured' : '✗ Missing';
+        document.getElementById('cred-token').className = 'cred-value ' + (creds.configured.token ? 'valid' : 'invalid');
+
+        document.getElementById('cred-userid').textContent = creds.configured.userId ? '✓ Configured' : '✗ Missing';
+        document.getElementById('cred-userid').className = 'cred-value ' + (creds.configured.userId ? 'valid' : 'invalid');
+
+        document.getElementById('set-path').textContent = settings.DOWNLOADS_PATH || '-';
+        document.getElementById('set-folder').textContent = settings.FOLDER_TEMPLATE || '-';
+        document.getElementById('set-file').textContent = settings.FILE_TEMPLATE || '-';
+        document.getElementById('set-concurrent').textContent = settings.MAX_CONCURRENCY || '-';
+
+    } catch (err) {
+        console.error('Failed to load settings:', err);
+    }
+}
+
+window.validateCredentials = async function () {
+    const resultDiv = document.getElementById('cred-result');
+    resultDiv.textContent = 'Validating...';
+    resultDiv.className = 'cred-result';
+
+    try {
+        const res = await smartFetch('/api/credentials/validate?refresh=true');
+        const data = await res.json();
+
+        if (data.valid) {
+            resultDiv.textContent = `✓ ${data.message} (${data.subscription || 'Unknown'})`;
+            resultDiv.className = 'cred-result valid';
+        } else {
+            resultDiv.textContent = `✗ ${data.message}`;
+            resultDiv.className = 'cred-result invalid';
+        }
+    } catch (err) {
+        resultDiv.textContent = '✗ Validation failed';
+        resultDiv.className = 'cred-result invalid';
+    }
+};
+
+window.updateCredentials = async function () {
+    const appId = document.getElementById('update-appid')?.value.trim();
+    const appSecret = document.getElementById('update-secret')?.value.trim();
+    const token = document.getElementById('update-token')?.value.trim();
+    const userId = document.getElementById('update-userid')?.value.trim();
+
+    if (!appId && !appSecret && !token && !userId) {
+        showToast('Enter at least one value', 'info');
+        return;
+    }
+
+    try {
+        const res = await smartFetch('/api/settings/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                app_id: appId,
+                app_secret: appSecret,
+                token: token,
+                user_id: userId
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Updated!', 'success');
+            document.getElementById('update-appid').value = '';
+            document.getElementById('update-secret').value = '';
+            document.getElementById('update-token').value = '';
+            document.getElementById('update-userid').value = '';
+            setTimeout(validateCredentials, 1000);
+            loadSettings();
+        } else {
+            showToast(data.error || 'Update failed', 'error');
+        }
+    } catch (err) {
+        showToast('Update error', 'error');
+    }
+};
+
+const themeSelect = document.getElementById('theme-select');
+if (themeSelect) {
+    themeSelect.value = state.theme;
+    themeSelect.onchange = () => {
+        const theme = themeSelect.value;
+        state.theme = theme;
+        localStorage.setItem('theme', theme);
+
+        if (theme === 'light') {
+            document.body.classList.add('light-theme');
+            document.body.classList.remove('dark-theme');
+        } else {
+            document.body.classList.add('dark-theme');
+            document.body.classList.remove('light-theme');
+        }
+    };
+}
+
+const translations = {
+    en: {
+        queue: 'Queue', search: 'Search', batch: 'Batch Import', statistics: 'Statistics',
+        playlists: 'Playlists', history: 'History', settings: 'Settings'
+    },
+    id: {
+        queue: 'Antrian', search: 'Cari', batch: 'Impor Massal', statistics: 'Statistik',
+        playlists: 'Playlist', history: 'Riwayat', settings: 'Pengaturan'
+    },
+    es: {
+        queue: 'Cola', search: 'Buscar', batch: 'Importación', statistics: 'Estadísticas',
+        playlists: 'Listas', history: 'Historial', settings: 'Ajustes'
+    },
+    fr: {
+        queue: 'File', search: 'Recherche', batch: 'Import', statistics: 'Statistiques',
+        playlists: 'Playlists', history: 'Historique', settings: 'Paramètres'
+    },
+    de: {
+        queue: 'Warteschlange', search: 'Suche', batch: 'Batch-Import', statistics: 'Statistiken',
+        playlists: 'Playlists', history: 'Verlauf', settings: 'Einstellungen'
+    },
+    ja: {
+        queue: 'キュー', search: '検索', batch: '一括インポート', statistics: '統計',
+        playlists: 'プレイリスト', history: '履歴', settings: '設定'
+    },
+    zh: {
+        queue: '队列', search: '搜索', batch: '批量导入', statistics: '统计',
+        playlists: '播放列表', history: '历史', settings: '设置'
+    }
+};
+
+const navIcons = {
+    queue: '📥', search: '🔍', batch: '📦', statistics: '📊',
+    playlists: '🔄', history: '📜', settings: '⚙️'
+};
+
+let currentLang = localStorage.getItem('language') || 'en';
+
+function applyTranslations(lang) {
+    const t = translations[lang] || translations.en;
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+        const tab = item.dataset.tab;
+        if (t[tab] && navIcons[tab]) {
+            item.innerHTML = `<span class="icon">${navIcons[tab]}</span> ${t[tab]}`;
+        }
+    });
+
+    showToast(`Language: ${lang.toUpperCase()}`, 'info');
+}
+
+const langSelect = document.getElementById('settings-lang');
+if (langSelect) {
+    langSelect.value = currentLang;
+    langSelect.onchange = () => {
+        currentLang = langSelect.value;
+        localStorage.setItem('language', currentLang);
+        applyTranslations(currentLang);
+    };
+    if (currentLang !== 'en') {
+        setTimeout(() => applyTranslations(currentLang), 100);
+    }
+}
+
+async function fetchPlaylists() {
+    const playlistsList = document.getElementById('playlists-list');
+    if (!playlistsList) return;
+
+    try {
+        const res = await smartFetch('/api/playlists/watched');
+        const items = await res.json();
+        renderPlaylists(items);
+    } catch (err) {
+        console.error('Failed to fetch playlists:', err);
+    }
+}
+
+function renderPlaylists(items) {
+    const playlistsList = document.getElementById('playlists-list');
+    if (!playlistsList) return;
+
+    playlistsList.innerHTML = '';
+    if (items.length === 0) {
+        playlistsList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🔄</div>
+                <h3>No Watched Playlists</h3>
+                <p>Track playlists to automatically download new songs</p>
+            </div>
+        `;
+        return;
+    }
+
+    items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        row.innerHTML = `
+            <div style="font-weight: 600">${item.title || item.playlistId}</div>
+            <div>${getQualityLabel(item.quality)}</div>
+            <div>${item.intervalHours}h</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">${item.lastSyncedAt ? new Date(item.lastSyncedAt).toLocaleString() : 'Never'}</div>
+            <div>
+                <button class="btn danger" style="padding: 6px 12px; font-size: 12px;" onclick="deletePlaylist('${item.id}')">Stop</button>
+            </div>
+        `;
+        playlistsList.appendChild(row);
+    });
+}
+
+window.deletePlaylist = async function (id) {
+    if (!confirm('Stop tracking this playlist?')) return;
+    try {
+        await smartFetch(`/api/playlists/watch/${id}`, { method: 'DELETE' });
+        fetchPlaylists();
+    } catch (err) {
+        showToast('Failed to delete', 'error');
+    }
+};
+
+const addModal = document.getElementById('add-modal');
+const addBtn = document.getElementById('add-btn');
+const addPlaylistModal = document.getElementById('add-playlist-modal');
+const addPlaylistBtn = document.getElementById('add-playlist-btn');
+
+if (addBtn) addBtn.onclick = () => addModal.style.display = 'block';
+if (addPlaylistBtn) addPlaylistBtn.onclick = () => addPlaylistModal.style.display = 'block';
+
 window.closeModal = function (id) {
     const m = document.getElementById(id);
     if (m) m.style.display = 'none';
 };
 
-function updateStats(stats) {
-    document.getElementById('stat-pending').textContent = stats.pending;
-    document.getElementById('stat-active').textContent = stats.downloading;
-    document.getElementById('q-total').textContent = stats.total;
-    document.getElementById('q-downloading').textContent = stats.downloading;
-    document.getElementById('q-completed').textContent = stats.completed;
-    document.getElementById('q-failed').textContent = stats.failed;
-}
-
-function updateItemProgress(data) {
-    const row = document.getElementById(`item-${data.id}`);
-    if (row) {
-        const fill = row.querySelector('.progress-fill');
-        if (fill) fill.style.width = `${data.progress}%`;
-    }
-}
-
-window.cancelItem = async function (id) {
-    if (!confirm('Are you sure?')) return;
-    await smartFetch(`/api/item/${id}/cancel`, { method: 'POST' });
-    fetchQueue();
-};
-
-function updateConnectionStatus(online) {
-    const el = document.querySelector('.status-indicator');
-    if (!el) return;
-    if (online) {
-        el.innerHTML = '<span class="dot"></span> Online';
-        el.style.color = 'var(--success)';
-        el.querySelector('.dot').style.backgroundColor = 'var(--success)';
-        el.querySelector('.dot').style.boxShadow = '0 0 5px var(--success)';
-    } else {
-        el.innerHTML = '<span class="dot"></span> Disconnected';
-        el.style.color = 'var(--danger)';
-        el.querySelector('.dot').style.backgroundColor = 'var(--danger)';
-        el.querySelector('.dot').style.boxShadow = '0 0 5px var(--danger)';
-    }
-}
-
-function getQualityLabel(q) {
-    const map = { 5: 'MP3 320', 6: 'FLAC 16/44', 7: 'FLAC 24/96', 27: 'FLAC 24/192' };
-    return map[q] || `Q${q}`;
-}
-
-const addModal = document.getElementById('add-modal');
-const addBtn = document.getElementById('add-btn');
-
-if (addBtn) addBtn.onclick = () => (addModal.style.display = 'block');
 window.onclick = (e) => {
-    if (e.target == addModal) addModal.style.display = 'none';
-    if (e.target == document.getElementById('add-playlist-modal')) document.getElementById('add-playlist-modal').style.display = 'none';
+    if (e.target === addModal) addModal.style.display = 'none';
+    if (e.target === addPlaylistModal) addPlaylistModal.style.display = 'none';
 };
 
-const addPlaylistModal = document.getElementById('add-playlist-modal');
-const addPlaylistBtn = document.getElementById('add-playlist-btn');
+const addForm = document.getElementById('add-form');
+if (addForm) {
+    addForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const url = document.getElementById('url-input').value;
+        const quality = document.getElementById('quality-input').value;
+
+        try {
+            const res = await smartFetch('/api/queue/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, quality })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                addModal.style.display = 'none';
+                document.getElementById('url-input').value = '';
+                showToast('Added to queue', 'success');
+                fetchQueue();
+            } else {
+                showToast('Error: ' + (data.error || 'Failed'), 'error');
+            }
+        } catch (err) {
+            showToast('Connection failed', 'error');
+        }
+    };
+}
+
 const addPlaylistForm = document.getElementById('add-playlist-form');
-const playlistsList = document.getElementById('playlists-list');
-
-if (addPlaylistBtn) addPlaylistBtn.onclick = () => (addPlaylistModal.style.display = 'block');
-
 if (addPlaylistForm) {
     addPlaylistForm.onsubmit = async (e) => {
         e.preventDefault();
@@ -826,11 +1410,11 @@ if (addPlaylistForm) {
             if (res.ok) {
                 addPlaylistModal.style.display = 'none';
                 document.getElementById('playlist-id-input').value = '';
-                showToast('Playlist synced successfully', 'success');
+                showToast('Playlist tracked', 'success');
                 fetchPlaylists();
             } else {
                 const data = await res.json();
-                showToast('Error: ' + (data.error || 'Failed to sync'), 'error');
+                showToast('Error: ' + (data.error || 'Failed'), 'error');
             }
         } catch (err) {
             showToast('Connection failed', 'error');
@@ -838,179 +1422,581 @@ if (addPlaylistForm) {
     };
 }
 
-async function fetchPlaylists() {
+const player = {
+    audio: document.getElementById('audio-element'),
+    bar: document.getElementById('audio-player-bar'),
+    playBtn: document.getElementById('player-play'),
+    seek: document.getElementById('player-seek'),
+    volume: document.getElementById('player-volume'),
+    currentTime: document.getElementById('player-current-time'),
+    duration: document.getElementById('player-duration'),
+    cover: document.getElementById('player-cover'),
+    title: document.getElementById('player-title'),
+    artist: document.getElementById('player-artist'),
+    quality: document.getElementById('player-quality'),
+    isPlaying: false
+};
+
+window.playTrack = async function (id, title, artist, cover) {
+    if (!player.audio) return;
+
+    if (player.quality) player.quality.textContent = 'Loading...';
+    if (cover) cover = cover.replace(/&amp;/g, '&');
+
+    player.title.textContent = title;
+    player.artist.textContent = artist;
+    if (cover && player.cover) player.cover.src = cover;
+
     try {
-        const res = await smartFetch('/api/playlists/watched');
-        const items = await res.json();
-        renderPlaylists(items);
-    } catch (err) {
-        console.error('Failed to fetch playlists:', err);
-    }
-}
+        const infoRes = await smartFetch(`/api/stream/info/${id}`);
+        if (infoRes.ok) {
+            const info = await infoRes.json();
+            if (player.quality) {
+                const label = info.qualityLabel || '-';
+                player.quality.textContent = label;
+                player.quality.className = 'mini-player-quality';
 
-function renderPlaylists(items) {
-    playlistsList.innerHTML = '';
-    if (items.length === 0) {
-        playlistsList.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No watched playlists</div>';
-        return;
-    }
+                const qId = info.qualityId || info.format_id || 0;
+                const isHiRes = qId === 27 || qId === 7 ||
+                    label.toLowerCase().includes('hi-res') ||
+                    label.includes('24-bit') || label.includes('24bit');
+                const isLossless = qId === 6 ||
+                    label.toLowerCase().includes('lossless') ||
+                    label.includes('16-bit') || label.includes('16bit');
 
-    items.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'list-row';
-        row.innerHTML = `
-            <div style="font-weight: 500">${item.title || item.playlistId}</div>
-            <div>${getQualityLabel(item.quality)}</div>
-            <div>${item.intervalHours}h</div>
-            <div style="font-size: 12px; color: #888;">${item.lastSyncedAt ? new Date(item.lastSyncedAt).toLocaleString() : 'Never'}</div>
-            <div>
-                <button class="btn danger" style="padding: 4px 8px; font-size: 11px;" onclick="deletePlaylist('${item.id}')">Stop Tracking</button>
-            </div>
-        `;
-        playlistsList.appendChild(row);
-    });
-}
-
-window.deletePlaylist = async function (id) {
-    if (!confirm('Stop tracking this playlist?')) return;
-    try {
-        await smartFetch(`/api/playlists/watch/${id}`, { method: 'DELETE' });
-        fetchPlaylists();
-    } catch (err) {
-        showToast('Failed to delete', 'error');
-    }
-}
-
-const addForm = document.getElementById('add-form');
-if (addForm) {
-    addForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const url = document.getElementById('url-input').value;
-        const quality = document.getElementById('quality-input').value;
-        try {
-            const res = await smartFetch('/api/queue/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, quality })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                addModal.style.display = 'none';
-                document.getElementById('url-input').value = '';
-                showToast('Item added to queue', 'success');
-                fetchQueue();
-            } else {
-                showToast('Error: ' + (data.error || 'Failed to add'), 'error');
+                if (isHiRes) {
+                    player.quality.classList.add('hires');
+                } else if (isLossless) {
+                    player.quality.classList.add('lossless');
+                } else {
+                    player.quality.classList.add('lossy');
+                }
             }
-        } catch (err) {
-            showToast('Error: Connection failed', 'error');
-        }
-    };
-}
-
-async function fetchSettings() {
-    try {
-        const res = await smartFetch('/api/settings');
-        const config = await res.json();
-
-        document.getElementById('setting-QOBUZ_APP_ID').value = config.QOBUZ_APP_ID || '';
-        document.getElementById('setting-QOBUZ_APP_SECRET').value = config.QOBUZ_APP_SECRET || '';
-        document.getElementById('setting-QOBUZ_USER_AUTH_TOKEN').value = config.QOBUZ_USER_AUTH_TOKEN || config.QOBUZ_TOKEN || '';
-        document.getElementById('setting-QOBUZ_USER_ID').value = config.QOBUZ_USER_ID || '';
-        document.getElementById('setting-TELEGRAM_BOT_TOKEN').value = config.TELEGRAM_BOT_TOKEN || '';
-        document.getElementById('setting-TELEGRAM_CHAT_ID').value = config.TELEGRAM_CHAT_ID || '';
-
-        document.getElementById('setting-defaultQuality').value = config.defaultQuality || 'ask';
-        document.getElementById('setting-embedLyrics').checked = config.embedLyrics !== false;
-        document.getElementById('setting-embedCover').checked = config.embedCover !== false;
-
-        document.getElementById('setting-downloads-path').value = config.downloads?.path || '';
-        document.getElementById('setting-downloads-concurrent').value =
-            config.downloads?.concurrent || 4;
-        document.getElementById('setting-downloads-folderTemplate').value =
-            config.downloads?.folderTemplate || '';
-        document.getElementById('setting-downloads-fileTemplate').value =
-            config.downloads?.fileTemplate || '';
-
-        document.getElementById('setting-telegram-uploadFiles').checked =
-            config.telegram?.uploadFiles !== false;
-        document.getElementById('setting-telegram-autoDelete').checked =
-            config.telegram?.autoDelete !== false;
-        document.getElementById('setting-telegram-allowedUsers').value =
-            config.telegram?.allowedUsers || '';
-
-        document.getElementById('setting-downloads-retryAttempts').value = config.downloads?.retryAttempts || 3;
-        document.getElementById('setting-downloads-retryDelay').value = config.downloads?.retryDelay || 1000;
-        document.getElementById('setting-downloads-proxy').value = config.downloads?.proxy || '';
-
-        document.getElementById('setting-metadata-saveCoverFile').checked = config.metadata?.saveCoverFile || false;
-        document.getElementById('setting-metadata-saveLrcFile').checked = config.metadata?.saveLrcFile || false;
-        document.getElementById('setting-metadata-coverSize').value = config.metadata?.coverSize || 'max';
-        document.getElementById('setting-metadata-lyricsType').value = config.metadata?.lyricsType || 'both';
-
-        document.getElementById('setting-display-colorScheme').value = config.display?.colorScheme || 'gradient';
-        document.getElementById('setting-display-verbosity').value = config.display?.verbosity || 'detailed';
-
-        document.getElementById('setting-dashboard-autoCleanHours').value = config.dashboard?.autoCleanHours || 24;
-    } catch (err) {
-        console.error('Failed to load settings:', err);
-    }
-}
-
-window.saveSettings = async function () {
-    const config = {
-        QOBUZ_APP_ID: document.getElementById('setting-QOBUZ_APP_ID').value,
-        QOBUZ_APP_SECRET: document.getElementById('setting-QOBUZ_APP_SECRET').value,
-        QOBUZ_USER_AUTH_TOKEN: document.getElementById('setting-QOBUZ_USER_AUTH_TOKEN').value,
-        QOBUZ_USER_ID: document.getElementById('setting-QOBUZ_USER_ID').value,
-        TELEGRAM_BOT_TOKEN: document.getElementById('setting-TELEGRAM_BOT_TOKEN').value,
-        TELEGRAM_CHAT_ID: document.getElementById('setting-TELEGRAM_CHAT_ID').value,
-
-        defaultQuality: document.getElementById('setting-defaultQuality').value,
-        embedLyrics: document.getElementById('setting-embedLyrics').checked,
-        embedCover: document.getElementById('setting-embedCover').checked,
-        telegram: {
-            uploadFiles: document.getElementById('setting-telegram-uploadFiles').checked,
-            autoDelete: document.getElementById('setting-telegram-autoDelete').checked,
-            allowedUsers: document.getElementById('setting-telegram-allowedUsers').value
-        },
-        downloads: {
-            path: document.getElementById('setting-downloads-path').value,
-            concurrent: parseInt(document.getElementById('setting-downloads-concurrent').value),
-            folderTemplate: document.getElementById('setting-downloads-folderTemplate').value,
-            fileTemplate: document.getElementById('setting-downloads-fileTemplate').value,
-            retryAttempts: parseInt(document.getElementById('setting-downloads-retryAttempts').value),
-            retryDelay: parseInt(document.getElementById('setting-downloads-retryDelay').value),
-            proxy: document.getElementById('setting-downloads-proxy').value
-        },
-        metadata: {
-            saveCoverFile: document.getElementById('setting-metadata-saveCoverFile').checked,
-            saveLrcFile: document.getElementById('setting-metadata-saveLrcFile').checked,
-            coverSize: document.getElementById('setting-metadata-coverSize').value,
-            lyricsType: document.getElementById('setting-metadata-lyricsType').value
-        },
-        display: {
-            colorScheme: document.getElementById('setting-display-colorScheme').value,
-            verbosity: document.getElementById('setting-display-verbosity').value
-        },
-        dashboard: {
-            autoCleanHours: parseInt(document.getElementById('setting-dashboard-autoCleanHours').value)
-        }
-    };
-
-    try {
-        const res = await smartFetch('/api/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config)
-        });
-        if (res.ok) {
-            showToast('Settings saved successfully!', 'success');
+            player.audio.src = info.url;
+            player.audio.play().then(() => {
+                player.isPlaying = true;
+                updatePlayButton();
+                if (player.bar) {
+                    player.bar.style.display = 'flex';
+                    player.bar.classList.add('playing');
+                }
+            }).catch(e => {
+                console.error('Play error:', e);
+                showToast('Playback failed', 'error');
+            });
         } else {
-            showToast('Failed to save settings', 'error');
+            if (player.quality) player.quality.textContent = 'Error';
+            showToast('Stream unavailable', 'error');
         }
-    } catch (err) {
-        showToast('Error saving settings', 'error');
+    } catch (e) {
+        showToast('Network error', 'error');
     }
 };
 
+function updatePlayButton() {
+    if (!player.playBtn) return;
+    player.playBtn.innerHTML = player.isPlaying
+        ? '<svg class="icon-svg" viewBox="0 0 24 24" style="fill:currentColor; width:28px; height:28px;"><path d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"/></svg>'
+        : '<svg class="icon-svg" viewBox="0 0 24 24" style="fill:currentColor; width:28px; height:28px;"><path d="M8 5v14l11-7z"/></svg>';
+}
+
+if (player.playBtn) {
+    player.playBtn.onclick = () => {
+        if (!player.audio.src) return;
+        if (player.isPlaying) {
+            player.audio.pause();
+        } else {
+            player.audio.play();
+        }
+        player.isPlaying = !player.isPlaying;
+        updatePlayButton();
+    };
+}
+
+if (player.audio) {
+    player.audio.ontimeupdate = () => {
+        if (!player.seek || isNaN(player.audio.duration)) return;
+        const percent = (player.audio.currentTime / player.audio.duration) * 100;
+        player.seek.value = percent || 0;
+        player.currentTime.textContent = formatDuration(Math.floor(player.audio.currentTime));
+        player.duration.textContent = formatDuration(Math.floor(player.audio.duration || 0));
+    };
+
+    player.audio.onended = () => {
+        player.isPlaying = false;
+        updatePlayButton();
+    };
+
+    player.audio.onerror = () => {
+        player.isPlaying = false;
+        updatePlayButton();
+    };
+}
+
+if (player.seek) {
+    player.seek.oninput = (e) => {
+        if (!player.audio.duration) return;
+        player.audio.currentTime = (e.target.value / 100) * player.audio.duration;
+    };
+}
+
+if (player.volume) {
+    player.volume.oninput = (e) => {
+        if (player.audio) player.audio.volume = e.target.value / 100;
+    };
+}
+
+function formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    return new Date(dateStr).getFullYear();
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function getQualityLabel(q) {
+    const map = { 5: 'MP3 320', 6: 'FLAC 16/44', 7: 'FLAC 24/96', 27: 'FLAC 24/192' };
+    return map[q] || `Q${q}`;
+}
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+
+    const icons = { success: '✓', error: '✗', info: 'ℹ' };
+
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || ''}</span>
+        <span class="toast-message">${message}</span>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.5s ease-out forwards';
+        setTimeout(() => toast.remove(), 500);
+    }, 3000);
+}
+
+window.closePlayer = function () {
+    if (player.audio) {
+        player.audio.pause();
+        player.audio.src = '';
+        player.isPlaying = false;
+    }
+    if (player.bar) {
+        player.bar.classList.remove('playing');
+        player.bar.style.display = 'none';
+    }
+};
+
+window.togglePlayerExpand = function () {
+    if (player.audio && player.audio.src) {
+        if (player.isPlaying) {
+            player.audio.pause();
+        } else {
+            player.audio.play();
+        }
+        player.isPlaying = !player.isPlaying;
+        updatePlayButton();
+    }
+};
+
+let analyticsChart = null;
+
+async function loadAdvancedAnalytics() {
+    try {
+        const res = await smartFetch('/api/analytics/dashboard');
+        const data = await res.json();
+        renderAdvancedAnalytics(data);
+    } catch (err) {
+        console.error('Failed to load analytics:', err);
+    }
+}
+
+function renderAdvancedAnalytics(data) {
+    const tracksEl = document.getElementById('stats-total');
+    if (tracksEl) tracksEl.textContent = data.summary?.totalTracks || 0;
+
+    const durationEl = document.getElementById('stats-duration');
+    if (durationEl) durationEl.textContent = data.summary?.totalDuration || '0h 0m';
+
+    const artistsEl = document.getElementById('stats-artists');
+    if (artistsEl) artistsEl.textContent = data.summary?.totalArtists || 0;
+
+    const sizeEl = document.getElementById('stats-size');
+    if (sizeEl) sizeEl.textContent = data.summary?.totalSize || '0 B';
+
+    const todayEl = document.getElementById('stats-today');
+    if (todayEl) todayEl.textContent = data.summary?.downloadsToday || 0;
+
+    const weekEl = document.getElementById('stats-week');
+    if (weekEl) weekEl.textContent = data.summary?.downloadsThisWeek || 0;
+
+    const monthEl = document.getElementById('stats-month');
+    if (monthEl) monthEl.textContent = data.summary?.downloadsThisMonth || 0;
+
+    const insightsEl = document.getElementById('analytics-insights');
+    if (insightsEl && data.insights) {
+        insightsEl.innerHTML = data.insights.length > 0
+            ? data.insights.map(i => `<div class="insight-item">${i}</div>`).join('')
+            : '<div class="insight-item">No insights available yet. Download some music!</div>';
+    }
+
+    const qualityEl = document.getElementById('quality-stats');
+    if (qualityEl && data.qualityDistribution) {
+        qualityEl.innerHTML = data.qualityDistribution.map(q => `
+            <div class="quality-bar-item">
+                <div class="quality-bar-label">${q.label}</div>
+                <div class="quality-bar-track">
+                    <div class="quality-bar-fill q${q.quality}" style="width: ${q.percentage}%">${q.percentage}%</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    const genresEl = document.getElementById('genre-stats');
+    if (genresEl && data.genreBreakdown) {
+        genresEl.innerHTML = data.genreBreakdown.slice(0, 5).map(g => `
+            <div class="genre-item">
+                <span class="genre-name">${g.genre}</span>
+                <span class="genre-count">${g.count} tracks (${g.percentage}%)</span>
+            </div>
+        `).join('') || '<div class="empty-state small"><p>No genre data yet</p></div>';
+    }
+
+    const topArtistsEl = document.getElementById('artist-stats');
+    if (topArtistsEl && data.topArtists) {
+        topArtistsEl.innerHTML = data.topArtists.slice(0, 5).map((a, index) => `
+            <div class="artist-list-row" style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="color: var(--text-secondary); font-size: 0.9em;">#${index + 1}</span>
+                    <span style="font-weight: 500;">${a.name}</span>
+                </div>
+                <div class="artist-count-badge" style="background: rgba(99, 102, 241, 0.1); color: #818cf8; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">${a.trackCount} tracks</div>
+            </div>
+        `).join('') || '<div class="empty-state"><p>No artist data yet</p></div>';
+    }
+
+    renderAnalyticsTrendChart(data.trends?.daily || []);
+}
+
+function renderAnalyticsTrendChart(trends) {
+    const canvas = document.getElementById('analytics-trend-chart');
+    if (!canvas) return;
+
+    if (analyticsChart) {
+        analyticsChart.destroy();
+    }
+
+    let chartData = [...trends].reverse();
+
+    if (chartData.length === 1) {
+        chartData.unshift({ period: 'Previous', downloads: 0 });
+    }
+
+    if (chartData.length === 0) {
+        chartData = Array(7).fill(0).map((_, i) => ({ period: `Day ${i + 1}`, downloads: 0 }));
+    }
+
+    const labels = chartData.map(t => t.period.includes('-') ? t.period.split('-').slice(1).join('/') : t.period);
+    const downloads = chartData.map(t => t.downloads);
+
+    analyticsChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Downloads',
+                data: downloads,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                borderWidth: 2,
+                pointBackgroundColor: '#6366f1',
+                pointRadius: 4,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { precision: 0 }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+window.refreshAnalytics = loadAdvancedAnalytics;
+
+async function loadLibraryStats() {
+    try {
+        const res = await smartFetch('/api/library/scan/status');
+        const data = await res.json();
+        updateLibraryStats(data.stats);
+        updateScanStatus(data.scanning);
+    } catch (err) {
+        console.error('Failed to load library stats:', err);
+    }
+}
+
+function updateLibraryStats(stats) {
+    if (!stats) return;
+    document.getElementById('lib-total').textContent = stats.totalFiles || 0;
+    document.getElementById('lib-duplicates').textContent = stats.duplicates || 0;
+    document.getElementById('lib-upgradeable').textContent = stats.upgradeable || 0;
+    document.getElementById('lib-size').textContent = formatBytes(stats.totalSize || 0);
+}
+
+function updateScanStatus(scanning) {
+    const icon = document.getElementById('scan-status-icon');
+    const text = document.getElementById('scan-status-text');
+    const btn = document.getElementById('scan-library-btn');
+
+    if (scanning) {
+        if (icon) icon.textContent = '🔄';
+        if (text) text.textContent = 'Scanning...';
+        if (btn) btn.disabled = true;
+    } else {
+        if (icon) icon.textContent = '⏸';
+        if (text) text.textContent = 'Not scanning';
+        if (btn) btn.disabled = false;
+    }
+}
+
+window.startLibraryScan = async function () {
+    try {
+        const res = await smartFetch('/api/library/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (res.ok) {
+            showToast('Library scan started', 'success');
+            updateScanStatus(true);
+            pollScanProgress();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Failed to start scan', 'error');
+        }
+    } catch (err) {
+        showToast('Failed to start scan', 'error');
+    }
+};
+
+window.abortScan = async function () {
+    try {
+        await smartFetch('/api/library/scan/abort', { method: 'POST' });
+        showToast('Scan abort requested', 'info');
+        updateScanStatus(false);
+    } catch (err) {
+        showToast('Failed to abort scan', 'error');
+    }
+};
+
+function pollScanProgress() {
+    const interval = setInterval(async () => {
+        try {
+            const res = await smartFetch('/api/library/scan/status');
+            const data = await res.json();
+
+            updateLibraryStats(data.stats);
+
+            if (!data.scanning) {
+                clearInterval(interval);
+                updateScanStatus(false);
+                showToast('Library scan complete', 'success');
+                loadDuplicates();
+                loadUpgradeable();
+            }
+        } catch (err) {
+            clearInterval(interval);
+        }
+    }, 2000);
+}
+
+async function loadDuplicates() {
+    try {
+        const res = await smartFetch('/api/library/duplicates');
+        const duplicates = await res.json();
+        renderDuplicates(duplicates);
+    } catch (err) {
+        console.error('Failed to load duplicates:', err);
+    }
+}
+
+function renderDuplicates(duplicates) {
+    const container = document.getElementById('duplicates-list');
+    if (!container) return;
+
+    if (duplicates.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">✅</div>
+                <h3>No Duplicates Found</h3>
+                <p>Scan your library to detect duplicate files</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = duplicates.map(d => `
+        <div class="duplicate-item">
+            <div class="duplicate-info">
+                <div class="duplicate-title">${d.files.length} duplicate files</div>
+                <div class="duplicate-path">${d.recommendation}</div>
+            </div>
+            <button class="btn secondary" onclick="resolveDuplicate(${d.id})">Resolve</button>
+        </div>
+    `).join('');
+}
+
+window.resolveDuplicate = async function (id) {
+    if (!confirm('Mark this duplicate as resolved?')) return;
+    try {
+        await smartFetch(`/api/library/duplicates/${id}/resolve`, { method: 'POST' });
+        showToast('Duplicate resolved', 'success');
+        loadDuplicates();
+        loadLibraryStats();
+    } catch (err) {
+        showToast('Failed to resolve duplicate', 'error');
+    }
+};
+
+async function loadUpgradeable() {
+    try {
+        const res = await smartFetch('/api/library/upgradeable');
+        const files = await res.json();
+        renderUpgradeable(files);
+    } catch (err) {
+        console.error('Failed to load upgradeable files:', err);
+    }
+}
+
+window.upgradeFile = async function (trackId) {
+    if (!trackId) {
+        showToast('Cannot upgrade: Missing Track ID', 'error');
+        return;
+    }
+    if (!confirm('Download high-quality version of this track?')) return;
+
+    const finalUrl = `https://www.qobuz.com/track/${trackId}`;
+
+    try {
+        const res = await smartFetch('/api/queue/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: finalUrl, quality: 27 })
+        });
+
+        if (res.ok) {
+            showToast('Upgrade added to queue', 'success');
+            const btn = document.querySelector(`button[onclick*="${trackId}"]`);
+            if (btn) {
+                const item = btn.closest('.upgradeable-item');
+                if (item) item.remove();
+            }
+        } else {
+            const data = await res.json();
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Failed to add upgrade to queue', 'error');
+    }
+};
+
+function renderUpgradeable(files) {
+    const container = document.getElementById('upgradeable-list');
+    if (!container) return;
+
+    if (files.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">✅</div>
+                <h3>All Files at Best Quality</h3>
+                <p>Your library files are already at the highest available quality on Qobuz</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="upgradeable-notice">
+            <span class="notice-icon">💡</span>
+            <span>The following tracks have higher quality versions available on Qobuz. You can search and download them manually.</span>
+        </div>
+    ` + files.slice(0, 50).map(f => `
+        <div class="upgradeable-item">
+            <div class="upgradeable-info">
+                <div class="upgradeable-title">${f.title || 'Unknown'} - ${f.artist || 'Unknown'}</div>
+                <div class="upgradeable-quality">
+                    <span class="current-quality">Your file: ${getQualityLabel(f.quality)}</span>
+                    ${f.availableQuality ? `<span class="upgrade-arrow">→</span><span class="available-quality">Available: ${getQualityLabel(f.availableQuality)}</span>` : ''}
+                </div>
+            </div>
+            <div class="quality-badge hi-res">Hi-Res Available</div>
+        </div>
+    `).join('');
+}
+
+document.querySelectorAll('[data-library-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-library-tab]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const tab = btn.dataset.libraryTab;
+        document.getElementById('library-duplicates-view').style.display = tab === 'duplicates' ? 'block' : 'none';
+        document.getElementById('library-upgradeable-view').style.display = tab === 'upgradeable' ? 'block' : 'none';
+
+        if (tab === 'duplicates') loadDuplicates();
+        if (tab === 'upgradeable') loadUpgradeable();
+    });
+});
+
+
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    updateBatchCount();
+
+    if (state.activeTab && state.activeTab !== 'album' && state.activeTab !== 'artist') {
+        switchTab(state.activeTab);
+    } else {
+        switchTab('queue');
+    }
+
+    if (state.activeTab === 'queue') fetchQueue();
+    if (state.activeTab === 'settings') loadSettings();
+    if (state.activeTab === 'statistics') loadStatistics();
+});

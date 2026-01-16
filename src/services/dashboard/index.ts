@@ -4,9 +4,10 @@ import { Server as SocketServer } from 'socket.io';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { logger } from '../../utils/logger.js';
-import { downloadQueue } from '../telegram/queue.js';
+import { downloadQueue } from '../queue/queue.js';
 import { registerRoutes } from './routes.js';
 import { CONFIG } from '../../config.js';
 import { dashboardCleaner } from './cleaner.js';
@@ -60,15 +61,25 @@ export class DashboardService {
             if (!isProtected) return next();
 
             const providedPassword = req.headers['x-password'] || req.query.pw;
-            if (providedPassword === password) {
-                return next();
+
+            if (
+                providedPassword &&
+                typeof providedPassword === 'string' &&
+                password &&
+                providedPassword.length === password.length
+            ) {
+                const a = Buffer.from(providedPassword);
+                const b = Buffer.from(password);
+                if (crypto.timingSafeEqual(a, b)) {
+                    return next();
+                }
             }
 
             res.status(401).json({ error: 'Unauthorized: Dashboard password required' });
         });
 
         this.app.use(express.static(path.join(__dirname, 'public')));
-        this.app.use('/downloads', express.static(path.resolve(process.cwd(), 'downloads')));
+        this.app.use('/downloads', express.static(path.resolve(CONFIG.download.outputDir)));
     }
 
     private setupRoutes(): void {
@@ -81,20 +92,30 @@ export class DashboardService {
             if (!password) return next();
 
             const providedPassword = socket.handshake.auth?.password || socket.handshake.query?.pw;
-            if (providedPassword === password) {
-                return next();
+
+            if (
+                providedPassword &&
+                typeof providedPassword === 'string' &&
+                password &&
+                providedPassword.length === password.length
+            ) {
+                const a = Buffer.from(providedPassword);
+                const b = Buffer.from(password);
+                if (crypto.timingSafeEqual(a, b)) {
+                    return next();
+                }
             }
 
             next(new Error('Authentication failed'));
         });
 
         this.io.on('connection', (socket) => {
-            logger.debug(`Dashboard: Client connected (${socket.id})`);
+            logger.debug(`Client connection established: ${socket.id}`, 'WEB');
 
             socket.emit('queue:update', downloadQueue.getStats());
 
             socket.on('disconnect', () => {
-                logger.debug(`Dashboard: Client disconnected (${socket.id})`);
+                logger.debug(`Client disconnected: ${socket.id}`, 'WEB');
             });
         });
 
@@ -112,12 +133,16 @@ export class DashboardService {
         downloadQueue.on('item:failed', (item, error) =>
             this.io.emit('item:failed', { item, error })
         );
-        downloadQueue.on('item:progress', (item, progress) => {
+        downloadQueue.on('item:progress', (item, _progress) => {
             this.io.emit('item:progress', {
                 id: item.id,
-                progress,
+                progress: item.progress,
                 title: item.title,
-                speed: item.progress
+                quality: item.quality,
+                status: item.status,
+                artist: item.artist,
+                album: item.album,
+                speed: 0
             });
         });
     }
@@ -127,13 +152,15 @@ export class DashboardService {
         try {
             dashboardCleaner.start();
             this.httpServer.listen(this.port, () => {
-                logger.success(`Web Dashboard running at http://localhost:${this.port}`);
+                logger.success(`Web Interface available at http://localhost:${this.port}`, 'WEB');
                 if (CONFIG.dashboard.password) {
-                    logger.info('Dashboard is protected by password');
+                    logger.info('Access Control: Password protection enabled.', 'WEB');
+                } else {
+                    logger.warn('Access Control: Password protection disabled (Public)', 'WEB');
                 }
             });
         } catch (error) {
-            logger.error(`Failed to start dashboard: ${error}`);
+            logger.error(`Failed to initialize dashboard service: ${error}`, 'WEB');
         }
     }
 

@@ -13,7 +13,9 @@ function getOrGenerateKey(): Buffer {
             const keyHex = fs.readFileSync(ENCRYPTION_KEY_FILE, 'utf8');
             return Buffer.from(keyHex, 'hex');
         } catch {
-            console.error('Failed to read encryption key, generating new one. Warning: Old encrypted data will be unreadable.');
+            console.error(
+                'Failed to read encryption key, generating new one. Warning: Old encrypted data will be unreadable.'
+            );
         }
     }
 

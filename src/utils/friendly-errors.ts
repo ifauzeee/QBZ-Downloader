@@ -33,10 +33,11 @@ const ERROR_PATTERNS: Record<string, ErrorInfo> = {
 
     '401': {
         message: 'Autentikasi gagal',
-        suggestion: 'Token Anda mungkin expired. Jalankan "qbz-dl setup" untuk memperbarui credentials.',
+        suggestion:
+            'Token Anda mungkin expired. Perbarui QOBUZ_USER_AUTH_TOKEN di file .env lalu restart server, atau perbarui dari halaman Settings di dashboard jika tersedia.',
         emoji: '🔐'
     },
-    'invalid_credentials': {
+    invalid_credentials: {
         message: 'Credentials tidak valid',
         suggestion: 'Periksa App ID, Secret, dan Token Anda di Settings.',
         emoji: '🔑'
@@ -47,7 +48,7 @@ const ERROR_PATTERNS: Record<string, ErrorInfo> = {
         suggestion: 'Fitur ini mungkin memerlukan langganan Qobuz premium.',
         emoji: '⚠️'
     },
-    'subscription_required': {
+    subscription_required: {
         message: 'Langganan premium diperlukan',
         suggestion: 'Kualitas Hi-Res memerlukan langganan Qobuz Studio atau Studio Premier.',
         emoji: '💎'
@@ -85,12 +86,12 @@ const ERROR_PATTERNS: Record<string, ErrorInfo> = {
         emoji: '🔧'
     },
 
-    'track_restricted': {
+    track_restricted: {
         message: 'Track tidak tersedia di wilayah Anda',
         suggestion: 'Beberapa konten dibatasi berdasarkan lokasi geografis.',
         emoji: '🌍'
     },
-    'no_streamable': {
+    no_streamable: {
         message: 'Track tidak dapat di-stream',
         suggestion: 'Track ini mungkin tidak tersedia untuk download.',
         emoji: '🚫'
@@ -130,9 +131,11 @@ export function formatErrorForCLI(error: Error | string | unknown): string {
 /**
  * Formats error for API response
  */
-export function formatErrorForAPI(
-    error: Error | string | unknown
-): { error: string; suggestion: string; code: string } {
+export function formatErrorForAPI(error: Error | string | unknown): {
+    error: string;
+    suggestion: string;
+    code: string;
+} {
     const info = humanizeError(error);
     const errorString = error instanceof Error ? error.message : String(error);
 

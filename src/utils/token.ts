@@ -1,67 +1,160 @@
-import inquirer from 'inquirer';
-import chalk from 'chalk';
+import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
+import { CONFIG } from '../config.js';
+import { logger } from './logger.js';
 
-function loadCurrentConfig(): Record<string, string> {
-    const config: Record<string, string> = {};
-    const envPath = path.resolve(process.cwd(), '.env');
+/**
+ * Token Manager with auto-refresh and event notifications
+ */
+class TokenManager extends EventEmitter {
+    private token: string;
+    private lastValidated: number = 0;
+    private isValid: boolean | null = null;
+    private refreshInProgress: boolean = false;
 
-    if (fs.existsSync(envPath)) {
-        const content = fs.readFileSync(envPath, 'utf8');
-        content.split('\n').forEach((line) => {
-            const [key, ...valueParts] = line.split('=');
-            if (key && valueParts.length > 0) {
-                config[key.trim()] = valueParts.join('=').trim();
-            }
-        });
+    constructor() {
+        super();
+        this.token = CONFIG.credentials.token || '';
     }
-    return config;
+
+    /**
+     * Get current token
+     */
+    getToken(): string {
+        return this.token;
+    }
+
+    /**
+     * Update token and persist to .env
+     */
+    async updateToken(newToken: string): Promise<boolean> {
+        return this.updateConfig('QOBUZ_USER_AUTH_TOKEN', newToken);
+    }
+
+    /**
+     * Update any config credential
+     */
+    async updateConfig(key: string, value: string): Promise<boolean> {
+        if (!value || value.trim() === '') return false;
+
+        const validKeys = [
+            'QOBUZ_APP_ID',
+            'QOBUZ_APP_SECRET',
+            'QOBUZ_USER_AUTH_TOKEN',
+            'QOBUZ_USER_ID'
+        ];
+        if (!validKeys.includes(key)) return false;
+
+        const val = value.trim();
+        if (key === 'QOBUZ_USER_AUTH_TOKEN') {
+            const oldToken = this.token;
+            this.token = val;
+            this.emit('token:updated', { oldToken: oldToken.slice(-4), newToken: val.slice(-4) });
+        }
+
+        if (key === 'QOBUZ_APP_ID') CONFIG.credentials.appId = val;
+        if (key === 'QOBUZ_APP_SECRET') CONFIG.credentials.appSecret = val;
+        if (key === 'QOBUZ_USER_AUTH_TOKEN') CONFIG.credentials.token = val;
+        if (key === 'QOBUZ_USER_ID') CONFIG.credentials.userId = val;
+
+        try {
+            await this.persistToEnv(key, val);
+            if (key === 'QOBUZ_USER_AUTH_TOKEN') {
+                this.isValid = null;
+                logger.success('Token updated successfully');
+            } else {
+                logger.success(`Config ${key} updated`);
+            }
+            return true;
+        } catch (error: any) {
+            logger.error(`Failed to persist ${key}: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Persist value to .env file
+     */
+    private async persistToEnv(key: string, value: string): Promise<void> {
+        const envPath = path.resolve(process.cwd(), '.env');
+
+        if (!fs.existsSync(envPath)) {
+            fs.writeFileSync(envPath, `${key}=${value}\n`, 'utf8');
+            return;
+        }
+
+        const content = fs.readFileSync(envPath, 'utf8');
+        const lines = content.split('\n');
+
+        let found = false;
+        const newLines = lines.map((line) => {
+            if (line.startsWith(`${key}=`)) {
+                found = true;
+                return `${key}=${value}`;
+            }
+            return line;
+        });
+
+        if (!found) {
+            newLines.push(`${key}=${value}`);
+        }
+
+        fs.writeFileSync(envPath, newLines.join('\n'), 'utf8');
+    }
+
+    /**
+     * Mark token as invalid (e.g., after 401/403 error)
+     */
+    markInvalid(): void {
+        this.isValid = false;
+        this.emit('token:invalid');
+        logger.warn('Token marked as invalid');
+    }
+
+    /**
+     * Mark token as valid
+     */
+    markValid(): void {
+        this.isValid = true;
+        this.lastValidated = Date.now();
+        this.emit('token:valid');
+    }
+
+    /**
+     * Check if token needs refresh
+     */
+    needsRefresh(): boolean {
+        return this.isValid === false;
+    }
+
+    /**
+     * Get status info
+     */
+    getStatus(): { configured: boolean; valid: boolean | null; lastValidated: number | null } {
+        return {
+            configured: !!this.token,
+            valid: this.isValid,
+            lastValidated: this.lastValidated || null
+        };
+    }
 }
 
+export const tokenManager = new TokenManager();
+
+/**
+ * Refresh user token - now integrated with TokenManager
+ */
 export async function refreshUserToken(): Promise<string | null> {
-    console.log(chalk.red('\n⚠️  Qobuz User Token expired or invalid!'));
+    const status = tokenManager.getStatus();
 
-    const { update } = await inquirer.prompt([
-        {
-            type: 'confirm',
-            name: 'update',
-            message: 'Would you like to update your token now?',
-            default: true
-        }
-    ]);
-
-    if (!update) {
+    if (!status.configured) {
+        logger.warn('No token configured. Please set QOBUZ_USER_AUTH_TOKEN in .env');
         return null;
     }
 
-    const { newToken } = await inquirer.prompt([
-        {
-            type: 'password',
-            name: 'newToken',
-            message: 'Enter new Qobuz User Auth Token:',
-            validate: (input) => input.length > 0 || 'Token is required'
-        }
-    ]);
+    logger.warn('Token expired or invalid. Please update via Dashboard Settings.');
+    tokenManager.markInvalid();
 
-    try {
-        const currentConfig = loadCurrentConfig();
-        currentConfig.QOBUZ_USER_AUTH_TOKEN = newToken;
-
-        const envContent = Object.entries(currentConfig)
-            .map(([key, value]) => `${key}=${value}`)
-            .join('\n');
-
-        const envPath = path.resolve(process.cwd(), '.env');
-        fs.writeFileSync(envPath, envContent, 'utf8');
-
-        console.log(chalk.green('✅ Token updated in .env file.'));
-
-        process.env.QOBUZ_USER_AUTH_TOKEN = newToken;
-
-        return newToken;
-    } catch (error: unknown) {
-        console.error(chalk.red(`Failed to save token: ${(error as Error).message}`));
-        return null;
-    }
+    return null;
 }

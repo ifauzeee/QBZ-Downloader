@@ -2,6 +2,7 @@ export interface Artist {
     id: number | string;
     name: string;
     albums_count?: number;
+    image?: { small?: string; medium?: string; large?: string };
 }
 
 export interface Playlist {
@@ -41,8 +42,24 @@ export interface Album {
 export interface Track {
     id: string | number;
     title: string;
-    performer?: { name: string };
-    album?: { title: string; id?: string | number };
+    artist?: Artist;
+    performer?: {
+        id?: number | string;
+        name: string;
+        image?: { small?: string; medium?: string; large?: string };
+    };
+    album?: {
+        title: string;
+        id?: string | number;
+        artist?: Artist;
+        image?: {
+            small?: string;
+            medium?: string;
+            large?: string;
+            mega?: string;
+            extralarge?: string;
+        };
+    };
     duration: number;
     hires: boolean;
     track_number: number;
@@ -94,4 +111,12 @@ export interface LyricsResult {
     copyright?: string | null;
     writer?: string | null;
     error?: string;
+}
+
+export interface FileUrlData {
+    url: string;
+    format_id: number;
+    bit_depth?: number;
+    sampling_rate?: number;
+    mime_type?: string;
 }

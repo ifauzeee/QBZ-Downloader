@@ -51,35 +51,38 @@ export class ConfigurationError extends QobuzError {
 }
 
 import { humanizeError } from './friendly-errors.js';
+import { logger } from './logger.js';
 
 export function handleError(error: Error | QobuzError, display: any) {
     const friendlyError = humanizeError(error);
 
     if (error instanceof ValidationError) {
         display.displayError(`${friendlyError.emoji} Validation Error: ${error.message}`);
-        console.log(`   💡 ${friendlyError.suggestion}`);
+        logger.info(`💡 ${friendlyError.suggestion}`, 'HELP');
     } else if (error instanceof AuthenticationError) {
         display.displayError(`🔐 Authentication Error: ${error.message}`);
-        console.log('   💡 Jalankan "qbz-dl setup" untuk memperbarui credentials Anda.');
+        logger.info(
+            '💡 Periksa QOBUZ_APP_ID, QOBUZ_APP_SECRET, dan QOBUZ_USER_AUTH_TOKEN di file .env lalu restart server.',
+            'HELP'
+        );
     } else if (error instanceof APIError) {
         display.displayError(
             `${friendlyError.emoji} ${friendlyError.message}${error.statusCode ? ` (Status: ${error.statusCode})` : ''}`
         );
-        console.log(`   💡 ${friendlyError.suggestion}`);
+        logger.info(`💡 ${friendlyError.suggestion}`, 'HELP');
     } else if (error instanceof DownloadError) {
         display.displayError(
             `📥 Download Error: ${error.message}${error.trackId ? ` (Track ID: ${error.trackId})` : ''}`
         );
-        console.log(`   💡 ${friendlyError.suggestion}`);
+        logger.info(`💡 ${friendlyError.suggestion}`, 'HELP');
     } else if (error instanceof ConfigurationError) {
         display.displayError(`⚙️ Configuration Error: ${error.message}`);
         if (error.missingVars.length > 0) {
-            console.log(`   ❌ Missing: ${error.missingVars.join(', ')}`);
+            logger.error(`Missing: ${error.missingVars.join(', ')}`, 'CONFIG');
         }
-        console.log('   💡 Jalankan "qbz-dl setup" untuk konfigurasi ulang.');
+        logger.info('💡 Lengkapi variabel yang hilang di file .env lalu restart server.', 'HELP');
     } else {
         display.displayError(`${friendlyError.emoji} ${friendlyError.message}`);
-        console.log(`   💡 ${friendlyError.suggestion}`);
+        logger.info(`💡 ${friendlyError.suggestion}`, 'HELP');
     }
 }
-

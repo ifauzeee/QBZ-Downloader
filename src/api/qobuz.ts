@@ -1,5 +1,6 @@
 import { createAxiosInstance } from '../utils/network.js';
 import { cacheService } from '../utils/cache.js';
+import { logger } from '../utils/logger.js';
 import { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import crypto from 'crypto';
 import { CONFIG } from '../config.js';
@@ -144,13 +145,22 @@ class QobuzAPI {
                     artist_id: artistId,
                     app_id: this.appId,
                     user_auth_token: this.token,
-                    extra: 'albums,tracks,focus',
+                    extra: 'albums,tracks',
                     album_offset: albumOffset,
                     album_limit: albumLimit,
                     track_offset: trackOffset,
-                    track_limit: trackLimit
+                    track_limit: trackLimit,
+                    offset: albumOffset,
+                    limit: albumLimit
                 }
             });
+
+            if (response.data?.albums) {
+                logger.debug(
+                    `[QobuzAPI] Artist Album Response - Requested Offset: ${albumOffset} | Returned: ${response.data.albums.offset} | Count: ${response.data.albums.items?.length}`
+                );
+            }
+
             await cacheService.set(cacheKey, response.data, 1800);
             return { success: true, data: response.data };
         } catch (error) {
@@ -215,6 +225,25 @@ class QobuzAPI {
                     user_auth_token: this.token
                 }
             });
+
+            if (response.data) {
+                let detectedFormat = formatId;
+                const { bit_depth, sampling_rate, mime_type } = response.data;
+
+                if (mime_type === 'audio/mpeg' || mime_type === 'audio/mp3') {
+                    detectedFormat = 5;
+                } else if (bit_depth === 16) {
+                    detectedFormat = 6;
+                } else if (bit_depth === 24) {
+                    if (sampling_rate >= 176.4) {
+                        detectedFormat = 27;
+                    } else {
+                        detectedFormat = 7;
+                    }
+                }
+
+                response.data.format_id = detectedFormat;
+            }
 
             return { success: true, data: response.data };
         } catch (error) {
