@@ -305,7 +305,6 @@ window.queueAction = async function (action) {
 };
 
 window.cancelItem = async function (id) {
-    if (!confirm('Cancel this download?')) return;
     await smartFetch(`/api/item/${id}/cancel`, { method: 'POST' });
     fetchQueue();
 };
@@ -420,7 +419,6 @@ function renderHistory(items) {
 const clearHistoryBtn = document.getElementById('clear-history-btn');
 if (clearHistoryBtn) {
     clearHistoryBtn.onclick = async () => {
-        if (!confirm('Delete ALL history? This cannot be undone.')) return;
 
         try {
             const res = await smartFetch('/api/history/clear', { method: 'POST' });
@@ -1335,7 +1333,6 @@ function renderPlaylists(items) {
 }
 
 window.deletePlaylist = async function (id) {
-    if (!confirm('Stop tracking this playlist?')) return;
     try {
         await smartFetch(`/api/playlists/watch/${id}`, { method: 'DELETE' });
         fetchPlaylists();
@@ -1891,7 +1888,6 @@ function renderDuplicates(duplicates) {
 }
 
 window.resolveDuplicate = async function (id) {
-    if (!confirm('Mark this duplicate as resolved?')) return;
     try {
         await smartFetch(`/api/library/duplicates/${id}/resolve`, { method: 'POST' });
         showToast('Duplicate resolved', 'success');
@@ -1917,7 +1913,6 @@ window.upgradeFile = async function (trackId) {
         showToast('Cannot upgrade: Missing Track ID', 'error');
         return;
     }
-    if (!confirm('Download high-quality version of this track?')) return;
 
     const finalUrl = `https://www.qobuz.com/track/${trackId}`;
 

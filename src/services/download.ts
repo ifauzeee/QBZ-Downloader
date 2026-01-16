@@ -244,13 +244,60 @@ export default class DownloadService {
                 logger.error(`Error fetching lyrics: ${e.message}`, 'LYRICS');
             }
 
+            if (options.onProgress) options.onProgress({ phase: 'cover', loaded: 0 });
+            let coverBuffer: Buffer | null = null;
+            const coverUrl =
+                metadata.coverUrl ||
+                album?.image?.mega ||
+                album?.image?.extralarge ||
+                album?.image?.large ||
+                album?.image?.medium;
+
+            if (coverUrl && CONFIG.metadata.embedCover) {
+                try {
+                    const { default: axios } = await import('axios');
+                    const coverResponse = await axios.get(coverUrl, {
+                        responseType: 'arraybuffer',
+                        timeout: 30000
+                    });
+                    coverBuffer = Buffer.from(coverResponse.data);
+                    logger.info(`Cover art downloaded for ${metadata.title}`, 'COVER');
+
+                    if (CONFIG.metadata.saveCoverFile) {
+                        const coverPath = path.join(folderPath, 'cover.jpg');
+                        if (!existsSync(coverPath)) {
+                            const { writeFileSync } = await import('fs');
+                            writeFileSync(coverPath, coverBuffer);
+                            logger.info(`Cover saved to ${coverPath}`, 'COVER');
+                        }
+                    }
+                } catch (coverErr: any) {
+                    logger.warn(`Failed to download cover art: ${coverErr.message}`, 'COVER');
+                }
+            }
+
             if (options.onProgress) options.onProgress({ phase: 'tagging', loaded: 100 });
             await this.metadataService.writeMetadata(
                 filePath,
                 metadata,
                 actualQuality,
-                lyricsResult
+                lyricsResult,
+                coverBuffer
             );
+
+            if (lyricsResult && CONFIG.metadata.saveLrcFile) {
+                const lrcContent = lyricsResult.syncedLyrics || lyricsResult.plainLyrics;
+                if (lrcContent) {
+                    try {
+                        const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
+                        const { writeFileSync } = await import('fs');
+                        writeFileSync(lrcPath, lrcContent, 'utf8');
+                        logger.info(`LRC saved to ${path.basename(lrcPath)}`, 'LYRICS');
+                    } catch (lrcErr: any) {
+                        logger.warn(`Failed to save LRC file: ${lrcErr.message}`, 'LYRICS');
+                    }
+                }
+            }
 
             resumeService.completeDownload(trackId.toString());
 

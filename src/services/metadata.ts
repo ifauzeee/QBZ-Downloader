@@ -570,7 +570,7 @@ class MetadataService {
             '✨ Hi-Res': metadata.hiresAvailable ? '✅' : '❌'
         };
     }
-    async writeFlacTags(filePath: string, tags: string[][]) {
+    async writeFlacTags(filePath: string, tags: string[][], coverBuffer: Buffer | null = null) {
         return new Promise<void>((resolve, reject) => {
             const tempPath = filePath + '.tmp';
             let readStream: fs.ReadStream;
@@ -584,13 +584,10 @@ class MetadataService {
             }
 
             const processor = new flac.Processor({ parseMetaDataBlocks: true });
-
             const comments = tags.map(([key, val]) => `${key}=${val}`);
-            const vendor = 'QBZ-DL';
+            const vendor = 'QBZ-Downloader v3.0.0';
 
-            const mdbVorbis = flac.data.MetaDataBlockVorbisComment.create(false, vendor, comments);
-
-            let vorbisAdded = false;
+            let metadataInserted = false;
 
             processor.on('preprocess', (mdb: any) => {
                 if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
@@ -598,11 +595,42 @@ class MetadataService {
                     return;
                 }
 
+                if (mdb.type === flac.Processor.MDB_TYPE_PICTURE && coverBuffer) {
+                    mdb.remove();
+                    return;
+                }
+
+                if (mdb.type === flac.Processor.MDB_TYPE_STREAMINFO && !metadataInserted) {
+                    metadataInserted = true;
+
+                    mdb.isLast = false;
+                }
+            });
+
+            processor.on('postprocess', (mdb: any) => {
                 if (mdb.type === flac.Processor.MDB_TYPE_STREAMINFO) {
-                    if (!vorbisAdded) {
+                    const isVorbisLast = !coverBuffer;
+                    const mdbVorbis = flac.data.MetaDataBlockVorbisComment.create(
+                        isVorbisLast,
+                        vendor,
+                        comments
+                    );
+                    processor.push(mdbVorbis.publish());
+
+                    if (coverBuffer) {
                         try {
-                            processor.push(mdbVorbis.publish());
-                            vorbisAdded = true;
+                            const mdbPicture = flac.data.MetaDataBlockPicture.create(
+                                true,
+                                3,
+                                'image/jpeg',
+                                'Cover',
+                                0,
+                                0,
+                                0,
+                                0,
+                                coverBuffer
+                            );
+                            processor.push(mdbPicture.publish());
                         } catch {}
                     }
                 }
@@ -613,13 +641,13 @@ class MetadataService {
             writeStream.on('finish', () => {
                 try {
                     const stats = fs.statSync(tempPath);
-                    if (stats.size > 0) {
+                    if (stats.size > 1000) {
                         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                         fs.renameSync(tempPath, filePath);
                         resolve();
                     } else {
                         if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                        reject(new Error('Tagging resulted in empty file'));
+                        reject(new Error('Tagging resulted in invalid file size'));
                     }
                 } catch (err: any) {
                     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
@@ -646,13 +674,14 @@ class MetadataService {
         filePath: string,
         metadata: Metadata,
         _quality: number,
-        lyrics: any = null
+        lyrics: any = null,
+        coverBuffer: Buffer | null = null
     ) {
         if (filePath.endsWith('.flac')) {
             const tags = this.buildFlacTags(metadata, lyrics);
-            return this.writeFlacTags(filePath, tags);
+            return this.writeFlacTags(filePath, tags, coverBuffer);
         } else if (filePath.endsWith('.mp3')) {
-            const tags = this.buildId3Tags(metadata, null, lyrics);
+            const tags = this.buildId3Tags(metadata, coverBuffer, lyrics);
             return this.writeId3Tags(filePath, tags);
         }
     }
