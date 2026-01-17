@@ -1,4 +1,5 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
+import chalk from 'chalk';
 import { Server as HttpServer, createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
 import cors from 'cors';
@@ -151,8 +152,33 @@ export class DashboardService {
         if (port) this.port = port;
         try {
             dashboardCleaner.start();
-            this.httpServer.listen(this.port, () => {
-                logger.success(`Web Interface available at http://localhost:${this.port}`, 'WEB');
+            this.httpServer.listen(this.port, async () => {
+                try {
+                    const { default: boxen } = await import('boxen');
+                    const message = `
+${chalk.bold.green('Dashboard Active')}
+
+Local:   ${chalk.cyan(`http://localhost:${this.port}`)}
+Status:  ${chalk.green('Running')}
+Mode:    ${CONFIG.dashboard.password ? chalk.red('Protected') : chalk.yellow('Public')}
+`;
+                    console.log(
+                        boxen(message, {
+                            padding: 1,
+                            margin: 1,
+                            borderStyle: 'round',
+                            borderColor: 'cyan',
+                            title: 'Server Info',
+                            titleAlignment: 'center'
+                        })
+                    );
+                } catch {
+                    logger.success(
+                        `Web Interface available at http://localhost:${this.port}`,
+                        'WEB'
+                    );
+                }
+
                 if (CONFIG.dashboard.password) {
                     logger.info('Access Control: Password protection enabled.', 'WEB');
                 } else {

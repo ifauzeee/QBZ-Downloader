@@ -18,47 +18,58 @@ class Logger {
         return new Date().toLocaleTimeString('en-US', { hour12: false });
     }
 
-    private formatScope(scope?: string): string {
-        return scope ? chalk.gray(`[${scope.toUpperCase()}]`) : '';
-    }
-
     log(message: string, type: LogType = 'info', scope?: string) {
-        const timestamp = chalk.dim(this.getTimestamp());
-        const scopeStr = this.formatScope(scope);
-        const separator = chalk.dim('│');
+        const timestamp = chalk.gray(this.getTimestamp());
 
-        let levelBadge = '';
-        let msgColor = (msg: string) => msg;
+        let icon = '';
+        let badge = '';
+        let colorizedMessage = message;
 
         switch (type) {
             case 'success':
-                levelBadge = chalk.bold.green(' SUCCESS ');
-                msgColor = chalk.green;
+                icon = '✅';
+                badge = chalk.green.bold('SUCCESS'.padEnd(7));
+                colorizedMessage = chalk.greenBright(message);
                 break;
             case 'warn':
-                levelBadge = chalk.bold.yellow(' WARNING ');
-                msgColor = chalk.yellow;
+                icon = '⚠️ ';
+                badge = chalk.yellow.bold('WARNING'.padEnd(7));
+                colorizedMessage = chalk.yellowBright(message);
                 break;
             case 'error':
-                levelBadge = chalk.bold.red('  ERROR  ');
-                msgColor = chalk.red;
+                icon = '❌';
+                badge = chalk.red.bold('ERROR  '.padEnd(7));
+                colorizedMessage = chalk.redBright(message);
                 break;
             case 'debug':
-                levelBadge = chalk.bold.magenta('  DEBUG  ');
-                msgColor = chalk.magenta;
+                icon = '🐛';
+                badge = chalk.magenta.bold('DEBUG  '.padEnd(7));
+                colorizedMessage = chalk.magenta(message);
                 break;
             case 'system':
-                levelBadge = chalk.bold.cyan('  SYSTEM ');
-                msgColor = chalk.cyan;
+                icon = '💻';
+                badge = chalk.cyan.bold('SYSTEM '.padEnd(7));
+                colorizedMessage = chalk.cyanBright(message);
                 break;
             default:
-                levelBadge = chalk.bold.blue('  INFO   ');
-                msgColor = chalk.white;
+                icon = 'ℹ️ ';
+                badge = chalk.blue.bold('INFO   '.padEnd(7));
+                colorizedMessage = chalk.white(message);
         }
 
-        const content = scope ? `${scopeStr.padEnd(10)} ${message}` : message;
+        const scopeStr = scope ? scope.toUpperCase() : '';
+        const targetWidth = 8;
+        const padding = Math.max(0, targetWidth - scopeStr.length);
+        const padLeft = Math.floor(padding / 2);
+        const padRight = padding - padLeft;
+        const centeredScope = ' '.repeat(padLeft) + scopeStr + ' '.repeat(padRight);
 
-        console.log(`${timestamp} ${separator} ${levelBadge} ${separator} ${msgColor(content)}`);
+        const scopeLabel = chalk.bold.white(`[${centeredScope}]`);
+        const separator = chalk.gray('│');
+
+        console.log(
+            `${timestamp} ${separator} ${icon} ${badge} ${separator} ${scopeLabel} ${colorizedMessage}`
+        );
     }
 
     info(message: string, scope?: string) {

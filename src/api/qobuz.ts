@@ -18,27 +18,54 @@ interface ApiResponse<T = unknown> {
 
 class QobuzAPI {
     baseUrl: string;
-    appId: string;
-    appSecret: string;
-    token: string;
-    userId: string;
     client: AxiosInstance;
+
+    get appId() {
+        return CONFIG.credentials.appId;
+    }
+    set appId(val: string) {
+        CONFIG.credentials.appId = val;
+    }
+
+    get appSecret() {
+        return CONFIG.credentials.appSecret;
+    }
+    set appSecret(val: string) {
+        CONFIG.credentials.appSecret = val;
+    }
+
+    get token() {
+        return CONFIG.credentials.token;
+    }
+    set token(val: string) {
+        CONFIG.credentials.token = val;
+    }
+
+    get userId() {
+        return CONFIG.credentials.userId;
+    }
+    set userId(val: string) {
+        CONFIG.credentials.userId = val;
+    }
 
     constructor() {
         this.baseUrl = CONFIG.api.baseUrl;
-        this.appId = CONFIG.credentials.appId;
-        this.appSecret = CONFIG.credentials.appSecret;
-        this.token = CONFIG.credentials.token;
-        this.userId = CONFIG.credentials.userId;
 
         this.client = createAxiosInstance({
             baseURL: this.baseUrl,
             timeout: 30000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'X-App-Id': this.appId,
+                get 'X-App-Id'() {
+                    return CONFIG.credentials.appId;
+                },
                 'Accept-Language': 'en-US,en;q=0.9'
             }
+        });
+
+        this.client.interceptors.request.use((config) => {
+            config.headers['X-App-Id'] = this.appId;
+            return config;
         });
 
         this.setupInterceptors();
@@ -79,7 +106,8 @@ class QobuzAPI {
 
     generateSignature(trackId: string | number, formatId: number, intent = 'stream') {
         const timestamp = Math.floor(Date.now() / 1000);
-        const data = `trackgetFileUrlformat_id${formatId}intent${intent}track_id${trackId}${timestamp}${this.appSecret}`;
+        const secret = CONFIG.credentials.appSecret;
+        const data = `trackgetFileUrlformat_id${formatId}intent${intent}track_id${trackId}${timestamp}${secret}`;
         const signature = crypto.createHash('md5').update(data).digest('hex');
         return { timestamp, signature };
     }
@@ -243,6 +271,22 @@ class QobuzAPI {
                 }
 
                 response.data.format_id = detectedFormat;
+
+                if (
+                    response.data.sample ||
+                    (response.data.duration && response.data.duration <= 30)
+                ) {
+                    logger.warn(`Track ${trackId} returned as a SAMPLE/PREVIEW (30s limit)`, 'API');
+
+                    const debugInfo = {
+                        duration: response.data.duration,
+                        sample: response.data.sample,
+                        restrictions: response.data.restrictions,
+                        format_id: response.data.format_id
+                    };
+
+                    logger.debug(`Sample Details: ${JSON.stringify(debugInfo, null, 2)}`, 'API');
+                }
             }
 
             return { success: true, data: response.data };
