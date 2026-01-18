@@ -23,7 +23,6 @@ export interface Config {
         appSecret: string;
         token: string;
         userId: string;
-        acoustidKey: string;
     };
     api: {
         baseUrl: string;
@@ -86,8 +85,7 @@ export const CONFIG: Config = {
             appId: getStr('QOBUZ_APP_ID', ''),
             appSecret: getStr('QOBUZ_APP_SECRET', ''),
             token: getStr('QOBUZ_USER_AUTH_TOKEN', getStr('QOBUZ_TOKEN', '')),
-            userId: getStr('QOBUZ_USER_ID', ''),
-            acoustidKey: getStr('ACOUSTID_API_KEY', '')
+            userId: getStr('QOBUZ_USER_ID', '')
         };
     },
 
@@ -113,12 +111,12 @@ export const CONFIG: Config = {
         const parsed = parseInt(defaultQualityRaw, 10);
         const defaultQuality =
             defaultQualityRaw === 'ask' ||
-            defaultQualityRaw === 'min' ||
-            defaultQualityRaw === 'max'
+                defaultQualityRaw === 'min' ||
+                defaultQualityRaw === 'max'
                 ? (defaultQualityRaw as 'ask' | 'min' | 'max')
                 : !isNaN(parsed)
-                  ? parsed
-                  : 27;
+                    ? parsed
+                    : 27;
 
         return {
             formats: {

@@ -30,8 +30,7 @@ export function registerRoutes(app: any) {
                 appId: !!creds.appId,
                 appSecret: !!creds.appSecret,
                 token: !!creds.token,
-                userId: !!creds.userId,
-                acoustidKey: !!creds.acoustidKey
+                userId: !!creds.userId
             }
         });
     });
@@ -57,7 +56,6 @@ export function registerRoutes(app: any) {
             QOBUZ_APP_SECRET: mask(CONFIG.credentials.appSecret),
             QOBUZ_USER_AUTH_TOKEN: mask(CONFIG.credentials.token),
             QOBUZ_USER_ID: CONFIG.credentials.userId,
-            ACOUSTID_API_KEY: mask(CONFIG.credentials.acoustidKey),
             DOWNLOADS_PATH: CONFIG.download.outputDir,
             FOLDER_TEMPLATE: CONFIG.download.folderStructure,
             FILE_TEMPLATE: CONFIG.download.fileNaming,
@@ -66,13 +64,12 @@ export function registerRoutes(app: any) {
     });
 
     app.post('/api/settings/update', async (req: Request, res: Response) => {
-        const { app_id, app_secret, token, user_id, acoustid_key } = req.body;
+        const { app_id, app_secret, token, user_id } = req.body;
         try {
             if (app_id) await tokenManager.updateConfig('QOBUZ_APP_ID', app_id);
             if (app_secret) await tokenManager.updateConfig('QOBUZ_APP_SECRET', app_secret);
             if (token) await tokenManager.updateConfig('QOBUZ_USER_AUTH_TOKEN', token);
             if (user_id) await tokenManager.updateConfig('QOBUZ_USER_ID', user_id);
-            if (acoustid_key) await tokenManager.updateConfig('ACOUSTID_API_KEY', acoustid_key);
             res.json({ success: true, message: 'Settings updated successfully' });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -291,7 +288,7 @@ export function registerRoutes(app: any) {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch {}
+                        } catch { }
                     }
                     return item;
                 });

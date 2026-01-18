@@ -19,7 +19,6 @@ interface Credentials {
         appSecret: boolean;
         token: boolean;
         userId: boolean;
-        acoustidKey: boolean;
     };
 }
 
@@ -36,7 +35,7 @@ export const SettingsView: React.FC = () => {
 
     const [settings, setSettings] = useState<AppSettings | null>(null);
     const [creds, setCreds] = useState<Credentials | null>(null);
-    const [form, setForm] = useState({ appId: '', appSecret: '', token: '', userId: '', acoustidKey: '' });
+    const [form, setForm] = useState({ appId: '', appSecret: '', token: '', userId: '' });
     const { showToast } = useToast();
 
     const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -72,8 +71,7 @@ export const SettingsView: React.FC = () => {
                     app_id: form.appId,
                     app_secret: form.appSecret,
                     token: form.token,
-                    user_id: form.userId,
-                    acoustid_key: form.acoustidKey
+                    user_id: form.userId
                 })
             });
 
@@ -81,7 +79,7 @@ export const SettingsView: React.FC = () => {
                 const data = await res.json();
                 if (data.success) {
                     showToast(data.message || 'Updated!', 'success');
-                    setForm({ appId: '', appSecret: '', token: '', userId: '', acoustidKey: '' });
+                    setForm({ appId: '', appSecret: '', token: '', userId: '' });
                     loadSettings();
                 } else {
                     showToast(data.error || 'Update failed', 'error');
@@ -210,12 +208,6 @@ export const SettingsView: React.FC = () => {
                             {creds?.configured.userId ? '✓ Configured' : '✗ Missing'}
                         </span>
                     </div>
-                    <div className="cred-status-item">
-                        <span className="cred-label">AcoustID Key</span>
-                        <span className={`cred-value ${creds?.configured.acoustidKey ? 'valid' : 'invalid'}`}>
-                            {creds?.configured.acoustidKey ? '✓ Configured' : '✗ Missing'}
-                        </span>
-                    </div>
                 </div>
                 <div className="cred-actions">
                     <button className="btn primary" onClick={validateCredentials} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -246,15 +238,11 @@ export const SettingsView: React.FC = () => {
                         <label>User ID</label>
                         <input type="text" placeholder="Enter new User ID..." value={form.userId} onChange={e => setForm({ ...form, userId: e.target.value })} />
                     </div>
-                    <div className="form-group">
-                        <label>AcoustID Key</label>
-                        <input type="text" placeholder="Enter new AcoustID Key..." value={form.acoustidKey} onChange={e => setForm({ ...form, acoustidKey: e.target.value })} />
-                    </div>
                 </div>
                 <button className="btn primary" onClick={updateCredentials} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Icons.Download width={14} height={14} /> {t('action_update_creds')}
                 </button>
-            </div>
+            </div >
 
             <div className="settings-section">
                 <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -434,6 +422,6 @@ export const SettingsView: React.FC = () => {
                 }}
                 onCancel={() => setShowDeleteThemeConfirm(null)}
             />
-        </div>
+        </div >
     );
 };
