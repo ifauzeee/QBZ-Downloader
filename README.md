@@ -4,7 +4,7 @@
 
 ### *The Ultimate High-Resolution Audio Downloader & Library Management Platform*
 
-[![Version](https://img.shields.io/badge/version-4.1.0-blue?style=for-the-badge&color=6366f1)](https://github.com/ifauzeee/QBZ-Downloader/releases)
+[![Version](https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge&color=6366f1)](https://github.com/ifauzeee/QBZ-Downloader/releases)
 [![React](https://img.shields.io/badge/React-18.x-blue?style=for-the-badge&logo=react)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5.x-purple?style=for-the-badge&logo=vite)](https://vitejs.dev/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.7-blue?style=for-the-badge&color=3178c6&logo=typescript)](https://www.typescriptlang.org/)
@@ -145,14 +145,17 @@ docker-compose up -d
 git clone https://github.com/ifauzeee/QBZ-Downloader.git
 cd QBZ-Downloader
 
-# 2. Install dependencies (Backend & Frontend)
+# 2. Install dependencies
+npm install
+
+# 3. Build dependencies (Backend & Frontend)
 npm run build:full
 
-# 3. Setup environment
+# 4. Setup environment
 cp .env.example .env
 # Edit .env with your credentials
 
-# 4. Start Application
+# 5. Start Application
 npm start
 ```
 
