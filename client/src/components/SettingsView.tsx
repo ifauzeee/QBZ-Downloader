@@ -35,6 +35,7 @@ export const SettingsView: React.FC = () => {
 
     const [settings, setSettings] = useState<AppSettings | null>(null);
     const [creds, setCreds] = useState<Credentials | null>(null);
+    const [validationResult, setValidationResult] = useState<any>(null);
     const [form, setForm] = useState({ appId: '', appSecret: '', token: '', userId: '' });
     const { showToast } = useToast();
 
@@ -98,13 +99,22 @@ export const SettingsView: React.FC = () => {
     const validateCredentials = async () => {
         try {
             showToast('Validating...', 'info');
-            await smartFetch('/api/login', { method: 'POST' });
+            setValidationResult(null);
+            const res = await smartFetch('/api/login', { method: 'POST' });
+            if (res && res.ok) {
+                const data = await res.json();
+                if (data.success && data.user) {
+                    setValidationResult(data.user);
+                    showToast('Credentials valid', 'success');
+                } else {
+                    showToast('Login failed', 'error');
+                }
+            }
             loadSettings();
-            showToast('Credentials checked', 'success');
         } catch (e) {
             showToast('Validation error', 'error');
         }
-    }
+    };
 
     const triggerReset = () => {
         setShowResetConfirm(true);
@@ -214,6 +224,42 @@ export const SettingsView: React.FC = () => {
                         <Icons.Resolve width={14} height={14} /> {t('action_validate')}
                     </button>
                 </div>
+                {validationResult && (
+                    <div style={{ marginTop: '15px', padding: '15px', background: 'var(--bg-elevated)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                        <div style={{ fontWeight: 'bold', marginBottom: '10px', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>✓</span> Validation Successful
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 15px', fontSize: '0.9em' }}>
+                            <div style={{ opacity: 0.7 }}>Account:</div>
+                            <div>{validationResult.email} ({validationResult.country_code})</div>
+
+                            {validationResult.subscription && (
+                                <>
+                                    <div style={{ opacity: 0.7 }}>Subscription:</div>
+                                    <div style={{ color: 'var(--success)', fontWeight: 'bold' }}>{validationResult.subscription.offer}</div>
+
+                                    {(validationResult.subscription.end_date || validationResult.subscription.period_end_date) && (
+                                        <>
+                                            <div style={{ opacity: 0.7 }}>Expires:</div>
+                                            <div>{validationResult.subscription.end_date || validationResult.subscription.period_end_date}</div>
+                                        </>
+                                    )}
+                                </>
+                            )}
+
+                            <div style={{ opacity: 0.7 }}>Hi-Res Streaming:</div>
+                            <div>
+                                {validationResult.hires_streaming ||
+                                    validationResult.credential?.parameters?.hires_streaming ||
+                                    (validationResult.subscription?.offer &&
+                                        (validationResult.subscription.offer.includes('Studio') ||
+                                            validationResult.subscription.offer.includes('Sublime')))
+                                    ? 'Yes'
+                                    : 'No'}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="settings-section">

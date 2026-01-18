@@ -61,6 +61,11 @@ export class DashboardService {
             if (!password) return next();
 
             const isProtected = req.path.startsWith('/api') || req.path.startsWith('/downloads');
+
+            if (req.path.startsWith('/api/themes') || req.path.startsWith('/api/status') || req.path.startsWith('/api/onboarding') || req.path.startsWith('/api/stream/') || req.path.startsWith('/api/preview/')) {
+                return next();
+            }
+
             if (!isProtected) return next();
 
             const providedPassword = req.headers['x-password'] || req.query.pw;

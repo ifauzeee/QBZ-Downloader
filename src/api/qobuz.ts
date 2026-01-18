@@ -24,28 +24,28 @@ class QobuzAPI {
         return CONFIG.credentials.appId;
     }
     set appId(val: string) {
-        CONFIG.credentials.appId = val;
+        process.env.QOBUZ_APP_ID = val;
     }
 
     get appSecret() {
         return CONFIG.credentials.appSecret;
     }
     set appSecret(val: string) {
-        CONFIG.credentials.appSecret = val;
+        process.env.QOBUZ_APP_SECRET = val;
     }
 
     get token() {
         return CONFIG.credentials.token;
     }
     set token(val: string) {
-        CONFIG.credentials.token = val;
+        process.env.QOBUZ_USER_AUTH_TOKEN = val;
     }
 
     get userId() {
         return CONFIG.credentials.userId;
     }
     set userId(val: string) {
-        CONFIG.credentials.userId = val;
+        process.env.QOBUZ_USER_ID = val;
     }
 
     constructor() {
@@ -87,7 +87,7 @@ class QobuzAPI {
                         const newToken = await refreshUserToken();
                         if (newToken) {
                             this.token = newToken;
-                            CONFIG.credentials.token = newToken;
+
 
                             if (originalRequest.params) {
                                 originalRequest.params.user_auth_token = newToken;

@@ -4,6 +4,8 @@ import { smartFetch } from '../utils/api';
 import { Icons } from './Icons';
 import { LyricsEditor } from './LyricsEditor';
 import { useToast } from '../contexts/ToastContext';
+import { usePlayer } from '../contexts/PlayerContext';
+import { useNavigation } from '../contexts/NavigationContext';
 
 interface TrackInfo {
     id: string;
@@ -21,6 +23,19 @@ interface PlayerProps {
 
 export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     const { showToast } = useToast();
+    const {
+        showLyrics, setShowLyrics,
+        isLyricsFullscreen, setIsLyricsFullscreen,
+        showEditor, setShowEditor
+    } = usePlayer();
+
+    const { activeTab } = useNavigation();
+
+    useEffect(() => {
+        setShowLyrics(false);
+        setIsLyricsFullscreen(false);
+    }, [activeTab, setShowLyrics, setIsLyricsFullscreen]);
+
     const [track, setTrack] = useState<TrackInfo | null>(null);
     const [playing, setPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -35,9 +50,6 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
 
     const [lyrics, setLyrics] = useState<{ time: number, text: string }[] | null>(null);
     const [lyricsRaw, setLyricsRaw] = useState<string>('');
-    const [showLyrics, setShowLyrics] = useState(false);
-    const [showEditor, setShowEditor] = useState(false);
-    const [isLyricsFullscreen, setIsLyricsFullscreen] = useState(false);
     const [activeLyricIndex, setActiveLyricIndex] = useState<number>(-1);
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
 

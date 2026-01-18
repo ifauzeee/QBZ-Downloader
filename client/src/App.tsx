@@ -4,6 +4,7 @@ import { NavigationProvider, useNavigation, type Tab } from './contexts/Navigati
 import { ToastProvider } from './contexts/ToastContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { PlayerProvider } from './contexts/PlayerContext';
 import { QueueView } from './components/QueueView';
 import { BatchImportView } from './components/BatchImportView';
 import { SearchView } from './components/SearchView';
@@ -272,7 +273,9 @@ function App() {
         <NavigationProvider>
           <ThemeProvider>
             <ToastProvider>
-              <AppContent />
+              <PlayerProvider>
+                <AppContent />
+              </PlayerProvider>
             </ToastProvider>
           </ThemeProvider>
         </NavigationProvider>

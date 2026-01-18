@@ -15,7 +15,8 @@ RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
 
 # Install production dependencies only
-RUN npm ci --only=production && \
+RUN npm ci --only=production --ignore-scripts && \
+    npm rebuild better-sqlite3 && \
     cp -R node_modules prod_modules
 
 # Install all dependencies for build

@@ -22,14 +22,14 @@ interface DuplicateGroup {
 }
 
 interface UpgradeableFile {
-    id: number;
-    file_path: string;
+    id?: number;
+    filePath: string;
     title: string;
     artist: string;
     album: string;
     quality: number;
-    available_quality: number;
-    track_id: string;
+    availableQuality: number;
+    trackId: string;
 }
 
 
@@ -170,8 +170,8 @@ export const LibraryView: React.FC = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 type: 'track',
-                id: track.track_id,
-                quality: track.available_quality
+                id: track.trackId,
+                quality: track.availableQuality
             })
         });
         showToast('Added to queue for upgrade', 'success');
@@ -359,11 +359,11 @@ export const LibraryView: React.FC = () => {
                                     {upgradeable.map((file, i) => (
                                         <tr key={file.id || i}>
                                             <td>
-                                                <div className="track-title">{file.title || getFilename(file.file_path)}</div>
+                                                <div className="track-title">{file.title || getFilename(file.filePath)}</div>
                                                 <div className="track-artist">{file.artist}</div>
                                             </td>
                                             <td><span className="quality-badge">{QUALITY_LABELS[file.quality] || file.quality}</span></td>
-                                            <td><span className="quality-badge high-res">{QUALITY_LABELS[file.available_quality] || file.available_quality}</span></td>
+                                            <td><span className="quality-badge high-res">{QUALITY_LABELS[file.availableQuality] || file.availableQuality}</span></td>
                                             <td>
                                                 <button className="btn small primary" onClick={() => upgradeTrack(file)}>
                                                     <Icons.Download width={12} height={12} /> {t('action_upgrade')}

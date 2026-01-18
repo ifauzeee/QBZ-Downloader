@@ -41,10 +41,10 @@ class TokenManager extends EventEmitter {
             this.emit('token:updated', { oldToken: oldToken.slice(-4), newToken: val.slice(-4) });
         }
 
-        if (key === 'QOBUZ_APP_ID') CONFIG.credentials.appId = val;
-        if (key === 'QOBUZ_APP_SECRET') CONFIG.credentials.appSecret = val;
-        if (key === 'QOBUZ_USER_AUTH_TOKEN') CONFIG.credentials.token = val;
-        if (key === 'QOBUZ_USER_ID') CONFIG.credentials.userId = val;
+        if (key === 'QOBUZ_APP_ID') process.env.QOBUZ_APP_ID = val;
+        if (key === 'QOBUZ_APP_SECRET') process.env.QOBUZ_APP_SECRET = val;
+        if (key === 'QOBUZ_USER_AUTH_TOKEN') process.env.QOBUZ_USER_AUTH_TOKEN = val;
+        if (key === 'QOBUZ_USER_ID') process.env.QOBUZ_USER_ID = val;
 
         try {
             await this.persistToEnv(key, val);

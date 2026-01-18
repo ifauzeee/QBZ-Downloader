@@ -80,8 +80,16 @@ export interface UserInfo {
     country_code: string;
     subscription?: {
         offer: string;
+        end_date?: string;
+        period_end_date?: string;
     };
     hires_streaming: boolean;
+    credential?: {
+        parameters?: {
+            hires_streaming?: boolean;
+            lossless_streaming?: boolean;
+        };
+    };
 }
 
 export interface DownloadResultSummary {
