@@ -1,6 +1,6 @@
 {
   "name": "qbz-downloader",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "🎵 Premium Qobuz Downloader Web Dashboard with Hi-Res Audio, Complete Metadata & Embedded Lyrics",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "build": "tsc && npm run copy-assets",
+    "build:full": "cd client && npm install && npm run build && cd .. && node scripts/sync-ui.js && npm run build",
     "clean": "rimraf dist coverage",
     "copy-assets": "copyfiles -u 1 \"src/services/dashboard/public/**/*\" dist",
     "start": "node dist/index.js",

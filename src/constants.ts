@@ -1,6 +1,3 @@
-/**
- * URL patterns for parsing Qobuz URLs
- */
 export const URL_PATTERNS = {
     TRACK: new RegExp('qobuz\\.com/[a-z-]+/track/(\\d+)', 'i'),
     ALBUM: new RegExp('qobuz\\.com/[a-z-]+/album/[^/]+/([a-zA-Z0-9]+)', 'i'),
@@ -10,7 +7,4 @@ export const URL_PATTERNS = {
     NUMERIC_ID: /^\d+$/
 };
 
-/**
- * Application version - should match package.json
- */
-export const APP_VERSION = '3.0.0';
+export const APP_VERSION = '4.0.0';

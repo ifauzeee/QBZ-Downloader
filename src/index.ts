@@ -1,13 +1,22 @@
 #!/usr/bin/env node
 
 import 'dotenv/config';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import { dashboardService } from './services/dashboard/index.js';
-import { queueProcessor } from './services/queue-processor.js';
+import { downloadQueue } from './services/queue/queue.js';
+import { queueProcessor, downloadService } from './services/queue-processor.js';
+export { downloadService };
 import { historyService } from './services/history.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
 import { logger } from './utils/logger.js';
 import figlet from 'figlet';
 import gradient from 'gradient-string';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf-8'));
+const version = pkg.version;
 
 async function gracefulShutdown(signal: string) {
     console.log('');
@@ -17,7 +26,7 @@ async function gracefulShutdown(signal: string) {
         const { databaseService } = await import('./services/database/index.js');
         databaseService.close();
         logger.info('Database connection closed.', 'DB');
-    } catch {}
+    } catch { }
 
     historyService.flush();
     logger.info('History buffers flushed to storage.', 'STORAGE');
@@ -31,7 +40,7 @@ async function gracefulShutdown(signal: string) {
 
 function displayBanner() {
     console.clear();
-    const title = figlet.textSync('QBZ-DL v3.0', {
+    const title = figlet.textSync(`QBZ-DL v${version}`, {
         font: 'Slant',
         horizontalLayout: 'default',
         verticalLayout: 'default'
@@ -70,8 +79,10 @@ async function main() {
             const { databaseService } = await import('./services/database/index.js');
             databaseService.initialize();
             logger.success('Database service initialized.', 'DB');
+
+            await downloadQueue.load();
         } catch (error: any) {
-            logger.warn(`Database init skipped: ${error.message}`, 'DB');
+            logger.warn(`Database init failed: ${error.message}`, 'DB');
         }
 
         logger.info('Starting Queue Processor...', 'QUEUE');

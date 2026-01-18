@@ -12,6 +12,7 @@ import { downloadQueue } from '../queue/queue.js';
 import { registerRoutes } from './routes.js';
 import { CONFIG } from '../../config.js';
 import { dashboardCleaner } from './cleaner.js';
+import { libraryScannerService } from '../library-scanner/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,14 +46,15 @@ export class DashboardService {
 
     private setupMiddleware(): void {
         this.app.use(cors());
+        this.app.use(express.json());
+
         const limiter = rateLimit({
             windowMs: 15 * 60 * 1000,
-            max: 1200,
+            max: 50000,
             message: 'Too many requests'
         });
 
         this.app.use('/api', limiter);
-        this.app.use(express.json());
 
         this.app.use((req: Request, res: Response, next: NextFunction) => {
             const password = CONFIG.dashboard.password;
@@ -85,6 +87,13 @@ export class DashboardService {
 
     private setupRoutes(): void {
         registerRoutes(this.app);
+
+        this.app.get(/.*/, (req: Request, res: Response) => {
+            if (req.path.startsWith('/api') || req.path.startsWith('/downloads')) {
+                return res.status(404).json({ error: 'Endpoint not found' });
+            }
+            res.sendFile(path.join(__dirname, 'public', 'index.html'));
+        });
     }
 
     private setupSocket(): void {
@@ -121,6 +130,10 @@ export class DashboardService {
         });
 
         this.startBroadcasting();
+
+        logger.setBroadcastCallback((log) => {
+            this.io.emit('log:new', log);
+        });
     }
 
     private startBroadcasting(): void {
@@ -145,6 +158,18 @@ export class DashboardService {
                 album: item.album,
                 speed: 0
             });
+        });
+
+        libraryScannerService.on('scan:progress', (progress) => {
+            this.io.emit('scan:progress', progress);
+        });
+
+        libraryScannerService.on('scan:complete', (result) => {
+            this.io.emit('scan:complete', result);
+        });
+
+        libraryScannerService.on('scan:started', (data) => {
+            this.io.emit('scan:started', data);
         });
     }
 

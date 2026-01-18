@@ -24,10 +24,16 @@ vi.mock('../queue/queue.js', () => {
                 status: 'pending',
                 title: opts?.title || 'New Item'
             }),
+            getAll: () => [
+                { id: '1', type: 'track', status: 'pending', title: 'Test Track' },
+                { id: '2', type: 'album', status: 'downloading', title: 'Test Album' }
+            ],
             pause: vi.fn(),
             resume: vi.fn(),
             clear: vi.fn(),
-            cancel: vi.fn()
+            cancel: vi.fn().mockReturnValue(true),
+            remove: vi.fn().mockReturnValue(true),
+            clearCompleted: vi.fn().mockReturnValue(1)
         }
     };
 });
@@ -116,7 +122,9 @@ vi.mock('../database/index.js', () => ({
     databaseService: {
         resetStatistics: vi.fn(),
         addTrack: vi.fn(),
-        addLibraryFile: vi.fn()
+        addLibraryFile: vi.fn(),
+        getAlbum: vi.fn().mockReturnValue(null),
+        hasTrack: vi.fn().mockReturnValue(false)
     }
 }));
 
@@ -212,32 +220,21 @@ describe('Dashboard API Routes', () => {
         });
     });
 
-    describe('POST /api/settings', () => {
-        it('should return error (settings via .env only)', async () => {
-            const res = await request(app)
-                .post('/api/settings')
-                .send({ DOWNLOADS_PATH: '/new/path' });
-
-            expect(res.status).toBe(400);
-            expect(res.body.error).toContain('.env');
-        });
-    });
-
     describe('POST /api/queue/add', () => {
         it('should add album to queue with valid URL', async () => {
             const res = await request(app)
                 .post('/api/queue/add')
-                .send({ url: 'https://qobuz.com/album/test/12345', quality: 27 });
+                .send({ type: 'album', id: '12345', quality: 27 });
 
             expect(res.status).toBe(200);
-            expect(res.body.success).toBe(true);
-            expect(res.body.item).toBeDefined();
+            expect(res.body.success).toBeUndefined();
+            expect(res.body.id).toBe('new-id');
         });
 
-        it('should return error for invalid URL', async () => {
+        it('should return error for invalid payload', async () => {
             const res = await request(app)
                 .post('/api/queue/add')
-                .send({ url: 'invalid-url', quality: 27 });
+                .send({ quality: 27 });
 
             expect(res.status).toBe(400);
             expect(res.body.error).toBeDefined();

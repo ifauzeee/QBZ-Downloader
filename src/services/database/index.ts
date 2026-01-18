@@ -1,9 +1,10 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 
-const DB_VERSION = 3;
+const DB_VERSION = 6;
 const DEFAULT_DB_PATH = './data/qbz.db';
 
 export interface DbTrack {
@@ -123,7 +124,9 @@ class DatabaseService {
                 isrc TEXT,
                 label TEXT,
                 play_count INTEGER DEFAULT 0,
-                last_played TEXT
+                last_played TEXT,
+                checksum TEXT,
+                verification_status TEXT DEFAULT 'pending'
             )
         `);
 
@@ -237,7 +240,9 @@ class DatabaseService {
                 bit_depth INTEGER,
                 sample_rate INTEGER,
                 scanned_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                needs_upgrade INTEGER DEFAULT 0
+                needs_upgrade INTEGER DEFAULT 0,
+                checksum TEXT,
+                verification_status TEXT DEFAULT 'pending'
             )
         `);
 
@@ -261,7 +266,60 @@ class DatabaseService {
             CREATE INDEX IF NOT EXISTS idx_daily_stats_date ON daily_stats(date);
             CREATE INDEX IF NOT EXISTS idx_library_artist ON library_files(artist);
             CREATE INDEX IF NOT EXISTS idx_library_album ON library_files(album);
+
+            CREATE TABLE IF NOT EXISTS queue_items (
+                id TEXT PRIMARY KEY,
+                type TEXT NOT NULL,
+                content_id TEXT NOT NULL,
+                quality INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                priority TEXT NOT NULL,
+                progress REAL DEFAULT 0,
+                title TEXT,
+                artist_data TEXT,
+                album_data TEXT,
+                error TEXT,
+                file_path TEXT,
+                added_at TEXT,
+                started_at TEXT,
+                completed_at TEXT,
+                retry_count INTEGER DEFAULT 0,
+                max_retries INTEGER DEFAULT 3,
+                metadata TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS watched_playlists (
+                id TEXT PRIMARY KEY,
+                playlist_id TEXT NOT NULL,
+                title TEXT,
+                quality INTEGER DEFAULT 27,
+                interval_hours INTEGER DEFAULT 24,
+                last_synced_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS themes (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                is_dark INTEGER DEFAULT 1,
+                colors TEXT NOT NULL, -- JSON string of CSS variables
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT
+            );
         `);
+
+        try {
+            const tableInfo = this.db!.prepare('PRAGMA table_info(library_files)').all() as {
+                name: string;
+            }[];
+            const hasFingerprint = tableInfo.some((col) => col.name === 'audio_fingerprint');
+            if (!hasFingerprint) {
+                this.db!.exec('ALTER TABLE library_files ADD COLUMN audio_fingerprint TEXT');
+                logger.info('Migration: Added audio_fingerprint to library_files', 'DB');
+            }
+        } catch (error: any) {
+            logger.warn(`Migration fingerprint error: ${error.message}`, 'DB');
+        }
 
         logger.debug('Database schema created', 'DB');
     }
@@ -580,13 +638,14 @@ class DatabaseService {
         bit_depth?: number;
         sample_rate?: number;
         needs_upgrade?: boolean;
+        audio_fingerprint?: string;
     }): void {
         const db = this.getDb();
         db.prepare(
             `
             INSERT OR REPLACE INTO library_files 
-            (file_path, track_id, title, artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, track_id, title, artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
             file.file_path,
@@ -602,7 +661,8 @@ class DatabaseService {
             file.bit_depth || 0,
             file.sample_rate || 0,
             file.needs_upgrade ? 1 : 0,
-            new Date().toISOString()
+            new Date().toISOString(),
+            file.audio_fingerprint || null
         );
     }
 
@@ -624,6 +684,19 @@ class DatabaseService {
                 AND available_quality IS NOT NULL 
                 AND available_quality > quality
                 ORDER BY artist, album
+            `
+            )
+            .all();
+    }
+
+    getMissingMetadataFiles(): any[] {
+        const db = this.getDb();
+        return db
+            .prepare(
+                `
+                SELECT * FROM library_files 
+                WHERE (title IS NULL OR title = '' OR artist IS NULL OR artist = '')
+                ORDER BY file_path ASC
             `
             )
             .all();
@@ -681,10 +754,6 @@ class DatabaseService {
         logger.info('Database statistics reset', 'DB');
     }
 
-    getPluginEvents(pluginId: string, _limit = 100): any[] {
-        return [];
-    }
-
     deleteTrackByPath(filePath: string): void {
         const db = this.getDb();
 
@@ -737,6 +806,136 @@ class DatabaseService {
         } else {
             logger.warn(`Could not find track in main DB to delete: ${filePath}`, 'DB');
         }
+    }
+
+    async verifyFileIntegrity(filePath: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            if (!fs.existsSync(filePath)) return resolve(false);
+            const hash = crypto.createHash('md5');
+            const stream = fs.createReadStream(filePath);
+            stream.on('data', (data) => hash.update(data));
+            stream.on('end', () => {
+                const checksum = hash.digest('hex');
+                const db = this.getDb();
+                const row = db
+                    .prepare('SELECT checksum FROM library_files WHERE file_path = ?')
+                    .get(filePath) as any;
+                resolve(row?.checksum === checksum);
+            });
+            stream.on('error', () => resolve(false));
+        });
+    }
+
+    addQueueItem(item: any): void {
+        const db = this.getDb();
+        db.prepare(
+            `
+            INSERT OR REPLACE INTO queue_items (
+                id, type, content_id, quality, status, priority, progress,
+                title, artist_data, album_data, error, file_path, added_at,
+                started_at, completed_at, retry_count, max_retries, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+        ).run(
+            item.id,
+            item.type,
+            item.contentId,
+            item.quality,
+            item.status,
+            item.priority,
+            item.progress,
+            item.title,
+            item.artist ? JSON.stringify(item.artist) : null,
+            item.album ? JSON.stringify(item.album) : null,
+            item.error,
+            item.filePath,
+            item.addedAt?.toISOString(),
+            item.startedAt?.toISOString(),
+            item.completedAt?.toISOString(),
+            item.retryCount,
+            item.maxRetries,
+            item.metadata ? JSON.stringify(item.metadata) : null
+        );
+    }
+
+    getQueueItems(): any[] {
+        const db = this.getDb();
+        const items = db.prepare('SELECT * FROM queue_items ORDER BY added_at ASC').all() as any[];
+        return items.map((item) => ({
+            ...item,
+            artistData: item.artist_data ? JSON.parse(item.artist_data) : null,
+            albumData: item.album_data ? JSON.parse(item.album_data) : null,
+            metadata: item.metadata ? JSON.parse(item.metadata) : null,
+            addedAt: new Date(item.added_at),
+            startedAt: item.started_at ? new Date(item.started_at) : null,
+            completedAt: item.completed_at ? new Date(item.completed_at) : null
+        }));
+    }
+
+    updateQueueItemStatus(id: string, status: string, progressOrError?: any): void {
+        const db = this.getDb();
+        const now = new Date().toISOString();
+        if (status === 'downloading' || status === 'pending') {
+            const progress = typeof progressOrError === 'number' ? progressOrError : 0;
+            db.prepare(
+                'UPDATE queue_items SET status = ?, started_at = ?, progress = ? WHERE id = ?'
+            ).run(status, now, progress, id);
+        } else if (status === 'completed' || status === 'failed') {
+            const error = typeof progressOrError === 'string' ? progressOrError : null;
+            const progress = status === 'completed' ? 100 : 0;
+            db.prepare(
+                'UPDATE queue_items SET status = ?, completed_at = ?, error = ?, progress = ? WHERE id = ?'
+            ).run(status, now, error, progress, id);
+        } else {
+            const progress = typeof progressOrError === 'number' ? progressOrError : 0;
+            db.prepare('UPDATE queue_items SET status = ?, progress = ? WHERE id = ?').run(
+                status,
+                progress,
+                id
+            );
+        }
+    }
+
+    removeQueueItem(id: string): void {
+        const db = this.getDb();
+        db.prepare('DELETE FROM queue_items WHERE id = ?').run(id);
+    }
+
+    getWatchedPlaylists(): any[] {
+        const db = this.getDb();
+        return db.prepare('SELECT * FROM watched_playlists ORDER BY created_at DESC').all();
+    }
+
+    addWatchedPlaylist(p: {
+        id: string;
+        playlistId: string;
+        title: string;
+        quality: number;
+        intervalHours: number;
+    }): void {
+        const db = this.getDb();
+        db.prepare(
+            `
+            INSERT INTO watched_playlists (id, playlist_id, title, quality, interval_hours)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                quality = excluded.quality,
+                interval_hours = excluded.interval_hours
+        `
+        ).run(p.id, p.playlistId, p.title, p.quality, p.intervalHours);
+    }
+
+    removeWatchedPlaylist(id: string): void {
+        const db = this.getDb();
+        db.prepare('DELETE FROM watched_playlists WHERE id = ?').run(id);
+    }
+
+    updatePlaylistSyncTime(id: string): void {
+        const db = this.getDb();
+        db.prepare('UPDATE watched_playlists SET last_synced_at = ? WHERE id = ?').run(
+            new Date().toISOString(),
+            id
+        );
     }
 }
 

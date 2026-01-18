@@ -1,8 +1,12 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
+import archiver from 'archiver';
 import { logger } from '../utils/logger.js';
+import { CONFIG } from '../config.js';
 import { downloadQueue } from './queue/queue.js';
 import { inputValidator } from '../utils/validator.js';
+import { notifyBatchZipCreated } from './notifications.js';
 
 interface PartialDownload {
     trackId: string;
@@ -21,10 +25,6 @@ interface ResumeData {
 const RESUME_VERSION = 1;
 const DEFAULT_RESUME_PATH = './data/resume.json';
 
-/**
- * Download Resume Service
- * Tracks partial downloads for resume capability
- */
 export class ResumeService {
     private partials: Map<string, PartialDownload> = new Map();
     private filePath: string;
@@ -70,9 +70,6 @@ export class ResumeService {
         }
     }
 
-    /**
-     * Track a new partial download
-     */
     startDownload(trackId: string, filePath: string, totalBytes: number, quality: number): void {
         this.partials.set(trackId, {
             trackId,
@@ -85,9 +82,6 @@ export class ResumeService {
         this.save();
     }
 
-    /**
-     * Update download progress
-     */
     updateProgress(trackId: string, bytesDownloaded: number): void {
         const partial = this.partials.get(trackId);
         if (partial) {
@@ -96,24 +90,15 @@ export class ResumeService {
         }
     }
 
-    /**
-     * Mark download as complete and remove from tracking
-     */
     completeDownload(trackId: string): void {
         this.partials.delete(trackId);
         this.save();
     }
 
-    /**
-     * Get partial download info if exists
-     */
     getPartial(trackId: string): PartialDownload | undefined {
         return this.partials.get(trackId);
     }
 
-    /**
-     * Check if a partial download can be resumed
-     */
     canResume(trackId: string): boolean {
         const partial = this.partials.get(trackId);
         if (!partial) return false;
@@ -128,9 +113,6 @@ export class ResumeService {
         return stats.size > 0 && stats.size < partial.totalBytes;
     }
 
-    /**
-     * Get resume byte position for a track
-     */
     getResumePosition(trackId: string): number {
         const partial = this.partials.get(trackId);
         if (!partial) return 0;
@@ -143,9 +125,6 @@ export class ResumeService {
         return 0;
     }
 
-    /**
-     * Get all resumable downloads
-     */
     getResumable(): PartialDownload[] {
         const resumable: PartialDownload[] = [];
         for (const [id, partial] of this.partials) {
@@ -156,9 +135,6 @@ export class ResumeService {
         return resumable;
     }
 
-    /**
-     * Clear all partial downloads
-     */
     clearAll(): void {
         this.partials.clear();
         this.save();
@@ -167,14 +143,129 @@ export class ResumeService {
 
 export const resumeService = new ResumeService();
 
-/**
- * Batch Import Service
- * Import URLs from files (txt, csv)
- */
+interface BatchStatus {
+    id: string;
+    total: number;
+    completed: number;
+    failed: number;
+    files: string[];
+    createdAt: number;
+}
+
 export class BatchImportService {
-    /**
-     * Import URLs from a text file (one URL per line)
-     */
+    private activeBatches: Map<string, BatchStatus> = new Map();
+
+    constructor() {
+        this.setupListeners();
+    }
+
+    private setupListeners() {
+        downloadQueue.on('item:completed', (item: any) => {
+            if (item.metadata && item.metadata.batchId) {
+                if (item.metadata.batchFiles && Array.isArray(item.metadata.batchFiles)) {
+                    this.updateBatchProgress(
+                        item.metadata.batchId,
+                        'completed',
+                        undefined,
+                        item.metadata.batchFiles
+                    );
+                } else {
+                    this.updateBatchProgress(item.metadata.batchId, 'completed', item.filePath);
+                }
+            }
+        });
+
+        downloadQueue.on('item:failed', (item: any) => {
+            if (item.metadata && item.metadata.batchId) {
+                this.updateBatchProgress(item.metadata.batchId, 'failed');
+            }
+        });
+    }
+
+    private updateBatchProgress(
+        batchId: string,
+        status: 'completed' | 'failed',
+        filePath?: string,
+        batchFiles?: string[]
+    ) {
+        const batch = this.activeBatches.get(batchId);
+        if (!batch) return;
+
+        if (status === 'completed') {
+            batch.completed++;
+            if (filePath) batch.files.push(filePath);
+            if (batchFiles) batch.files.push(...batchFiles);
+        } else {
+            batch.failed++;
+        }
+
+        logger.debug(
+            `Batch ${batchId} progress: ${batch.completed + batch.failed}/${batch.total}`,
+            'BATCH'
+        );
+
+        if (batch.completed + batch.failed >= batch.total) {
+            this.finalizeBatch(batchId);
+        }
+    }
+
+    private async finalizeBatch(batchId: string) {
+        const batch = this.activeBatches.get(batchId);
+        if (!batch) return;
+
+        if (batch.files.length > 0) {
+            logger.info(
+                `Batch ${batchId} finished. Creating ZIP archive for ${batch.files.length} files...`,
+                'BATCH'
+            );
+            await this.createZipArchive(batch);
+        } else {
+            logger.warn(
+                `Batch ${batchId} finished but no files were downloaded successfully.`,
+                'BATCH'
+            );
+        }
+
+        this.activeBatches.delete(batchId);
+    }
+
+    private async createZipArchive(batch: BatchStatus) {
+        try {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const zipName = `Batch_Download_${timestamp}.zip`;
+            const zipPath = path.join(CONFIG.download.outputDir || './downloads', zipName);
+
+            const output = fs.createWriteStream(zipPath);
+            const archive = archiver('zip', { zlib: { level: 9 } });
+
+            output.on('close', () => {
+                logger.info(
+                    `Batch ZIP created: ${zipName} (${archive.pointer()} total bytes)`,
+                    'BATCH'
+                );
+                notifyBatchZipCreated(zipName, zipPath);
+            });
+
+            archive.on('error', (err: any) => {
+                logger.error(`Error creating batch ZIP: ${err.message}`, 'BATCH');
+            });
+
+            archive.pipe(output);
+
+            for (const file of batch.files) {
+                if (fs.existsSync(file)) {
+                    const downloadDir = path.resolve(CONFIG.download.outputDir || './downloads');
+                    const headers = path.relative(downloadDir, file);
+                    archive.file(file, { name: headers });
+                }
+            }
+
+            await archive.finalize();
+        } catch (error: any) {
+            logger.error(`Failed to create ZIP: ${error.message}`, 'BATCH');
+        }
+    }
+
     async importFromFile(
         filePath: string,
         quality: number = 27
@@ -197,9 +288,35 @@ export class BatchImportService {
         return this.importUrls(lines, quality);
     }
 
-    /**
-     * Import URLs from CSV (expects 'url' column, optional 'quality' column)
-     */
+    async importFromM3u8(
+        filePath: string,
+        quality: number = 27
+    ): Promise<{
+        success: boolean;
+        imported: number;
+        failed: number;
+        errors: string[];
+    }> {
+        if (!fs.existsSync(filePath)) {
+            return { success: false, imported: 0, failed: 0, errors: ['File not found'] };
+        }
+
+        const content = fs.readFileSync(filePath, 'utf8');
+        const lines = content.split('\n');
+        const urls: string[] = [];
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith('#')) {
+                if (trimmed.startsWith('http') || trimmed.includes('qobuz.com')) {
+                    urls.push(trimmed);
+                }
+            }
+        }
+
+        return this.importUrls(urls, quality);
+    }
+
     async importFromCsv(
         filePath: string,
         defaultQuality: number = 27
@@ -276,12 +393,10 @@ export class BatchImportService {
         return { success: failed === 0, imported, failed, errors };
     }
 
-    /**
-     * Import array of URLs
-     */
     async importUrls(
         urls: string[],
-        quality: number = 27
+        quality: number = 27,
+        createZip: boolean = false
     ): Promise<{
         success: boolean;
         imported: number;
@@ -291,24 +406,36 @@ export class BatchImportService {
         let imported = 0;
         let failed = 0;
         const errors: string[] = [];
+        const batchId = createZip ? crypto.randomUUID() : undefined;
+
+        if (batchId) {
+            this.activeBatches.set(batchId, {
+                id: batchId,
+                total: urls.length,
+                completed: 0,
+                failed: 0,
+                files: [],
+                createdAt: Date.now()
+            });
+        }
 
         for (const url of urls) {
             try {
-                await this.addToQueue(url, quality);
+                await this.addToQueue(url, quality, batchId);
                 imported++;
             } catch (error: any) {
                 failed++;
                 errors.push(`${url}: ${error.message}`);
+                if (batchId) {
+                    this.updateBatchProgress(batchId, 'failed');
+                }
             }
         }
 
         return { success: failed === 0, imported, failed, errors };
     }
 
-    /**
-     * Parse and add URL to queue
-     */
-    private async addToQueue(url: string, quality: number): Promise<void> {
+    private async addToQueue(url: string, quality: number, batchId?: string): Promise<void> {
         const validation = inputValidator.validateUrl(url);
 
         if (!validation.valid) {
@@ -316,10 +443,12 @@ export class BatchImportService {
         }
 
         if (validation.type && validation.id) {
-            downloadQueue.add(validation.type as any, validation.id, quality, {
-                title: `${validation.type}: ${validation.id}`,
-                metadata: { source: 'batch-import' }
+            const type = validation.type as any;
+            downloadQueue.add(type, validation.id, quality, {
+                title: `${type}: ${validation.id}`,
+                metadata: { source: 'batch-import', batchId }
             });
+            logger.info(`Added ${type} ${validation.id} to queue from batch import`, 'BATCH');
         } else {
             throw new Error('Could not parse URL type/id');
         }

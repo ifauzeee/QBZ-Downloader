@@ -7,6 +7,7 @@ interface LrclibResponse {
     plainLyrics?: string;
     instrumental: boolean;
     duration: number;
+    offset?: number;
 }
 
 interface LyricsSearchResult {
@@ -24,6 +25,7 @@ interface ProcessedLyrics {
     parsedLyrics?: Record<string, any>[] | null;
     syltFormat?: Record<string, any>[] | null;
     instrumental?: boolean;
+    offset?: number;
     error?: string;
 }
 

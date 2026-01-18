@@ -13,10 +13,6 @@ export interface Notification {
     data?: any;
 }
 
-/**
- * Notification Service
- * Centralized notification management with event-based push
- */
 class NotificationService extends EventEmitter {
     private notifications: Notification[] = [];
     private maxNotifications: number = 100;
@@ -26,9 +22,6 @@ class NotificationService extends EventEmitter {
         super();
     }
 
-    /**
-     * Create and emit a notification
-     */
     private notify(
         type: NotificationType,
         title: string,
@@ -57,62 +50,38 @@ class NotificationService extends EventEmitter {
         return notification;
     }
 
-    /**
-     * Send success notification
-     */
     success(title: string, message: string, data?: any): Notification {
         logger.success(`[Notification] ${title}: ${message}`);
         return this.notify('success', title, message, data);
     }
 
-    /**
-     * Send error notification
-     */
     error(title: string, message: string, data?: any): Notification {
         logger.error(`[Notification] ${title}: ${message}`);
         return this.notify('error', title, message, data);
     }
 
-    /**
-     * Send warning notification
-     */
     warning(title: string, message: string, data?: any): Notification {
         logger.warn(`[Notification] ${title}: ${message}`);
         return this.notify('warning', title, message, data);
     }
 
-    /**
-     * Send info notification
-     */
     info(title: string, message: string, data?: any): Notification {
         logger.info(`[Notification] ${title}: ${message}`);
         return this.notify('info', title, message, data);
     }
 
-    /**
-     * Get all notifications
-     */
     getAll(): Notification[] {
         return this.notifications;
     }
 
-    /**
-     * Get unread notifications
-     */
     getUnread(): Notification[] {
         return this.notifications.filter((n) => !n.read);
     }
 
-    /**
-     * Get unread count
-     */
     getUnreadCount(): number {
         return this.notifications.filter((n) => !n.read).length;
     }
 
-    /**
-     * Mark notification as read
-     */
     markAsRead(id: string): boolean {
         const notification = this.notifications.find((n) => n.id === id);
         if (notification) {
@@ -123,9 +92,6 @@ class NotificationService extends EventEmitter {
         return false;
     }
 
-    /**
-     * Mark all as read
-     */
     markAllAsRead(): number {
         let count = 0;
         for (const n of this.notifications) {
@@ -138,9 +104,6 @@ class NotificationService extends EventEmitter {
         return count;
     }
 
-    /**
-     * Delete notification
-     */
     delete(id: string): boolean {
         const index = this.notifications.findIndex((n) => n.id === id);
         if (index !== -1) {
@@ -150,24 +113,15 @@ class NotificationService extends EventEmitter {
         return false;
     }
 
-    /**
-     * Clear all notifications
-     */
     clearAll(): void {
         this.notifications = [];
         this.emit('notifications:cleared');
     }
 
-    /**
-     * Get notifications by type
-     */
     getByType(type: NotificationType): Notification[] {
         return this.notifications.filter((n) => n.type === type);
     }
 
-    /**
-     * Get recent notifications
-     */
     getRecent(limit: number = 10): Notification[] {
         return this.notifications.slice(0, limit);
     }
@@ -216,4 +170,11 @@ export function notifyTokenExpired(): Notification {
 
 export function notifyQueueEmpty(): Notification {
     return notificationService.info('Queue Empty', 'All downloads have been completed!', {});
+}
+
+export function notifyBatchZipCreated(zipName: string, path: string): Notification {
+    return notificationService.success('Batch ZIP Created', `ZIP archive "${zipName}" is ready.`, {
+        zipName,
+        path
+    });
 }

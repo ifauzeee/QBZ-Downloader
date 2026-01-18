@@ -254,8 +254,8 @@ export class QueueProcessor {
                     progress.phase === 'download' && progress.total
                         ? Math.floor((progress.loaded / progress.total) * 100)
                         : progress.phase === 'tagging'
-                          ? 99
-                          : 0;
+                            ? 99
+                            : 0;
 
                 downloadQueue.updateProgress(
                     item.id,
@@ -299,7 +299,7 @@ export class QueueProcessor {
 
         let result;
         const opts = {
-            onProgress: () => {},
+            onProgress: () => { },
             skipExisting: true,
             onMetadata: (meta: { title?: string; artist?: string; album?: string }) => {
                 downloadQueue.updateMetadata(item.id, {
@@ -324,6 +324,18 @@ export class QueueProcessor {
         }
 
         if (result.success) {
+            const files: string[] = [];
+            if (result.tracks) {
+                result.tracks.forEach((t) => {
+                    if (t.filePath) files.push(t.filePath);
+                });
+            }
+
+            downloadQueue.updateMetadata(item.id, {
+                ...item.metadata,
+                batchFiles: files
+            });
+
             downloadQueue.complete(item.id);
             logger.success(`Batch Download Completed: ${item.title}`, 'BATCH');
             notifyDownloadComplete(item.title || 'Batch', undefined);
@@ -334,3 +346,4 @@ export class QueueProcessor {
 }
 
 export const queueProcessor = new QueueProcessor();
+export const downloadService = queueProcessor['downloadService'];

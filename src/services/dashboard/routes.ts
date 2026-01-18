@@ -1,303 +1,217 @@
-import { Express, Request, Response } from 'express';
-import { logger } from '../../utils/logger.js';
-import fs from 'fs';
-import path from 'path';
+import { Request, Response } from 'express';
 import { downloadQueue } from '../queue/queue.js';
-import { inputValidator } from '../../utils/validator.js';
 import { historyService } from '../history.js';
-import QobuzAPI from '../../api/qobuz.js';
-import { APP_VERSION } from '../../constants.js';
+import { databaseService } from '../database/index.js';
+import { logger } from '../../utils/logger.js';
 import { CONFIG } from '../../config.js';
+import QobuzAPI from '../../api/qobuz.js';
+
 import { tokenManager } from '../../utils/token.js';
+import { APP_VERSION } from '../../constants.js';
 
 const api = new QobuzAPI();
 
-let credentialsCache: {
-    valid: boolean;
-    message: string;
-    checkedAt: number;
-    subscription?: string;
-} | null = null;
+export function registerRoutes(app: any) {
+    const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
 
-const getParam = (param: string | string[] | undefined): string => {
-    if (Array.isArray(param)) return param[0] || '';
-    return param || '';
-};
-
-export function registerRoutes(app: Express): void {
     app.get('/api/status', (req: Request, res: Response) => {
-        const stats = downloadQueue.getStats();
         res.json({
             online: true,
             version: APP_VERSION,
-            stats
+            stats: downloadQueue.getStats()
         });
-    });
-
-    app.get('/api/credentials/validate', async (req: Request, res: Response) => {
-        const forceRefresh = req.query.refresh === 'true';
-        const cacheMaxAge = 5 * 60 * 1000;
-
-        if (
-            !forceRefresh &&
-            credentialsCache &&
-            Date.now() - credentialsCache.checkedAt < cacheMaxAge
-        ) {
-            res.json(credentialsCache);
-            return;
-        }
-
-        const creds = CONFIG.credentials;
-
-        if (!creds.appId || !creds.appSecret || !creds.token || !creds.userId) {
-            const missing: string[] = [];
-            if (!creds.appId) missing.push('QOBUZ_APP_ID');
-            if (!creds.appSecret) missing.push('QOBUZ_APP_SECRET');
-            if (!creds.token) missing.push('QOBUZ_USER_AUTH_TOKEN');
-            if (!creds.userId) missing.push('QOBUZ_USER_ID');
-
-            credentialsCache = {
-                valid: false,
-                message: `Missing credentials: ${missing.join(', ')}`,
-                checkedAt: Date.now()
-            };
-            res.json(credentialsCache);
-            return;
-        }
-
-        try {
-            const userInfo = await api.getUserInfo();
-
-            if (userInfo.success && userInfo.data) {
-                credentialsCache = {
-                    valid: true,
-                    message: 'Credentials are valid',
-                    subscription: userInfo.data.subscription?.offer || 'Unknown',
-                    checkedAt: Date.now()
-                };
-            } else {
-                credentialsCache = {
-                    valid: false,
-                    message: 'API returned error - credentials may be invalid',
-                    checkedAt: Date.now()
-                };
-            }
-        } catch (error: any) {
-            const statusCode = error?.statusCode || error?.response?.status;
-
-            if (statusCode === 401 || statusCode === 403) {
-                credentialsCache = {
-                    valid: false,
-                    message: 'Token expired or invalid - please update QOBUZ_USER_AUTH_TOKEN',
-                    checkedAt: Date.now()
-                };
-            } else {
-                credentialsCache = {
-                    valid: false,
-                    message: `API error: ${error.message}`,
-                    checkedAt: Date.now()
-                };
-            }
-        }
-
-        res.json(credentialsCache);
     });
 
     app.get('/api/credentials/status', (req: Request, res: Response) => {
         const creds = CONFIG.credentials;
-
         res.json({
+            allConfigured: !!(creds.appId && creds.appSecret && creds.token && creds.userId),
             configured: {
                 appId: !!creds.appId,
                 appSecret: !!creds.appSecret,
                 token: !!creds.token,
-                userId: !!creds.userId
-            },
-            allConfigured: !!(creds.appId && creds.appSecret && creds.token && creds.userId),
-            lastValidation: credentialsCache
-                ? {
-                      valid: credentialsCache.valid,
-                      message: credentialsCache.message,
-                      subscription: credentialsCache.subscription,
-                      checkedAt: new Date(credentialsCache.checkedAt).toISOString()
-                  }
-                : null
+                userId: !!creds.userId,
+                acoustidKey: !!creds.acoustidKey
+            }
         });
     });
 
     app.get('/api/onboarding', (req: Request, res: Response) => {
         const creds = CONFIG.credentials;
         const isConfigured = !!(creds.appId && creds.appSecret && creds.token && creds.userId);
-
-        const steps = [
-            {
-                id: 'credentials',
-                title: 'Qobuz Credentials',
-                description: 'App ID, Secret, Token, dan User ID',
-                completed: isConfigured,
-                required: true
-            },
-            {
-                id: 'download_path',
-                title: 'Download Path',
-                description: 'Folder untuk menyimpan file',
-                completed: !!CONFIG.download.outputDir,
-                required: false
-            }
-        ];
-
         res.json({
             configured: isConfigured,
-            steps,
-            nextStep: steps.find((s) => s.required && !s.completed)?.id || null,
-            tips: [
-                'Konfigurasi dikelola melalui file .env',
-                'Bookmark URL ini untuk akses cepat ke dashboard'
+            steps: [
+                { id: 'app_id', completed: !!creds.appId },
+                { id: 'app_secret', completed: !!creds.appSecret },
+                { id: 'token', completed: !!creds.token },
+                { id: 'user_id', completed: !!creds.userId }
             ]
         });
     });
 
-    app.post('/api/system/reset', async (req: Request, res: Response) => {
-        try {
-            logger.warn('System Reset initiated by user', 'SYSTEM');
-
-            downloadQueue.clear();
-
-            historyService.clearAll();
-
-            try {
-                const { databaseService } = await import('../../services/database/index.js');
-                databaseService.resetStatistics();
-            } catch (e) {
-                logger.error('Failed to reset database: ' + e);
-            }
-
-            res.json({ success: true, message: 'System reset complete' });
-        } catch (error: any) {
-            logger.error(`Reset failed: ${error.message}`);
-            res.status(500).json({ error: 'System reset failed' });
-        }
-    });
-
-    const maskSensitiveValue = (value: string): string => {
-        if (!value || typeof value !== 'string') return '';
-        if (value.length <= 8) return '••••••••';
-        return '••••••••' + value.slice(-4);
-    };
-
-    const getMaskedSettings = () => {
-        const creds = CONFIG.credentials;
-        return {
-            QOBUZ_APP_ID: creds.appId,
-            QOBUZ_APP_SECRET: maskSensitiveValue(creds.appSecret),
-            QOBUZ_USER_AUTH_TOKEN: maskSensitiveValue(creds.token),
-            QOBUZ_USER_ID: creds.userId,
+    app.get('/api/settings', (req: Request, res: Response) => {
+        const mask = (s: string) => (s ? s.slice(0, 4) + '••••' + s.slice(-4) : '-');
+        res.json({
+            QOBUZ_APP_ID: CONFIG.credentials.appId,
+            QOBUZ_APP_SECRET: mask(CONFIG.credentials.appSecret),
+            QOBUZ_USER_AUTH_TOKEN: mask(CONFIG.credentials.token),
+            QOBUZ_USER_ID: CONFIG.credentials.userId,
+            ACOUSTID_API_KEY: mask(CONFIG.credentials.acoustidKey),
             DOWNLOADS_PATH: CONFIG.download.outputDir,
             FOLDER_TEMPLATE: CONFIG.download.folderStructure,
             FILE_TEMPLATE: CONFIG.download.fileNaming,
-            MAX_CONCURRENCY: CONFIG.download.concurrent,
-            DASHBOARD_PORT: CONFIG.dashboard.port,
-            DASHBOARD_PASSWORD: CONFIG.dashboard.password ? '••••••••' : ''
-        };
-    };
-
-    app.get('/api/queue', (req: Request, res: Response) => {
-        const items = downloadQueue.getItems();
-        res.json(items);
-    });
-
-    app.get('/api/settings', (req: Request, res: Response) => {
-        res.json(getMaskedSettings());
-    });
-
-    app.post('/api/settings', (req: Request, res: Response) => {
-        res.status(400).json({
-            error: 'Settings are managed via .env file. Please edit .env and restart the server.'
+            MAX_CONCURRENCY: CONFIG.download.concurrent
         });
     });
 
-    app.post('/api/queue/add', async (req: Request, res: Response): Promise<void> => {
-        const { url, quality } = req.body;
+    app.post('/api/settings/update', async (req: Request, res: Response) => {
+        const { app_id, app_secret, token, user_id, acoustid_key } = req.body;
+        try {
+            if (app_id) await tokenManager.updateConfig('QOBUZ_APP_ID', app_id);
+            if (app_secret) await tokenManager.updateConfig('QOBUZ_APP_SECRET', app_secret);
+            if (token) await tokenManager.updateConfig('QOBUZ_USER_AUTH_TOKEN', token);
+            if (user_id) await tokenManager.updateConfig('QOBUZ_USER_ID', user_id);
+            if (acoustid_key) await tokenManager.updateConfig('ACOUSTID_API_KEY', acoustid_key);
+            res.json({ success: true, message: 'Settings updated successfully' });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
 
-        const validation = inputValidator.validateUrl(url);
-        if (!validation.valid) {
-            res.status(400).json({ error: validation.error });
+    app.post('/api/login', async (req: Request, res: Response) => {
+        try {
+            const result = await api.getUserInfo();
+            if (result.success) {
+                tokenManager.markValid();
+                res.json({ success: true, user: result.data });
+            } else {
+                tokenManager.markInvalid();
+                res.status(401).json({ error: 'Login failed' });
+            }
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/system/reset', async (req: Request, res: Response) => {
+        try {
+            databaseService.resetStatistics();
+            historyService.clearAll();
+            downloadQueue.clear();
+            res.json({ success: true });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.get('/api/queue', (req: Request, res: Response) => {
+        res.json(downloadQueue.getAll());
+    });
+
+    app.post('/api/queue/add', async (req: Request, res: Response) => {
+        const { type, id, quality, priority } = req.body;
+        logger.debug(`Queue Add Request: ${JSON.stringify(req.body)}`, 'API');
+
+        if (!type || !id) {
+            res.status(400).json({ error: 'Type and ID are required' });
             return;
         }
 
-        if (validation.type && validation.id) {
-            try {
-                let displayTitle = `Pending ${validation.type}...`;
+        try {
+            let title = `${type}: ${id}`;
+            let artist = '';
+            let album = '';
 
-                if (validation.type === 'track') {
-                    const trackData = await api.getTrack(parseInt(validation.id));
-                    if (trackData.success && trackData.data) {
-                        displayTitle = `${trackData.data.performer?.name || 'Unknown'} - ${trackData.data.title}`;
-                    }
-                } else if (validation.type === 'album') {
-                    const albumData = await api.getAlbum(parseInt(validation.id));
-                    if (albumData.success && albumData.data) {
-                        displayTitle = `${albumData.data.artist?.name || 'Unknown'} - ${albumData.data.title}`;
-                    }
+            if (type === 'track') {
+                const trackRes = await api.getTrack(id);
+                if (trackRes.success && trackRes.data) {
+                    title = trackRes.data.title;
+                    artist = trackRes.data.performer?.name || trackRes.data.artist?.name || '';
+                    album = trackRes.data.album?.title || '';
                 }
-
-                if (
-                    validation.type !== 'track' &&
-                    validation.type !== 'album' &&
-                    validation.type !== 'playlist' &&
-                    validation.type !== 'artist'
-                ) {
-                    res.status(400).json({ error: 'Invalid download type' });
-                    return;
+            } else if (type === 'album') {
+                const albumRes = await api.getAlbum(id);
+                if (albumRes.success && albumRes.data) {
+                    title = albumRes.data.title;
+                    artist = albumRes.data.artist?.name || '';
                 }
-
-                const item = downloadQueue.add(
-                    validation.type,
-                    validation.id,
-                    parseInt(quality) || 27,
-                    {
-                        title: displayTitle,
-                        metadata: { source: 'dashboard' }
-                    }
-                );
-                res.json({ success: true, item });
-            } catch (error: any) {
-                res.status(500).json({ error: error.message });
+            } else if (type === 'playlist') {
+                const plRes = await api.getPlaylist(id);
+                if (plRes.success && plRes.data) {
+                    title = plRes.data.name;
+                    artist = 'Various Artists';
+                }
             }
-        } else {
-            res.status(400).json({ error: 'Could not parse ID from URL' });
+
+            const item = downloadQueue.add(type, id, quality || 27, {
+                title,
+                priority,
+                metadata: { artist, album }
+            });
+
+            res.json(item);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
         }
+    });
+
+    app.post('/api/queue/pause', (req: Request, res: Response) => {
+        downloadQueue.pause();
+        res.json({ success: true });
+    });
+
+    app.post('/api/queue/resume', (req: Request, res: Response) => {
+        downloadQueue.resume();
+        res.json({ success: true });
+    });
+
+    app.post('/api/queue/clear', (req: Request, res: Response) => {
+        const count = downloadQueue.clearCompleted();
+        res.json({ count });
     });
 
     app.post('/api/queue/action', (req: Request, res: Response) => {
         const { action } = req.body;
-
-        switch (action) {
-            case 'pause':
-                downloadQueue.pause();
-                break;
-            case 'resume':
-                downloadQueue.resume();
-                break;
-            case 'clear':
-                downloadQueue.clear();
-                break;
-            default:
-                res.status(400).json({ error: 'Invalid action' });
-                return;
+        if (action === 'pause') {
+            downloadQueue.pause();
+        } else if (action === 'resume') {
+            downloadQueue.resume();
+        } else if (action === 'clear') {
+            downloadQueue.clearCompleted();
+        } else {
+            return res.status(400).json({ error: 'Invalid action' });
         }
+        res.json({ success: true });
+    });
 
-        res.json({ success: true, action });
+    app.post('/api/queue/item/:id/:action', (req: Request, res: Response) => {
+        const id = getParam(req.params.id);
+        const action = getParam(req.params.action);
+
+        if (action === 'cancel') {
+            const success = downloadQueue.cancel(id);
+            res.json({ success });
+        } else if (action === 'remove') {
+            const success = downloadQueue.remove(id);
+            res.json({ success });
+        } else {
+            res.status(400).json({ error: 'Invalid item action' });
+        }
     });
 
     app.post('/api/item/:id/:action', (req: Request, res: Response) => {
-        const { id, action } = req.params;
+        const id = getParam(req.params.id);
+        const action = getParam(req.params.action);
 
-        if (action === 'remove' || action === 'cancel') {
-            downloadQueue.cancel(id as string);
-            res.json({ success: true });
+        if (action === 'cancel') {
+            const success = downloadQueue.cancel(id);
+            res.json({ success });
+        } else if (action === 'remove') {
+            const success = downloadQueue.remove(id);
+            res.json({ success });
         } else {
-            res.status(400).json({ error: 'Invalid item action' });
+            res.status(400).json({ error: 'Invalid action' });
         }
     });
 
@@ -339,19 +253,28 @@ export function registerRoutes(app: Express): void {
         }
     });
 
+    app.post('/api/library/verify', async (req: Request, res: Response) => {
+        const filePath = getParam(req.body.filePath);
+        if (filePath) {
+            const result = await databaseService.verifyFileIntegrity(filePath);
+            res.json(result);
+        } else {
+            res.status(400).json({ error: 'filePath is required' });
+        }
+    });
+
     app.get('/api/search', async (req: Request, res: Response) => {
-        const { query, type, limit, offset } = req.query;
+        const query = getParam(req.query.query || req.query.q);
+        const type = getParam(req.query.type) || 'albums';
+        const limit = parseInt(getParam(req.query.limit)) || 20;
+        const offset = parseInt(getParam(req.query.offset)) || 0;
+
         if (!query) {
             res.status(400).json({ error: 'Query is required' });
             return;
         }
 
-        const result = await api.search(
-            query as string,
-            (type as string) || 'albums',
-            parseInt(limit as string) || 20,
-            parseInt(offset as string) || 0
-        );
+        const result = await api.search(query, type, limit, offset);
 
         if (result.success) {
             if (type === 'artists' && result.data?.artists?.items) {
@@ -368,13 +291,27 @@ export function registerRoutes(app: Express): void {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch {}
+                        } catch { }
                     }
                     return item;
                 });
                 await Promise.all(updates);
             }
 
+            if (result.data) {
+                const data = result.data as any;
+                if (data.tracks?.items) {
+                    data.tracks.items.forEach((item: any) => {
+                        item.already_downloaded = databaseService.hasTrack(String(item.id));
+                    });
+                }
+                if (data.albums?.items) {
+                    data.albums.items.forEach((item: any) => {
+                        const dbAlbum = databaseService.getAlbum(String(item.id));
+                        item.already_downloaded = !!dbAlbum;
+                    });
+                }
+            }
             res.json(result.data);
         } else {
             res.status(500).json({ error: result.error });
@@ -386,28 +323,69 @@ export function registerRoutes(app: Express): void {
         const result = await api.getAlbum(id);
 
         if (result.success) {
-            res.json(result.data);
+            const data = result.data as any;
+            const dbAlbum = databaseService.getAlbum(String(data.id));
+            data.already_downloaded = !!dbAlbum;
+
+            if (data.tracks?.items) {
+                data.tracks.items.forEach((item: any) => {
+                    item.already_downloaded = databaseService.hasTrack(String(item.id));
+                });
+            }
+            res.json(data);
         } else {
             res.status(500).json({ error: result.error });
         }
     });
 
     app.get('/api/artist/:id', async (req: Request, res: Response) => {
+        const id = getParam(req.params.id);
+        const offset = getParam(req.query.offset);
+        const limit = getParam(req.query.limit);
+        const type = getParam(req.query.type);
+
+        const off = parseInt(offset) || 0;
+        const lim = parseInt(limit) || 20;
+
+        if (type === 'albums') {
+            const result = await api.getArtistAlbums(id, lim, off);
+            if (result.success) {
+                const data = result.data as any;
+                if (data.items) {
+                    data.items.forEach((item: any) => {
+                        const dbAlbum = databaseService.getAlbum(String(item.id));
+                        item.already_downloaded = !!dbAlbum;
+                    });
+                }
+                res.json(data);
+            } else {
+                res.status(500).json({ error: result.error });
+            }
+        } else {
+            const result = await api.getArtist(id, off, lim);
+            if (result.success) {
+                const data = result.data as any;
+                if (data.tracks?.items) {
+                    data.tracks.items.forEach((item: any) => {
+                        item.already_downloaded = databaseService.hasTrack(String(item.id));
+                    });
+                }
+                if (data.albums?.items) {
+                    data.albums.items.forEach((item: any) => {
+                        const dbAlbum = databaseService.getAlbum(String(item.id));
+                        item.already_downloaded = !!dbAlbum;
+                    });
+                }
+                res.json(data);
+            } else {
+                res.status(500).json({ error: result.error });
+            }
+        }
+    });
+
+    app.get('/api/playlist/:id', async (req: Request, res: Response) => {
         const id = req.params.id as string;
-        const { offset, limit, type } = req.query;
-
-        const off = parseInt(offset as string) || 0;
-        const lim = parseInt(limit as string) || 20;
-
-        logger.debug(`[Artist] Fetching ${id} | Type: ${type} | Offset: ${off} | Limit: ${lim}`);
-
-        const result = await api.getArtist(
-            id,
-            type === 'tracks' ? 0 : off,
-            type === 'tracks' ? 20 : lim,
-            type === 'tracks' ? off : 0,
-            type === 'tracks' ? lim : 25
-        );
+        const result = await api.getPlaylist(id);
 
         if (result.success) {
             res.json(result.data);
@@ -416,328 +394,24 @@ export function registerRoutes(app: Express): void {
         }
     });
 
-    const getStreamUrl = async (id: string) => {
-        const preferredQuality = CONFIG.quality.streaming;
-        let result = await api.getFileUrl(id, preferredQuality);
-
-        if (
-            (!result.success || !result.data || !(result.data as any).url) &&
-            preferredQuality !== 5
-        ) {
-            result = await api.getFileUrl(id, 5);
-        }
-
-        if (
-            (!result.success || !result.data || !(result.data as any).url) &&
-            preferredQuality !== 6
-        ) {
-            logger.warn(`[Stream] Fallback to CD (6) for ${id}`);
-            result = await api.getFileUrl(id, 6);
-        }
-
-        if (result.success && result.data) {
-            const d = result.data as any;
-            logger.info(
-                `[Stream] Serving ${id} | Format: ${d.format_id} | ${d.bit_depth}bit/${d.sampling_rate}kHz | MIME: ${d.mime_type}`
-            );
-        } else {
-            logger.error(
-                `[Stream] Failed to get URL for ${id}: ${result.error || 'Unknown error'}`
-            );
-        }
-
-        return result;
-    };
-
-    app.get('/api/stream/:id', async (req: Request, res: Response) => {
+    app.get('/api/track/:id', async (req: Request, res: Response) => {
         const id = req.params.id as string;
-        try {
-            const result = await getStreamUrl(id);
-            if (result.success && result.data && (result.data as any).url) {
-                res.redirect((result.data as any).url);
-            } else {
-                res.status(404).json({ error: 'Stream URL not found' });
-            }
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
+        const result = await api.getTrack(id);
 
-    app.get('/api/stream/info/:id', async (req: Request, res: Response) => {
-        const id = req.params.id as string;
-        try {
-            const result = await getStreamUrl(id);
-            if (result.success && result.data && (result.data as any).url) {
-                const formatId = (result.data as any).format_id;
-                const { getQualityName, getQualityEmoji } = await import('../../config.js');
-                res.json({
-                    url: (result.data as any).url,
-                    formatId: formatId,
-                    qualityLabel: getQualityName(formatId),
-                    qualityEmoji: getQualityEmoji(formatId)
-                });
-            } else {
-                res.status(404).json({ error: 'Stream info not found' });
-            }
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.get('/api/download/:id', (req: Request, res: Response) => {
-        const id = req.params.id as string;
-        const entry = historyService.get(id);
-
-        if (!entry || !entry.filename) {
-            res.status(404).json({ error: 'File not found in history' });
-            return;
-        }
-
-        const filePath = path.resolve(entry.filename);
-        if (fs.existsSync(filePath)) {
-            const stats = fs.statSync(filePath);
-            if (stats.isDirectory()) {
-                import('archiver')
-                    .then((archiverModule) => {
-                        const archiver = archiverModule.default;
-                        const archive = archiver('zip', { zlib: { level: 9 } });
-
-                        res.attachment(`${sanitizeFilename(entry.title)}.zip`);
-                        archive.pipe(res);
-                        archive.directory(filePath, false);
-                        archive.finalize();
-                    })
-                    .catch((err) => {
-                        res.status(500).json({ error: `Failed to create archive: ${err.message}` });
-                    });
-            } else {
-                res.download(filePath, path.basename(filePath));
-            }
+        if (result.success) {
+            res.json(result.data);
         } else {
-            res.status(404).json({ error: 'Physical file missing from server' });
+            res.status(500).json({ error: result.error });
         }
     });
 
-    app.get('/api/playlists/watched', (req: Request, res: Response) => {
-        res.json([]);
-    });
-
-    app.post('/api/playlists/watch', async (req: Request, res: Response) => {
-        res.status(400).json({
-            error: 'Playlist watching is disabled in env-only mode (no database).'
-        });
-    });
-
-    app.delete('/api/playlists/watch/:id', (req: Request, res: Response) => {
-        res.status(400).json({
-            error: 'Playlist watching is disabled in env-only mode (no database).'
-        });
-    });
-
-    app.get('/api/statistics', async (req: Request, res: Response) => {
-        try {
-            const { statisticsService } = await import('../statistics.js');
-            res.json(statisticsService.getAll());
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.get('/api/statistics/summary', async (req: Request, res: Response) => {
-        try {
-            const { statisticsService } = await import('../statistics.js');
-            res.json(statisticsService.getSummary());
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.get('/api/notifications', async (req: Request, res: Response) => {
-        try {
-            const { notificationService } = await import('../notifications.js');
-            res.json({
-                notifications: notificationService.getRecent(50),
-                unreadCount: notificationService.getUnreadCount()
-            });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/notifications/:id/read', async (req: Request, res: Response) => {
-        try {
-            const { notificationService } = await import('../notifications.js');
-            const success = notificationService.markAsRead(req.params.id as string);
-            res.json({ success });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/notifications/read-all', async (req: Request, res: Response) => {
-        try {
-            const { notificationService } = await import('../notifications.js');
-            const count = notificationService.markAllAsRead();
-            res.json({ success: true, count });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/batch/import', async (req: Request, res: Response) => {
-        try {
-            const { batchImportService } = await import('../batch.js');
-            const { urls, quality } = req.body;
-
-            if (!urls || !Array.isArray(urls)) {
-                res.status(400).json({ error: 'urls must be an array' });
-                return;
-            }
-
-            const result = await batchImportService.importUrls(urls, quality || 27);
-            res.json(result);
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.get('/api/i18n/locales', async (req: Request, res: Response) => {
-        try {
-            const { i18n } = await import('../i18n.js');
-            res.json({
-                current: i18n.getLocale(),
-                available: i18n.getAvailableLocales()
-            });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.get('/api/i18n/translations', async (req: Request, res: Response) => {
-        try {
-            const { i18n } = await import('../i18n.js');
-            res.json(i18n.getAll());
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/i18n/locale', async (req: Request, res: Response) => {
-        try {
-            const { i18n } = await import('../i18n.js');
-            const { locale } = req.body;
-            i18n.setLocale(locale);
-            res.json({ success: true, locale: i18n.getLocale() });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/token/update', async (req: Request, res: Response) => {
-        try {
-            const { tokenManager } = await import('../../utils/token.js');
-            const { token } = req.body;
-
-            if (!token) {
-                res.status(400).json({ error: 'Token is required' });
-                return;
-            }
-
-            const success = await tokenManager.updateToken(token);
-            res.json({ success });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.get('/api/token/status', async (req: Request, res: Response) => {
-        try {
-            const { tokenManager } = await import('../../utils/token.js');
-            res.json(tokenManager.getStatus());
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/settings/update', async (req: Request, res: Response) => {
-        const { app_id, app_secret, token, user_id } = req.body;
-
-        try {
-            let updated = 0;
-            if (app_id) {
-                await tokenManager.updateConfig('QOBUZ_APP_ID', app_id);
-                updated++;
-            }
-            if (app_secret) {
-                await tokenManager.updateConfig('QOBUZ_APP_SECRET', app_secret);
-                updated++;
-            }
-            if (token) {
-                await tokenManager.updateConfig('QOBUZ_USER_AUTH_TOKEN', token);
-                updated++;
-            }
-            if (user_id) {
-                await tokenManager.updateConfig('QOBUZ_USER_ID', user_id);
-                updated++;
-            }
-
-            if (updated > 0) {
-                credentialsCache = null;
-                res.json({ success: true, message: `Updated ${updated} settings` });
-            } else {
-                res.status(400).json({ success: false, error: 'No settings provided' });
-            }
-        } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
-        }
-    });
-
-    app.get('/api/history/export', async (req: Request, res: Response) => {
-        const format = (req.query.format as string) || 'json';
-        const history = historyService.getAll();
-        const entries = Object.entries(history).map(([id, entry]) => ({
-            id,
-            ...entry
-        }));
-
-        if (format === 'csv') {
-            const headers = [
-                'id',
-                'title',
-                'artist',
-                'album',
-                'quality',
-                'filename',
-                'downloadedAt'
-            ];
-            const csv = [
-                headers.join(','),
-                ...entries.map((e) =>
-                    headers
-                        .map((h) => {
-                            const val = (e as any)[h] || '';
-                            return `"${String(val).replace(/"/g, '""')}"`;
-                        })
-                        .join(',')
-                )
-            ].join('\n');
-
-            res.setHeader('Content-Type', 'text/csv');
-            res.setHeader('Content-Disposition', 'attachment; filename=history.csv');
-            res.send(csv);
+    app.get('/api/genres', async (req: Request, res: Response) => {
+        const result = await api.getGenres();
+        if (result.success) {
+            res.json(result.data);
         } else {
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader('Content-Disposition', 'attachment; filename=history.json');
-            res.json(entries);
+            res.status(500).json({ error: result.error });
         }
-    });
-
-    app.get('/api/preferences', (req: Request, res: Response) => {
-        res.json({
-            theme: 'system',
-            quality: 27,
-            language: 'en'
-        });
     });
 
     app.get('/api/preview/:id', async (req: Request, res: Response) => {
@@ -896,6 +570,7 @@ export function registerRoutes(app: Express): void {
 
             res.json({ message: 'Scan started', status: 'scanning' });
         } catch (error: any) {
+            console.error('Library Scan Route Error:', error);
             res.status(500).json({ error: error.message });
         }
     });
@@ -945,6 +620,93 @@ export function registerRoutes(app: Express): void {
         try {
             const { libraryScannerService } = await import('../library-scanner/index.js');
             res.json(libraryScannerService.getUpgradeableFiles());
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.get('/api/library/missing-metadata', async (req: Request, res: Response) => {
+        try {
+            const { libraryScannerService } = await import('../library-scanner/index.js');
+            res.json(libraryScannerService.getMissingMetadataFiles());
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/tools/identify', async (req: Request, res: Response) => {
+        try {
+            const { acoustidService } = await import('../acoustid.js');
+            const { filePath } = req.body;
+
+            if (!filePath) return res.status(400).json({ error: 'filePath is required' });
+
+            const result = await acoustidService.identify(filePath);
+            if (result) {
+                res.json({ success: true, data: result });
+            } else {
+                res.status(404).json({ error: 'No match found' });
+            }
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/tools/scan-directory', async (req: Request, res: Response) => {
+        try {
+            const { dirPath } = req.body;
+            if (!dirPath) return res.status(400).json({ error: 'dirPath is required' });
+
+            const { readdir } = await import('fs/promises');
+            const { join, extname } = await import('path');
+
+            const files: string[] = [];
+
+            const scan = async (dir: string) => {
+                const entries = await readdir(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        await scan(fullPath);
+                    } else if (entry.isFile()) {
+                        const ext = extname(entry.name).toLowerCase();
+                        if (['.flac', '.mp3', '.m4a'].includes(ext)) {
+                            files.push(fullPath);
+                        }
+                    }
+                }
+            };
+
+            await scan(dirPath);
+            res.json({ success: true, files });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/tools/apply-metadata', async (req: Request, res: Response) => {
+        try {
+            const { filePath, metadata } = req.body;
+            if (!filePath || !metadata)
+                return res.status(400).json({ error: 'Missing parameters' });
+
+            const { default: MetadataService } = await import('../metadata.js');
+            const metadataService = new MetadataService();
+
+            const targetMeta: any = {
+                title: metadata.title,
+                artist: metadata.artist,
+                album: metadata.album,
+                trackNumber: 0,
+                totalTracks: 0,
+                discNumber: 1,
+                totalDiscs: 1,
+                year: metadata.year || '',
+                genre: metadata.genre || ''
+            };
+
+            await metadataService.writeMetadata(filePath, targetMeta, 0);
+            res.json({ success: true });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
         }
@@ -1013,8 +775,280 @@ export function registerRoutes(app: Express): void {
             res.status(500).json({ error: error.message });
         }
     });
-}
 
-function sanitizeFilename(name: string) {
-    return name.replace(/[<>:"/\\|?*]/g, '').trim();
+    app.post('/api/batch/import/file', async (req: Request, res: Response) => {
+        try {
+            const { batchImportService } = await import('../batch.js');
+            const { filePath, quality } = req.body;
+            if (!filePath) return res.status(400).json({ error: 'filePath is required' });
+            const result = await batchImportService.importFromFile(filePath, quality);
+            res.json(result);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/batch/import/m3u8', async (req: Request, res: Response) => {
+        try {
+            const { batchImportService } = await import('../batch.js');
+            const { filePath, quality } = req.body;
+            if (!filePath) return res.status(400).json({ error: 'filePath is required' });
+            const result = await batchImportService.importFromM3u8(filePath, quality);
+            res.json(result);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/batch/import/csv', async (req: Request, res: Response) => {
+        try {
+            const { batchImportService } = await import('../batch.js');
+            const { filePath, quality } = req.body;
+            if (!filePath) return res.status(400).json({ error: 'filePath is required' });
+            const result = await batchImportService.importFromCsv(filePath, quality);
+            res.json(result);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/batch/import/direct', async (req: Request, res: Response) => {
+        try {
+            const { batchImportService } = await import('../batch.js');
+            const { urls, quality, createZip } = req.body;
+            if (!Array.isArray(urls))
+                return res.status(400).json({ error: 'urls must be an array' });
+            const result = await batchImportService.importUrls(urls, quality, createZip);
+            res.json(result);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.get('/api/logs', (req: Request, res: Response) => {
+        res.json(logger.getLogs());
+    });
+
+    app.get('/api/search/suggestions', async (req: Request, res: Response) => {
+        const { query } = req.query;
+        if (!query || typeof query !== 'string') {
+            res.json({ artists: [], albums: [], tracks: [] });
+            return;
+        }
+
+        try {
+            const [artists, albums, tracks] = await Promise.all([
+                api.search(query, 'artists', 3),
+                api.search(query, 'albums', 3),
+                api.search(query, 'tracks', 3)
+            ]);
+
+            res.json({
+                artists: artists.success
+                    ? (artists.data as any)?.artists?.items.slice(0, 3) || []
+                    : [],
+                albums: albums.success ? (albums.data as any)?.albums?.items.slice(0, 3) || [] : [],
+                tracks: tracks.success ? (tracks.data as any)?.tracks?.items.slice(0, 3) || [] : []
+            });
+        } catch {
+            res.json({ artists: [], albums: [], tracks: [] });
+        }
+    });
+
+    app.get('/api/lyrics/:id', async (req: Request, res: Response) => {
+        try {
+            const { downloadService } = await import('../../index.js');
+            const id = getParam(req.params.id);
+
+            const historyItem = historyService.get(id);
+            if (historyItem) {
+                const { existsSync, readFileSync } = await import('fs');
+                const lrcPath = historyItem.filename.replace(/\.[^.]+$/, '.lrc');
+
+                if (existsSync(lrcPath)) {
+                    const content = readFileSync(lrcPath, 'utf8');
+                    res.json({
+                        success: true,
+                        source: 'Local File',
+                        syncedLyrics: content,
+                        parsedLyrics: downloadService.lyricsProvider.parseLrc(content)
+                    });
+                    return;
+                }
+            }
+
+            const trackRes = await api.getTrack(id);
+            if (!trackRes.success || !trackRes.data) {
+                res.status(404).json({ error: 'Track not found' });
+                return;
+            }
+
+            const track = trackRes.data;
+            const lyrics = await downloadService.lyricsProvider.getLyrics(
+                track.title,
+                track.performer?.name || track.artist?.name || 'Unknown',
+                track.album?.title,
+                track.duration
+            );
+
+            res.json(lyrics);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/lyrics/:id/save', async (req: Request, res: Response) => {
+        try {
+            const id = getParam(req.params.id);
+            const { content } = req.body;
+
+            if (!content) {
+                res.status(400).json({ error: 'No content provided' });
+                return;
+            }
+
+            const historyItem = historyService.get(id);
+            if (!historyItem) {
+                res.status(404).json({
+                    error: 'Track not found in history (must be downloaded to save lyrics)'
+                });
+                return;
+            }
+
+            const { writeFileSync, existsSync } = await import('fs');
+            const lrcPath = historyItem.filename.replace(/\.[^.]+$/, '.lrc');
+
+            const { dirname } = await import('path');
+            const dir = dirname(lrcPath);
+            if (!existsSync(dir)) {
+                res.status(404).json({ error: 'Directory does not exist' });
+                return;
+            }
+
+            writeFileSync(lrcPath, content, 'utf8');
+            logger.info(`Lyrics manually updated for track ${id}`, 'LYRICS');
+
+            res.json({ success: true });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/lyrics/download', async (req: Request, res: Response) => {
+        try {
+            const { downloadService } = await import('../../index.js');
+            const { trackId } = req.body;
+            if (!trackId) return res.status(400).json({ error: 'trackId is required' });
+
+            const result = await downloadService.downloadLyrics(trackId);
+            res.json(result);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/lyrics/download-album-zip', async (req: Request, res: Response) => {
+        try {
+            const { downloadService } = await import('../../index.js');
+            const { albumId } = req.body;
+            if (!albumId) return res.status(400).json({ error: 'albumId is required' });
+
+            const result = await downloadService.downloadAlbumLyricsZip(albumId);
+            res.json(result);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.get('/api/stream/:id', async (req: Request, res: Response) => {
+        try {
+            const { audioPreviewService } = await import('../audio-preview/index.js');
+            const trackId = getParam(req.params.id);
+            const url = await audioPreviewService.getStreamUrl(trackId);
+
+            if (url) {
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.redirect(url);
+            } else {
+                res.status(404).json({ error: 'Stream URL not found' });
+            }
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.get('/api/playlists/watched', async (req: Request, res: Response) => {
+        try {
+            const { databaseService } = await import('../database/index.js');
+            res.json(databaseService.getWatchedPlaylists());
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/playlists/watch', async (req: Request, res: Response) => {
+        try {
+            const { databaseService } = await import('../database/index.js');
+            const { playlistId, quality, intervalHours } = req.body;
+
+            if (!playlistId) return res.status(400).json({ error: 'playlistId is required' });
+
+            const result = await api.getPlaylist(playlistId);
+            if (!result.success || !result.data) {
+                return res.status(404).json({ error: 'Playlist not found on Qobuz' });
+            }
+
+            const playlist = result.data as any;
+            databaseService.addWatchedPlaylist({
+                id: playlistId,
+                playlistId,
+                title: playlist.title,
+                quality: quality || 27,
+                intervalHours: intervalHours || 24
+            });
+
+            res.json({ success: true, message: 'Playlist added to watch list' });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.delete('/api/playlists/watch/:id', async (req: Request, res: Response) => {
+        try {
+            const { databaseService } = await import('../database/index.js');
+            databaseService.removeWatchedPlaylist(getParam(req.params.id));
+            res.json({ success: true });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+    app.get('/api/themes', async (req: Request, res: Response) => {
+        try {
+            const { themeService } = await import('../../services/ThemeService.js');
+            res.json(await themeService.getAll());
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/themes', async (req: Request, res: Response) => {
+        try {
+            const { themeService } = await import('../../services/ThemeService.js');
+            const { name, isDark, colors } = req.body;
+            if (!name || typeof isDark !== 'boolean' || !colors)
+                return res.status(400).json({ error: 'Missing parameters' });
+            res.json(await themeService.create(name, isDark, colors));
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.delete('/api/themes/:id', async (req: Request, res: Response) => {
+        try {
+            const { themeService } = await import('../../services/ThemeService.js');
+            res.json({ success: await themeService.delete(req.params.id as string) });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
 }

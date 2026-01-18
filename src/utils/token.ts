@@ -4,9 +4,6 @@ import path from 'path';
 import { CONFIG } from '../config.js';
 import { logger } from './logger.js';
 
-/**
- * Token Manager with auto-refresh and event notifications
- */
 class TokenManager extends EventEmitter {
     private token: string;
     private lastValidated: number = 0;
@@ -18,23 +15,14 @@ class TokenManager extends EventEmitter {
         this.token = CONFIG.credentials.token || '';
     }
 
-    /**
-     * Get current token
-     */
     getToken(): string {
         return this.token;
     }
 
-    /**
-     * Update token and persist to .env
-     */
     async updateToken(newToken: string): Promise<boolean> {
         return this.updateConfig('QOBUZ_USER_AUTH_TOKEN', newToken);
     }
 
-    /**
-     * Update any config credential
-     */
     async updateConfig(key: string, value: string): Promise<boolean> {
         if (!value || value.trim() === '') return false;
 
@@ -73,9 +61,6 @@ class TokenManager extends EventEmitter {
         }
     }
 
-    /**
-     * Persist value to .env file
-     */
     private async persistToEnv(key: string, value: string): Promise<void> {
         const envPath = path.resolve(process.cwd(), '.env');
 
@@ -103,34 +88,22 @@ class TokenManager extends EventEmitter {
         fs.writeFileSync(envPath, newLines.join('\n'), 'utf8');
     }
 
-    /**
-     * Mark token as invalid (e.g., after 401/403 error)
-     */
     markInvalid(): void {
         this.isValid = false;
         this.emit('token:invalid');
         logger.warn('Token marked as invalid');
     }
 
-    /**
-     * Mark token as valid
-     */
     markValid(): void {
         this.isValid = true;
         this.lastValidated = Date.now();
         this.emit('token:valid');
     }
 
-    /**
-     * Check if token needs refresh
-     */
     needsRefresh(): boolean {
         return this.isValid === false;
     }
 
-    /**
-     * Get status info
-     */
     getStatus(): { configured: boolean; valid: boolean | null; lastValidated: number | null } {
         return {
             configured: !!this.token,
@@ -142,9 +115,6 @@ class TokenManager extends EventEmitter {
 
 export const tokenManager = new TokenManager();
 
-/**
- * Refresh user token - now integrated with TokenManager
- */
 export async function refreshUserToken(): Promise<string | null> {
     const status = tokenManager.getStatus();
 

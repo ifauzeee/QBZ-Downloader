@@ -1,8 +1,5 @@
 import { logger } from './logger.js';
 
-/**
- * Simple in-memory cache service with TTL support
- */
 class CacheService {
     private cache: Map<string, { value: any; expires: number }> = new Map();
     private maxSize: number = 1000;

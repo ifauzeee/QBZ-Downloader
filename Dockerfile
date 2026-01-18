@@ -30,9 +30,15 @@ WORKDIR /app
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json tsconfig.json ./
-COPY src ./src
 
-# Build TypeScript
+# Build Client
+COPY client ./client
+RUN cd client && npm install && npm run build
+
+# Build Backend
+COPY scripts ./scripts
+COPY src ./src
+RUN node scripts/sync-ui.js
 RUN npm run build
 
 # Stage 3: Production
@@ -41,7 +47,7 @@ FROM node:22-alpine AS production
 
 LABEL maintainer="ifauzeee"
 LABEL description="Premium Qobuz Downloader Web Dashboard"
-LABEL version="3.0.0"
+LABEL version="4.0.0"
 LABEL org.opencontainers.image.source="https://github.com/ifauzeee/QBZ-Downloader"
 
 WORKDIR /app
@@ -62,7 +68,11 @@ COPY .env.example ./
 
 # Create required directories
 RUN mkdir -p /app/downloads /app/data /app/logs && \
+    mkdir -p /app/client/dist && \
     chown -R qbz:qbz /app
+
+# Install runtime dependencies (chromaprint for audio fingerprinting)
+RUN apk add --no-cache chromaprint
 
 # Environment
 ENV NODE_ENV=production

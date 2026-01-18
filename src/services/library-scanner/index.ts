@@ -1,75 +1,14 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import { Worker } from 'worker_threads';
+import { fileURLToPath } from 'url';
 import { EventEmitter } from 'events';
 import { databaseService } from '../database/index.js';
 import { historyService } from '../history.js';
 import { logger } from '../../utils/logger.js';
 import { CONFIG } from '../../config.js';
 import QobuzAPI from '../../api/qobuz.js';
-
-function readFlacMetadata(
-    filePath: string
-): { bitDepth: number; sampleRate: number; duration: number } | null {
-    let fd;
-    try {
-        fd = fs.openSync(filePath, 'r');
-        const header = Buffer.alloc(4);
-
-        fs.readSync(fd, header, 0, 4, 0);
-        if (header.toString('ascii') !== 'fLaC') {
-            fs.closeSync(fd);
-            return null;
-        }
-
-        let offset = 4;
-        let isLast = false;
-        const blockHeader = Buffer.alloc(4);
-
-        while (!isLast) {
-            const bytesRead = fs.readSync(fd, blockHeader, 0, 4, offset);
-            if (bytesRead < 4) break;
-
-            const isLastBit = (blockHeader[0] >> 7) & 1;
-            const type = blockHeader[0] & 0x7f;
-            const length = (blockHeader[1] << 16) | (blockHeader[2] << 8) | blockHeader[3];
-
-            isLast = isLastBit === 1;
-            offset += 4;
-
-            if (type === 0) {
-                const buffer = Buffer.alloc(34);
-                fs.readSync(fd, buffer, 0, 34, offset);
-
-                const sampleRate =
-                    (buffer[10] << 12) | (buffer[11] << 4) | ((buffer[12] & 0xf0) >> 4);
-                const bitsPerSampleMinus1 = ((buffer[12] & 0x01) << 4) | ((buffer[13] & 0xf0) >> 4);
-                const bitDepth = bitsPerSampleMinus1 + 1;
-
-                const totalSamplesHi = buffer[13] & 0x0f;
-                const totalSamplesLo =
-                    (buffer[14] << 24) | (buffer[15] << 16) | (buffer[16] << 8) | buffer[17];
-                const totalSamples = totalSamplesHi * 4294967296 + (totalSamplesLo >>> 0);
-
-                const duration = sampleRate > 0 ? totalSamples / sampleRate : 0;
-
-                fs.closeSync(fd);
-                return { bitDepth, sampleRate, duration };
-            }
-
-            offset += length;
-        }
-
-        fs.closeSync(fd);
-        return null;
-    } catch {
-        if (fd) {
-            try {
-                fs.closeSync(fd);
-            } catch {}
-        }
-        return null;
-    }
-}
 
 export interface LibraryFile {
     filePath: string;
@@ -175,66 +114,119 @@ class LibraryScannerService extends EventEmitter {
             const allFiles = await this.collectAudioFiles(scanDir);
             result.totalFiles = allFiles.length;
 
+            if (result.totalFiles === 0) {
+                this.isScanning = false;
+                return result;
+            }
+
             this.currentProgress.total = result.totalFiles;
 
             this.emit('scan:started', { totalFiles: result.totalFiles, directory: scanDir });
             logger.info(
-                `Starting library scan: ${result.totalFiles} files in ${scanDir}`,
+                `Starting multi-threaded library scan: ${result.totalFiles} files in ${scanDir}`,
                 'SCANNER'
             );
 
-            for (let i = 0; i < allFiles.length; i++) {
-                if (this.scanAborted) {
-                    logger.warn('Scan aborted by user', 'SCANNER');
-                    break;
-                }
+            const numWorkers = Math.min(allFiles.length, os.cpus().length || 4);
+            const __dirname = path.dirname(fileURLToPath(import.meta.url));
+            const workerPathJs = path.join(__dirname, 'worker.js');
+            const workerPathTs = path.join(__dirname, 'worker.ts');
 
-                const filePath = allFiles[i];
+            const resolvedWorkerPath = fs.existsSync(workerPathJs) ? workerPathJs : workerPathTs;
 
-                try {
-                    const fileInfo = await this.scanFile(filePath);
+            const filesToProcess = [...allFiles];
+            let processedCount = 0;
 
-                    if (fileInfo) {
-                        result.scannedFiles++;
-                        result.totalSize += fileInfo.fileSize;
-                        result.byFormat[fileInfo.format] =
-                            (result.byFormat[fileInfo.format] || 0) + 1;
-                        result.byQuality[fileInfo.quality] =
-                            (result.byQuality[fileInfo.quality] || 0) + 1;
-
-                        if (fileInfo.needsUpgrade) result.upgradeableFiles++;
-                        if (!fileInfo.title || !fileInfo.artist) result.missingMetadata++;
-
-                        databaseService.addLibraryFile({
-                            file_path: fileInfo.filePath,
-                            title: fileInfo.title,
-                            artist: fileInfo.artist,
-                            album: fileInfo.album,
-                            duration: fileInfo.duration,
-                            quality: fileInfo.quality,
-                            file_size: fileInfo.fileSize,
-                            format: fileInfo.format,
-                            bit_depth: fileInfo.bitDepth,
-                            sample_rate: fileInfo.sampleRate,
-                            needs_upgrade: fileInfo.needsUpgrade
-                        });
-                    }
-                } catch (error: any) {
+            const processResult = (fileInfo: any) => {
+                if (fileInfo.error) {
                     result.errors++;
-                    logger.debug(`Error scanning ${filePath}: ${error.message}`, 'SCANNER');
+                    logger.debug(
+                        `Error scanning ${fileInfo.filePath}: ${fileInfo.error}`,
+                        'SCANNER'
+                    );
+                } else if (fileInfo) {
+                    result.scannedFiles++;
+                    result.totalSize += fileInfo.fileSize;
+                    result.byFormat[fileInfo.format] = (result.byFormat[fileInfo.format] || 0) + 1;
+                    result.byQuality[fileInfo.quality] =
+                        (result.byQuality[fileInfo.quality] || 0) + 1;
+
+                    if (fileInfo.needsUpgrade) result.upgradeableFiles++;
+                    if (!fileInfo.title || !fileInfo.artist) result.missingMetadata++;
+
+                    databaseService.addLibraryFile({
+                        file_path: fileInfo.filePath,
+                        title: fileInfo.title,
+                        artist: fileInfo.artist,
+                        album: fileInfo.album,
+                        duration: fileInfo.duration,
+                        quality: fileInfo.quality,
+                        file_size: fileInfo.fileSize,
+                        format: fileInfo.format,
+                        bit_depth: fileInfo.bitDepth,
+                        sample_rate: fileInfo.sampleRate,
+                        needs_upgrade: fileInfo.needsUpgrade,
+                        audio_fingerprint: fileInfo.audioFingerprint
+                    });
                 }
 
-                if (i % 5 === 0 || i === allFiles.length - 1) {
-                    const progress: ScanProgress = {
-                        current: i + 1,
-                        total: result.totalFiles,
-                        percentage: Math.round(((i + 1) / result.totalFiles) * 100),
-                        currentFile: path.basename(filePath),
-                        status: 'scanning'
-                    };
-                    this.currentProgress = progress;
-                    this.emit('scan:progress', progress);
+                processedCount++;
+                const progress: ScanProgress = {
+                    current: processedCount,
+                    total: result.totalFiles,
+                    percentage: Math.round((processedCount / result.totalFiles) * 100),
+                    currentFile: path.basename(fileInfo.filePath || ''),
+                    status: 'scanning'
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
+            };
+
+            await new Promise<void>((resolve) => {
+                let workersFinished = 0;
+
+                const spawnWorker = () => {
+                    if (filesToProcess.length === 0 || this.scanAborted) {
+                        workersFinished++;
+                        if (workersFinished >= numWorkers) resolve();
+                        return;
+                    }
+
+                    const worker = new Worker(resolvedWorkerPath, {
+                        execArgv: resolvedWorkerPath.endsWith('.ts')
+                            ? ['--loader', 'ts-node/esm']
+                            : []
+                    });
+
+                    worker.on('message', (msg) => {
+                        processResult(msg);
+                        if (filesToProcess.length > 0 && !this.scanAborted) {
+                            worker.postMessage(filesToProcess.pop());
+                        } else {
+                            worker.terminate();
+                            workersFinished++;
+                            if (workersFinished >= numWorkers) resolve();
+                        }
+                    });
+
+                    worker.on('error', (err) => {
+                        result.errors++;
+                        logger.error(`Worker error: ${err.message}`, 'SCANNER');
+                        worker.terminate();
+                        workersFinished++;
+                        if (workersFinished >= numWorkers) resolve();
+                    });
+
+                    worker.postMessage(filesToProcess.pop());
+                };
+
+                for (let i = 0; i < numWorkers; i++) {
+                    spawnWorker();
                 }
+            });
+
+            if (this.scanAborted) {
+                logger.warn('Scan aborted by user', 'SCANNER');
             }
 
             if (options.detectDuplicates !== false) {
@@ -269,6 +261,16 @@ class LibraryScannerService extends EventEmitter {
             result.scanDuration = Date.now() - startTime;
             historyService.cleanup();
 
+            const finalProgress: ScanProgress = {
+                current: result.totalFiles,
+                total: result.totalFiles,
+                percentage: 100,
+                currentFile: 'Scan complete',
+                status: 'complete'
+            };
+            this.currentProgress = finalProgress;
+            this.emit('scan:progress', finalProgress);
+
             this.emit('scan:complete', result);
             logger.success(
                 `Library scan complete: ${result.scannedFiles} files, ${result.duplicates} duplicates, ${result.upgradeableFiles} upgradeable`,
@@ -286,17 +288,21 @@ class LibraryScannerService extends EventEmitter {
         const files: string[] = [];
         const scan = async (dir: string): Promise<void> => {
             if (!fs.existsSync(dir)) return;
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
-            for (const entry of entries) {
-                const fullPath = path.join(dir, entry.name);
-                if (entry.isDirectory()) {
-                    await scan(fullPath);
-                } else if (entry.isFile()) {
-                    const ext = path.extname(entry.name).toLowerCase();
-                    if (this.supportedFormats.includes(ext)) {
-                        files.push(fullPath);
+            try {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        await scan(fullPath);
+                    } else if (entry.isFile()) {
+                        const ext = path.extname(entry.name).toLowerCase();
+                        if (this.supportedFormats.includes(ext)) {
+                            files.push(fullPath);
+                        }
                     }
                 }
+            } catch (err) {
+                logger.debug(`Failed to scan directory ${dir}: ${err}`);
             }
         };
         await scan(directory);
@@ -364,16 +370,16 @@ class LibraryScannerService extends EventEmitter {
                 }
 
                 processed++;
-                if (processed % 5 === 0) {
-                    this.emit('scan:progress', {
-                        current: processed,
-                        total: files.length,
-                        percentage: Math.round((processed / files.length) * 100),
-                        currentFile: `Checking: ${file.artist} - ${file.title}`,
-                        status: 'checking_upgrades'
-                    } as ScanProgress);
-                }
-                await this.delay(200);
+                const progress: ScanProgress = {
+                    current: processed,
+                    total: files.length,
+                    percentage: Math.round((processed / files.length) * 100),
+                    currentFile: `Checking: ${file.artist} - ${file.title}`,
+                    status: 'checking_upgrades'
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
+                await this.delay(process.env.NODE_ENV === 'test' ? 0 : 50);
             } catch (error: any) {
                 logger.debug(
                     `Error checking upgrade for ${file.file_path}: ${error.message}`,
@@ -411,7 +417,7 @@ class LibraryScannerService extends EventEmitter {
                 if (result.success && result.data) {
                     return (result.data as any).format_id || quality;
                 }
-            } catch {}
+            } catch { }
         }
         return null;
     }
@@ -461,101 +467,34 @@ class LibraryScannerService extends EventEmitter {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    private async scanFile(filePath: string): Promise<LibraryFile | null> {
-        try {
-            const stats = fs.statSync(filePath);
-            const ext = path.extname(filePath).toLowerCase();
-            const filename = path.basename(filePath, ext);
-            const parentDir = path.basename(path.dirname(filePath));
-            const artistDir = path.basename(path.dirname(path.dirname(filePath)));
-
-            let title = filename;
-            let artist = artistDir || 'Unknown';
-            const album = parentDir || 'Unknown';
-
-            const patterns = [/^(.+?)\s*-\s*(.+)$/, /^\d+\.\s*(.+)$/, /^\d+\s*-\s*(.+)$/];
-            for (const pattern of patterns) {
-                const match = filename.match(pattern);
-                if (match) {
-                    if (match.length === 3) {
-                        artist = match[1].trim();
-                        title = match[2].trim();
-                    } else {
-                        title = match[1].trim();
-                    }
-                    break;
-                }
-            }
-
-            let quality = 6;
-            let bitDepth = 16;
-            let sampleRate = 44100;
-            let duration = 0;
-
-            if (ext === '.mp3') {
-                quality = 5;
-                bitDepth = 0;
-                sampleRate = 0;
-            } else if (ext === '.flac') {
-                const flacMeta = readFlacMetadata(filePath);
-                if (flacMeta) {
-                    bitDepth = flacMeta.bitDepth;
-                    sampleRate = flacMeta.sampleRate;
-                    duration = flacMeta.duration;
-                    if (bitDepth >= 24 && sampleRate >= 176400) quality = 27;
-                    else if (bitDepth >= 24) quality = 7;
-                    else quality = 6;
-                } else {
-                    const mbPerMinute = stats.size / (1024 * 1024) / 4;
-                    if (mbPerMinute > 20) {
-                        quality = 27;
-                        bitDepth = 24;
-                        sampleRate = 192000;
-                    } else if (mbPerMinute > 10) {
-                        quality = 7;
-                        bitDepth = 24;
-                        sampleRate = 96000;
-                    } else {
-                        quality = 6;
-                        bitDepth = 16;
-                        sampleRate = 44100;
-                    }
-                }
-            }
-
-            return {
-                filePath,
-                title,
-                artist,
-                album,
-                duration: duration || 0,
-                quality,
-                fileSize: stats.size,
-                format: ext.slice(1).toUpperCase(),
-                bitDepth,
-                sampleRate,
-                needsUpgrade: quality < 7
-            };
-        } catch {
-            return null;
-        }
-    }
-
     private async detectDuplicates(): Promise<number> {
-        const files = databaseService.getLibraryFiles(10000, 0);
+        const files = databaseService.getLibraryFiles(100000, 0);
         const duplicateGroups: Map<string, string[]> = new Map();
         let duplicateCount = 0;
+
         for (const file of files) {
-            if (!file.title || !file.artist) continue;
-            const key = `${this.normalizeString(file.artist)}|${this.normalizeString(file.title)}`;
+            let key = '';
+
+            if (file.audio_fingerprint) {
+                key = `fp:${file.audio_fingerprint}`;
+            } else if (file.title && file.artist) {
+                key = `meta:${this.normalizeString(file.artist)}|${this.normalizeString(file.title)}`;
+            } else {
+                continue;
+            }
+
             if (!duplicateGroups.has(key)) duplicateGroups.set(key, []);
             duplicateGroups.get(key)!.push(file.file_path);
         }
-        for (const [, paths] of duplicateGroups) {
+
+        for (const [key, paths] of duplicateGroups) {
             if (paths.length > 1) {
                 duplicateCount += paths.length - 1;
+                const isFingerprintMatch = key.startsWith('fp:');
+                const confidence = isFingerprintMatch ? 1.0 : 0.95;
+
                 for (let i = 1; i < paths.length; i++) {
-                    databaseService.addDuplicate(paths[0], paths[i], 'exact', 0.95);
+                    databaseService.addDuplicate(paths[0], paths[i], 'exact', confidence);
                 }
             }
         }
@@ -608,6 +547,25 @@ class LibraryScannerService extends EventEmitter {
             bitDepth: f.bit_depth || 0,
             sampleRate: f.sample_rate || 0,
             needsUpgrade: true
+        }));
+    }
+
+    getMissingMetadataFiles(): LibraryFile[] {
+        const files = databaseService.getMissingMetadataFiles();
+        return files.map((f) => ({
+            filePath: f.file_path,
+            trackId: f.track_id || undefined,
+            title: f.title || '',
+            artist: f.artist || '',
+            album: f.album || '',
+            duration: f.duration || 0,
+            quality: f.quality || 0,
+            availableQuality: f.available_quality || undefined,
+            fileSize: f.file_size || 0,
+            format: f.format || '',
+            bitDepth: f.bit_depth || 0,
+            sampleRate: f.sample_rate || 0,
+            needsUpgrade: false
         }));
     }
 
@@ -678,6 +636,7 @@ class LibraryScannerService extends EventEmitter {
     abortScan(): void {
         if (this.isScanning) this.scanAborted = true;
     }
+
     isScanInProgress(): boolean {
         return this.isScanning;
     }

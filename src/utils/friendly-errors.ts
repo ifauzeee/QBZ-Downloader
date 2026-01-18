@@ -1,8 +1,3 @@
-/**
- * User-Friendly Error Messages
- * Translates technical errors into helpful messages for users
- */
-
 interface ErrorInfo {
     message: string;
     suggestion: string;
@@ -98,9 +93,6 @@ const ERROR_PATTERNS: Record<string, ErrorInfo> = {
     }
 };
 
-/**
- * Humanizes an error into a user-friendly message
- */
 export function humanizeError(error: Error | string | unknown): ErrorInfo {
     const errorString = error instanceof Error ? error.message : String(error);
 
@@ -120,17 +112,11 @@ export function humanizeError(error: Error | string | unknown): ErrorInfo {
     };
 }
 
-/**
- * Formats error for CLI display
- */
 export function formatErrorForCLI(error: Error | string | unknown): string {
     const info = humanizeError(error);
     return `${info.emoji} ${info.message}\n   💡 ${info.suggestion}`;
 }
 
-/**
- * Formats error for API response
- */
 export function formatErrorForAPI(error: Error | string | unknown): {
     error: string;
     suggestion: string;
@@ -146,9 +132,6 @@ export function formatErrorForAPI(error: Error | string | unknown): {
     };
 }
 
-/**
- * Extracts error code from error message
- */
 function extractErrorCode(errorString: string): string {
     const httpMatch = errorString.match(/\b(4\d{2}|5\d{2})\b/);
     if (httpMatch) return httpMatch[1];
@@ -159,9 +142,6 @@ function extractErrorCode(errorString: string): string {
     return 'UNKNOWN';
 }
 
-/**
- * Common error checkers
- */
 export const errorChecks = {
     isNetworkError: (error: unknown): boolean => {
         const msg = String(error);

@@ -57,14 +57,7 @@ const QUALITY_LABELS: Record<number, string> = {
     27: 'FLAC 24-bit/192kHz'
 };
 
-/**
- * Statistics Service
- * Provides download statistics and analytics
- */
 class StatisticsService {
-    /**
-     * Get complete statistics
-     */
     getAll(): StatisticsData {
         return {
             overall: this.getOverallStats(),
@@ -75,9 +68,6 @@ class StatisticsService {
         };
     }
 
-    /**
-     * Get overall statistics
-     */
     getOverallStats(): OverallStats {
         const history = historyService.getAll();
         const entries = Object.values(history);
@@ -145,9 +135,6 @@ class StatisticsService {
         };
     }
 
-    /**
-     * Get daily download statistics (last 30 days)
-     */
     getDailyStats(days: number = 30): DailyStats[] {
         const history = historyService.getAll();
         const entries = Object.values(history);
@@ -202,9 +189,6 @@ class StatisticsService {
         return Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
     }
 
-    /**
-     * Get statistics by quality
-     */
     getQualityStats(): QualityStats[] {
         const history = historyService.getAll();
         const entries = Object.values(history);
@@ -367,9 +351,6 @@ class StatisticsService {
         return stats.sort((a, b) => b.count - a.count).slice(0, limit);
     }
 
-    /**
-     * Format bytes to human readable
-     */
     formatBytes(bytes: number): string {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -378,9 +359,6 @@ class StatisticsService {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    /**
-     * Get summary for dashboard
-     */
     getSummary(): {
         downloads: number;
         size: string;

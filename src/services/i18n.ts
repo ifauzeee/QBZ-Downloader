@@ -1,8 +1,3 @@
-/**
- * Internationalization (i18n) Service
- * Multi-language support for the dashboard
- */
-
 export type Locale = 'en' | 'id' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
 
 interface TranslationSet {
@@ -434,25 +429,16 @@ const translations: Record<Locale, TranslationSet> = {
 class I18nService {
     private currentLocale: Locale = 'en';
 
-    /**
-     * Set current locale
-     */
     setLocale(locale: Locale): void {
         if (translations[locale]) {
             this.currentLocale = locale;
         }
     }
 
-    /**
-     * Get current locale
-     */
     getLocale(): Locale {
         return this.currentLocale;
     }
 
-    /**
-     * Get available locales
-     */
     getAvailableLocales(): { code: Locale; name: string }[] {
         return [
             { code: 'en', name: 'English' },
@@ -465,16 +451,10 @@ class I18nService {
         ];
     }
 
-    /**
-     * Get translation
-     */
     t(key: keyof TranslationSet): string {
         return translations[this.currentLocale][key] || translations.en[key] || key;
     }
 
-    /**
-     * Get all translations for current locale
-     */
     getAll(): TranslationSet {
         return translations[this.currentLocale];
     }

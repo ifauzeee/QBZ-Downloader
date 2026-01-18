@@ -4,6 +4,8 @@ export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'system'
 
 class Logger {
     private static instance: Logger;
+    private logs: any[] = [];
+    private readonly MAX_LOGS = 500;
 
     private constructor() {}
 
@@ -14,12 +16,39 @@ class Logger {
         return Logger.instance;
     }
 
+    public getLogs() {
+        return this.logs;
+    }
+
+    private broadcastCallback: ((log: any) => void) | null = null;
+
+    public setBroadcastCallback(callback: (log: any) => void) {
+        this.broadcastCallback = callback;
+    }
+
     private getTimestamp(): string {
         return new Date().toLocaleTimeString('en-US', { hour12: false });
     }
 
     log(message: string, type: LogType = 'info', scope?: string) {
-        const timestamp = chalk.gray(this.getTimestamp());
+        const timestampStr = this.getTimestamp();
+        this.logs.push({
+            timestamp: timestampStr,
+            type,
+            scope: scope?.toUpperCase() || 'SYSTEM',
+            message,
+            time: Date.now()
+        });
+
+        if (this.logs.length > this.MAX_LOGS) {
+            this.logs.shift();
+        }
+
+        if (this.broadcastCallback) {
+            this.broadcastCallback(this.logs[this.logs.length - 1]);
+        }
+
+        const timestamp = chalk.gray(timestampStr);
 
         let icon = '';
         let badge = '';

@@ -99,7 +99,38 @@ class AudioPreviewService extends EventEmitter {
 
             if (result.success && result.data) {
                 const data = result.data as any;
-                logger.debug(`Stream URL obtained: ${trackId} @ ${data.format_id}`, 'PREVIEW');
+
+                let meta = this.previewCache.get(trackId);
+
+                if (!meta) {
+                    try {
+                        const trackRes = await this.api.getTrack(trackId);
+                        if (trackRes.success && trackRes.data) {
+                            const track = trackRes.data;
+                            meta = {
+                                trackId,
+                                title: track.title,
+                                artist: track.performer?.name || track.album?.artist?.name || 'Unknown',
+                                album: track.album?.title || 'Unknown',
+                                duration: track.duration || 0,
+                                streamUrl: data.url,
+                                quality: data.format_id || preferredQuality,
+                                qualityLabel: QUALITY_LABELS[data.format_id || preferredQuality] || `Quality ${data.format_id}`,
+                                coverUrl: this.getCoverUrl(track.album?.image || {}),
+                                expiresAt: Date.now() + this.cacheExpiry
+                            };
+                            this.previewCache.set(trackId, meta);
+                        }
+                    } catch {
+                    }
+                }
+
+                if (meta) {
+                    logger.debug(`Stream URL obtained: ${meta.title} - ${meta.artist} @ ${data.format_id}`, 'PREVIEW');
+                } else {
+                    logger.debug(`Stream URL obtained: ${trackId} @ ${data.format_id}`, 'PREVIEW');
+                }
+
                 return data.url;
             }
 
@@ -177,7 +208,7 @@ class AudioPreviewService extends EventEmitter {
         logger.debug(`Prefetching ${uncached.length} tracks`, 'PREVIEW');
 
         for (const trackId of uncached.slice(0, 5)) {
-            this.getPreviewInfo(trackId).catch(() => {});
+            this.getPreviewInfo(trackId).catch(() => { });
         }
     }
 

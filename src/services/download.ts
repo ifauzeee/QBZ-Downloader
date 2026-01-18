@@ -1,4 +1,5 @@
 import path from 'path';
+import crypto from 'crypto';
 import { downloadFile } from '../utils/network.js';
 import { logger } from '../utils/logger.js';
 
@@ -192,12 +193,14 @@ export default class DownloadService {
             const totalLength = parseInt(response.headers['content-length'] || '0', 10);
             let downloaded = 0;
             const startTime = Date.now();
+            const md5Hash = crypto.createHash('md5');
 
             const writer = createWriteStream(filePath);
 
             await new Promise<void>((resolve, reject) => {
                 response.data.on('data', (chunk: Buffer) => {
                     downloaded += chunk.length;
+                    md5Hash.update(chunk);
 
                     if (options.onProgress) {
                         const currentTime = Date.now();
@@ -219,6 +222,25 @@ export default class DownloadService {
                 writer.on('error', reject);
                 response.data.on('error', reject);
             });
+
+            const finalMD5 = md5Hash.digest('hex');
+            const finalSize = downloaded;
+
+            logger.info(
+                `Download complete: ${metadata.title} (Size: ${finalSize}, MD5: ${finalMD5})`,
+                'DOWNLOAD'
+            );
+
+            let verificationStatus = 'verified';
+            if (totalLength > 0 && finalSize !== totalLength) {
+                logger.error(
+                    `Size mismatch for ${metadata.title}! Expected ${totalLength}, got ${finalSize}`,
+                    'VERIFY'
+                );
+                verificationStatus = 'error_size';
+            } else {
+                logger.success(`Bit-Perfect verified: ${metadata.title}`, 'VERIFY');
+            }
 
             if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
 
@@ -355,8 +377,10 @@ export default class DownloadService {
                     year: metadata.year ? parseInt(metadata.year.toString()) : undefined,
                     downloaded_at: new Date().toISOString(),
                     label: trackAny.album?.label?.name,
-                    isrc: trackAny.isrc
-                });
+                    isrc: trackAny.isrc,
+                    checksum: finalMD5,
+                    verification_status: verificationStatus
+                } as any);
 
                 databaseService.addLibraryFile({
                     file_path: filePath,
@@ -366,12 +390,14 @@ export default class DownloadService {
                     album: metadata.album,
                     duration: metadata.duration,
                     quality: actualQuality,
-                    file_size: totalLength,
+                    file_size: finalSize,
                     format: filePath.split('.').pop()?.toUpperCase() || 'FLAC',
                     bit_depth: metadata.bitDepth,
                     sample_rate: metadata.sampleRate,
-                    needs_upgrade: false
-                });
+                    needs_upgrade: false,
+                    checksum: finalMD5,
+                    verification_status: verificationStatus
+                } as any);
             } catch (error: any) {
                 logger.warn(`Failed to update analytics database: ${error.message}`, 'DB');
             }
@@ -576,5 +602,129 @@ export default class DownloadService {
             failedTracks: results.reduce((acc, r) => acc + (r.failedTracks || 0), 0),
             totalTracks: results.reduce((acc, r) => acc + (r.totalTracks || 0), 0)
         };
+    }
+
+    async downloadLyrics(trackId: string | number): Promise<DownloadResult> {
+        try {
+            const trackInfo = await this.api.getTrack(trackId);
+            if (!trackInfo.success) return { success: false, error: trackInfo.error };
+
+            const track = trackInfo.data!;
+            const album = track.album;
+
+            const quality = 27;
+
+            const metadata = await this.metadataService.extractMetadata(track, album!, {});
+            const folderPath = path.join(this.outputDir, this.buildFolderPath(metadata, quality));
+
+            if (!existsSync(folderPath)) {
+                mkdirSync(folderPath, { recursive: true });
+            }
+
+            const filename = this.buildFilename(metadata, quality);
+            const filePath = path.join(folderPath, filename);
+            const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
+
+            const processedLyrics = await this.lyricsProvider.getLyrics(
+                metadata.title,
+                metadata.artist,
+                metadata.album,
+                metadata.duration,
+                metadata.albumArtist
+            );
+
+            if (processedLyrics.success) {
+                const lrcContent = processedLyrics.syncedLyrics || processedLyrics.plainLyrics;
+                if (lrcContent) {
+                    const { writeFileSync } = await import('fs');
+                    writeFileSync(lrcPath, lrcContent, 'utf8');
+                    logger.info(`LRC downloaded to ${path.basename(lrcPath)}`, 'LYRICS');
+                    return { success: true, filePath: lrcPath };
+                } else {
+                    return { success: false, error: 'No lyrics content found' };
+                }
+            } else {
+                return { success: false, error: 'Lyrics not found' };
+            }
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    }
+
+    async downloadAlbumLyricsZip(
+        albumId: string | number
+    ): Promise<{ success: boolean; filePath?: string; error?: string }> {
+        try {
+            const albumInfo = await this.api.getAlbum(albumId);
+            if (!albumInfo.success) return { success: false, error: albumInfo.error };
+            const album = albumInfo.data!;
+
+            const { default: archiver } = await import('archiver');
+            const { createWriteStream } = await import('fs');
+
+            const zipName = `${this.sanitizeFilename(album.artist.name)} - ${this.sanitizeFilename(album.title)} (Lyrics).zip`;
+            const zipPath = path.join(this.outputDir, zipName);
+
+            const output = createWriteStream(zipPath);
+            const archive = archiver('zip', { zlib: { level: 9 } });
+
+            return new Promise((resolve, reject) => {
+                output.on('close', () => {
+                    logger.info(`Lyrics ZIP created: ${zipName}`, 'LYRICS');
+                    resolve({ success: true, filePath: zipPath });
+                });
+
+                archive.on('error', (err: any) => {
+                    reject({ success: false, error: err.message });
+                });
+
+                archive.pipe(output);
+
+                (async () => {
+                    try {
+                        const tracks = album.tracks?.items || [];
+                        const limit = pLimit(5);
+
+                        const results = await Promise.all(
+                            tracks.map((track) =>
+                                limit(async () => {
+                                    try {
+                                        const lyrics = await this.lyricsProvider.getLyrics(
+                                            track.title,
+                                            track.performer?.name || album.artist.name,
+                                            track.album?.title || album.title,
+                                            track.duration
+                                        );
+
+                                        if (lyrics.success) {
+                                            const content =
+                                                lyrics.syncedLyrics || lyrics.plainLyrics;
+                                            if (content) {
+                                                const filename = `${track.track_number.toString().padStart(2, '0')} - ${this.sanitizeFilename(track.title)}.lrc`;
+                                                return { filename, content };
+                                            }
+                                        }
+                                    } catch {
+                                    }
+                                    return null;
+                                })
+                            )
+                        );
+
+                        for (const file of results) {
+                            if (file) {
+                                archive.append(file.content, { name: file.filename });
+                            }
+                        }
+
+                        await archive.finalize();
+                    } catch (e: any) {
+                        reject({ success: false, error: e.message });
+                    }
+                })();
+            });
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
     }
 }

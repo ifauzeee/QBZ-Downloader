@@ -33,9 +33,6 @@ export class HistoryService {
         this.load();
     }
 
-    /**
-     * Load history from JSON file
-     */
     private load(): void {
         try {
             if (fs.existsSync(this.filePath)) {
@@ -54,9 +51,6 @@ export class HistoryService {
         }
     }
 
-    /**
-     * Save history to JSON file (debounced)
-     */
     private save(): void {
         this.isDirty = true;
 
@@ -69,9 +63,6 @@ export class HistoryService {
         }, 1000);
     }
 
-    /**
-     * Immediate save to file
-     */
     private saveNow(): void {
         if (!this.isDirty) return;
 
@@ -94,23 +85,14 @@ export class HistoryService {
         }
     }
 
-    /**
-     * Check if track exists in history
-     */
     has(trackId: string | number): boolean {
         return this.entries.has(trackId.toString());
     }
 
-    /**
-     * Get history entry by track ID
-     */
     get(trackId: string | number): HistoryEntry | undefined {
         return this.entries.get(trackId.toString());
     }
 
-    /**
-     * Get all history entries
-     */
     getAll(): Record<string, HistoryEntry> {
         const result: Record<string, HistoryEntry> = {};
         for (const [id, entry] of this.entries.entries()) {
@@ -119,9 +101,6 @@ export class HistoryService {
         return result;
     }
 
-    /**
-     * Get entries sorted by date (newest first)
-     */
     getSorted(limit?: number): Array<{ id: string } & HistoryEntry> {
         const sorted = Array.from(this.entries.entries())
             .map(([id, entry]) => ({ id, ...entry }))
@@ -132,9 +111,6 @@ export class HistoryService {
         return limit ? sorted.slice(0, limit) : sorted;
     }
 
-    /**
-     * Add new entry to history
-     */
     add(trackId: string | number, entry: Omit<HistoryEntry, 'downloadedAt'>): void {
         this.entries.set(trackId.toString(), {
             downloadedAt: new Date().toISOString(),
@@ -143,9 +119,6 @@ export class HistoryService {
         this.save();
     }
 
-    /**
-     * Remove entry from history
-     */
     remove(trackId: string | number): boolean {
         const deleted = this.entries.delete(trackId.toString());
         if (deleted) {
@@ -154,24 +127,15 @@ export class HistoryService {
         return deleted;
     }
 
-    /**
-     * Clear all history entries
-     */
     clearAll(): void {
         this.entries.clear();
         this.save();
     }
 
-    /**
-     * Get total count
-     */
     count(): number {
         return this.entries.size;
     }
 
-    /**
-     * Search history by title or artist
-     */
     search(query: string): Array<{ id: string } & HistoryEntry> {
         const lowerQuery = query.toLowerCase();
         return Array.from(this.entries.entries())
@@ -184,9 +148,6 @@ export class HistoryService {
             .map(([id, entry]) => ({ id, ...entry }));
     }
 
-    /**
-     * Cleanup entries for files that no longer exist
-     */
     cleanup(): number {
         let cleaned = 0;
         for (const [id, entry] of this.entries.entries()) {
@@ -202,9 +163,6 @@ export class HistoryService {
         return cleaned;
     }
 
-    /**
-     * Force save (for graceful shutdown)
-     */
     flush(): void {
         if (this.saveTimeout) {
             clearTimeout(this.saveTimeout);

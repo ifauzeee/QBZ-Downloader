@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { QueueItem, QueueItemStatus, QueuePriority, QueueStats, DownloadType } from './types.js';
 import { generateQueueId } from './utils.js';
 import { logger } from '../../utils/logger.js';
+import { databaseService } from '../database/index.js';
 
 export class DownloadQueue {
     private items: Map<string, QueueItem> = new Map();
@@ -42,6 +43,7 @@ export class DownloadQueue {
         };
 
         this.items.set(id, item);
+        databaseService.addQueueItem(item);
 
         this.emit('item:added', item);
         logger.debug(`Queue: Added ${type} ${contentId} (${id})`);
@@ -77,6 +79,8 @@ export class DownloadQueue {
         item.startedAt = new Date();
         this.processing.add(id);
 
+        databaseService.updateQueueItemStatus(id, 'downloading', item.progress);
+
         this.emit('item:started', item);
         logger.debug(`Queue: Started ${id}`);
 
@@ -91,6 +95,7 @@ export class DownloadQueue {
         if (status) {
             item.status = status;
         }
+        databaseService.updateQueueItemStatus(id, item.status, item.progress);
         this.emit('item:progress', item, progress);
     }
 
@@ -102,6 +107,7 @@ export class DownloadQueue {
         if (metadata.artist) item.artist = metadata.artist;
         if (metadata.album) item.album = metadata.album;
 
+        databaseService.addQueueItem(item);
         this.emit('item:progress', item, item.progress);
     }
 
@@ -110,6 +116,7 @@ export class DownloadQueue {
         if (!item) return;
 
         item.quality = quality;
+        databaseService.addQueueItem(item);
         this.emit('item:progress', item, item.progress);
     }
 
@@ -122,6 +129,8 @@ export class DownloadQueue {
         item.completedAt = new Date();
         if (filePath) item.filePath = filePath;
         this.processing.delete(id);
+
+        databaseService.addQueueItem(item);
 
         this.emit('item:completed', item);
         logger.debug(`Queue: Completed ${id}`);
@@ -147,6 +156,7 @@ export class DownloadQueue {
             this.emit('item:failed', item, error);
             logger.error(`Queue: Failed ${id}: ${error}`);
         }
+        databaseService.addQueueItem(item);
         this.processing.delete(id);
         this.checkQueueEmpty();
     }
@@ -169,6 +179,7 @@ export class DownloadQueue {
 
         this.emit('item:failed', item, 'Cancelled by user');
         this.items.delete(id);
+        databaseService.removeQueueItem(id);
 
         return true;
     }
@@ -182,6 +193,7 @@ export class DownloadQueue {
         }
 
         this.items.delete(id);
+        databaseService.removeQueueItem(id);
         return true;
     }
 
@@ -194,6 +206,7 @@ export class DownloadQueue {
                 item.status === 'cancelled'
             ) {
                 this.items.delete(id);
+                databaseService.removeQueueItem(id);
                 count++;
             }
         }
@@ -205,6 +218,7 @@ export class DownloadQueue {
         for (const [id, item] of this.items) {
             if (item.status === 'pending') {
                 this.items.delete(id);
+                databaseService.removeQueueItem(id);
                 count++;
             }
         }
@@ -220,6 +234,7 @@ export class DownloadQueue {
                 item.status !== 'uploading'
             ) {
                 this.items.delete(id);
+                databaseService.removeQueueItem(id);
                 count++;
             }
         }
@@ -322,6 +337,27 @@ export class DownloadQueue {
 
     getItems(): QueueItem[] {
         return Array.from(this.items.values());
+    }
+
+    async load(): Promise<void> {
+        try {
+            const persistedItems = databaseService.getQueueItems();
+            for (const item of persistedItems) {
+                if (
+                    item.status === 'downloading' ||
+                    item.status === 'processing' ||
+                    item.status === 'uploading'
+                ) {
+                    item.status = 'pending';
+                    item.progress = 0;
+                    databaseService.updateQueueItemStatus(item.id, 'pending', 0);
+                }
+                this.items.set(item.id, item);
+            }
+            logger.info(`Queue: Loaded ${persistedItems.length} items from database`, 'QUEUE');
+        } catch (error) {
+            logger.error(`Queue: Failed to load from database: ${error}`, 'QUEUE');
+        }
     }
 }
 

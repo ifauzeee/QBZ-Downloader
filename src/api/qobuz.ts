@@ -173,7 +173,7 @@ class QobuzAPI {
                     artist_id: artistId,
                     app_id: this.appId,
                     user_auth_token: this.token,
-                    extra: 'albums,tracks',
+                    extra: 'albums,tracks,focus',
                     album_offset: albumOffset,
                     album_limit: albumLimit,
                     track_offset: trackOffset,
@@ -197,6 +197,27 @@ class QobuzAPI {
         }
     }
 
+    async getArtistAlbums(artistId: string | number, limit = 20, offset = 0): Promise<ApiResponse> {
+        try {
+            const response = await this.client.get('/artist/get', {
+                params: {
+                    artist_id: artistId,
+                    app_id: this.appId,
+                    user_auth_token: this.token,
+                    extra: 'albums',
+                    album_limit: limit,
+                    album_offset: offset,
+                    offset: offset,
+                    limit: limit
+                }
+            });
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
     async getPlaylist(playlistId: string | number): Promise<ApiResponse<Playlist>> {
         try {
             const response = await this.client.get('/playlist/get', {
@@ -205,6 +226,21 @@ class QobuzAPI {
                     app_id: this.appId,
                     user_auth_token: this.token,
                     extra: 'tracks,subscribers'
+                }
+            });
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getGenres(): Promise<ApiResponse> {
+        try {
+            const response = await this.client.get('/genre/list', {
+                params: {
+                    app_id: this.appId,
+                    user_auth_token: this.token
                 }
             });
             return { success: true, data: response.data };
