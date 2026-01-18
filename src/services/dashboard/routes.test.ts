@@ -232,9 +232,7 @@ describe('Dashboard API Routes', () => {
         });
 
         it('should return error for invalid payload', async () => {
-            const res = await request(app)
-                .post('/api/queue/add')
-                .send({ quality: 27 });
+            const res = await request(app).post('/api/queue/add').send({ quality: 27 });
 
             expect(res.status).toBe(400);
             expect(res.body.error).toBeDefined();

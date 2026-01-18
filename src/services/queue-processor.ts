@@ -254,8 +254,8 @@ export class QueueProcessor {
                     progress.phase === 'download' && progress.total
                         ? Math.floor((progress.loaded / progress.total) * 100)
                         : progress.phase === 'tagging'
-                            ? 99
-                            : 0;
+                          ? 99
+                          : 0;
 
                 downloadQueue.updateProgress(
                     item.id,
@@ -299,7 +299,7 @@ export class QueueProcessor {
 
         let result;
         const opts = {
-            onProgress: () => { },
+            onProgress: () => {},
             skipExisting: true,
             onMetadata: (meta: { title?: string; artist?: string; album?: string }) => {
                 downloadQueue.updateMetadata(item.id, {

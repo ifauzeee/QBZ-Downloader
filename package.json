@@ -75,6 +75,7 @@
     "figlet": "^1.7.0",
     "flac-metadata": "^0.1.1",
     "gradient-string": "^2.0.2",
+    "music-metadata": "^11.10.6",
     "node-id3": "^0.2.6",
     "p-limit": "^7.2.0",
     "socket.io": "^4.8.3"

@@ -152,7 +152,7 @@ class LibraryScannerService extends EventEmitter {
                         (result.byQuality[fileInfo.quality] || 0) + 1;
 
                     if (fileInfo.needsUpgrade) result.upgradeableFiles++;
-                    if (!fileInfo.title || !fileInfo.artist) result.missingMetadata++;
+                    if (fileInfo.missingInternalTags) result.missingMetadata++;
 
                     databaseService.addLibraryFile({
                         file_path: fileInfo.filePath,
@@ -166,7 +166,8 @@ class LibraryScannerService extends EventEmitter {
                         bit_depth: fileInfo.bitDepth,
                         sample_rate: fileInfo.sampleRate,
                         needs_upgrade: fileInfo.needsUpgrade,
-                        audio_fingerprint: fileInfo.audioFingerprint
+                        audio_fingerprint: fileInfo.audioFingerprint,
+                        missing_metadata: fileInfo.missingInternalTags
                     });
                 }
 
@@ -417,7 +418,7 @@ class LibraryScannerService extends EventEmitter {
                 if (result.success && result.data) {
                     return (result.data as any).format_id || quality;
                 }
-            } catch { }
+            } catch {}
         }
         return null;
     }

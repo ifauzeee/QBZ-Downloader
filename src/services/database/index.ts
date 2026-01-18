@@ -4,7 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const DEFAULT_DB_PATH = './data/qbz.db';
 
 export interface DbTrack {
@@ -372,6 +372,23 @@ class DatabaseService {
         }
 
         if (currentVersion < DB_VERSION) {
+            if (currentVersion < 7) {
+                try {
+                    const tableInfo = this.db!.prepare(
+                        'PRAGMA table_info(library_files)'
+                    ).all() as { name: string }[];
+                    const hasMissingMeta = tableInfo.some((col) => col.name === 'missing_metadata');
+                    if (!hasMissingMeta) {
+                        this.db!.exec(
+                            'ALTER TABLE library_files ADD COLUMN missing_metadata INTEGER DEFAULT 0'
+                        );
+                        logger.info('Migration v7: Added missing_metadata column', 'DB');
+                    }
+                } catch (error: any) {
+                    logger.warn(`Migration v7 partial: ${error.message}`, 'DB');
+                }
+            }
+
             this.db
                 .prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')
                 .run('db_version', String(DB_VERSION));
@@ -639,13 +656,14 @@ class DatabaseService {
         sample_rate?: number;
         needs_upgrade?: boolean;
         audio_fingerprint?: string;
+        missing_metadata?: boolean;
     }): void {
         const db = this.getDb();
         db.prepare(
             `
             INSERT OR REPLACE INTO library_files 
-            (file_path, track_id, title, artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, track_id, title, artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint, missing_metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
             file.file_path,
@@ -662,7 +680,8 @@ class DatabaseService {
             file.sample_rate || 0,
             file.needs_upgrade ? 1 : 0,
             new Date().toISOString(),
-            file.audio_fingerprint || null
+            file.audio_fingerprint || null,
+            file.missing_metadata ? 1 : 0
         );
     }
 
@@ -695,7 +714,7 @@ class DatabaseService {
             .prepare(
                 `
                 SELECT * FROM library_files 
-                WHERE (title IS NULL OR title = '' OR artist IS NULL OR artist = '')
+                WHERE missing_metadata = 1
                 ORDER BY file_path ASC
             `
             )

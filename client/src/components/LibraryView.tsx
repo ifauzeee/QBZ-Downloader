@@ -32,8 +32,9 @@ interface UpgradeableFile {
     track_id: string;
 }
 
+
 interface MissingMetadataFile {
-    file_path: string;
+    filePath: string;
     title: string;
     artist: string;
 }
@@ -187,11 +188,12 @@ export const LibraryView: React.FC = () => {
             files[i].status = 'identifying';
             setMissingMetadata([...files]);
 
+
             try {
                 const idRes = await smartFetch('/api/tools/identify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filePath: files[i].file_path })
+                    body: JSON.stringify({ filePath: files[i].filePath })
                 });
 
                 if (idRes && idRes.ok) {
@@ -203,7 +205,7 @@ export const LibraryView: React.FC = () => {
                     const applyRes = await smartFetch('/api/tools/apply-metadata', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ filePath: files[i].file_path, metadata: data.data })
+                        body: JSON.stringify({ filePath: files[i].filePath, metadata: data.data })
                     });
 
                     if (applyRes && applyRes.ok) {
@@ -382,7 +384,7 @@ export const LibraryView: React.FC = () => {
                     {missingMetadata.length > 0 && (
                         <div className="library-header" style={{ marginBottom: '20px' }}>
                             <p className="section-desc">
-                                The following files are missing Title or Artist tags. Click "Auto-Fix All" to identify and tag them using AcoustID.
+                                The following files are missing Title or Artist tags. Click "Auto-Fix All" to identify and tag them using Smart Match.
                             </p>
                             <button
                                 className="btn primary"
@@ -408,12 +410,13 @@ export const LibraryView: React.FC = () => {
                                     <tr><th>File</th><th>Current Status</th><th>Result</th></tr>
                                 </thead>
                                 <tbody>
+
                                     {missingMetadata.map((file, i) => (
                                         <tr key={i}>
                                             <td>
-                                                <div className="file-path">{getFilename(file.file_path)}</div>
+                                                <div className="file-path">{getFilename(file.filePath)}</div>
                                                 <div style={{ fontSize: '0.8em', color: 'var(--text-secondary)' }}>
-                                                    {file.file_path}
+                                                    {file.filePath}
                                                 </div>
                                             </td>
                                             <td>

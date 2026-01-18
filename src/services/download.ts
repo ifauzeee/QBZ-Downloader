@@ -704,8 +704,7 @@ export default class DownloadService {
                                                 return { filename, content };
                                             }
                                         }
-                                    } catch {
-                                    }
+                                    } catch {}
                                     return null;
                                 })
                             )

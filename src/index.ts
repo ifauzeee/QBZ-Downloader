@@ -26,7 +26,7 @@ async function gracefulShutdown(signal: string) {
         const { databaseService } = await import('./services/database/index.js');
         databaseService.close();
         logger.info('Database connection closed.', 'DB');
-    } catch { }
+    } catch {}
 
     historyService.flush();
     logger.info('History buffers flushed to storage.', 'STORAGE');

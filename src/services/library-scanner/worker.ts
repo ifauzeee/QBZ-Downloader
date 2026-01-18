@@ -2,70 +2,7 @@ import { parentPort } from 'worker_threads';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-
-function readFlacMetadata(
-    filePath: string
-): { bitDepth: number; sampleRate: number; duration: number } | null {
-    let fd;
-    try {
-        fd = fs.openSync(filePath, 'r');
-        const header = Buffer.alloc(4);
-
-        fs.readSync(fd, header, 0, 4, 0);
-        if (header.toString('ascii') !== 'fLaC') {
-            fs.closeSync(fd);
-            return null;
-        }
-
-        let offset = 4;
-        let isLast = false;
-        const blockHeader = Buffer.alloc(4);
-
-        while (!isLast) {
-            const bytesRead = fs.readSync(fd, blockHeader, 0, 4, offset);
-            if (bytesRead < 4) break;
-
-            const isLastBit = (blockHeader[0] >> 7) & 1;
-            const type = blockHeader[0] & 0x7f;
-            const length = (blockHeader[1] << 16) | (blockHeader[2] << 8) | blockHeader[3];
-
-            isLast = isLastBit === 1;
-            offset += 4;
-
-            if (type === 0) {
-                const buffer = Buffer.alloc(34);
-                fs.readSync(fd, buffer, 0, 34, offset);
-
-                const sampleRate =
-                    (buffer[10] << 12) | (buffer[11] << 4) | ((buffer[12] & 0xf0) >> 4);
-                const bitsPerSampleMinus1 = ((buffer[12] & 0x01) << 4) | ((buffer[13] & 0xf0) >> 4);
-                const bitDepth = bitsPerSampleMinus1 + 1;
-
-                const totalSamplesHi = buffer[13] & 0x0f;
-                const totalSamplesLo =
-                    (buffer[14] << 24) | (buffer[15] << 16) | (buffer[16] << 8) | buffer[17];
-                const totalSamples = totalSamplesHi * 4294967296 + (totalSamplesLo >>> 0);
-
-                const duration = sampleRate > 0 ? totalSamples / sampleRate : 0;
-
-                fs.closeSync(fd);
-                return { bitDepth, sampleRate, duration };
-            }
-
-            offset += length;
-        }
-
-        fs.closeSync(fd);
-        return null;
-    } catch {
-        if (fd) {
-            try {
-                fs.closeSync(fd);
-            } catch {}
-        }
-        return null;
-    }
-}
+import { parseFile } from 'music-metadata';
 
 function getAudioFingerprint(filePath: string): string | undefined {
     try {
@@ -80,17 +17,24 @@ function getAudioFingerprint(filePath: string): string | undefined {
     }
 }
 
-parentPort?.on('message', (filePath: string) => {
+parentPort?.on('message', async (filePath: string) => {
     try {
-        const stats = fs.statSync(filePath);
+        const stats = await fs.promises.stat(filePath);
         const ext = path.extname(filePath).toLowerCase();
+
         const filename = path.basename(filePath, ext);
         const parentDir = path.basename(path.dirname(filePath));
         const artistDir = path.basename(path.dirname(path.dirname(filePath)));
 
         let title = filename;
         let artist = artistDir || 'Unknown';
-        const album = parentDir || 'Unknown';
+        let album = parentDir || 'Unknown';
+        let quality = 6;
+        let bitDepth = 16;
+        let sampleRate = 44100;
+        let duration = 0;
+        let trackNo = 0;
+        let missingInternalTags = true;
 
         const patterns = [/^(.+?)\s*-\s*(.+)$/, /^\d+\.\s*(.+)$/, /^\d+\s*-\s*(.+)$/];
         for (const pattern of patterns) {
@@ -106,26 +50,49 @@ parentPort?.on('message', (filePath: string) => {
             }
         }
 
-        let quality = 6;
-        let bitDepth = 16;
-        let sampleRate = 44100;
-        let duration = 0;
+        try {
+            const metadata = await parseFile(filePath);
 
-        if (ext === '.mp3') {
-            quality = 5;
-            bitDepth = 0;
-            sampleRate = 0;
-        } else if (ext === '.flac') {
-            const flacMeta = readFlacMetadata(filePath);
-            if (flacMeta) {
-                bitDepth = flacMeta.bitDepth;
-                sampleRate = flacMeta.sampleRate;
-                duration = flacMeta.duration;
-                if (bitDepth >= 24 && sampleRate >= 176400) quality = 27;
-                else if (bitDepth >= 24) quality = 7;
-                else quality = 6;
-            } else {
-                const mbPerMinute = stats.size / (1024 * 1024) / 4;
+            if (metadata.format) {
+                duration = metadata.format.duration || 0;
+                sampleRate = metadata.format.sampleRate || 44100;
+                bitDepth = metadata.format.bitsPerSample || 16;
+
+                if (metadata.format.lossless || ['.flac', '.wav', '.aiff'].includes(ext)) {
+                    if (bitDepth >= 24 && sampleRate >= 192000) quality = 27;
+                    else if (bitDepth >= 24 && sampleRate >= 96000) quality = 7;
+                    else if (bitDepth >= 24) quality = 7;
+                    else quality = 6;
+                } else if (metadata.format.bitrate && metadata.format.bitrate >= 320000) {
+                    quality = 5;
+                } else {
+                    quality = 5;
+                }
+            }
+
+            if (metadata.common) {
+                if (metadata.common.title) title = metadata.common.title;
+
+                const hasBasicTags =
+                    metadata.common.title && metadata.common.artist && metadata.common.album;
+                const hasPicture = metadata.common.picture && metadata.common.picture.length > 0;
+                const hasLyrics = metadata.common.lyrics && metadata.common.lyrics.length > 0;
+
+                const hasGenre = metadata.common.genre && metadata.common.genre.length > 0;
+                const hasDate = metadata.common.year || metadata.common.date;
+                const hasComposer = metadata.common.composer && metadata.common.composer.length > 0;
+
+                if (hasBasicTags && hasPicture && hasLyrics && hasGenre && hasDate && hasComposer) {
+                    missingInternalTags = false;
+                }
+                if (metadata.common.artist) artist = metadata.common.artist;
+                if (metadata.common.album) album = metadata.common.album;
+                if (metadata.common.track && metadata.common.track.no)
+                    trackNo = metadata.common.track.no;
+            }
+        } catch (err) {
+            if (ext === '.flac') {
+                const mbPerMinute = stats.size / (1024 * 1024) / (duration / 60 || 4);
                 if (mbPerMinute > 20) {
                     quality = 27;
                     bitDepth = 24;
@@ -134,10 +101,6 @@ parentPort?.on('message', (filePath: string) => {
                     quality = 7;
                     bitDepth = 24;
                     sampleRate = 96000;
-                } else {
-                    quality = 6;
-                    bitDepth = 16;
-                    sampleRate = 44100;
                 }
             }
         }
@@ -156,7 +119,8 @@ parentPort?.on('message', (filePath: string) => {
             bitDepth,
             sampleRate,
             needsUpgrade: quality < 7,
-            audioFingerprint: fingerprint
+            audioFingerprint: fingerprint,
+            missingInternalTags: missingInternalTags
         });
     } catch (error) {
         parentPort?.postMessage({ filePath, error: (error as Error).message });

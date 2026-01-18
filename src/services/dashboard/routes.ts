@@ -291,7 +291,7 @@ export function registerRoutes(app: any) {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch { }
+                        } catch {}
                     }
                     return item;
                 });
@@ -636,16 +636,175 @@ export function registerRoutes(app: any) {
 
     app.post('/api/tools/identify', async (req: Request, res: Response) => {
         try {
-            const { acoustidService } = await import('../acoustid.js');
             const { filePath } = req.body;
+            const path = await import('path');
 
             if (!filePath) return res.status(400).json({ error: 'filePath is required' });
 
-            const result = await acoustidService.identify(filePath);
-            if (result) {
-                res.json({ success: true, data: result });
+            const ext = path.extname(filePath).toLowerCase();
+            const filename = path.basename(filePath, ext);
+            const parentDir = path.basename(path.dirname(filePath));
+            const artistDir = path.basename(path.dirname(path.dirname(filePath)));
+
+            let title = filename;
+            let artist = 'Unknown';
+
+            if (artistDir && artistDir !== 'downloads') {
+                artist = artistDir;
+            }
+
+            const patterns = [/^(.+?)\s*-\s*(.+)$/, /^\d+\.\s*(.+)$/, /^\d+\s*-\s*(.+)$/];
+            for (const pattern of patterns) {
+                const match = filename.match(pattern);
+                if (match) {
+                    if (match.length === 3) {
+                        artist = match[1].trim();
+                        title = match[2].trim();
+                    } else {
+                        title = match[1].trim();
+                    }
+                    break;
+                }
+            }
+
+            const levenshteinDistance = (str1: string, str2: string): number => {
+                const matrix: number[][] = [];
+                for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
+                for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
+                for (let i = 1; i <= str2.length; i++) {
+                    for (let j = 1; j <= str1.length; j++) {
+                        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
+                    }
+                }
+                return matrix[str2.length][str1.length];
+            };
+
+            const similarity = (str1: string, str2: string): number => {
+                if (!str1 || !str2) return 0;
+                const s1 = str1
+                    .toLowerCase()
+                    .replace(/[^\w\s]/g, '')
+                    .trim();
+                const s2 = str2
+                    .toLowerCase()
+                    .replace(/[^\w\s]/g, '')
+                    .trim();
+                if (s1 === s2) return 1;
+                const longer = s1.length > s2.length ? s1 : s2;
+                const shorter = s1.length > s2.length ? s2 : s1;
+                if (longer.length === 0) return 1;
+                if (longer.includes(shorter)) return 0.9;
+                const editDistance = levenshteinDistance(s1, s2);
+                return (longer.length - editDistance) / longer.length;
+            };
+
+            const searchQuery = `${artist !== 'Unknown' ? artist : ''} ${title}`.trim();
+            logger.debug(`Identifying via Search: ${searchQuery}`, 'API');
+
+            const searchRes = await api.search(searchQuery, 'tracks', 5);
+
+            let bestMatch: any = null;
+            let highestScore = 0;
+
+            if (
+                searchRes.success &&
+                searchRes.data &&
+                searchRes.data.tracks &&
+                searchRes.data.tracks.items.length > 0
+            ) {
+                for (const item of searchRes.data.tracks.items) {
+                    const itemArtist = item.performer?.name || item.artist?.name || '';
+                    const itemTitle = item.title || '';
+
+                    const titleScore = similarity(title, itemTitle);
+                    const artistScore = artist !== 'Unknown' ? similarity(artist, itemArtist) : 1.0;
+
+                    const totalScore = titleScore * 0.6 + artistScore * 0.4;
+
+                    if (artist === 'Unknown') {
+                        if (titleScore > 0.8 && titleScore > highestScore) {
+                            highestScore = titleScore;
+                            bestMatch = item;
+                        }
+                    } else {
+                        if (titleScore > 0.5 && artistScore > 0.4 && totalScore > highestScore) {
+                            highestScore = totalScore;
+                            bestMatch = item;
+                        }
+                    }
+                }
+            }
+
+            if (bestMatch) {
+                const trackId = (bestMatch as any).id;
+
+                let fullMetadata = null;
+                try {
+                    const fullTrackRes = await api.getTrack(trackId);
+                    if (fullTrackRes.success && fullTrackRes.data) {
+                        const { default: MetadataService } = await import('../metadata.js');
+                        const metadataService = new MetadataService();
+                        const fullTrack = fullTrackRes.data as any;
+                        fullMetadata = await metadataService.extractMetadata(
+                            fullTrack,
+                            fullTrack.album
+                        );
+                    }
+                } catch (e: any) {
+                    logger.warn(`Failed to fetch full track details: ${e.message}`, 'METADATA');
+                }
+
+                const track = bestMatch as any;
+
+                let lyrics = null;
+                try {
+                    const { downloadService } = await import('../../index.js');
+                    lyrics = await downloadService.lyricsProvider.getLyrics(
+                        track.title,
+                        track.performer?.name || track.artist?.name,
+                        track.album?.title,
+                        track.duration
+                    );
+                } catch (e: any) {
+                    logger.warn(
+                        `Failed to fetch lyrics during identification: ${e.message}`,
+                        'METADATA'
+                    );
+                }
+
+                if (fullMetadata) {
+                    res.json({
+                        success: true,
+                        data: {
+                            ...fullMetadata,
+                            image: fullMetadata.coverUrl,
+                            lyrics: lyrics
+                        }
+                    });
+                } else {
+                    const result = {
+                        title: track.title,
+                        artist: track.performer?.name || track.artist?.name,
+                        album: track.album?.title,
+                        year: track.album?.release_date_original?.split('-')[0],
+                        genre: track.genre?.name,
+                        trackNumber: track.track_number,
+                        image: track.album?.image?.large,
+                        releaseDate: track.album?.release_date_original,
+                        lyrics: lyrics
+                    };
+                    res.json({ success: true, data: result });
+                }
             } else {
-                res.status(404).json({ error: 'No match found' });
+                res.status(404).json({ error: 'No matching metadata found on Qobuz' });
             }
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -697,15 +856,54 @@ export function registerRoutes(app: any) {
                 title: metadata.title,
                 artist: metadata.artist,
                 album: metadata.album,
-                trackNumber: 0,
-                totalTracks: 0,
-                discNumber: 1,
-                totalDiscs: 1,
+                trackNumber: metadata.trackNumber || 0,
+                totalTracks: metadata.totalTracks || 0,
+                discNumber: metadata.discNumber || 1,
+                totalDiscs: metadata.totalDiscs || 1,
                 year: metadata.year || '',
-                genre: metadata.genre || ''
+                genre: metadata.genre || '',
+                albumArtist: metadata.albumArtist || metadata.artist,
+                label: metadata.label || '',
+                copyright: metadata.copyright || '',
+                releaseDate: metadata.releaseDate || '',
+                originalReleaseDate: metadata.originalReleaseDate || '',
+
+                composer: metadata.composer || '',
+                conductor: metadata.conductor || '',
+                producer: metadata.producer || '',
+                mixer: metadata.mixer || '',
+                remixer: metadata.remixer || '',
+                lyricist: metadata.lyricist || '',
+                writer: metadata.writer || '',
+                arranger: metadata.arranger || '',
+                engineer: metadata.engineer || '',
+
+                isrc: metadata.isrc || '',
+                upc: metadata.upc || '',
+                barcode: metadata.barcode || metadata.upc || '',
+                catalogNumber: metadata.catalogNumber || '',
+                releaseType: metadata.releaseType || 'album',
+                version: metadata.version || '',
+                comment:
+                    metadata.comment ||
+                    'downloader by qbz-dl https://github.com/ifauzeee/QBZ-Downloader'
             };
 
-            await metadataService.writeMetadata(filePath, targetMeta, 0);
+            let coverBuffer: Buffer | null = null;
+            const imageUrl = metadata.image || metadata.coverUrl;
+            if (imageUrl) {
+                try {
+                    const axios = (await import('axios')).default;
+                    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+                    coverBuffer = Buffer.from(response.data);
+                } catch (e: any) {
+                    logger.warn(`Failed to download cover art: ${e.message}`, 'METADATA');
+                }
+            }
+
+            const lyrics = metadata.lyrics || null;
+
+            await metadataService.writeMetadata(filePath, targetMeta, 0, lyrics, coverBuffer);
             res.json({ success: true });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
