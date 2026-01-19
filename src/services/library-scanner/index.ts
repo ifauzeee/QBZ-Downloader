@@ -437,7 +437,7 @@ class LibraryScannerService extends EventEmitter {
                 if (result.success && result.data) {
                     return (result.data as any).format_id || quality;
                 }
-            } catch { }
+            } catch {}
         }
         return null;
     }

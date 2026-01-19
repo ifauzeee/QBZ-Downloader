@@ -11,6 +11,7 @@ services:
       - .env
     environment:
       - NODE_ENV=production
+      - SQLITE_JOURNAL_MODE=WAL
     volumes:
       - ./downloads:/app/downloads
       - ./data:/app/data

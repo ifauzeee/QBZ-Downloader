@@ -484,17 +484,41 @@ export default class DownloadService {
             });
         });
 
-        const results = await Promise.all(promises);
-        const success = results.every((r) => r.success || r.skipped);
+        const resultsSettled = await Promise.allSettled(promises);
+        const results = resultsSettled.map((r) => {
+            if (r.status === 'fulfilled') return r.value;
+            return {
+                success: false,
+                error: r.reason instanceof Error ? r.reason.message : String(r.reason)
+            } as DownloadResult;
+        });
+
         const completedTracks = results.filter((r) => r.success).length;
         const failedTracks = results.filter((r) => !r.success && !r.skipped).length;
+        const skippedTracks = results.filter((r) => r.skipped).length;
+
+        const success = results.length === 0 || completedTracks > 0 || skippedTracks > 0;
+
+        let error: string | undefined;
+        if (failedTracks > 0) {
+            const firstError = results.find((r) => !r.success && !r.skipped)?.error;
+            error = firstError || 'Some tracks failed to download';
+
+            if (success) {
+                logger.warn(
+                    `Batch partial success: ${completedTracks} downloaded, ${skippedTracks} skipped, ${failedTracks} failed.`,
+                    'BATCH'
+                );
+            }
+        }
 
         return {
             success,
             tracks: results,
             completedTracks,
             failedTracks,
-            totalTracks: results.length
+            totalTracks: results.length,
+            error: success ? undefined : error
         };
     }
 
@@ -554,14 +578,40 @@ export default class DownloadService {
             });
         });
 
-        const results = await Promise.all(promises);
-        const success = results.every((r) => r.success || r.skipped);
+        const resultsSettled = await Promise.allSettled(promises);
+        const results = resultsSettled.map((r) => {
+            if (r.status === 'fulfilled') return r.value;
+            return {
+                success: false,
+                error: r.reason instanceof Error ? r.reason.message : String(r.reason)
+            } as DownloadResult;
+        });
+
+        const completedTracks = results.filter((r) => r.success).length;
+        const failedTracks = results.filter((r) => !r.success && !r.skipped).length;
+        const skippedTracks = results.filter((r) => r.skipped).length;
+
+        const success = results.length === 0 || completedTracks > 0 || skippedTracks > 0;
+
+        let error: string | undefined;
+        if (failedTracks > 0) {
+            const firstError = results.find((r) => !r.success && !r.skipped)?.error;
+            error = firstError || 'Some tracks failed to download';
+            if (success) {
+                logger.warn(
+                    `Playlist partial success: ${completedTracks} downloaded, ${skippedTracks} skipped, ${failedTracks} failed.`,
+                    'BATCH'
+                );
+            }
+        }
+
         return {
             success,
             tracks: results,
-            completedTracks: results.filter((r) => r.success).length,
-            failedTracks: results.filter((r) => !r.success && !r.skipped).length,
-            totalTracks: results.length
+            completedTracks,
+            failedTracks,
+            totalTracks: results.length,
+            error: success ? undefined : error
         };
     }
 
@@ -596,7 +646,7 @@ export default class DownloadService {
         }
 
         return {
-            success: results.every((r) => r.success),
+            success: results.some((r) => r.success),
             tracks: [],
             completedTracks: results.reduce((acc, r) => acc + (r.completedTracks || 0), 0),
             failedTracks: results.reduce((acc, r) => acc + (r.failedTracks || 0), 0),

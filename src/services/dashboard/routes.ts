@@ -107,17 +107,20 @@ export function registerRoutes(app: any) {
     });
 
     app.post('/api/queue/add', async (req: Request, res: Response) => {
-        let { type, id, quality, priority, url } = req.body;
+        const { quality, priority, url } = req.body;
+        let { type, id } = req.body;
         logger.debug(`Queue Add Request: ${JSON.stringify(req.body)}`, 'API');
 
         if (url && (!type || !id)) {
             try {
-                const matches = url.match(/(album|track|playlist|artist)\/(?:[^/]+\/)?([a-zA-Z0-9]+)(?:\?.*)?$/i);
+                const matches = url.match(
+                    /(album|track|playlist|artist)\/(?:[^/]+\/)?([a-zA-Z0-9]+)(?:\?.*)?$/i
+                );
                 if (matches && matches.length >= 3) {
                     type = matches[1];
                     id = matches[2];
                 }
-            } catch (e) {
+            } catch {
                 logger.warn(`Failed to parse URL: ${url}`, 'API');
             }
         }
@@ -300,7 +303,7 @@ export function registerRoutes(app: any) {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch { }
+                        } catch {}
                     }
                     return item;
                 });
@@ -653,7 +656,6 @@ export function registerRoutes(app: any) {
             const ext = path.extname(filePath).toLowerCase();
             const filename = path.basename(filePath, ext);
             const artistDir = path.basename(path.dirname(path.dirname(filePath)));
-
 
             let title = filename;
             let artist = 'Unknown';

@@ -81,7 +81,8 @@ class DatabaseService {
             }
 
             this.db = new Database(this.dbPath);
-            this.db.pragma('journal_mode = WAL');
+            const journalMode = process.env.SQLITE_JOURNAL_MODE || 'WAL';
+            this.db.pragma(`journal_mode = ${journalMode}`);
             this.db.pragma('foreign_keys = ON');
 
             this.createSchema();
