@@ -14,7 +14,7 @@
 
 <br/>
 
-![Preview](./public/Preview.png)
+![Preview](./docs/screenshots/streaming-lyrics.png)
 
 <br/>
 
@@ -90,10 +90,10 @@ Dive deep into artist metadata and explore every track in crystal-clear quality.
 ### 🎵 Immersive Playback & Playlists
 Enjoy your library with a premium player experience.
 
-| Synchronized Lyrics | Playlist Management |
+| Streaming Music with Lyrics | Playlist Management |
 | :---: | :---: |
 | ![Streaming Lyrics](./docs/screenshots/streaming-lyrics.png) | ![Playlist](./docs/screenshots/playlist.png) |
-| 60fps smooth scrolling LRC lyrics | Organize your favorite collections |
+| Streaming music with lyrics | Organize your favorite collections |
 
 ### 📥 Advanced Download Engine
 Manage your downloads with precision using our powerful queue and history tracking.
@@ -118,6 +118,13 @@ Monitor your system and visualize your collection's growth.
 | :---: | :---: | :---: |
 | ![Analytics](./docs/screenshots/analytics.png) | ![Settings](./docs/screenshots/settings.png) | ![System Logs](./docs/screenshots/system-logs.png) |
 | Visual data on your library | Fine-tune your experience | Monitor engine activity |
+
+<div align="center">
+  <br/>
+  <a href="https://ifauzeee.vercel.app/projects/qbz-downloader/preview">
+    <img src="https://img.shields.io/badge/View_All_Previews-6366f1?style=for-the-badge&logo=vercel" alt="View All Previews" />
+  </a>
+</div>
 
 ---
 
