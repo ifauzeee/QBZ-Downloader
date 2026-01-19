@@ -1,5 +1,5 @@
 export const smartFetch = async (url: string, options: RequestInit = {}) => {
-    const password = localStorage.getItem('dashboard_password');
+    const password = sessionStorage.getItem('dashboard_password');
     if (password) {
         options.headers = {
             ...options.headers,

@@ -13,7 +13,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        const password = localStorage.getItem('dashboard_password') || '';
+        const password = sessionStorage.getItem('dashboard_password') || '';
         const socketInstance = io('/', {
             auth: { password }
         });

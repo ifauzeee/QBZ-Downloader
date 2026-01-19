@@ -139,7 +139,9 @@ function AppContent() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <a href="https://ifauzeee.vercel.app/" target="_blank" className="creator-credit">by Muhammad Ibnu Fauzi</a>
+          <p style={{ fontSize: '10px', color: 'var(--text-secondary)', opacity: 0.6, marginBottom: '8px' }}>
+            This application uses the Qobuz API but is not certified by Qobuz.
+          </p>
         </div>
       </aside>
 

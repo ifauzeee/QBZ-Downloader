@@ -31,6 +31,9 @@ A comprehensive, enterprise-grade music downloading and library management platf
 
 </div>
 
+> [!IMPORTANT]
+> **This application uses the Qobuz API but is not certified by Qobuz.**
+
 ---
 
 ## ✨ Key Features at a Glance
@@ -229,15 +232,20 @@ Create a `.env` file in the root directory.
 
 ### 🔑 Authentication (Required)
 
+To use this application, you must provide your own valid Qobuz API credentials. 
+
 ```env
-# App credentials (get these from browser dev tools on play.qobuz.com)
+# Your private Qobuz API credentials
 QOBUZ_APP_ID=your_app_id
 QOBUZ_APP_SECRET=your_app_secret
 
-# User credentials
+# Valid User Authentication
 QOBUZ_USER_AUTH_TOKEN=your_user_token
 QOBUZ_USER_ID=your_user_id
 ```
+
+> [!WARNING]
+> Do not share your `APP_ID` or `APP_SECRET` with third parties. These should be obtained through authorized channels.
 
 ### 📁 File Management
 
@@ -338,12 +346,30 @@ We strictly welcome contributions!
 
 ---
 
+---
+
+## ⚖️ Legal & Disclaimer
+
+**Disclaimer & Legal**  
+I will not be responsible for how you use **QBZ-Downloader**. This program is provided for educational and personal use only.
+
+**This program DOES NOT include:**
+-   **Code to bypass Qobuz's region restrictions.** (Proxy functionality has been removed).
+-   **Qobuz app IDs or secrets.** QBZ-Downloader does not publish any of Qobuz's private secrets or app IDs.
+
+**Legality of Data Access:**  
+Scraping public data is not a violation of the Computer Fraud and Abuse Act (USA) according to the Ninth Court of Appeals, case # 17-16783 (see page 29). This application aims to improve the user experience for legitimate Qobuz subscribers.
+
+**Branding:**  
+-   QBZ-Downloader uses the Qobuz API, but is not endorsed, certified or otherwise approved in any way by Qobuz.
+-   Qobuz brand and name is the registered trademark of its respective owner.
+-   QBZ-Downloader has no partnership, sponsorship or endorsement with Qobuz.
+
+**User Agreement:**  
+By using QBZ-Downloader, you agree to the following: [Qobuz API Terms of Use](http://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf)
+
+---
+
 <div align="center">
-
-**Made with ❤️ by [Muhammad Ibnu Fauzi (ifauzeee)](https://github.com/ifauzeee)**
-
-*Premium High-Resolution Audio Downloader & Library Manager*
-
-[![GitHub](https://img.shields.io/badge/GitHub-ifauzeee-black?style=for-the-badge&logo=github)](https://github.com/ifauzeee)
-
+  Made with ❤️ by Muhammad Ibnu Fauzi
 </div>

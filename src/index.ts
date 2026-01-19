@@ -48,7 +48,6 @@ function displayBanner() {
 
     console.log(gradient.pastel.multiline(title));
     console.log(gradient.pastel('  Premium High-Res Audio Downloader & Manager\n'));
-    console.log(gradient.cristal('  Developed by Muhammad Ibnu Fauzi\n'));
 
     logger.system('Initializing application components...', 'BOOT');
 }

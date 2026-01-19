@@ -84,7 +84,7 @@ body {
 
 .sidebar.collapsed .logo h1,
 .sidebar.collapsed .nav-label,
-.sidebar.collapsed .creator-credit {
+.sidebar.collapsed .sidebar-footer {
     display: none;
     opacity: 0;
 }
@@ -2631,4 +2631,239 @@ body.sidebar-collapsed .nav-item:hover::after {
 
 .duplicate-files {
     max-width: 500px;
+}
+
+/* Pure Dark AMOLED Login Styles */
+.amoled-login-overlay {
+    background: #000000 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.amoled-login-card {
+    display: flex;
+    width: 850px;
+    height: 500px;
+    background: #000000;
+    border: 1px solid #1a1a1a;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 0 100px rgba(0, 0, 0, 1), 0 0 40px rgba(99, 102, 241, 0.05);
+}
+
+.login-side-info {
+    flex: 1.2;
+    background: linear-gradient(165deg, #050505 0%, #000000 100%);
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #1a1a1a;
+}
+
+.login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 60px;
+}
+
+.brand-icon {
+    font-size: 24px;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+}
+
+.brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #ffffff;
+}
+
+.security-badge {
+    margin-bottom: 24px;
+}
+
+.badge-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 20px;
+}
+
+.security-badge h3 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.login-desc {
+    color: #666666;
+    font-size: 15px;
+    line-height: 1.7;
+    margin-bottom: auto;
+}
+
+.login-footer-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #333333;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.login-footer-meta .dot {
+    width: 4px;
+    height: 4px;
+    background: #1a1a1a;
+    border-radius: 50%;
+}
+
+.login-side-form {
+    flex: 1;
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.form-header {
+    margin-bottom: 40px;
+}
+
+.form-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #ffffff;
+}
+
+.form-header p {
+    color: #666666;
+    font-size: 14px;
+}
+
+.amoled-form {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.amoled-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.amoled-input-group label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #444444;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.amoled-input-group input {
+    background: #000000;
+    border: 1px solid #1a1a1a;
+    padding: 16px;
+    border-radius: 12px;
+    color: #ffffff;
+    font-size: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+}
+
+.amoled-input-group input:focus {
+    border-color: #ffffff;
+    background: #050505;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+}
+
+.amoled-input-group input.input-error {
+    border-color: #ff3b30;
+}
+
+.error-text {
+    color: #ff3b30;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.btn-amoled-primary {
+    background: #ffffff;
+    color: #000000;
+    border: none;
+    padding: 18px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-amoled-primary:hover:not(:disabled) {
+    background: #eeeeee;
+    transform: translateY(-2px);
+}
+
+.btn-amoled-primary:active {
+    transform: translateY(0);
+}
+
+.btn-amoled-primary:disabled {
+    background: #1a1a1a;
+    color: #444444;
+    cursor: not-allowed;
+}
+
+.btn-arrow {
+    font-size: 18px;
+    transition: transform 0.3s;
+}
+
+.btn-amoled-primary:hover .btn-arrow {
+    transform: translateX(5px);
+}
+
+.spinner-amoled {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: #000000;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 900px) {
+    .amoled-login-card {
+        width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        border: none;
+        flex-direction: column;
+    }
+
+    .login-side-info {
+        padding: 40px;
+        border-right: none;
+        border-bottom: 1px solid #1a1a1a;
+    }
+
+    .login-side-form {
+        padding: 40px;
+    }
 }

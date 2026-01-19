@@ -36,7 +36,6 @@ export interface Config {
             userInfo: string;
             favorites: string;
         };
-        proxy: string;
     };
     quality: {
         formats: Record<
@@ -101,8 +100,7 @@ export const CONFIG: Config = {
                 fileUrl: '/track/getFileUrl',
                 userInfo: '/user/get',
                 favorites: '/favorite/getUserFavorites'
-            },
-            proxy: getStr('PROXY_URL', '')
+            }
         };
     },
 
