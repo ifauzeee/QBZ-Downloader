@@ -36,6 +36,7 @@ export const SettingsView: React.FC = () => {
     const [settings, setSettings] = useState<AppSettings | null>(null);
     const [creds, setCreds] = useState<Credentials | null>(null);
     const [validationResult, setValidationResult] = useState<any>(null);
+    const [validationError, setValidationError] = useState<string | null>(null);
     const [form, setForm] = useState({ appId: '', appSecret: '', token: '', userId: '' });
     const { showToast } = useToast();
 
@@ -100,19 +101,28 @@ export const SettingsView: React.FC = () => {
         try {
             showToast('Validating...', 'info');
             setValidationResult(null);
+            setValidationError(null);
             const res = await smartFetch('/api/login', { method: 'POST' });
-            if (res && res.ok) {
+
+            if (res) {
                 const data = await res.json();
-                if (data.success && data.user) {
-                    setValidationResult(data.user);
-                    showToast('Credentials valid', 'success');
+                if (res.ok) {
+                    if (data.success && data.user) {
+                        setValidationResult(data.user);
+                        showToast('Credentials valid', 'success');
+                    } else {
+                        setValidationError('Login failed');
+                    }
                 } else {
-                    showToast('Login failed', 'error');
+                    setValidationError(data.error || 'Validation failed');
                 }
+            } else {
+                setValidationError('Network error or server unreachable');
             }
+
             loadSettings();
         } catch (e) {
-            showToast('Validation error', 'error');
+            setValidationError('Validation error');
         }
     };
 
@@ -213,6 +223,23 @@ export const SettingsView: React.FC = () => {
                     <button className="btn primary" onClick={validateCredentials} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Icons.Resolve width={14} height={14} /> {t('action_validate')}
                     </button>
+                    {validationError && (
+                        <div style={{
+                            marginTop: '15px',
+                            padding: '12px',
+                            background: 'rgba(220, 53, 69, 0.1)',
+                            borderRadius: '6px',
+                            border: '1px solid var(--danger)',
+                            color: 'var(--danger)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            fontSize: '0.9em',
+                            width: '100%'
+                        }}>
+                            <span>⚠️</span> {validationError}
+                        </div>
+                    )}
                 </div>
                 {validationResult && (
                     <div style={{ marginTop: '15px', padding: '15px', background: 'var(--bg-elevated)', borderRadius: '8px', border: '1px solid var(--border)' }}>

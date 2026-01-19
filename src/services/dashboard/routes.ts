@@ -5,6 +5,7 @@ import { databaseService } from '../database/index.js';
 import { logger } from '../../utils/logger.js';
 import { CONFIG } from '../../config.js';
 import QobuzAPI from '../../api/qobuz.js';
+import { AuthenticationError, APIError } from '../../utils/errors.js';
 
 import { tokenManager } from '../../utils/token.js';
 import { APP_VERSION } from '../../constants.js';
@@ -87,7 +88,14 @@ export function registerRoutes(app: any) {
                 res.status(401).json({ error: 'Login failed' });
             }
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            tokenManager.markInvalid();
+            if (error instanceof AuthenticationError) {
+                res.status(401).json({ error: 'Account not found or invalid credentials' });
+            } else if (error instanceof APIError) {
+                res.status(error.statusCode || 500).json({ error: error.message });
+            } else {
+                res.status(500).json({ error: error.message });
+            }
         }
     });
 
