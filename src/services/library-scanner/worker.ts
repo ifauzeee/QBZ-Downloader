@@ -34,21 +34,7 @@ parentPort?.on('message', async (filePath: string) => {
         let bitDepth = 16;
         let sampleRate = 44100;
         let duration = 0;
-        let missingInternalTags = true;
-
-        const patterns = [/^(.+?)\s*-\s*(.+)$/, /^\d+\.\s*(.+)$/, /^\d+\s*-\s*(.+)$/];
-        for (const pattern of patterns) {
-            const match = filename.match(pattern);
-            if (match) {
-                if (match.length === 3) {
-                    artist = match[1].trim();
-                    title = match[2].trim();
-                } else {
-                    title = match[1].trim();
-                }
-                break;
-            }
-        }
+        const missingTags: string[] = [];
 
         try {
             const metadata = await parseFile(filePath);
@@ -72,24 +58,28 @@ parentPort?.on('message', async (filePath: string) => {
 
             if (metadata.common) {
                 if (metadata.common.title) title = metadata.common.title;
+                else missingTags.push('Title');
 
-                const hasBasicTags =
-                    metadata.common.title && metadata.common.artist && metadata.common.album;
-                const hasPicture = metadata.common.picture && metadata.common.picture.length > 0;
-                const hasLyrics = metadata.common.lyrics && metadata.common.lyrics.length > 0;
-
-                const hasGenre = metadata.common.genre && metadata.common.genre.length > 0;
-                const hasDate = metadata.common.year || metadata.common.date;
-                const hasComposer = metadata.common.composer && metadata.common.composer.length > 0;
-
-                if (hasBasicTags && hasPicture && hasLyrics && hasGenre && hasDate && hasComposer) {
-                    missingInternalTags = false;
-                }
                 if (metadata.common.artist) artist = metadata.common.artist;
+                else missingTags.push('Artist');
+
                 if (metadata.common.albumartist) albumArtist = metadata.common.albumartist;
+
                 if (metadata.common.album) album = metadata.common.album;
+                else missingTags.push('Album');
+
+                if (!metadata.common.picture || metadata.common.picture.length === 0)
+                    missingTags.push('Cover Art');
+                if (!metadata.common.lyrics || metadata.common.lyrics.length === 0)
+                    missingTags.push('Lyrics');
+                if (!metadata.common.genre || metadata.common.genre.length === 0)
+                    missingTags.push('Genre');
+                if (!metadata.common.year && !metadata.common.date) missingTags.push('Year');
+            } else {
+                missingTags.push('All Metadata');
             }
         } catch {
+            missingTags.push('Unreadable');
             if (ext === '.flac') {
                 const mbPerMinute = stats.size / (1024 * 1024) / (duration / 60 || 4);
                 if (mbPerMinute > 20) {
@@ -120,7 +110,8 @@ parentPort?.on('message', async (filePath: string) => {
             sampleRate,
             needsUpgrade: quality < 7,
             audioFingerprint: fingerprint,
-            missingInternalTags: missingInternalTags
+            missingInternalTags: missingTags.length > 0,
+            missingTags
         });
     } catch (error) {
         parentPort?.postMessage({ filePath, error: (error as Error).message });

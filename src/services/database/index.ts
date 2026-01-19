@@ -4,7 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 const DEFAULT_DB_PATH = './data/qbz.db';
 
 export interface DbTrack {
@@ -409,10 +409,28 @@ class DatabaseService {
                 }
             }
 
+            if (currentVersion < 9) {
+                try {
+                    const tableInfo = this.db!.prepare(
+                        'PRAGMA table_info(library_files)'
+                    ).all() as { name: string }[];
+                    const hasMissingTags = tableInfo.some((col) => col.name === 'missing_tags');
+                    if (!hasMissingTags) {
+                        this.db!.exec('ALTER TABLE library_files ADD COLUMN missing_tags TEXT');
+                        logger.info(
+                            'Migration v9: Added missing_tags column to library_files',
+                            'DB'
+                        );
+                    }
+                } catch (error: any) {
+                    logger.warn(`Migration v9 partial: ${error.message}`, 'DB');
+                }
+            }
+
             this.db
                 .prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')
-                .run('db_version', String(8));
-            logger.info(`Database migrated to version ${8}`, 'DB');
+                .run('db_version', String(9));
+            logger.info(`Database migrated to version ${9}`, 'DB');
         }
     }
 
@@ -689,13 +707,14 @@ class DatabaseService {
         needs_upgrade?: boolean;
         audio_fingerprint?: string;
         missing_metadata?: boolean;
+        missing_tags?: string[];
     }): void {
         const db = this.getDb();
         db.prepare(
             `
             INSERT OR REPLACE INTO library_files 
-            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint, missing_metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint, missing_metadata, missing_tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
             file.file_path,
@@ -714,7 +733,8 @@ class DatabaseService {
             file.needs_upgrade ? 1 : 0,
             new Date().toISOString(),
             file.audio_fingerprint || null,
-            file.missing_metadata ? 1 : 0
+            file.missing_metadata ? 1 : 0,
+            file.missing_tags ? JSON.stringify(file.missing_tags) : null
         );
     }
 

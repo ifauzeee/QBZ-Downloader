@@ -414,16 +414,12 @@ class MetadataService {
                         }
                     }
 
-                    const subRoles = roleLower.split(', ');
+
 
                     if (
                         roleLower.includes('main artist') ||
                         roleLower.includes('mainartist') ||
-                        roleLower === 'performer' ||
-                        subRoles.includes('vocal') ||
-                        subRoles.includes('vocals') ||
-                        subRoles.includes('rap') ||
-                        subRoles.includes('rapper')
+                        roleLower === 'performer'
                     ) {
                         addPerformer(name, role, performers.main);
                     }
@@ -739,7 +735,7 @@ class MetadataService {
                                 coverBuffer
                             );
                             processor.push(mdbPicture.publish());
-                        } catch {}
+                        } catch { }
                     }
                 }
             });

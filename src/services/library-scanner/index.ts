@@ -24,6 +24,7 @@ export interface LibraryFile {
     bitDepth: number;
     sampleRate: number;
     needsUpgrade: boolean;
+    missingTags?: string[];
 }
 
 export interface DuplicateGroup {
@@ -168,7 +169,8 @@ class LibraryScannerService extends EventEmitter {
                         sample_rate: fileInfo.sampleRate,
                         needs_upgrade: fileInfo.needsUpgrade,
                         audio_fingerprint: fileInfo.audioFingerprint,
-                        missing_metadata: fileInfo.missingInternalTags
+                        missing_metadata: fileInfo.missingInternalTags,
+                        missing_tags: fileInfo.missingTags
                     });
                 }
 
@@ -662,7 +664,8 @@ class LibraryScannerService extends EventEmitter {
             format: f.format || '',
             bitDepth: f.bit_depth || 0,
             sampleRate: f.sample_rate || 0,
-            needsUpgrade: false
+            needsUpgrade: false,
+            missingTags: f.missing_tags ? JSON.parse(f.missing_tags) : []
         }));
     }
 

@@ -37,6 +37,8 @@ interface MissingMetadataFile {
     filePath: string;
     title: string;
     artist: string;
+    album?: string;
+    missingTags?: string[];
 }
 
 interface ProcessingFile extends MissingMetadataFile {
@@ -235,6 +237,22 @@ export const LibraryView: React.FC = () => {
         return parts.pop() || path;
     };
 
+    const getStatusLabel = (file: ProcessingFile) => {
+        if (file.status !== 'pending') return file.status;
+
+        if (file.missingTags && file.missingTags.length > 0) {
+            return `Missing ${file.missingTags.join(', ')}`;
+        }
+
+        const missing = [];
+        if (!file.artist || file.artist === 'Unknown') missing.push('Artist');
+        if (!file.album || file.album === 'Unknown') missing.push('Album');
+        if (!file.title) missing.push('Title');
+
+        if (missing.length > 0) return `Missing ${missing.join(', ')}`;
+        return 'Incomplete Tags';
+    };
+
     const progress = scanning
         ? (stats && stats.totalFiles > 0 && stats.processedFiles !== undefined)
             ? Math.min(100, Math.round((stats.processedFiles / stats.totalFiles) * 100))
@@ -424,7 +442,7 @@ export const LibraryView: React.FC = () => {
                                                     file.status === 'not_found' ? 'error' :
                                                         file.status === 'identifying' ? 'info' : 'warning'
                                                     }`}>
-                                                    {file.status === 'pending' ? 'Missing Tags' : file.status}
+                                                    {getStatusLabel(file)}
                                                 </span>
                                             </td>
                                             <td>

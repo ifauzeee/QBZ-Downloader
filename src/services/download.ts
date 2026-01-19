@@ -315,8 +315,7 @@ export default class DownloadService {
                         await axios.head(highResUrl, { timeout: 2000 });
                         coverUrl = highResUrl;
                         logger.info('Cover upgraded to max resolution', 'COVER');
-                    } catch {
-                    }
+                    } catch {}
                 }
             }
 
@@ -799,7 +798,7 @@ export default class DownloadService {
                                                 return { filename, content };
                                             }
                                         }
-                                    } catch { }
+                                    } catch {}
                                     return null;
                                 })
                             )

@@ -177,17 +177,7 @@ export const SettingsView: React.FC = () => {
     return (
         <div id="view-settings" className="view-section active">
 
-            <div className="settings-section" style={{ border: '1px solid var(--danger)', background: 'rgba(220, 53, 69, 0.05)' }}>
-                <h3 className="section-title" style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="icon">⚠️</span> {t('sec_danger')}
-                </h3>
-                <p className="section-desc">{t('desc_danger')}</p>
-                <div className="danger-actions">
-                    <button className="btn danger" onClick={triggerReset} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Icons.Trash width={14} height={14} /> {t('action_reset_full')}
-                    </button>
-                </div>
-            </div>
+
 
             <div className="settings-section">
                 <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -431,6 +421,18 @@ export const SettingsView: React.FC = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            <div className="settings-section" style={{ border: '1px solid var(--danger)', background: 'rgba(220, 53, 69, 0.05)' }}>
+                <h3 className="section-title" style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="icon">⚠️</span> {t('sec_danger')}
+                </h3>
+                <p className="section-desc">{t('desc_danger')}</p>
+                <div className="danger-actions">
+                    <button className="btn danger" onClick={triggerReset} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Icons.Trash width={14} height={14} /> {t('action_reset_full')}
+                    </button>
                 </div>
             </div>
 
