@@ -55,14 +55,69 @@ Everything you need to build the perfect local music library.
 ## 📋 Table of Contents
 
 1. [Overview](#-overview)
-2. [Why QBZ-Downloader?](#-why-qbz-downloader)
-3. [Comprehensive Feature Overview](#-comprehensive-feature-overview)
-4. [Installation](#-installation)
-5. [Configuration](#️-configuration)
-6. [Usage Guide](#-usage-guide)
-7. [System Architecture](#️-system-architecture)
-8. [Technology Stack](#-technology-stack)
-9. [Troubleshooting](#-troubleshooting)
+2. [📸 Interface Showcases](#-interface-showcases)
+3. [Why QBZ-Downloader?](#-why-qbz-downloader)
+4. [Comprehensive Feature Overview](#-comprehensive-feature-overview)
+5. [Installation](#-installation)
+6. [Configuration](#️-configuration)
+7. [Usage Guide](#-usage-guide)
+8. [System Architecture](#️-system-architecture)
+9. [Technology Stack](#-technology-stack)
+10. [Troubleshooting](#-troubleshooting)
+
+---
+
+## 📸 Interface Showcases
+
+Take a tour through the beautiful and functional interface of QBZ-Downloader.
+
+### 🔍 Multi-Dimensional Search
+Quickly find your music using our optimized search engine that categorizes results for maximum efficiency.
+
+| Search Tracks | Search Albums | Search Artists |
+| :---: | :---: | :---: |
+| ![Search Track](./docs/screenshots/search-track.png) | ![Search Album](./docs/screenshots/search-album.png) | ![Search Artist](./docs/screenshots/search-artist.png) |
+| Find individual tracks | Discover full discographies | Explore artist profiles |
+
+### 👤 Artist & Album Exploration
+Dive deep into artist metadata and explore every track in crystal-clear quality.
+
+| Artist Detail | Artist Albums | Artist Tracks | Album Tracks |
+| :---: | :---: | :---: | :---: |
+| ![Artist Detail](./docs/screenshots/artist-detail.png) | ![Artist Album](./docs/screenshots/artist-album.png) | ![Artist Track](./docs/screenshots/artist-track.png) | ![Album View](./docs/screenshots/album-view.png) |
+| Biography & Top Tracks | Browse all releases | Explore all artist tracks | Full tracklist metadata |
+
+### 🎵 Immersive Playback & Playlists
+Enjoy your library with a premium player experience.
+
+| Synchronized Lyrics | Playlist Management |
+| :---: | :---: |
+| ![Streaming Lyrics](./docs/screenshots/streaming-lyrics.png) | ![Playlist](./docs/screenshots/playlist.png) |
+| 60fps smooth scrolling LRC lyrics | Organize your favorite collections |
+
+### 📥 Advanced Download Engine
+Manage your downloads with precision using our powerful queue and history tracking.
+
+| Download Queue | History Tracking | Batch Import |
+| :---: | :---: | :---: |
+| ![Download Queue](./docs/screenshots/download-queue.png) | ![History](./docs/screenshots/history.png) | ![Batch Import](./docs/screenshots/batch-import.png) |
+| Active progress with speed monitors | Keep track of your collection | Import thousands of links at once |
+
+### 📚 Intelligent Library Management
+Keep your local library perfect with automated scanning and optimization tools.
+
+| Metadata Audit | Hi-Res Upgrade | Duplicate Finder |
+| :---: | :---: | :---: |
+| ![Library Metadata](./docs/screenshots/library-metadata.png) | ![Library HiRes](./docs/screenshots/library-hires.png) | ![Library Duplicate](./docs/screenshots/library-duplicate.png) |
+| Fix missing tags & artwork | Identify tracks to upgrade | Save space by removing clones |
+
+### 📊 Analytics & Control
+Monitor your system and visualize your collection's growth.
+
+| Collection Analytics | System Settings | Background Logs |
+| :---: | :---: | :---: |
+| ![Analytics](./docs/screenshots/analytics.png) | ![Settings](./docs/screenshots/settings.png) | ![System Logs](./docs/screenshots/system-logs.png) |
+| Visual data on your library | Fine-tune your experience | Monitor engine activity |
 
 ---
 
