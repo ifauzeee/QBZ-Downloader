@@ -12,6 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - SQLITE_JOURNAL_MODE=WAL
+    user: "root"
     volumes:
       - ./downloads:/app/downloads
       - ./data:/app/data
