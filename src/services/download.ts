@@ -27,6 +27,7 @@ interface DownloadOptions {
     onQuality?: (quality: number) => void;
     trackIndices?: number[];
     skipExisting?: boolean;
+    album?: any;
 }
 
 export interface BatchProgressCallback {
@@ -152,7 +153,37 @@ export default class DownloadService {
         if (!trackInfo.success) return { success: false, error: trackInfo.error };
 
         const track = trackInfo.data!;
-        const album = track.album;
+        let album = options.album || track.album;
+
+        if (!options.album && album && album.id) {
+            try {
+                logger.debug(
+                    `Fetching full album info for ${album.title} to ensure high-quality metadata...`,
+                    'DOWNLOAD'
+                );
+                const fullAlbumInfo = await this.api.getAlbum(album.id);
+                if (fullAlbumInfo.success && fullAlbumInfo.data) {
+                    album = fullAlbumInfo.data;
+                    logger.debug('Updated album metadata from full response', 'DOWNLOAD');
+                } else {
+                    logger.warn(
+                        'Could not fetch full album info, using track album info',
+                        'DOWNLOAD'
+                    );
+                }
+            } catch (e: any) {
+                logger.warn(`Failed to fetch full album info: ${e.message}`, 'DOWNLOAD');
+            }
+        }
+
+        if (album && album.image) {
+            if (!album.image.mega && !album.image.extralarge && album.image.large) {
+                logger.debug(
+                    `Available cover sizes: ${Object.keys(album.image).join(', ')}`,
+                    'COVER'
+                );
+            }
+        }
 
         const fileUrl = await this.api.getFileUrl(trackId, quality);
 
@@ -269,14 +300,27 @@ export default class DownloadService {
 
             if (options.onProgress) options.onProgress({ phase: 'cover', loaded: 0 });
             let coverBuffer: Buffer | null = null;
-            const coverUrl =
+            let coverUrl =
                 metadata.coverUrl ||
                 album?.image?.mega ||
                 album?.image?.extralarge ||
                 album?.image?.large ||
                 album?.image?.medium;
 
-            if (coverUrl && CONFIG.metadata.embedCover) {
+            if (coverUrl) {
+                const highResUrl = coverUrl.replace(/_\d+\.jpg$/, '_org.jpg');
+                if (highResUrl !== coverUrl) {
+                    try {
+                        const { default: axios } = await import('axios');
+                        await axios.head(highResUrl, { timeout: 2000 });
+                        coverUrl = highResUrl;
+                        logger.info('Cover upgraded to max resolution', 'COVER');
+                    } catch {
+                    }
+                }
+            }
+
+            if (coverUrl && (CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile)) {
                 try {
                     const { default: axios } = await import('axios');
                     const coverResponse = await axios.get(coverUrl, {
@@ -455,6 +499,7 @@ export default class DownloadService {
                 const res = await this.downloadTrack(track.id, quality, {
                     skipExisting: options.skipExisting,
                     onQuality: options.onQuality,
+                    album: album,
                     onProgress: (p) => {
                         if (options.onProgress) {
                             options.onProgress(trackId, {
@@ -754,7 +799,7 @@ export default class DownloadService {
                                                 return { filename, content };
                                             }
                                         }
-                                    } catch {}
+                                    } catch { }
                                     return null;
                                 })
                             )

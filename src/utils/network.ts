@@ -1,6 +1,5 @@
 import axios, { AxiosRequestConfig } from 'axios';
 
-
 export function createAxiosInstance(config: AxiosRequestConfig = {}) {
     const axiosConfig: AxiosRequestConfig = {
         ...config,

@@ -110,4 +110,41 @@ describe('MetadataService', () => {
             expect(metadata.artist).toContain('Bruno Mars');
         });
     });
+
+    describe('Cover Art Selection', () => {
+        it('should pick mega image if available', async () => {
+            const track = {
+                title: 'Test Title',
+                performer: { name: 'Test Artist' }
+            };
+            const album = {
+                title: 'Test Album',
+                image: {
+                    small: 'http://example.com/small.jpg',
+                    large: 'http://example.com/large.jpg',
+                    mega: 'http://example.com/mega.jpg'
+                }
+            };
+
+            const metadata = await metadataService.extractMetadata(track, album);
+            expect(metadata.coverUrl).toBe('http://example.com/mega.jpg');
+        });
+
+        it('should fallback to large if mega is missing', async () => {
+            const track = {
+                title: 'Test Title',
+                performer: { name: 'Test Artist' }
+            };
+            const album = {
+                title: 'Test Album',
+                image: {
+                    small: 'http://example.com/small.jpg',
+                    large: 'http://example.com/large.jpg'
+                }
+            };
+
+            const metadata = await metadataService.extractMetadata(track, album);
+            expect(metadata.coverUrl).toBe('http://example.com/large.jpg');
+        });
+    });
 });

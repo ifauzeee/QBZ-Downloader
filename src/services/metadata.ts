@@ -101,7 +101,8 @@ class MetadataService {
         albumData: RawData,
         fileInfo: RawData = {}
     ): Promise<Metadata> {
-        const album = trackData.album || albumData || {};
+        const album =
+            albumData && Object.keys(albumData).length > 0 ? albumData : trackData.album || {};
         const artist = trackData.performer || trackData.artist || {};
         const composer = trackData.composer || {};
 
@@ -308,7 +309,12 @@ class MetadataService {
             hiresAvailable: album.hires || trackData.hires || false,
             parental: trackData.parental_warning || false,
 
-            coverUrl: album.image?.large || album.image?.small || '',
+            coverUrl:
+                album.image?.mega ||
+                album.image?.extralarge ||
+                album.image?.large ||
+                album.image?.small ||
+                '',
 
             description: album.description || '',
             comment: 'downloader by qbz-dl https://github.com/ifauzeee/QBZ-Downloader',

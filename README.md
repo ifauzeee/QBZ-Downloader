@@ -1,126 +1,89 @@
 <div align="center">
 
 # 🎵 QBZ-Downloader
+### *The Ultimate High-Resolution Audio Downloader & Library Manager*
 
-### *The Ultimate High-Resolution Audio Downloader & Library Management Platform*
-
-[![Version](https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge&color=6366f1)](https://github.com/ifauzeee/QBZ-Downloader/releases)
-[![React](https://img.shields.io/badge/React-18.x-blue?style=for-the-badge&logo=react)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-5.x-purple?style=for-the-badge&logo=vite)](https://vitejs.dev/)
-[![TypeScript](https://img.shields.io/badge/typescript-5.7-blue?style=for-the-badge&color=3178c6&logo=typescript)](https://www.typescriptlang.org/)
-[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green?style=for-the-badge&color=22c55e&logo=node.js)](https://nodejs.org/)
-[![Docker](https://img.shields.io/badge/docker-ready-blue?style=for-the-badge&color=0db7ed&logo=docker)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/license-MIT-orange?style=for-the-badge&color=f59e0b)](LICENSE)
+[![Version](https://img.shields.io/badge/version-4.0.0-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
+[![React](https://img.shields.io/badge/React-18.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
 
 <br/>
 
-![Preview](./docs/screenshots/streaming-lyrics.png)
+![Main Preview](./docs/screenshots/streaming-lyrics.png)
 
 <br/>
 
 **Unlock the full potential of your music library.**
 
-A comprehensive, enterprise-grade music downloading and library management platform that delivers studio-quality FLAC audio up to **24-bit/192kHz** with complete metadata tagging, synchronized lyrics embedding & editing, intelligent queue management, advanced analytics, and a beautiful real-time web dashboard.
+A comprehensive, enterprise-grade music downloading and library management platform. Experience studio-quality audio up to **24-bit/192kHz** with complete metadata, synchronized lyrics, intelligent queue management, and a stunning real-time web dashboard.
 
-[✨ Features](#-key-features-at-a-glance) •
+[✨ Features](#-key-features) •
 [📥 Installation](#-installation) •
-[⚙️ Configuration](#️-configuration) •
+[⚙️ Configuration](#-configuration) •
 [🚀 Usage](#-usage-guide) •
-[📚 API Docs](#-api-documentation) •
-[🏗️ Architecture](#️-system-architecture)
+[📸 Screenshots](#-interface-showcase)
 
 </div>
 
 > [!IMPORTANT]
-> **This application uses the Qobuz API but is not certified by Qobuz.**
+> **This application uses the Qobuz API but is not certified by, endorsed by, or affiliated with Qobuz.**
 
 ---
 
-## ✨ Key Features at a Glance
+## ✨ Key Features
 
 Everything you need to build the perfect local music library.
 
 | Feature | Description |
 | :--- | :--- |
-| **🎵 Studio Quality** | Download music in **Hi-Res FLAC (up to 24-bit/192kHz)**. Identical to the source file, with no quality loss or conversion. |
-| **🖥️ Modern UI** | Built with **React & Vite**. Features a beautiful interface with **Light/Dark Mode**, real-time updates, and smooth animations. |
-| **🎤 Smooth Lyrics** | Enjoy **60fps synchronized lyrics** with a jitter-free scrolling experience. Includes a built-in **Lyrics Editor**. |
-| **🎼 Audio Visualizer** | Real-time audio visualization built directly into the player for an immersive listening experience. |
-| **🏷️ Smart Tags** | Files are automatically tagged with **Cover Art, Lyrics, Artist, Album, Year, and Genre**. |
-| **📦 Batch Download** | Download **Full Albums**, **Artist Discographies**, or **Playlists** with just one click. |
-| **📚 Library Manager** | Scans your downloaded files to **detect duplicates**, find missing metadata, and suggest tracks that can be upgraded. |
-| **📊 Analytics** | View visual charts of your collection: total downloads, quality distribution, top artists, and storage usage. |
-| **🐳 Docker Ready** | Easy to install and run anywhere using Docker. Keeps your system clean and secure. |
-| **🌍 Multi-Language** | Fully translated into **7 languages** (English, Indonesian, Spanish, French, German, Japanese, Chinese). |
+| **🎵 Studio Quality** | Download in **Hi-Res FLAC (up to 24-bit/192kHz)**. Bit-perfect replicas of the source. |
+| **🖥️ Modern Dashboard** | Beautiful **React & Vite** interface with **Light/Dark Mode**, real-time updates, and smooth animations. |
+| **🎤 Live Lyrics** | Experience synchronized lyrics with **60fps smooth scrolling**. Includes a built-in **Lyrics Editor**. |
+| **🏷️ Smart Tagging** | Automatic tagging with **High-Res Cover Art**, Artist, Album, Year, Genre, ISRC, and more. |
+| **📦 Batch Power** | Download **Full Albums**, **Artist Discographies**, or **Playlists** with a single click. |
+| **📚 Library Manager** | Scans your library to **detect duplicates**, identify missing metadata, and suggest upgrades. |
+| **🎼 Visualizer** | Built-in real-time audio visualization for an immersive listening experience. |
+| **📊 Analytics** | Visualize your collection with charts: quality distribution, top artists, and storage mastery. |
+| **🐳 Docker Ready** | Deploy effortlessly with Docker. Keeps your system clean and secure. |
 
 ---
 
-## 📋 Table of Contents
+## 📸 Interface Showcase
 
-1. [Overview](#-overview)
-2. [📸 Interface Showcases](#-interface-showcases)
-3. [Why QBZ-Downloader?](#-why-qbz-downloader)
-4. [Comprehensive Feature Overview](#-comprehensive-feature-overview)
-5. [Installation](#-installation)
-6. [Configuration](#️-configuration)
-7. [Usage Guide](#-usage-guide)
-8. [System Architecture](#️-system-architecture)
-9. [Technology Stack](#-technology-stack)
-10. [Troubleshooting](#-troubleshooting)
+Explore the beautiful, functional interface of QBZ-Downloader.
 
----
+### 🔍 Discovery & Search
+Quickly find your music with our optimized search engine.
+<div align="center">
+  <img src="./docs/screenshots/search-artist.png" width="32%" alt="Search Artist" />
+  <img src="./docs/screenshots/search-album.png" width="32%" alt="Search Album" />
+  <img src="./docs/screenshots/search-track.png" width="32%" alt="Search Track" />
+</div>
 
-## 📸 Interface Showcases
+### 👤 Deep Metadata Exploration
+Dive into detailed artist biographies and album credits.
+<div align="center">
+  <img src="./docs/screenshots/artist-detail.png" width="48%" alt="Artist Detail" />
+  <img src="./docs/screenshots/album-view.png" width="48%" alt="Album View" />
+</div>
 
-Take a tour through the beautiful and functional interface of QBZ-Downloader.
+### 📥 Download Management
+Track your downloads with precision and history.
+<div align="center">
+  <img src="./docs/screenshots/download-queue.png" width="48%" alt="Download Queue" />
+  <img src="./docs/screenshots/history.png" width="48%" alt="History" />
+</div>
 
-### 🔍 Multi-Dimensional Search
-Quickly find your music using our optimized search engine that categorizes results for maximum efficiency.
-
-| Search Tracks | Search Albums | Search Artists |
-| :---: | :---: | :---: |
-| ![Search Track](./docs/screenshots/search-track.png) | ![Search Album](./docs/screenshots/search-album.png) | ![Search Artist](./docs/screenshots/search-artist.png) |
-| Find individual tracks | Discover full discographies | Explore artist profiles |
-
-### 👤 Artist & Album Exploration
-Dive deep into artist metadata and explore every track in crystal-clear quality.
-
-| Artist Detail | Artist Albums | Artist Tracks | Album Tracks |
-| :---: | :---: | :---: | :---: |
-| ![Artist Detail](./docs/screenshots/artist-detail.png) | ![Artist Album](./docs/screenshots/artist-album.png) | ![Artist Track](./docs/screenshots/artist-track.png) | ![Album View](./docs/screenshots/album-view.png) |
-| Biography & Top Tracks | Browse all releases | Explore all artist tracks | Full tracklist metadata |
-
-### 🎵 Immersive Playback & Playlists
-Enjoy your library with a premium player experience.
-
-| Streaming Music with Lyrics | Playlist Management |
-| :---: | :---: |
-| ![Streaming Lyrics](./docs/screenshots/streaming-lyrics.png) | ![Playlist](./docs/screenshots/playlist.png) |
-| Streaming music with lyrics | Organize your favorite collections |
-
-### 📥 Advanced Download Engine
-Manage your downloads with precision using our powerful queue and history tracking.
-
-| Download Queue | History Tracking | Batch Import |
-| :---: | :---: | :---: |
-| ![Download Queue](./docs/screenshots/download-queue.png) | ![History](./docs/screenshots/history.png) | ![Batch Import](./docs/screenshots/batch-import.png) |
-| Active progress with speed monitors | Keep track of your collection | Import thousands of links at once |
-
-### 📚 Intelligent Library Management
-Keep your local library perfect with automated scanning and optimization tools.
-
-| Metadata Audit | Hi-Res Upgrade | Duplicate Finder |
-| :---: | :---: | :---: |
-| ![Library Metadata](./docs/screenshots/library-metadata.png) | ![Library HiRes](./docs/screenshots/library-hires.png) | ![Library Duplicate](./docs/screenshots/library-duplicate.png) |
-| Fix missing tags & artwork | Identify tracks to upgrade | Save space by removing clones |
-
-### 📊 Analytics & Control
-Monitor your system and visualize your collection's growth.
-
-| Collection Analytics | System Settings | Background Logs |
-| :---: | :---: | :---: |
-| ![Analytics](./docs/screenshots/analytics.png) | ![Settings](./docs/screenshots/settings.png) | ![System Logs](./docs/screenshots/system-logs.png) |
-| Visual data on your library | Fine-tune your experience | Monitor engine activity |
+### 📚 Library Tools
+Keep your collection pristine.
+<div align="center">
+  <img src="./docs/screenshots/library-metadata.png" width="32%" alt="Metadata Audit" />
+  <img src="./docs/screenshots/library-hires.png" width="32%" alt="Hi-Res Upgrade" />
+  <img src="./docs/screenshots/analytics.png" width="32%" alt="Analytics" />
+</div>
 
 <div align="center">
   <br/>
@@ -131,96 +94,41 @@ Monitor your system and visualize your collection's growth.
 
 ---
 
-## 🌟 Overview
-
-**QBZ-Downloader** is more than just a downloader script — it is a complete music management system. Built with a robust **Node.js** backend and a high-performance **React** frontend, it ensures a seamless experience for audiophiles and archivists.
-
-### Development Philosophy
-
-```
-🎯 Bit-Perfect Audio  →  No transcoding, original quality preserved
-🎨 UX First           →  React-based UI with 60fps animations & Light Mode support
-📊 Data-Driven        →  SQLite database for tracking & analytics
-⚡ Real-Time          →  WebSocket for instant progress updates
-🔒 Secure by Design   →  Input validation, XSS protection, rate limiting
-```
-
----
-
-## 💡 Why QBZ-Downloader?
-
-| Feature | QBZ-Downloader | Other Scripts |
-|-------|:--------------:|:-----------:|
-| **Tech Stack** | React + Vite + Node.js | Basic HTML/JS |
-| **Visual Experience** | ✅ Light/Dark Mode + Visualizer | ❌ Dark only |
-| **Lyrics Experience** | ✅ Smooth 60fps Sync | ⚠️ Static/Basic |
-| **Hi-Res Audio (192kHz)** | ✅ | ⚠️ Limited |
-| **Database Tracking** | ✅ SQLite | ❌ |
-| **Duplicate Detection** | ✅ Intelligent | ❌ |
-| **Library Scanner** | ✅ Deep scan + upgrade detection | ❌ |
-| **Docker Support** | ✅ Multi-stage build | ⚠️ Basic |
-
----
-
-## ✨ Comprehensive Feature Overview
-
-### 🎧 Audiophile-Grade Audio Engine
-
-- **Bit-Perfect Download**: Audio is downloaded exactly as streamed without transcoding.
-- **Smart Quality Fallback**: Automatically tries lower quality if preference is unavailable (192k → 96k → 44.1k).
-- **Stream Preview**: Listen to track previews directly on the dashboard.
-
-### 📝 Metadata & Lyrics
-
-- **Full Tagging**: Title, Artist, Album, Year, Genre, Composers, Producers, ISRC, UPC, etc.
-- **High-Res Artwork**: Embeds up to 3000x3000px cover art.
-- **Lyrics System**:
-    - **Providers**: LRCLIB (Primary), Genius (Fallback).
-    - **Formats**: Synced (LRC), Plain Text, Embedded.
-    - **Editor**: Fix timing or text directly in the app.
-
----
-
 ## 📥 Installation
 
 ### Option A: 🐳 Docker (Recommended)
-
-Docker provides a consistent and easy-to-maintain environment.
+The easiest way to get started.
 
 ```bash
 # 1. Clone repository
 git clone https://github.com/ifauzeee/QBZ-Downloader.git
 cd QBZ-Downloader
 
-# 2. Setup environment file
+# 2. Setup environment
 cp .env.example .env
 # Edit .env with your Qobuz credentials
 
-# 3. Build and run
+# 3. specific Build and run
 docker-compose up -d
 
-# 4. Access Dashboard
-# Open http://localhost:3000 in your browser
+# 4. Open http://localhost:3000
 ```
 
 ### Option B: 🛠️ Manual Setup
 
 ```bash
-# 1. Clone repository
+# 1. Clone
 git clone https://github.com/ifauzeee/QBZ-Downloader.git
 cd QBZ-Downloader
 
-# 2. Install dependencies
+# 2. Install & Build
 npm install
-
-# 3. Build dependencies (Backend & Frontend)
 npm run build:full
 
-# 4. Setup environment
+# 3. Configure
 cp .env.example .env
-# Edit .env with your credentials
 
-# 5. Start Application
+# 4. Start
 npm start
 ```
 
@@ -231,145 +139,62 @@ npm start
 Create a `.env` file in the root directory.
 
 ### 🔑 Authentication (Required)
+You must provide valid Qobuz credentials.
 
-To use this application, you must provide your own valid Qobuz API credentials. 
-
-```env
-# Your private Qobuz API credentials
+```properties
+# Your application credentials
 QOBUZ_APP_ID=your_app_id
 QOBUZ_APP_SECRET=your_app_secret
 
-# Valid User Authentication
+# Your user token (get this from your browser cookies/local storage)
 QOBUZ_USER_AUTH_TOKEN=your_user_token
 QOBUZ_USER_ID=your_user_id
 ```
 
-> [!WARNING]
-> Do not share your `APP_ID` or `APP_SECRET` with third parties. These should be obtained through authorized channels.
-
-### 📁 File Management
-
-```env
-# Download path
+### 📁 Preferences
+```properties
+# Downloads
 DOWNLOADS_PATH=./downloads
-
-# Folder structure template
 FOLDER_TEMPLATE={albumArtist}/{album}
-
-# File name template
 FILE_TEMPLATE={track_number}. {title}
+
+# Metadata
+EMBED_COVER_ART=true
+SAVE_COVER_FILE=true
+COVER_SIZE=max
 ```
 
 ---
 
 ## 🏗️ System Architecture
 
-### High-Level Architecture
-
 ```mermaid
 graph TD
-    User[User] -->|React SPA| Dashboard[Web Dashboard]
-    Dashboard -->|WebSocket| Express[Node.js Backend]
+    User[User] -->|Browser| Dashboard[React Dashboard]
+    Dashboard -->|WebSocket/REST| Server[Node.js Server]
     
-    subgraph Frontend [Client - React/Vite]
-        UI[Components]
-        State[Context API]
-        Socket[Socket Client]
+    subgraph Backend Services
+        Server --> API[Qobuz API Client]
+        Server --> Queue[Queue Manager]
+        Server --> DB[(SQLite Database)]
+        Queue --> Downloader[Download Engine]
+        Downloader --> FS[File System]
     end
-
-    subgraph Backend [Server - Node.js]
-        API[REST API]
-        Queue[Queue Manager]
-        Downloader[Download Engine]
-        DB[(SQLite Database)]
-    end
-    
-    Express --> API
-    API --> Queue
-    Queue --> Downloader
-    Downloader --> DB
-```
-
-### Directory Structure
-
-```
-qbz-downloader/
-├── 📁 client/                  # Frontend (React + Vite)
-│   ├── 📁 src/
-│   │   ├── 📁 components/     # UI Components
-│   │   ├── 📁 contexts/       # Global State
-│   │   └── 📁 utils/          # Frontend Utilities
-│   └── vite.config.ts
-│
-├── 📁 src/                     # Backend (Node.js)
-│   ├── 📁 api/                # Qobuz & Lyrics APIs
-│   ├── 📁 services/           # Core Logic (Download, Queue, DB)
-│   └── index.ts               # Entry Point
-│
-├── 📁 data/                    # Database & History
-├── 📁 downloads/               # Downloaded Files
-└── 📄 docker-compose.yml
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## ⚖️ Legal Disclaimer
 
-### Frontend (New!)
-| Technology | Purpose |
-|------------|---------|
-| **React 18** | UI Library |
-| **Vite** | Next Generation Frontend Tooling |
-| **TypeScript** | Type Safety |
-| **CSS Variables** | Dynamic Theming (Light/Dark) |
+**Educational Use Only**
+This software is provided specifically for educational and personal archival purposes.
 
-### Backend
-| Technology | Purpose |
-|------------|---------|
-| **Node.js** | Runtime Environment |
-| **Express.js** | Web Framework |
-| **Socket.IO** | Real-time Communication |
-| **Better-SQLite3** | High-performance Database |
-
----
-
-## 🤝 Contributing
-
-We strictly welcome contributions!
-
-1. **Fork** the repository
-2. **Clone** your fork
-3. **Create a branch**: `git checkout -b feature/amazing-feature`
-4. **Commit changes**: `git commit -m "feat: add amazing feature"`
-5. **Push** to branch: `git push origin feature/amazing-feature`
-6. **Open a Pull Request**
-
----
-
----
-
-## ⚖️ Legal & Disclaimer
-
-**Disclaimer & Legal**  
-I will not be responsible for how you use **QBZ-Downloader**. This program is provided for educational and personal use only.
-
-**This program DOES NOT include:**
--   **Code to bypass Qobuz's region restrictions.** (Proxy functionality has been removed).
--   **Qobuz app IDs or secrets.** QBZ-Downloader does not publish any of Qobuz's private secrets or app IDs.
-
-**Legality of Data Access:**  
-Scraping public data is not a violation of the Computer Fraud and Abuse Act (USA) according to the Ninth Court of Appeals, case # 17-16783 (see page 29). This application aims to improve the user experience for legitimate Qobuz subscribers.
-
-**Branding:**  
--   QBZ-Downloader uses the Qobuz API, but is not endorsed, certified or otherwise approved in any way by Qobuz.
--   Qobuz brand and name is the registered trademark of its respective owner.
--   QBZ-Downloader has no partnership, sponsorship or endorsement with Qobuz.
-
-**User Agreement:**  
-By using QBZ-Downloader, you agree to the following: [Qobuz API Terms of Use](http://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf)
+1.  **No Bypass**: This tool does not bypass DRM or region restrictions. It interacts with the API using your own valid credentials.
+2.  **Trademarks**: "Qobuz" is a registered trademark of Xandrie SA. This project is not affiliated with Xandrie SA.
+3.  **Responsibility**: Users are solely responsible for their actions and must comply with Qobuz's Terms of Service.
 
 ---
 
 <div align="center">
-  Made with ❤️ by Muhammad Ibnu Fauzi
+  Made with ❤️ by <b>Muhammad Ibnu Fauzi</b>
 </div>
