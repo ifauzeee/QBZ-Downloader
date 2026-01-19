@@ -107,11 +107,23 @@ export function registerRoutes(app: any) {
     });
 
     app.post('/api/queue/add', async (req: Request, res: Response) => {
-        const { type, id, quality, priority } = req.body;
+        let { type, id, quality, priority, url } = req.body;
         logger.debug(`Queue Add Request: ${JSON.stringify(req.body)}`, 'API');
 
+        if (url && (!type || !id)) {
+            try {
+                const matches = url.match(/(album|track|playlist|artist)\/(?:[^/]+\/)?([a-zA-Z0-9]+)(?:\?.*)?$/i);
+                if (matches && matches.length >= 3) {
+                    type = matches[1];
+                    id = matches[2];
+                }
+            } catch (e) {
+                logger.warn(`Failed to parse URL: ${url}`, 'API');
+            }
+        }
+
         if (!type || !id) {
-            res.status(400).json({ error: 'Type and ID are required' });
+            res.status(400).json({ error: 'Type and ID are required or invalid URL provided' });
             return;
         }
 
