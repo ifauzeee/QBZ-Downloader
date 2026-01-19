@@ -4,7 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const DEFAULT_DB_PATH = './data/qbz.db';
 
 export interface DbTrack {
@@ -231,6 +231,7 @@ class DatabaseService {
                 track_id TEXT,
                 title TEXT,
                 artist TEXT,
+                album_artist TEXT,
                 album TEXT,
                 duration INTEGER,
                 quality INTEGER,
@@ -389,10 +390,28 @@ class DatabaseService {
                 }
             }
 
+            if (currentVersion < 8) {
+                try {
+                    const tableInfo = this.db!.prepare(
+                        'PRAGMA table_info(library_files)'
+                    ).all() as { name: string }[];
+                    const hasAlbumArtist = tableInfo.some((col) => col.name === 'album_artist');
+                    if (!hasAlbumArtist) {
+                        this.db!.exec('ALTER TABLE library_files ADD COLUMN album_artist TEXT');
+                        logger.info(
+                            'Migration v8: Added album_artist column to library_files',
+                            'DB'
+                        );
+                    }
+                } catch (error: any) {
+                    logger.warn(`Migration v8 partial: ${error.message}`, 'DB');
+                }
+            }
+
             this.db
                 .prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')
-                .run('db_version', String(DB_VERSION));
-            logger.info(`Database migrated to version ${DB_VERSION}`, 'DB');
+                .run('db_version', String(8));
+            logger.info(`Database migrated to version ${8}`, 'DB');
         }
     }
 
@@ -610,7 +629,18 @@ class DatabaseService {
         const db = this.getDb();
         return db
             .prepare(
-                'SELECT artist as name, COUNT(*) as track_count FROM library_files GROUP BY artist ORDER BY track_count DESC LIMIT ?'
+                `SELECT 
+                    MAX(COALESCE(album_artist, artist)) as name, 
+                    COUNT(*) as track_count,
+                    COUNT(DISTINCT album) as album_count,
+                    SUM(file_size) as total_size,
+                    AVG(quality) as avg_quality,
+                    MIN(scanned_at) as first_download,
+                    MAX(scanned_at) as last_download
+                FROM library_files 
+                GROUP BY COALESCE(album_artist, artist)
+                ORDER BY track_count DESC 
+                LIMIT ?`
             )
             .all(limit);
     }
@@ -625,7 +655,7 @@ class DatabaseService {
                 COUNT(*) as totalTracks,
                 COALESCE(SUM(duration), 0) as totalDuration,
                 COALESCE(SUM(file_size), 0) as totalSize,
-                (SELECT COUNT(DISTINCT artist) FROM library_files) as uniqueArtists,
+                (SELECT COUNT(DISTINCT COALESCE(album_artist, artist)) FROM library_files) as uniqueArtists,
                 (SELECT COUNT(DISTINCT album) FROM library_files) as totalAlbums
             FROM library_files
         `
@@ -646,6 +676,7 @@ class DatabaseService {
         track_id?: string;
         title?: string;
         artist?: string;
+        album_artist?: string;
         album?: string;
         duration?: number;
         quality?: number;
@@ -662,14 +693,15 @@ class DatabaseService {
         db.prepare(
             `
             INSERT OR REPLACE INTO library_files 
-            (file_path, track_id, title, artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint, missing_metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint, missing_metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
             file.file_path,
             file.track_id || null,
             file.title || null,
             file.artist || null,
+            file.album_artist || null,
             file.album || null,
             file.duration || 0,
             file.quality || 0,

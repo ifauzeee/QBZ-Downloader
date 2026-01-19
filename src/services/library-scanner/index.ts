@@ -158,6 +158,7 @@ class LibraryScannerService extends EventEmitter {
                         file_path: fileInfo.filePath,
                         title: fileInfo.title,
                         artist: fileInfo.artist,
+                        album_artist: fileInfo.albumArtist,
                         album: fileInfo.album,
                         duration: fileInfo.duration,
                         quality: fileInfo.quality,
@@ -337,33 +338,48 @@ class LibraryScannerService extends EventEmitter {
                     continue;
                 }
 
-                const searchResult = await this.api.search(searchQuery, 'tracks', 5);
+                const searchResult = await this.api.search(searchQuery, 'tracks', 10);
                 if (!searchResult.success || !searchResult.data?.tracks?.items?.length) {
                     processed++;
                     continue;
                 }
 
-                const track = this.findBestMatch(
+                const matches = this.findAllMatches(
                     file.title || '',
                     file.artist || '',
                     searchResult.data.tracks.items
                 );
-                if (!track) {
+
+                if (matches.length === 0) {
                     processed++;
                     continue;
                 }
 
-                const availableQuality = await this.getHighestAvailableQuality(track.id);
+                let maxQualityFound = 0;
+                let bestTrackId = null;
 
-                if (availableQuality && availableQuality > file.quality) {
+                for (const track of matches.slice(0, 5)) {
+                    const quality = await this.getHighestAvailableQuality(track.id);
+                    if (quality !== null && quality > maxQualityFound) {
+                        maxQualityFound = quality;
+                        bestTrackId = track.id;
+                        if (maxQualityFound >= 27) break;
+                    }
+                }
+
+                if (bestTrackId && maxQualityFound > file.quality) {
                     db.prepare(
                         'UPDATE library_files SET track_id = ?, available_quality = ?, needs_upgrade = 1 WHERE file_path = ?'
-                    ).run(String(track.id), availableQuality, file.file_path);
+                    ).run(String(bestTrackId), maxQualityFound, file.file_path);
                     upgradeCount++;
                     logger.debug(
-                        `Upgrade available: ${file.artist} - ${file.title} (${this.getQualityLabel(file.quality)} → ${this.getQualityLabel(availableQuality)})`,
+                        `Upgrade available: ${file.artist} - ${file.title} (${this.getQualityLabel(file.quality)} → ${this.getQualityLabel(maxQualityFound)})`,
                         'SCANNER'
                     );
+                } else if (bestTrackId) {
+                    db.prepare(
+                        'UPDATE library_files SET track_id = ?, available_quality = ?, needs_upgrade = 0 WHERE file_path = ?'
+                    ).run(String(bestTrackId), maxQualityFound || file.quality, file.file_path);
                 } else {
                     db.prepare(
                         'UPDATE library_files SET needs_upgrade = 0 WHERE file_path = ?'
@@ -392,22 +408,25 @@ class LibraryScannerService extends EventEmitter {
         return upgradeCount;
     }
 
-    private findBestMatch(title: string, artist: string, tracks: any[]): any | null {
+    private findAllMatches(title: string, artist: string, tracks: any[]): any[] {
         const normalizedTitle = this.normalizeString(title);
         const normalizedArtist = this.normalizeString(artist);
+        const matches: any[] = [];
+
         for (const track of tracks) {
             const trackTitle = this.normalizeString(track.title || '');
             const trackArtist = this.normalizeString(
                 track.performer?.name || track.album?.artist?.name || ''
             );
-            if (
-                this.similarity(normalizedTitle, trackTitle) > 0.8 &&
-                this.similarity(normalizedArtist, trackArtist) > 0.7
-            ) {
-                return track;
+
+            const titleScore = this.similarity(normalizedTitle, trackTitle);
+            const artistScore = this.similarity(normalizedArtist, trackArtist);
+
+            if (titleScore > 0.8 && artistScore > 0.6) {
+                matches.push(track);
             }
         }
-        return null;
+        return matches;
     }
 
     private async getHighestAvailableQuality(trackId: number): Promise<number | null> {
@@ -418,7 +437,7 @@ class LibraryScannerService extends EventEmitter {
                 if (result.success && result.data) {
                     return (result.data as any).format_id || quality;
                 }
-            } catch {}
+            } catch { }
         }
         return null;
     }
@@ -470,35 +489,108 @@ class LibraryScannerService extends EventEmitter {
 
     private async detectDuplicates(): Promise<number> {
         const files = databaseService.getLibraryFiles(100000, 0);
-        const duplicateGroups: Map<string, string[]> = new Map();
-        let duplicateCount = 0;
+        logger.debug(
+            `[DUPLICATE_CHECK] Analyzing ${files.length} items for duplicates...`,
+            'SCANNER'
+        );
+
+        const fingerprintGroups = new Map<string, string[]>();
+        const titleGroups = new Map<string, { filePath: string; artist: string }[]>();
 
         for (const file of files) {
-            let key = '';
-
             if (file.audio_fingerprint) {
-                key = `fp:${file.audio_fingerprint}`;
-            } else if (file.title && file.artist) {
-                key = `meta:${this.normalizeString(file.artist)}|${this.normalizeString(file.title)}`;
-            } else {
-                continue;
+                const key = file.audio_fingerprint;
+                if (!fingerprintGroups.has(key)) fingerprintGroups.set(key, []);
+                fingerprintGroups.get(key)!.push(file.file_path);
             }
 
-            if (!duplicateGroups.has(key)) duplicateGroups.set(key, []);
-            duplicateGroups.get(key)!.push(file.file_path);
-        }
+            if (file.title) {
+                const normTitle = this.normalizeString(file.title);
+                if (!normTitle || normTitle.length < 2) continue;
 
-        for (const [key, paths] of duplicateGroups) {
-            if (paths.length > 1) {
-                duplicateCount += paths.length - 1;
-                const isFingerprintMatch = key.startsWith('fp:');
-                const confidence = isFingerprintMatch ? 1.0 : 0.95;
+                if (!titleGroups.has(normTitle)) titleGroups.set(normTitle, []);
 
-                for (let i = 1; i < paths.length; i++) {
-                    databaseService.addDuplicate(paths[0], paths[i], 'exact', confidence);
+                titleGroups.get(normTitle)!.push({
+                    filePath: file.file_path,
+                    artist: file.artist || ''
+                });
+
+                if (normTitle.includes('stereo love')) {
+                    logger.debug(
+                        `[DUPLICATE_CHECK] Added to title group '${normTitle}': ${path.basename(file.file_path)} (Artist: ${file.artist})`,
+                        'SCANNER'
+                    );
                 }
             }
         }
+
+        let duplicateCount = 0;
+        const processedPairs = new Set<string>();
+
+        const registerDuplicate = (
+            path1: string,
+            path2: string,
+            type: 'exact' | 'similar',
+            confidence: number
+        ) => {
+            const paths = [path1, path2].sort();
+            const pairKey = paths.join('|');
+
+            if (!processedPairs.has(pairKey)) {
+                processedPairs.add(pairKey);
+                databaseService.addDuplicate(path1, path2, type, confidence);
+                duplicateCount++;
+                logger.debug(
+                    `[DUPLICATE_CHECK] Found duplicate (${type}): ${path.basename(path1)} = ${path.basename(path2)}`,
+                    'SCANNER'
+                );
+            }
+        };
+
+        for (const paths of fingerprintGroups.values()) {
+            if (paths.length > 1) {
+                for (let i = 0; i < paths.length; i++) {
+                    for (let j = i + 1; j < paths.length; j++) {
+                        registerDuplicate(paths[i], paths[j], 'exact', 1.0);
+                    }
+                }
+            }
+        }
+
+        for (const [_, items] of titleGroups) {
+            if (items.length < 2) continue;
+
+            for (let i = 0; i < items.length; i++) {
+                for (let j = i + 1; j < items.length; j++) {
+                    const item1 = items[i];
+                    const item2 = items[j];
+
+                    if (item1.filePath === item2.filePath) continue;
+
+                    const paths = [item1.filePath, item2.filePath].sort();
+                    if (processedPairs.has(paths.join('|'))) continue;
+
+                    const artist1 = this.normalizeString(item1.artist);
+                    const artist2 = this.normalizeString(item2.artist);
+
+                    if (artist1 === artist2) {
+                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.95);
+                        continue;
+                    }
+
+                    if (artist1.includes(artist2) || artist2.includes(artist1)) {
+                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.9);
+                        continue;
+                    }
+
+                    const score = this.similarity(artist1, artist2);
+                    if (score > 0.8) {
+                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.85);
+                    }
+                }
+            }
+        }
+
         return duplicateCount;
     }
 
@@ -515,6 +607,7 @@ class LibraryScannerService extends EventEmitter {
         const groups: Map<string, DuplicateGroup> = new Map();
         for (const dup of rawDuplicates) {
             const key = dup.file_path_1;
+
             if (!groups.has(key)) {
                 groups.set(key, {
                     id: dup.id,
@@ -526,7 +619,10 @@ class LibraryScannerService extends EventEmitter {
                     recommendation: 'Keep the higher quality version'
                 });
             } else {
-                groups.get(key)!.files.push({ path: dup.file_path_2, size: 0, quality: 0 });
+                const existing = groups.get(key)!.files.find((f) => f.path === dup.file_path_2);
+                if (!existing) {
+                    groups.get(key)!.files.push({ path: dup.file_path_2, size: 0, quality: 0 });
+                }
             }
         }
         return Array.from(groups.values());

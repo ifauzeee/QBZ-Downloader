@@ -88,7 +88,6 @@ class QobuzAPI {
                         if (newToken) {
                             this.token = newToken;
 
-
                             if (originalRequest.params) {
                                 originalRequest.params.user_auth_token = newToken;
                             }

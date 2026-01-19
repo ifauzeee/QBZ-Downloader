@@ -41,6 +41,7 @@ export const SearchView: React.FC = () => {
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [suggestions, setSuggestions] = useState<{ artists: any[], albums: any[], tracks: any[] } | null>(null);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [hiResOnly, setHiResOnly] = useState(false);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -89,7 +90,15 @@ export const SearchView: React.FC = () => {
         return () => clearTimeout(timer);
     }, [query]);
 
+
+
     const safeResults = results || [];
+
+    const filteredResults = safeResults.filter(item => {
+        if (!hiResOnly) return true;
+        if (searchType === 'artists') return true;
+        return item.hires === true;
+    });
 
     const limit = 20;
 
@@ -319,6 +328,21 @@ export const SearchView: React.FC = () => {
                                 {typeOption.charAt(0).toUpperCase() + typeOption.slice(1)}
                             </button>
                         ))}
+                        {searchType !== 'artists' && (
+                            <button
+                                className={`type-btn ${hiResOnly ? 'active' : ''}`}
+                                onClick={() => setHiResOnly(!hiResOnly)}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    ...(hiResOnly ? { background: 'var(--hires)', borderColor: 'transparent' } : {})
+                                }}
+                            >
+                                <Icons.Settings width={14} height={14} />
+                                <span>Hi-Res Only</span>
+                            </button>
+                        )}
                     </div>
                     <div className="view-mode-toggle" style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '8px', padding: '4px' }}>
                         <button
@@ -382,7 +406,7 @@ export const SearchView: React.FC = () => {
                     </div>
                 )}
 
-                {!loading && safeResults.length === 0 && (
+                {!loading && filteredResults.length === 0 && (
                     <div className="empty-state" style={{ padding: '60px' }}>
                         <div className="empty-icon"><Icons.Search width={48} height={48} /></div>
                         <h3>{hasSearched ? t('msg_no_results') : t('msg_start_searching')}</h3>
@@ -390,9 +414,9 @@ export const SearchView: React.FC = () => {
                     </div>
                 )}
 
-                {!loading && safeResults.length > 0 && (
+                {!loading && filteredResults.length > 0 && (
                     <div className={viewMode === 'list' ? 'track-list' : 'results-grid'} style={viewMode === 'list' ? { display: 'flex', flexDirection: 'column', gap: '4px' } : undefined}>
-                        {safeResults.map(item => {
+                        {filteredResults.map(item => {
                             const itemType = getItemType();
                             const title = item.title || item.name || 'Unknown';
                             const artistName = item.artist?.name || item.performer?.name || '';

@@ -62,7 +62,13 @@ export class DashboardService {
 
             const isProtected = req.path.startsWith('/api') || req.path.startsWith('/downloads');
 
-            if (req.path.startsWith('/api/themes') || req.path.startsWith('/api/status') || req.path.startsWith('/api/onboarding') || req.path.startsWith('/api/stream/') || req.path.startsWith('/api/preview/')) {
+            if (
+                req.path.startsWith('/api/themes') ||
+                req.path.startsWith('/api/status') ||
+                req.path.startsWith('/api/onboarding') ||
+                req.path.startsWith('/api/stream/') ||
+                req.path.startsWith('/api/preview/')
+            ) {
                 return next();
             }
 

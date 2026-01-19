@@ -640,8 +640,8 @@ export function registerRoutes(app: any) {
 
             const ext = path.extname(filePath).toLowerCase();
             const filename = path.basename(filePath, ext);
-            const parentDir = path.basename(path.dirname(filePath));
             const artistDir = path.basename(path.dirname(path.dirname(filePath)));
+
 
             let title = filename;
             let artist = 'Unknown';

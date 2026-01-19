@@ -28,12 +28,12 @@ parentPort?.on('message', async (filePath: string) => {
 
         let title = filename;
         let artist = artistDir || 'Unknown';
+        let albumArtist = artistDir || 'Unknown';
         let album = parentDir || 'Unknown';
         let quality = 6;
         let bitDepth = 16;
         let sampleRate = 44100;
         let duration = 0;
-        let trackNo = 0;
         let missingInternalTags = true;
 
         const patterns = [/^(.+?)\s*-\s*(.+)$/, /^\d+\.\s*(.+)$/, /^\d+\s*-\s*(.+)$/];
@@ -86,11 +86,10 @@ parentPort?.on('message', async (filePath: string) => {
                     missingInternalTags = false;
                 }
                 if (metadata.common.artist) artist = metadata.common.artist;
+                if (metadata.common.albumartist) albumArtist = metadata.common.albumartist;
                 if (metadata.common.album) album = metadata.common.album;
-                if (metadata.common.track && metadata.common.track.no)
-                    trackNo = metadata.common.track.no;
             }
-        } catch (err) {
+        } catch {
             if (ext === '.flac') {
                 const mbPerMinute = stats.size / (1024 * 1024) / (duration / 60 || 4);
                 if (mbPerMinute > 20) {
@@ -111,6 +110,7 @@ parentPort?.on('message', async (filePath: string) => {
             filePath,
             title,
             artist,
+            albumArtist: albumArtist || artistDir,
             album,
             duration: duration || 0,
             quality,
