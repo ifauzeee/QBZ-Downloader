@@ -33,7 +33,8 @@ export class InputValidator {
     private readonly URL_PATTERNS = {
         album: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?album\/|\/album\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
         track: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?track\/|\/track\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
-        playlist: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?playlist\/|\/playlist\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
+        playlist:
+            /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?playlist\/|\/playlist\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
         artist: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?(?:interpreter|artist)\/|\/(?:interpreter|artist)\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i
     };
 
@@ -88,7 +89,7 @@ export class InputValidator {
             if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
                 return { valid: false, error: 'Invalid protocol' };
             }
-        } catch { }
+        } catch {}
 
         for (const [type, pattern] of Object.entries(this.URL_PATTERNS)) {
             const match = url.match(pattern);

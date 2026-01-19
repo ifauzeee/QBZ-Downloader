@@ -157,6 +157,16 @@ export const Icons = {
             <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.2" />
         </svg>
     ),
+    FlagIN: (props: IconProps) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" {...props}>
+            <rect x="2" y="4" width="20" height="16" rx="2" fill="#FFFFFF" />
+            <path d="M2 4h20v5.33H2z" fill="#FF9933" />
+            <path d="M2 14.66h20v5.33H2z" fill="#138808" />
+            <circle cx="12" cy="12" r="2.5" stroke="#000080" strokeWidth="0.5" fill="none" />
+            <circle cx="12" cy="12" r="0.5" fill="#000080" />
+            <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.2" />
+        </svg>
+    ),
     ArrowLeft: (props: IconProps) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
             <line x1="19" y1="12" x2="5" y2="12" />

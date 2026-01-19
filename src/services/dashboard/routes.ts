@@ -114,7 +114,7 @@ export function registerRoutes(app: any) {
         if (url && (!type || !id)) {
             try {
                 const matches = url.match(
-                    /(album|track|playlist|artist)\/(?:[^/]+\/)?([a-zA-Z0-9]+)(?:[\?#].*)?$/i
+                    /(album|track|playlist|artist)\/(?:[^/]+\/)?([a-zA-Z0-9]+)(?:[?#].*)?$/i
                 );
                 if (matches && matches.length >= 3) {
                     type = matches[1];
@@ -303,7 +303,7 @@ export function registerRoutes(app: any) {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch { }
+                        } catch {}
                     }
                     return item;
                 });

@@ -1,4 +1,4 @@
-export type Locale = 'en' | 'id' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
+export type Locale = 'en' | 'id' | 'es' | 'fr' | 'de' | 'ja' | 'zh' | 'hi';
 
 interface TranslationSet {
     appName: string;
@@ -423,6 +423,59 @@ const translations: Record<Locale, TranslationSet> = {
         notificationTitle: '通知',
         markAllRead: '全部标记已读',
         noNotifications: '暂无通知'
+    },
+
+    hi: {
+        appName: 'QBZ Downloader',
+        loading: 'लोड हो रहा है...',
+        save: 'सहेजें',
+        cancel: 'रद्द करें',
+        delete: 'हटाएं',
+        confirm: 'पुष्टि करें',
+        close: 'बंद करें',
+        search: 'खोजें',
+        download: 'डाउनलोड',
+        settings: 'सेटिंग्स',
+        history: 'इतिहास',
+        queue: 'कतार',
+        statistics: 'आंकड़े',
+
+        queueEmpty: 'कतार खाली है',
+        queuePause: 'कतार रोकें',
+        queueResume: 'कतार फिर से शुरू करें',
+        queueClear: 'कतार साफ करें',
+        addToQueue: 'कतार में जोड़ें',
+        pasteUrl: 'यहाँ Qobuz URL पेस्ट करें...',
+        downloading: 'डाउनलोड हो रहा है',
+        pending: 'लंबित',
+        completed: 'पूरा हुआ',
+        failed: 'विफल',
+
+        downloadComplete: 'डाउनलोड पूरा हुआ',
+        downloadFailed: 'डाउनलोड विफल',
+        downloadStarting: 'डाउनलोड शुरू हो रहा है...',
+        skipExisting: 'मौजूदा फ़ाइलों को छोड़ें',
+
+        credentials: 'क्रेडेंशियल्स',
+        downloadPath: 'डाउनलोड पथ',
+        quality: 'गुणवत्ता',
+        theme: 'थीम',
+        language: 'भाषा',
+        darkMode: 'डार्क मोड',
+        lightMode: 'लाइट मोड',
+
+        invalidUrl: 'अमान्य Qobuz URL',
+        tokenExpired: 'टोकन समाप्त हो गया, कृपया सेटिंग्स में अपडेट करें',
+        networkError: 'नेटवर्क त्रुटि, कृपया पुनः प्रयास करें',
+
+        totalDownloads: 'कुल डाउनलोड',
+        todayDownloads: 'आज',
+        totalSize: 'कुल आकार',
+        averagePerDay: 'औसत/दिन',
+
+        notificationTitle: 'सूचनाएं',
+        markAllRead: 'सभी को पढ़ा हुआ चिह्नित करें',
+        noNotifications: 'कोई सूचना नहीं'
     }
 };
 
@@ -447,7 +500,8 @@ class I18nService {
             { code: 'fr', name: 'Français' },
             { code: 'de', name: 'Deutsch' },
             { code: 'ja', name: '日本語' },
-            { code: 'zh', name: '中文' }
+            { code: 'zh', name: '中文' },
+            { code: 'hi', name: 'हिन्दी' }
         ];
     }
 

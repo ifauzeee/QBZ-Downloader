@@ -102,7 +102,7 @@ export const LogView: React.FC = () => {
                             style={{ width: '100%', padding: '10px 10px 10px 40px', background: 'var(--bg-dark)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', transition: 'border-color 0.2s' }}
                         />
                     </div>
-                    <div 
+                    <div
                         onClick={() => setAutoScroll(!autoScroll)}
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: autoScroll ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: 500, userSelect: 'none' }}
                     >

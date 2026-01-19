@@ -84,7 +84,8 @@ function AppContent() {
     fr: { icon: Icons.FlagFR, label: 'FR', name: 'Français' },
     de: { icon: Icons.FlagDE, label: 'DE', name: 'Deutsch' },
     ja: { icon: Icons.FlagJA, label: 'JA', name: '日本語' },
-    zh: { icon: Icons.FlagZH, label: 'ZH', name: '中文' }
+    zh: { icon: Icons.FlagZH, label: 'ZH', name: '中文' },
+    hi: { icon: Icons.FlagIN, label: 'HI', name: 'हिन्दी' }
   };
 
   const navItems: { id: Tab; icon: React.ReactNode; label: string }[] = [

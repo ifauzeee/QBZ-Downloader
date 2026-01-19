@@ -414,8 +414,6 @@ class MetadataService {
                         }
                     }
 
-
-
                     if (
                         roleLower.includes('main artist') ||
                         roleLower.includes('mainartist') ||
@@ -735,7 +733,7 @@ class MetadataService {
                                 coverBuffer
                             );
                             processor.push(mdbPicture.publish());
-                        } catch { }
+                        } catch {}
                     }
                 }
             });
