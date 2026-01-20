@@ -40,7 +40,7 @@ interface AnalyticsData {
     insights: string[];
     qualityDistribution: { label: string; quality: number; percentage: number }[];
     genreBreakdown: { genre: string; count: number; percentage: number }[];
-    topArtists: { name: string; trackCount: number }[];
+    topArtists: { name: string; trackCount: number; imageUrl?: string }[];
     trends: { daily: { period: string; downloads: number }[] };
 }
 
@@ -187,7 +187,22 @@ export const AnalyticsView: React.FC = () => {
                     {data.topArtists?.slice(0, 5).map((a, i) => (
                         <div key={i} className="artist-list-row" style={{ padding: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9em' }}>#{i + 1}</span>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9em', width: '20px' }}>#{i + 1}</span>
+                                {a.imageUrl ? (
+                                    <img
+                                        src={a.imageUrl}
+                                        alt={a.name}
+                                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = 'none';
+                                            ((e.target as HTMLImageElement).nextSibling as HTMLElement).style.display = 'flex';
+                                        }}
+                                    />
+                                ) : (
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>
+                                        {a.name.charAt(0)}
+                                    </div>
+                                )}
                                 <span style={{ fontWeight: 500 }}>{a.name}</span>
                             </div>
                             <div className="artist-count-badge" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8em' }}>{a.trackCount} tracks</div>

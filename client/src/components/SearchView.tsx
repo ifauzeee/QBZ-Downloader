@@ -43,6 +43,8 @@ export const SearchView: React.FC = () => {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [hiResOnly, setHiResOnly] = useState(false);
 
+    const isMount = useRef(true);
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (searchBoxRef.current && !searchBoxRef.current.contains(event.target as Node)) {
@@ -58,6 +60,11 @@ export const SearchView: React.FC = () => {
 
     useEffect(() => {
         suppressSuggestions.current = false;
+
+        if (isMount.current) {
+            isMount.current = false;
+            if (results.length > 0) return;
+        }
 
         if (query.trim().length === 0) {
             setSuggestions(null);

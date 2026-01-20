@@ -144,35 +144,90 @@ export default class DownloadService {
         return filename.endsWith('.flac') ? filename : filename + '.flac';
     }
 
+    private async sleep(ms: number) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    private async retryOperation<T>(
+        operation: () => Promise<T>,
+        retries = 3,
+        delay = 1000,
+        context = 'API'
+    ): Promise<T> {
+        let lastError: any;
+        for (let i = 0; i < retries; i++) {
+            try {
+                return await operation();
+            } catch (e: any) {
+                lastError = e;
+                const isAuthError = e.message?.includes('401') || e.message?.includes('403');
+                const isNotFoundError =
+                    e.message?.includes('404') || e.message?.includes('not found');
+
+                if (isAuthError || isNotFoundError) throw e;
+
+                const waitTime = delay * Math.pow(2, i);
+                logger.debug(
+                    `[${context}] Retry ${i + 1}/${retries} after ${waitTime}ms. Error: ${e.message}`,
+                    'RETRY'
+                );
+                await this.sleep(waitTime);
+            }
+        }
+        throw lastError;
+    }
+
     async downloadTrack(
         trackId: string | number,
         quality = 27,
         options: DownloadOptions = {}
     ): Promise<DownloadResult> {
-        const trackInfo = await this.api.getTrack(trackId);
-        if (!trackInfo.success) return { success: false, error: trackInfo.error };
+        let trackInfo;
+        try {
+            trackInfo = await this.retryOperation(
+                async () => {
+                    const res = await this.api.getTrack(trackId);
+                    if (!res.success) throw new Error(res.error || 'Failed to fetch track info');
+                    return res;
+                },
+                3,
+                1000,
+                'TRACK_INFO'
+            );
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
 
         const track = trackInfo.data!;
         let album = options.album || track.album;
 
         if (!options.album && album && album.id) {
             try {
-                logger.debug(
-                    `Fetching full album info for ${album.title} to ensure high-quality metadata...`,
-                    'DOWNLOAD'
+                const fullAlbumInfo = await this.retryOperation(
+                    async () => {
+                        logger.debug(
+                            `Fetching full album info for ${album.title} to ensure high-quality metadata...`,
+                            'DOWNLOAD'
+                        );
+                        const res = await this.api.getAlbum(album.id);
+                        if (!res.success)
+                            throw new Error(res.error || 'Failed to fetch album info');
+                        return res;
+                    },
+                    3,
+                    1000,
+                    'ALBUM_INFO'
                 );
-                const fullAlbumInfo = await this.api.getAlbum(album.id);
+
                 if (fullAlbumInfo.success && fullAlbumInfo.data) {
                     album = fullAlbumInfo.data;
                     logger.debug('Updated album metadata from full response', 'DOWNLOAD');
-                } else {
-                    logger.warn(
-                        'Could not fetch full album info, using track album info',
-                        'DOWNLOAD'
-                    );
                 }
             } catch (e: any) {
-                logger.warn(`Failed to fetch full album info: ${e.message}`, 'DOWNLOAD');
+                logger.warn(
+                    `Failed to fetch full album info after retries: ${e.message}. Metadata might be incomplete.`,
+                    'DOWNLOAD'
+                );
             }
         }
 
@@ -185,10 +240,20 @@ export default class DownloadService {
             }
         }
 
-        const fileUrl = await this.api.getFileUrl(trackId, quality);
-
-        if (!fileUrl.success) {
-            return { success: false, error: fileUrl.error };
+        let fileUrl;
+        try {
+            fileUrl = await this.retryOperation(
+                async () => {
+                    const res = await this.api.getFileUrl(trackId, quality);
+                    if (!res.success) throw new Error(res.error || 'Failed to get file URL');
+                    return res;
+                },
+                3,
+                1000,
+                'FILE_URL'
+            );
+        } catch (e: any) {
+            return { success: false, error: e.message };
         }
 
         const fileUrlData = fileUrl.data as FileUrlData;
@@ -197,6 +262,24 @@ export default class DownloadService {
         if (options.onQuality) options.onQuality(actualQuality);
 
         const metadata = await this.metadataService.extractMetadata(track, album!, {});
+
+        if (
+            !metadata.title ||
+            !metadata.artist ||
+            metadata.artist === 'Unknown' ||
+            !metadata.album
+        ) {
+            const missingFields = [];
+            if (!metadata.title) missingFields.push('title');
+            if (!metadata.artist || metadata.artist === 'Unknown') missingFields.push('artist');
+            if (!metadata.album) missingFields.push('album');
+
+            logger.warn(
+                `Metadata incomplete for track ${trackId}: ${missingFields.join(', ')}. Retrying might allow better data to load.`,
+                'METADATA'
+            );
+        }
+
         if (options.onMetadata) options.onMetadata(metadata);
 
         const folderPath = path.join(this.outputDir, this.buildFolderPath(metadata, actualQuality));
@@ -404,26 +487,29 @@ export default class DownloadService {
                 const { databaseService } = await import('./database/index.js');
                 const trackAny = track as any;
 
-                databaseService.addTrack({
-                    id: trackId.toString(),
-                    title: metadata.title,
-                    artist: metadata.artist,
-                    album_artist: metadata.albumArtist,
-                    album: metadata.album,
-                    album_id: track.album?.id?.toString(),
-                    duration: metadata.duration,
-                    quality: actualQuality,
-                    file_path: filePath,
-                    file_size: totalLength,
-                    cover_url: track.album?.image?.large || track.album?.image?.medium,
-                    genre: metadata.genre,
-                    year: metadata.year ? parseInt(metadata.year.toString()) : undefined,
-                    downloaded_at: new Date().toISOString(),
-                    label: trackAny.album?.label?.name,
-                    isrc: trackAny.isrc,
-                    checksum: finalMD5,
-                    verification_status: verificationStatus
-                } as any);
+                databaseService.addTrack(
+                    {
+                        id: trackId.toString(),
+                        title: metadata.title,
+                        artist: metadata.artist,
+                        album_artist: metadata.albumArtist,
+                        album: metadata.album,
+                        album_id: track.album?.id?.toString(),
+                        duration: metadata.duration,
+                        quality: actualQuality,
+                        file_path: filePath,
+                        file_size: totalLength,
+                        cover_url: track.album?.image?.large || track.album?.image?.medium,
+                        genre: metadata.genre,
+                        year: metadata.year ? parseInt(metadata.year.toString()) : undefined,
+                        downloaded_at: new Date().toISOString(),
+                        label: trackAny.album?.label?.name,
+                        isrc: trackAny.isrc,
+                        checksum: finalMD5,
+                        verification_status: verificationStatus
+                    } as any,
+                    artistImageUrl
+                );
 
                 databaseService.addLibraryFile({
                     file_path: filePath,

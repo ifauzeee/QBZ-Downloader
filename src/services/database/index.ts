@@ -450,7 +450,7 @@ class DatabaseService {
         }
     }
 
-    addTrack(track: Partial<DbTrack>): void {
+    addTrack(track: Partial<DbTrack>, artistImageUrl?: string): void {
         const db = this.getDb();
         const stmt = db.prepare(`
             INSERT OR REPLACE INTO tracks 
@@ -480,7 +480,7 @@ class DatabaseService {
         if (track.genre) this.updateGenreStats(track.genre, track.file_size || 0);
         if (track.quality) this.updateQualityStats(track.quality, track.file_size || 0);
         const artistForStats = track.album_artist || track.artist;
-        if (artistForStats) this.updateArtistStats(artistForStats);
+        if (artistForStats) this.updateArtistStats(artistForStats, artistImageUrl);
     }
 
     getTrack(id: string): DbTrack | undefined {
@@ -607,7 +607,8 @@ class DatabaseService {
             VALUES (?, ?, ?, 1, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 track_count = track_count + 1,
-                last_download = ?
+                last_download = ?,
+                image_url = COALESCE(excluded.image_url, artists.image_url)
         `
         ).run(
             artistName.toLowerCase().replace(/\s+/g, '-'),
@@ -649,15 +650,17 @@ class DatabaseService {
         return db
             .prepare(
                 `SELECT 
-                    MAX(COALESCE(album_artist, artist)) as name, 
+                    MAX(COALESCE(lf.album_artist, lf.artist)) as name, 
                     COUNT(*) as track_count,
-                    COUNT(DISTINCT album) as album_count,
-                    SUM(file_size) as total_size,
-                    AVG(quality) as avg_quality,
-                    MIN(scanned_at) as first_download,
-                    MAX(scanned_at) as last_download
-                FROM library_files 
-                GROUP BY COALESCE(album_artist, artist)
+                    COUNT(DISTINCT lf.album) as album_count,
+                    SUM(lf.file_size) as total_size,
+                    AVG(lf.quality) as avg_quality,
+                    MIN(lf.scanned_at) as first_download,
+                    MAX(lf.scanned_at) as last_download,
+                    MAX(a.image_url) as image_url
+                FROM library_files lf
+                LEFT JOIN artists a ON a.name = COALESCE(lf.album_artist, lf.artist)
+                GROUP BY COALESCE(lf.album_artist, lf.artist)
                 ORDER BY track_count DESC 
                 LIMIT ?`
             )

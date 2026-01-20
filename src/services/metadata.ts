@@ -772,6 +772,8 @@ class MetadataService {
         });
     }
 
+    private static taggingLock: Promise<void> = Promise.resolve();
+
     async writeMetadata(
         filePath: string,
         metadata: Metadata,
@@ -779,13 +781,26 @@ class MetadataService {
         lyrics: any = null,
         coverBuffer: Buffer | null = null
     ) {
-        if (filePath.endsWith('.flac')) {
-            const tags = this.buildFlacTags(metadata, lyrics);
-            return this.writeFlacTags(filePath, tags, coverBuffer);
-        } else if (filePath.endsWith('.mp3')) {
-            const tags = this.buildId3Tags(metadata, coverBuffer, lyrics);
-            return this.writeId3Tags(filePath, tags);
-        }
+        const operation = async () => {
+            try {
+                if (filePath.endsWith('.flac')) {
+                    const tags = this.buildFlacTags(metadata, lyrics);
+                    await this.writeFlacTags(filePath, tags, coverBuffer);
+                } else if (filePath.endsWith('.mp3')) {
+                    const tags = this.buildId3Tags(metadata, coverBuffer, lyrics);
+                    await this.writeId3Tags(filePath, tags);
+                }
+            } catch (error: any) {
+                console.error(`[TAG] Failed to tag ${filePath}: ${error.message}`);
+                throw error;
+            }
+        };
+
+        MetadataService.taggingLock = MetadataService.taggingLock.then(() =>
+            operation().catch(() => {})
+        );
+
+        return MetadataService.taggingLock;
     }
 }
 
