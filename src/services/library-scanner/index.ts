@@ -349,6 +349,7 @@ class LibraryScannerService extends EventEmitter {
                 const matches = this.findAllMatches(
                     file.title || '',
                     file.artist || '',
+                    file.album || '',
                     searchResult.data.tracks.items
                 );
 
@@ -410,9 +411,10 @@ class LibraryScannerService extends EventEmitter {
         return upgradeCount;
     }
 
-    private findAllMatches(title: string, artist: string, tracks: any[]): any[] {
+    private findAllMatches(title: string, artist: string, album: string, tracks: any[]): any[] {
         const normalizedTitle = this.normalizeString(title);
         const normalizedArtist = this.normalizeString(artist);
+        const normalizedAlbum = this.normalizeString(album);
         const matches: any[] = [];
 
         for (const track of tracks) {
@@ -420,11 +422,16 @@ class LibraryScannerService extends EventEmitter {
             const trackArtist = this.normalizeString(
                 track.performer?.name || track.album?.artist?.name || ''
             );
+            const trackAlbum = this.normalizeString(track.album?.title || '');
 
             const titleScore = this.similarity(normalizedTitle, trackTitle);
             const artistScore = this.similarity(normalizedArtist, trackArtist);
+            const albumScore = this.similarity(normalizedAlbum, trackAlbum);
 
             if (titleScore > 0.8 && artistScore > 0.6) {
+                if (normalizedAlbum && albumScore < 0.5) {
+                    continue;
+                }
                 matches.push(track);
             }
         }
