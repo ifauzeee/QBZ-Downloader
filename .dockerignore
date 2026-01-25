@@ -1,58 +1,42 @@
-# Docker ignore file
-# Exclude files not needed in container
-
-# Dependencies
+# Optimized .dockerignore for QBZ-Downloader
 node_modules
-npm-debug.log*
-
-# Development files
-# src (needed for build)
-# *.ts (needed for build)
-!dist/**/*.js
-# tsconfig.json (needed for build)
-vitest.config.js
-.eslintrc.cjs
-.prettierrc
-
-# Git
+client/node_modules
+dist
+client/dist
 .git
-.gitignore
 .github
-
-# IDE
 .vscode
 .idea
-*.swp
-*.swo
-
-# Test files
-*.test.ts
-*.test.js
-coverage
-.vitest
-
-# Documentation
-docs
-*.md
-!README.md
-
-# Environment (will be mounted)
-.env
-.env.local
-.env.*.local
-
-# Artifacts
-*.log
-*.tmp
-downloads
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-
-# Husky
 .husky
-
-# Cache
-.npm
+.env
+.env.*
+*.log
+coverage
 .cache
+.npm
+downloads
+data
+logs
+README.md
+docs
+vitest.config.ts
+vitest.config.js
+tailwind.config.ts
+tailwind.config.js
+postcss.config.js
+scripts/temp
+docker-compose.yml
+Dockerfile
+.dockerignore
+package-lock.json.bak
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.prettierrc
+.eslintrc.cjs
+eslint.config.js
+tsconfig.node.json
+tsconfig.app.json
+# Don't ignore these if needed for build, but usually we copy selectively
+# src
+# client
