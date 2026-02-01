@@ -186,7 +186,7 @@ export const SearchView: React.FC = () => {
             await smartFetch('/api/queue/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: itemType, id: String(id), quality: 27 })
+                body: JSON.stringify({ type: itemType, id: String(id) })
             });
             showToast(t('msg_added_to_queue'), 'success');
         } catch (e) {

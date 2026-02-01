@@ -11,7 +11,6 @@ import { logger } from '../../utils/logger.js';
 import { downloadQueue } from '../queue/queue.js';
 import { registerRoutes } from './routes.js';
 import { CONFIG } from '../../config.js';
-import { dashboardCleaner } from './cleaner.js';
 import { libraryScannerService } from '../library-scanner/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -187,7 +186,6 @@ export class DashboardService {
     public start(port?: number): void {
         if (port) this.port = port;
         try {
-            dashboardCleaner.start();
             this.httpServer.listen(this.port, async () => {
                 try {
                     const { default: boxen } = await import('boxen');
@@ -227,7 +225,6 @@ Mode:    ${CONFIG.dashboard.password ? chalk.red('Protected') : chalk.yellow('Pu
     }
 
     public stop(): void {
-        dashboardCleaner.stop();
         if (this.checkInterval) {
             clearInterval(this.checkInterval);
             this.checkInterval = null;

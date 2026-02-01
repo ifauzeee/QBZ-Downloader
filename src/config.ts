@@ -74,7 +74,6 @@ export interface Config {
     dashboard: {
         port: number;
         password?: string;
-        autoCleanHours: number;
     };
 }
 
@@ -109,12 +108,12 @@ export const CONFIG: Config = {
         const parsed = parseInt(defaultQualityRaw, 10);
         const defaultQuality =
             defaultQualityRaw === 'ask' ||
-            defaultQualityRaw === 'min' ||
-            defaultQualityRaw === 'max'
+                defaultQualityRaw === 'min' ||
+                defaultQualityRaw === 'max'
                 ? (defaultQualityRaw as 'ask' | 'min' | 'max')
                 : !isNaN(parsed)
-                  ? parsed
-                  : 27;
+                    ? parsed
+                    : 27;
 
         return {
             formats: {
@@ -212,8 +211,7 @@ export const CONFIG: Config = {
     get dashboard() {
         return {
             port: getInt('DASHBOARD_PORT', 3000),
-            password: getStr('DASHBOARD_PASSWORD', ''),
-            autoCleanHours: getInt('DASHBOARD_AUTO_CLEAN_HOURS', 24)
+            password: getStr('DASHBOARD_PASSWORD', '')
         };
     }
 };

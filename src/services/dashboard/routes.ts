@@ -164,7 +164,14 @@ export function registerRoutes(app: any) {
                 }
             }
 
-            const item = downloadQueue.add(type, id, quality || 27, {
+            const qualityToUse =
+                quality !== undefined
+                    ? quality
+                    : typeof CONFIG.quality.default === 'number'
+                        ? CONFIG.quality.default
+                        : 27;
+
+            const item = downloadQueue.add(type, id, qualityToUse, {
                 title,
                 priority,
                 metadata: { artist, album }
@@ -311,7 +318,7 @@ export function registerRoutes(app: any) {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch {}
+                        } catch { }
                     }
                     return item;
                 });

@@ -64,7 +64,7 @@ export const ArtistDetailView: React.FC = () => {
             const res = await smartFetch('/api/queue/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, id: String(id), quality: 27 })
+                body: JSON.stringify({ type, id: String(id) })
             });
             if (res && res.ok) {
                 showToast(t('msg_added_to_queue') || 'Added to queue', 'success');

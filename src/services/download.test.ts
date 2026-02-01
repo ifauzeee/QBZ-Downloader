@@ -136,7 +136,7 @@ describe('DownloadService', () => {
                 year: 2024
             };
 
-            const result = downloadService.buildFilename(metadata as any, 'flac');
+            const result = downloadService.buildFilename(metadata as any, 27);
             expect(result).toContain('01');
             expect(result).toContain('Test Track');
             expect(result).toMatch(/\.flac$/);
@@ -150,7 +150,7 @@ describe('DownloadService', () => {
                 trackNumber: 5
             };
 
-            const result = downloadService.buildFilename(metadata as any, 'flac');
+            const result = downloadService.buildFilename(metadata as any, 27);
             expect(result).toContain('05');
         });
 
@@ -161,18 +161,18 @@ describe('DownloadService', () => {
                 album: 'Album'
             };
 
-            const result = downloadService.buildFilename(metadata as any, 'flac');
+            const result = downloadService.buildFilename(metadata as any, 27);
             expect(result).toContain('01');
         });
 
-        it('should always use flac extension regardless of quality parameter', () => {
+        it('should use correct extension based on quality parameter', () => {
             const metadata = {
                 title: 'Track',
                 trackNumber: 1
             };
 
             const result = downloadService.buildFilename(metadata as any, 5);
-            expect(result).toMatch(/\.flac$/);
+            expect(result).toMatch(/\.mp3$/);
         });
     });
 

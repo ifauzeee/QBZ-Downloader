@@ -334,7 +334,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
             await smartFetch('/api/queue/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'track', id: track.id, quality: 27 })
+                body: JSON.stringify({ type: 'track', id: track.id })
             });
             showToast('Added to queue', 'success');
         } catch (e) {

@@ -78,7 +78,7 @@ export const ArtistListView: React.FC = () => {
             await smartFetch('/api/queue/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, quality: 27 })
+                body: JSON.stringify({ url })
             });
             showToast(t('msg_added_to_queue'), 'success');
         } catch (e) {

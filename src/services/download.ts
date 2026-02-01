@@ -140,8 +140,10 @@ export default class DownloadService {
     }
 
     buildFilename(metadata: Metadata, quality: number) {
+        const format = CONFIG.quality.formats[quality] || CONFIG.quality.formats[27];
+        const ext = format.extension || 'flac';
         const filename = this.applyTemplate(CONFIG.download.fileNaming, metadata, quality);
-        return filename.endsWith('.flac') ? filename : filename + '.flac';
+        return filename.endsWith(`.${ext}`) ? filename : `${filename}.${ext}`;
     }
 
     private async sleep(ms: number) {
@@ -398,7 +400,7 @@ export default class DownloadService {
                         await axios.head(highResUrl, { timeout: 2000 });
                         coverUrl = highResUrl;
                         logger.info('Cover upgraded to max resolution', 'COVER');
-                    } catch {}
+                    } catch { }
                 }
             }
 
@@ -884,7 +886,7 @@ export default class DownloadService {
                                                 return { filename, content };
                                             }
                                         }
-                                    } catch {}
+                                    } catch { }
                                     return null;
                                 })
                             )

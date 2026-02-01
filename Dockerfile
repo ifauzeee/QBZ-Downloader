@@ -1,22 +1,26 @@
+# syntax=docker/dockerfile:1.4
 # --- [ 1. BASE IMAGE ] ---
 FROM node:22-alpine AS base
 WORKDIR /app
-ENV NPM_CONFIG_LOGLEVEL=warn
-ENV NPM_CONFIG_COLOR=false
-ENV NPM_CONFIG_PROGRESS=false
+ENV NPM_CONFIG_LOGLEVEL=warn \
+    NPM_CONFIG_COLOR=false \
+    NPM_CONFIG_PROGRESS=false \
+    NPM_CONFIG_CACHE=/app/.npm-cache
 
 # --- [ 2. PRODUCTION BACKEND DEPS ] ---
 FROM base AS prod-deps
 RUN apk add --no-cache python3 make g++
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --only=production --ignore-scripts && \
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+    --mount=type=cache,target=/app/.npm-cache \
+    npm ci --omit=dev --ignore-scripts && \
     npm rebuild better-sqlite3
 
 # --- [ 3. FRONTEND BUILD ] ---
 FROM base AS client-builder
-COPY client/package.json client/package-lock.json ./client/
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=bind,source=client/package.json,target=client/package.json \
+    --mount=type=bind,source=client/package-lock.json,target=client/package-lock.json \
+    --mount=type=cache,target=/app/.npm-cache \
     cd client && npm ci --prefer-offline --no-audit
 
 COPY client/ ./client/
@@ -24,15 +28,13 @@ RUN cd client && npm run build
 
 # --- [ 4. BACKEND BUILD ] ---
 FROM base AS builder
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+    --mount=type=cache,target=/app/.npm-cache \
     npm ci --prefer-offline --no-audit
 
 COPY --from=client-builder /app/client/dist ./client/dist
-COPY scripts ./scripts
-COPY src ./src
-COPY tsconfig.json ./
-
+COPY . .
 RUN node scripts/sync-ui.js && \
     npm run build
 
@@ -49,16 +51,17 @@ WORKDIR /app
 RUN addgroup -g 1001 -S qbz && \
     adduser -S -u 1001 -G qbz qbz
 
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY package.json ./
+# SUPER TURBO: Menggunakan --link untuk penyalinan instan
+COPY --link --from=prod-deps /app/node_modules ./node_modules
+COPY --link --from=builder /app/dist ./dist
+COPY --link package.json ./
 
 RUN mkdir -p /app/downloads /app/data /app/logs && \
     chown -R qbz:qbz /app
 
-ENV NODE_ENV=production
-ENV DOWNLOADS_PATH=/app/downloads
-ENV DASHBOARD_PORT=3000
+ENV NODE_ENV=production \
+    DOWNLOADS_PATH=/app/downloads \
+    DASHBOARD_PORT=3000
 
 VOLUME ["/app/downloads", "/app/data"]
 EXPOSE 3000

@@ -72,7 +72,7 @@ export const AlbumDetailView: React.FC = () => {
             const res = await smartFetch('/api/queue/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, id, quality: 27 })
+                body: JSON.stringify({ type, id })
             });
             if (res && res.ok) {
                 showToast(t('msg_added_to_queue') || 'Added to queue', 'success');
@@ -109,7 +109,7 @@ export const AlbumDetailView: React.FC = () => {
                     await smartFetch('/api/batch/import/direct', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ urls, quality: 27, createZip: true })
+                        body: JSON.stringify({ urls, createZip: true })
                     });
                     showToast('Album download started (ZIP)', 'success');
                 } catch (e) {

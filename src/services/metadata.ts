@@ -508,7 +508,7 @@ class MetadataService {
             title: metadata.title,
             artist: metadata.artist,
             album: metadata.album,
-            year: metadata.year?.toString(),
+            year: metadata.year?.toString() || '',
             trackNumber: `${metadata.trackNumber}/${metadata.totalTracks}`,
             partOfSet: `${metadata.discNumber}/${metadata.totalDiscs}`,
             genre: metadata.genre,
@@ -527,10 +527,10 @@ class MetadataService {
             },
 
             userDefinedText: [
-                { description: 'BARCODE', value: metadata.upc },
-                { description: 'CATALOGNUMBER', value: metadata.catalogNumber },
-                { description: 'LABEL', value: metadata.label },
-                { description: 'RELEASETYPE', value: metadata.releaseType }
+                { description: 'BARCODE', value: String(metadata.upc || '') },
+                { description: 'CATALOGNUMBER', value: String(metadata.catalogNumber || '') },
+                { description: 'LABEL', value: String(metadata.label || '') },
+                { description: 'RELEASETYPE', value: String(metadata.releaseType || '') }
             ].filter((t) => t.value)
         };
 
@@ -560,11 +560,17 @@ class MetadataService {
                 };
             }
 
-            if (lyrics.syltFormat) {
-                tags.synchronisedLyrics = lyrics.syltFormat.map((l: any) => ({
-                    text: l.text,
-                    timeStamp: l.timeStamp
-                }));
+            if (lyrics.syltFormat && Array.isArray(lyrics.syltFormat)) {
+                tags.synchronisedLyrics = [{
+                    language: 'eng',
+                    timeStampFormat: 2,
+                    contentType: 1,
+                    shortText: 'Lyrics',
+                    synchronisedText: lyrics.syltFormat.map((l: any) => ({
+                        text: l.text,
+                        timeStamp: l.timeStamp
+                    }))
+                }];
             }
         }
 
@@ -733,7 +739,7 @@ class MetadataService {
                                 coverBuffer
                             );
                             processor.push(mdbPicture.publish());
-                        } catch {}
+                        } catch { }
                     }
                 }
             });
@@ -797,7 +803,7 @@ class MetadataService {
         };
 
         MetadataService.taggingLock = MetadataService.taggingLock.then(() =>
-            operation().catch(() => {})
+            operation().catch(() => { })
         );
 
         return MetadataService.taggingLock;
