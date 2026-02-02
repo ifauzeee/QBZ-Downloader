@@ -561,16 +561,18 @@ class MetadataService {
             }
 
             if (lyrics.syltFormat && Array.isArray(lyrics.syltFormat)) {
-                tags.synchronisedLyrics = [{
-                    language: 'eng',
-                    timeStampFormat: 2,
-                    contentType: 1,
-                    shortText: 'Lyrics',
-                    synchronisedText: lyrics.syltFormat.map((l: any) => ({
-                        text: l.text,
-                        timeStamp: l.timeStamp
-                    }))
-                }];
+                tags.synchronisedLyrics = [
+                    {
+                        language: 'eng',
+                        timeStampFormat: 2,
+                        contentType: 1,
+                        shortText: 'Lyrics',
+                        synchronisedText: lyrics.syltFormat.map((l: any) => ({
+                            text: l.text,
+                            timeStamp: l.timeStamp
+                        }))
+                    }
+                ];
             }
         }
 
@@ -739,7 +741,7 @@ class MetadataService {
                                 coverBuffer
                             );
                             processor.push(mdbPicture.publish());
-                        } catch { }
+                        } catch {}
                     }
                 }
             });
@@ -803,7 +805,7 @@ class MetadataService {
         };
 
         MetadataService.taggingLock = MetadataService.taggingLock.then(() =>
-            operation().catch(() => { })
+            operation().catch(() => {})
         );
 
         return MetadataService.taggingLock;

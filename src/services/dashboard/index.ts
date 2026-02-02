@@ -35,7 +35,9 @@ export class DashboardService {
             cors: {
                 origin: '*',
                 methods: ['GET', 'POST']
-            }
+            },
+            transports: ['websocket', 'polling'],
+            allowEIO3: true
         });
 
         this.setupMiddleware();
@@ -59,18 +61,18 @@ export class DashboardService {
             const password = CONFIG.dashboard.password;
             if (!password) return next();
 
+            const excludedRoutes = [
+                '/api/status',
+                '/api/themes',
+                '/api/onboarding',
+                '/api/stream/',
+                '/api/preview/'
+            ];
+
+            const isExcluded = excludedRoutes.some((route) => req.path.startsWith(route));
+            if (isExcluded) return next();
+
             const isProtected = req.path.startsWith('/api') || req.path.startsWith('/downloads');
-
-            if (
-                req.path.startsWith('/api/themes') ||
-                req.path.startsWith('/api/status') ||
-                req.path.startsWith('/api/onboarding') ||
-                req.path.startsWith('/api/stream/') ||
-                req.path.startsWith('/api/preview/')
-            ) {
-                return next();
-            }
-
             if (!isProtected) return next();
 
             const providedPassword = req.headers['x-password'] || req.query.pw;
@@ -81,10 +83,14 @@ export class DashboardService {
                 password &&
                 providedPassword.length === password.length
             ) {
-                const a = Buffer.from(providedPassword);
-                const b = Buffer.from(password);
-                if (crypto.timingSafeEqual(a, b)) {
-                    return next();
+                try {
+                    const a = Buffer.from(providedPassword);
+                    const b = Buffer.from(password);
+                    if (crypto.timingSafeEqual(a, b)) {
+                        return next();
+                    }
+                } catch (err) {
+                    logger.error(`Auth check error: ${err}`, 'AUTH');
                 }
             }
 
@@ -99,7 +105,8 @@ export class DashboardService {
         registerRoutes(this.app);
 
         this.app.get(/.*/, (req: Request, res: Response) => {
-            if (req.path.startsWith('/api') || req.path.startsWith('/downloads')) {
+            const isProtected = req.path.startsWith('/api') || req.path.startsWith('/downloads');
+            if (isProtected) {
                 return res.status(404).json({ error: 'Endpoint not found' });
             }
             res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -119,10 +126,14 @@ export class DashboardService {
                 password &&
                 providedPassword.length === password.length
             ) {
-                const a = Buffer.from(providedPassword);
-                const b = Buffer.from(password);
-                if (crypto.timingSafeEqual(a, b)) {
-                    return next();
+                try {
+                    const a = Buffer.from(providedPassword);
+                    const b = Buffer.from(password);
+                    if (crypto.timingSafeEqual(a, b)) {
+                        return next();
+                    }
+                } catch {
+                    return next(new Error('Internal authentication error'));
                 }
             }
 

@@ -23,6 +23,10 @@ export function registerRoutes(app: any) {
         });
     });
 
+    app.get('/api/auth/verify', (req: Request, res: Response) => {
+        res.json({ success: true, message: 'Authenticated' });
+    });
+
     app.get('/api/credentials/status', (req: Request, res: Response) => {
         const creds = CONFIG.credentials;
         res.json({
@@ -168,8 +172,8 @@ export function registerRoutes(app: any) {
                 quality !== undefined
                     ? quality
                     : typeof CONFIG.quality.default === 'number'
-                        ? CONFIG.quality.default
-                        : 27;
+                      ? CONFIG.quality.default
+                      : 27;
 
             const item = downloadQueue.add(type, id, qualityToUse, {
                 title,
@@ -318,7 +322,7 @@ export function registerRoutes(app: any) {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch { }
+                        } catch {}
                     }
                     return item;
                 });

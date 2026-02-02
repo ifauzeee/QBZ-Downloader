@@ -108,12 +108,12 @@ export const CONFIG: Config = {
         const parsed = parseInt(defaultQualityRaw, 10);
         const defaultQuality =
             defaultQualityRaw === 'ask' ||
-                defaultQualityRaw === 'min' ||
-                defaultQualityRaw === 'max'
+            defaultQualityRaw === 'min' ||
+            defaultQualityRaw === 'max'
                 ? (defaultQualityRaw as 'ask' | 'min' | 'max')
                 : !isNaN(parsed)
-                    ? parsed
-                    : 27;
+                  ? parsed
+                  : 27;
 
         return {
             formats: {

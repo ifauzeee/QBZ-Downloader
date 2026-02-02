@@ -75,6 +75,7 @@ body {
     flex-direction: column;
     padding: 24px 16px;
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -2238,6 +2239,7 @@ body {
     border-radius: 8px;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: white;
     display: flex;
@@ -2258,6 +2260,7 @@ body {
     left: 8px;
     background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     padding: 2px 8px;
     border-radius: 4px;
     font-size: 10px;

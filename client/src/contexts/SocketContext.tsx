@@ -15,20 +15,27 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     useEffect(() => {
         const password = sessionStorage.getItem('dashboard_password') || '';
         const socketInstance = io('/', {
-            auth: { password }
+            auth: { password },
+            transports: ['websocket', 'polling'],
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
         });
 
         socketInstance.on('connect', () => {
             setConnected(true);
-
+            console.log('Socket connected:', socketInstance.id);
         });
 
-        socketInstance.on('disconnect', () => {
+        socketInstance.on('disconnect', (reason) => {
             setConnected(false);
-
+            console.log('Socket disconnected:', reason);
+            if (reason === 'io server disconnect') {
+                socketInstance.connect();
+            }
         });
 
         socketInstance.on('connect_error', (err) => {
+            console.error('Socket connection error:', err.message);
             if (err.message === 'Authentication failed') {
                 window.dispatchEvent(new CustomEvent('auth:unauthorized'));
             }

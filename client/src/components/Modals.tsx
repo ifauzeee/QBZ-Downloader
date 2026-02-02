@@ -94,7 +94,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
         setError('');
 
         try {
-            const res = await fetch('/api/status', {
+            const res = await fetch('/api/auth/verify', {
                 headers: { 'x-password': password }
             });
 
@@ -150,7 +150,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                                 onChange={(e) => setPassword(e.target.value)}
                                 className={error ? 'input-error' : ''}
                             />
-                            {error && <span className="error-text">Invallid password</span>}
+                            {error && <span className="error-text">Invalid password</span>}
                         </div>
 
                         <button
