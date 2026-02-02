@@ -220,33 +220,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         }
     }, [track]);
 
-    useEffect(() => {
-        const audio = audioRef.current;
-        if (!audio) return;
 
-        const updateProgress = () => {
-            if (audio.currentTime > 0) {
-                setProgress(audio.currentTime);
-            }
-            if (audio.duration > 0 && audio.duration !== Infinity) {
-                setDuration(audio.duration);
-            }
-        };
-
-        const onEnded = () => {
-            handleNext();
-        };
-
-        audio.addEventListener('timeupdate', updateProgress);
-        audio.addEventListener('ended', onEnded);
-        audio.addEventListener('loadedmetadata', updateProgress);
-
-        return () => {
-            audio.removeEventListener('timeupdate', updateProgress);
-            audio.removeEventListener('ended', onEnded);
-            audio.removeEventListener('loadedmetadata', updateProgress);
-        };
-    }, []);
 
     useEffect(() => {
         if (audioRef.current) {
@@ -502,7 +476,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                         setDuration(e.currentTarget.duration);
                         if (playing) e.currentTarget.play().catch(console.error);
                     }}
-                    onEnded={() => setPlaying(false)}
+                    onEnded={handleNext}
                     onError={(e) => console.error('Audio Error', e)}
                 />
 
