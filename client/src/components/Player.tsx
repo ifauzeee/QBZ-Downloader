@@ -15,6 +15,7 @@ interface TrackInfo {
     albumId?: string;
     trackNumber?: number;
     duration?: number;
+    contextTracks?: any[];
 }
 
 interface PlayerProps {
@@ -232,7 +233,9 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
             }
         };
 
-        const onEnded = () => setPlaying(false);
+        const onEnded = () => {
+            handleNext();
+        };
 
         audio.addEventListener('timeupdate', updateProgress);
         audio.addEventListener('ended', onEnded);
@@ -262,7 +265,47 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     };
 
     const handleNext = async () => {
-        if (!track || !track.albumId) {
+        if (!track) {
+            setPlaying(false);
+            return;
+        }
+
+        if (track.contextTracks && track.contextTracks.length > 0) {
+            const currentIndex = track.contextTracks.findIndex((t: any) => String(t.id) === String(track.id));
+            if (currentIndex !== -1 && currentIndex < track.contextTracks.length - 1) {
+                const nextT = track.contextTracks[currentIndex + 1];
+                const title = nextT.title || nextT.name || "Unknown";
+                const artist = nextT.artist?.name || nextT.performer?.name || track.artist;
+                let nextCover = '';
+                if (nextT.image) {
+                    nextCover = nextT.image.large || nextT.image.medium || nextT.image.small || nextT.image.thumbnail || '';
+                }
+                if (!nextCover && nextT.album?.image) {
+                    nextCover = nextT.album.image.large || nextT.album.image.medium || nextT.album.image.small || '';
+                }
+                if (!nextCover && nextT.picture) {
+                    nextCover = nextT.picture.large || nextT.picture.medium || nextT.picture.small || '';
+                }
+
+                const finalCover = nextCover || track.cover;
+
+                playTrack(
+                    String(nextT.id),
+                    title,
+                    artist,
+                    finalCover,
+                    nextT.albumId || nextT.album?.id || track.albumId,
+                    track.contextTracks
+                );
+                return;
+            } else {
+                setPlaying(false);
+                return;
+            }
+        }
+
+        if (!track.albumId) {
+            setPlaying(false);
             return;
         }
 
@@ -284,11 +327,18 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                             track.cover,
                             track.albumId
                         );
+                    } else {
+                        setPlaying(false);
                     }
+                } else {
+                    setPlaying(false);
                 }
+            } else {
+                setPlaying(false);
             }
         } catch (e) {
             console.error('Failed to skip to next track', e);
+            setPlaying(false);
         }
     };
 
@@ -1145,8 +1195,8 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     );
 };
 
-export const playTrack = (id: string, title: string, artist: string, cover: string, albumId?: string) => {
+export const playTrack = (id: string, title: string, artist: string, cover: string, albumId?: string, contextTracks?: any[]) => {
     window.dispatchEvent(new CustomEvent('player:play', {
-        detail: { id, title, artist, cover, albumId }
+        detail: { id, title, artist, cover, albumId, contextTracks }
     }));
 };

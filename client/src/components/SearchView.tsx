@@ -488,7 +488,7 @@ export const SearchView: React.FC = () => {
                                                         >
                                                             <Icons.Download width={14} height={14} />
                                                         </button>
-                                                        {itemType === 'track' && <button className="btn-track-dl" onClick={(e) => { e.stopPropagation(); playTrack(item.id, title, artistName, cover, item.album?.id); }} title={t('action_play')}><Icons.Play width={14} height={14} /></button>}
+                                                        {itemType === 'track' && <button className="btn-track-dl" onClick={(e) => { e.stopPropagation(); playTrack(item.id, title, artistName, cover, item.album?.id, filteredResults); }} title={t('action_play')}><Icons.Play width={14} height={14} /></button>}
                                                         <button className="btn-track-dl" onClick={(e) => { e.stopPropagation(); addToBatchStaging(itemType, item.id); }} title={t('menu_batch')}><Icons.Batch width={14} height={14} /></button>
                                                         {itemType === 'track' && <button className="btn-track-dl" onClick={(e) => { e.stopPropagation(); downloadLyrics(item.id); }} title="Download Lyrics"><Icons.Mic width={14} height={14} /></button>}
                                                     </>
@@ -516,7 +516,7 @@ export const SearchView: React.FC = () => {
                                             )}
                                             <div className="grid-cover-overlay">
                                                 {itemType === 'track' ? (
-                                                    <button className="grid-play-btn" onClick={(e) => { e.stopPropagation(); playTrack(item.id, title, artistName, cover); }}>
+                                                    <button className="grid-play-btn" onClick={(e) => { e.stopPropagation(); playTrack(item.id, title, artistName, cover, item.album?.id, filteredResults); }}>
                                                         <Icons.Play width={24} height={24} />
                                                     </button>
                                                 ) : (

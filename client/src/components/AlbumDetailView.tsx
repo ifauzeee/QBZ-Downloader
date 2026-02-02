@@ -263,7 +263,7 @@ export const AlbumDetailView: React.FC = () => {
                                 <button className="btn-track-dl" title="Download Lyrics" onClick={() => downloadTrackLyrics(track.id)}>
                                     <Icons.Mic width={14} height={14} />
                                 </button>
-                                <button className="btn-track-dl" title={t('action_play')} onClick={() => playTrack(track.id, track.title, track.performer?.name || album.artist.name, cover, album.id)}>
+                                <button className="btn-track-dl" title={t('action_play')} onClick={() => playTrack(track.id, track.title, track.performer?.name || album.artist.name, cover, album.id, album.tracks.items)}>
                                     <Icons.Play width={14} height={14} />
                                 </button>
                             </div>

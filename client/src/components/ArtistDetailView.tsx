@@ -225,7 +225,7 @@ export const ArtistDetailView: React.FC = () => {
                                         <div className="card-image">
                                             <img src={albumImage} loading="lazy" />
                                             <div className="card-overlay">
-                                                <button onClick={() => playTrack(track.id, track.title, artist.name, cover, track.album?.id)} className="play-btn">
+                                                <button onClick={() => playTrack(track.id, track.title, artist.name, cover, track.album?.id, artist.tracks?.items)} className="play-btn">
                                                     <Icons.Play width={20} height={20} fill="currentColor" />
                                                 </button>
                                             </div>
@@ -294,7 +294,7 @@ export const ArtistDetailView: React.FC = () => {
                                         </button>
                                         <button className="btn-track-dl" onClick={() => addToBatchStaging('track', track.id)} title={t('menu_batch')}><Icons.Batch width={14} height={14} /></button>
                                         <button className="btn-track-dl" onClick={() => downloadLyrics(track.id)} title="Download Lyrics"><Icons.Mic width={14} height={14} /></button>
-                                        <button className="btn-track-dl" onClick={() => playTrack(track.id, track.title, artist.name, cover, track.album?.id)} title={t('action_play')}><Icons.Play width={14} height={14} /></button>
+                                        <button className="btn-track-dl" onClick={() => playTrack(track.id, track.title, artist.name, cover, track.album?.id, artist.tracks?.items)} title={t('action_play')}><Icons.Play width={14} height={14} /></button>
                                     </div>
                                 </div>
                             );
