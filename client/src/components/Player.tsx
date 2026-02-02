@@ -229,16 +229,15 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         }
     }, [playing]);
 
+    const togglePlay = React.useCallback(() => setPlaying(prev => !prev), []);
 
-
-    const togglePlay = () => setPlaying(!playing);
     const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
         const time = Number(e.target.value);
         if (audioRef.current) audioRef.current.currentTime = time;
         setProgress(time);
     };
 
-    const handleNext = async () => {
+    const handleNext = React.useCallback(async () => {
         if (!track) {
             setPlaying(false);
             return;
@@ -314,9 +313,9 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
             console.error('Failed to skip to next track', e);
             setPlaying(false);
         }
-    };
+    }, [track]);
 
-    const handlePrevious = async () => {
+    const handlePrevious = React.useCallback(async () => {
         if (audioRef.current && audioRef.current.currentTime > 3) {
             audioRef.current.currentTime = 0;
             return;
@@ -350,7 +349,53 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         } catch (e) {
             console.error('Failed to go to prev track', e);
         }
-    };
+    }, [track]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement;
+            const isTextInput =
+                target.tagName === 'TEXTAREA' ||
+                (target.tagName === 'INPUT' && (target as HTMLInputElement).type !== 'range') ||
+                target.isContentEditable;
+
+            if (isTextInput) return;
+
+            switch (e.key) {
+                case ' ':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowRight':
+                    if ((target as HTMLInputElement).type !== 'range') {
+                        e.preventDefault();
+                        handleNext();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if ((target as HTMLInputElement).type !== 'range') {
+                        e.preventDefault();
+                        handlePrevious();
+                    }
+                    break;
+                case 'MediaPlayPause':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'MediaTrackNext':
+                    e.preventDefault();
+                    handleNext();
+                    break;
+                case 'MediaTrackPrevious':
+                    e.preventDefault();
+                    handlePrevious();
+                    break;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [togglePlay, handleNext, handlePrevious]);
 
     const addToQueue = async () => {
         if (!track) return;
