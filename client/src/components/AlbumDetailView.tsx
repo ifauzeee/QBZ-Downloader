@@ -203,7 +203,23 @@ export const AlbumDetailView: React.FC = () => {
     if (loading) {
         return (
             <div id="view-album" className="view-section" style={{ display: 'block' }}>
-                <div className="empty-state"><div className="spinner"></div><p>{t('common_loading')}</p></div>
+                <div className="skeleton skeleton-text" style={{ width: '120px', height: '36px', marginBottom: '20px' }}></div>
+                <div style={{ display: 'flex', gap: '32px', marginBottom: '40px' }}>
+                    <div className="skeleton skeleton-card" style={{ width: '250px', height: '250px', borderRadius: '12px' }}></div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div className="skeleton skeleton-text medium" style={{ height: '32px' }}></div>
+                        <div className="skeleton skeleton-text short" style={{ height: '24px' }}></div>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                            <div className="skeleton" style={{ width: '120px', height: '44px', borderRadius: '10px' }}></div>
+                            <div className="skeleton" style={{ width: '120px', height: '44px', borderRadius: '10px' }}></div>
+                        </div>
+                    </div>
+                </div>
+                <div className="track-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} className="skeleton" style={{ height: '56px', borderRadius: '8px' }}></div>
+                    ))}
+                </div>
             </div>
         );
     }

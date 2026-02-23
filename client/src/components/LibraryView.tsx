@@ -64,6 +64,7 @@ export const LibraryView: React.FC = () => {
     const [upgradeable, setUpgradeable] = useState<UpgradeableFile[]>([]);
     const [missingMetadata, setMissingMetadata] = useState<ProcessingFile[]>([]);
     const [processingMetadata, setProcessingMetadata] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const { showToast } = useToast();
 
@@ -129,7 +130,10 @@ export const LibraryView: React.FC = () => {
         };
     }, [socket, loadStatus, loadDuplicates, loadUpgradeable, loadMissingMetadata, showToast]);
 
-    useEffect(() => { loadStatus(); }, [loadStatus]);
+    useEffect(() => {
+        setLoading(true);
+        loadStatus().finally(() => setLoading(false));
+    }, [loadStatus]);
 
     useEffect(() => {
         if (activeTab === 'duplicates') loadDuplicates();
@@ -258,6 +262,40 @@ export const LibraryView: React.FC = () => {
             ? Math.min(100, Math.round((stats.processedFiles / stats.totalFiles) * 100))
             : 0
         : (stats && stats.totalFiles > 0) ? 100 : 0;
+
+    if (loading && !stats) {
+        return (
+            <div id="view-library" className="view-section active">
+                <div className="library-header">
+                    <div className="skeleton skeleton-text" style={{ width: '250px', height: '28px' }}></div>
+                    <div className="library-actions">
+                        <div className="skeleton" style={{ width: '100px', height: '40px', borderRadius: '10px' }}></div>
+                        <div className="skeleton" style={{ width: '100px', height: '40px', borderRadius: '10px' }}></div>
+                    </div>
+                </div>
+
+                <div className="scan-status-card">
+                    <div className="skeleton skeleton-text medium"></div>
+                    <div className="skeleton" style={{ height: '10px', width: '100%', borderRadius: '5px' }}></div>
+                </div>
+
+                <div className="library-stats-grid">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="stat-card">
+                            <div className="skeleton skeleton-text short"></div>
+                            <div className="skeleton skeleton-text" style={{ height: '32px', width: '50%' }}></div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="library-tabs" style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="skeleton" style={{ width: '140px', height: '44px', borderRadius: '12px' }}></div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div id="view-library" className="view-section active">

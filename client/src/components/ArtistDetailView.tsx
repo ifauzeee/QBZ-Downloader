@@ -125,7 +125,26 @@ export const ArtistDetailView: React.FC = () => {
     if (loading) {
         return (
             <div id="view-artist" className="view-section" style={{ display: 'block' }}>
-                <div className="empty-state"><div className="spinner"></div><p>{t('common_loading')}</p></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '40px' }}>
+                    <div className="skeleton skeleton-circle" style={{ width: '180px', height: '180px' }}></div>
+                    <div style={{ flex: 1 }}>
+                        <div className="skeleton skeleton-text medium" style={{ height: '40px' }}></div>
+                        <div className="skeleton skeleton-text short" style={{ height: '24px' }}></div>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                            <div className="skeleton" style={{ width: '100px', height: '36px', borderRadius: '18px' }}></div>
+                            <div className="skeleton" style={{ width: '100px', height: '36px', borderRadius: '18px' }}></div>
+                        </div>
+                    </div>
+                </div>
+                <div className="skeleton skeleton-text" style={{ width: '150px', height: '24px', marginBottom: '20px' }}></div>
+                <div className="results-grid">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div className="skeleton skeleton-card"></div>
+                            <div className="skeleton skeleton-text medium"></div>
+                        </div>
+                    ))}
+                </div>
             </div>
         );
     }

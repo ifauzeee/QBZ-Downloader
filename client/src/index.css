@@ -2882,6 +2882,53 @@ body.sidebar-collapsed .nav-item:hover::after {
     }
 }
 
+
+/* Skeleton Loading Animation */
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(90deg,
+            rgba(255, 255, 255, 0.05) 25%,
+            rgba(255, 255, 255, 0.1) 50%,
+            rgba(255, 255, 255, 0.05) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite linear;
+    border-radius: 8px;
+    display: block;
+}
+
+.skeleton-text {
+    height: 14px;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.skeleton-text.short {
+    width: 40%;
+}
+
+.skeleton-text.medium {
+    width: 70%;
+}
+
+.skeleton-card {
+    aspect-ratio: 1;
+    width: 100%;
+    border-radius: 12px;
+}
+
+.skeleton-circle {
+    border-radius: 50%;
+}
+
 @media (max-width: 900px) {
     .amoled-login-card {
         width: 100%;

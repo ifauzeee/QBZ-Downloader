@@ -68,7 +68,39 @@ export const AnalyticsView: React.FC = () => {
         }
     };
 
-    if (loading && !data) return <div id="view-statistics" className="view-section active"><div className="empty-state"><div className="spinner"></div><p>{t('common_loading')}</p></div></div>;
+    if (loading && !data) return (
+        <div id="view-statistics" className="view-section active">
+            <div className="analytics-header">
+                <div className="skeleton skeleton-text" style={{ width: '200px', height: '24px' }}></div>
+            </div>
+
+            <div className="analytics-summary-grid">
+                {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="stat-card large" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                        <div className="skeleton skeleton-circle" style={{ width: '32px', height: '32px', marginBottom: '12px' }}></div>
+                        <div className="skeleton skeleton-text short"></div>
+                        <div className="skeleton skeleton-text" style={{ height: '32px', width: '60%' }}></div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="quick-stats-row">
+                {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="quick-stat-item">
+                        <div className="skeleton skeleton-text short"></div>
+                        <div className="skeleton skeleton-text" style={{ height: '28px', width: '40%' }}></div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="analytics-charts-grid">
+                <div className="chart-card full-width">
+                    <div className="skeleton skeleton-text medium" style={{ marginBottom: '20px' }}></div>
+                    <div className="skeleton" style={{ height: '300px', width: '100%' }}></div>
+                </div>
+            </div>
+        </div>
+    );
     if (!data) return <div id="view-statistics" className="view-section active"><div className="empty-state"><p>{t('msg_no_results')}</p></div></div>;
 
     const last30Days = Array.from({ length: 30 }, (_, i) => {

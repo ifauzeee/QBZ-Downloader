@@ -407,9 +407,29 @@ export const SearchView: React.FC = () => {
 
             <div id="search-results" className="results-container">
                 {loading && (
-                    <div className="empty-state" style={{ padding: '40px' }}>
-                        <div className="spinner"></div>
-                        <p>{t('common_loading')}</p>
+                    <div className={viewMode === 'list' ? 'track-list' : 'results-grid'} style={viewMode === 'list' ? { display: 'flex', flexDirection: 'column', gap: '4px' } : undefined}>
+                        {Array.from({ length: limit || 10 }).map((_, i) => (
+                            viewMode === 'list' ? (
+                                <div key={i} className="list-row skeleton-row" style={{ display: 'grid', gridTemplateColumns: '48px 1fr 120px 80px', height: '64px', alignItems: 'center', gap: '16px', padding: '12px 24px', opacity: 0.5 }}>
+                                    <div className="skeleton skeleton-circle" style={{ width: '40px', height: '40px' }}></div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <div className="skeleton skeleton-text medium"></div>
+                                        <div className="skeleton skeleton-text short"></div>
+                                    </div>
+                                    <div className="skeleton skeleton-text medium"></div>
+                                    <div className="skeleton skeleton-text short"></div>
+                                </div>
+                            ) : (
+                                <div key={i} className="grid-item-skeleton" style={{ display: 'flex', flexDirection: 'column', gap: '12px', opacity: 0.5 }}>
+                                    <div className="skeleton skeleton-card"></div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <div className="skeleton skeleton-text" style={{ width: '30px', height: '10px' }}></div>
+                                        <div className="skeleton skeleton-text medium"></div>
+                                        <div className="skeleton skeleton-text short"></div>
+                                    </div>
+                                </div>
+                            )
+                        ))}
                     </div>
                 )}
 
