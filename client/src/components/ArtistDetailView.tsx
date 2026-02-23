@@ -5,6 +5,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { playTrack } from './Player';
 import { Icons } from './Icons';
+import { useTheme } from '../contexts/ThemeContext';
+import { extractRGB } from '../utils/colorExtractor';
 
 interface ArtistData {
     id: string;
@@ -24,6 +26,20 @@ export const ArtistDetailView: React.FC = () => {
     const [artist, setArtist] = useState<ArtistData | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const { setDynamicAccent } = useTheme();
+
+    useEffect(() => {
+        if (artist && artist.image) {
+            const cover = artist.image.large || artist.image.medium || artist.image.small || '';
+            extractRGB(cover).then(color => {
+                setDynamicAccent(color, 'view');
+            });
+        }
+
+        return () => {
+            setDynamicAccent(null, 'view');
+        };
+    }, [artist, setDynamicAccent]);
 
     const [showFullBio, setShowFullBio] = useState(false);
     const [viewModeTracks, setViewModeTracks] = useState<'list' | 'grid'>('list');

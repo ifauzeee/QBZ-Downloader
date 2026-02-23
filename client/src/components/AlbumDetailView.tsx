@@ -5,6 +5,8 @@ import { playTrack } from './Player';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Icons } from './Icons';
+import { useTheme } from '../contexts/ThemeContext';
+import { extractRGB } from '../utils/colorExtractor';
 
 interface Track {
     id: string;
@@ -37,11 +39,25 @@ export const AlbumDetailView: React.FC = () => {
     const { navData, setActiveTab } = useNavigation();
     const { showToast } = useToast();
     const { t } = useLanguage();
+    const { setDynamicAccent } = useTheme();
     const [album, setAlbum] = useState<AlbumData | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState<'album' | 'lyrics'>('album');
+
+    useEffect(() => {
+        if (album && album.image) {
+            const cover = (album.image.large || album.image.medium || '').replace('_642', '_600');
+            extractRGB(cover).then(color => {
+                setDynamicAccent(color, 'view');
+            });
+        }
+
+        return () => {
+            setDynamicAccent(null, 'view');
+        };
+    }, [album, setDynamicAccent]);
 
     useEffect(() => {
         if (navData && navData.id) {

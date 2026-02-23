@@ -6,6 +6,8 @@ import { LyricsEditor } from './LyricsEditor';
 import { useToast } from '../contexts/ToastContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useNavigation } from '../contexts/NavigationContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { extractRGB } from '../utils/colorExtractor';
 
 interface TrackInfo {
     id: string;
@@ -29,8 +31,11 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         isLyricsFullscreen, setIsLyricsFullscreen,
         showEditor, setShowEditor
     } = usePlayer();
+    const { setDynamicAccent } = useTheme();
 
     const { activeTab } = useNavigation();
+
+
 
     useEffect(() => {
         setShowLyrics(false);
@@ -42,6 +47,16 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
     const [quality, setQuality] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (track && track.cover) {
+            extractRGB(track.cover).then(color => {
+                setDynamicAccent(color, 'player');
+            });
+        } else {
+            setDynamicAccent(null, 'player');
+        }
+    }, [track?.cover, setDynamicAccent]);
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -668,7 +683,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                     z-index: 3000;
                     border-radius: 0;
                     padding: 0 80px;
-                    background: var(--lyrics-fullscreen-bg);
+                    background: radial-gradient(circle at center, rgba(var(--accent-rgb), 0.25) 0%, var(--bg-dark) 100%);
                     flex-direction: row;
                     justify-content: center;
                     align-items: center;

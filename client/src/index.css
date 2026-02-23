@@ -210,6 +210,7 @@ body {
     overflow-y: auto;
     padding: 32px;
     padding-bottom: 120px;
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.08) 0%, transparent 400px);
 }
 
 .stats-grid {

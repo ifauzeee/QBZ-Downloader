@@ -16,6 +16,7 @@ interface ThemeContextType {
     deleteTheme: (id: string) => Promise<void>;
     applyTheme: (theme: Theme) => void;
     resetTheme: () => void;
+    setDynamicAccent: (colorRgb: string | null, source?: 'player' | 'view') => void;
 }
 
 const defaultTheme: Theme = {
@@ -40,6 +41,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
     const [themes, setThemes] = useState<Theme[]>([]);
+    const [dynamicColors, setDynamicColors] = useState<{ player: string | null, view: string | null }>({ player: null, view: null });
 
     useEffect(() => {
         fetchThemes();
@@ -126,6 +128,20 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         applyTheme(defaultTheme);
     };
 
+    const setDynamicAccent = (colorRgb: string | null, source: 'player' | 'view' = 'view') => {
+        setDynamicColors(prev => ({ ...prev, [source]: colorRgb }));
+    };
+
+    useEffect(() => {
+        const root = document.documentElement;
+        const targetColor = dynamicColors.player || dynamicColors.view || currentTheme.colors['--accent-rgb'] || defaultTheme.colors['--accent-rgb'];
+
+        root.style.setProperty('--accent-rgb', targetColor);
+        root.style.setProperty('--accent', `rgb(${targetColor})`);
+        root.style.setProperty('--accent-hover', `rgba(${targetColor}, 0.8)`);
+        root.style.setProperty('--accent-glow', `rgba(${targetColor}, 0.3)`);
+    }, [dynamicColors, currentTheme]);
+
     return (
         <ThemeContext.Provider value={{
             currentTheme,
@@ -134,7 +150,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             saveTheme,
             deleteTheme,
             applyTheme,
-            resetTheme
+            resetTheme,
+            setDynamicAccent
         }}>
             {children}
         </ThemeContext.Provider>
