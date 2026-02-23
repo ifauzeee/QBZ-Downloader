@@ -5,6 +5,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { PlayerProvider } from './contexts/PlayerContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import { QueueView } from './components/QueueView';
 import { BatchImportView } from './components/BatchImportView';
 import { SearchView } from './components/SearchView';
@@ -233,19 +234,30 @@ function AppContent() {
           </div>
         </header>
 
-        {activeTab === 'queue' && <QueueView />}
-        {activeTab === 'search' && <SearchView />}
-        {activeTab === 'batch' && <BatchImportView />}
-        {activeTab === 'album' && <AlbumDetailView />}
-        {activeTab === 'artist' && <ArtistDetailView />}
-        {(activeTab === 'artist_albums' || activeTab === 'artist_tracks') && <ArtistListView />}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          >
+            {activeTab === 'queue' && <QueueView />}
+            {activeTab === 'search' && <SearchView />}
+            {activeTab === 'batch' && <BatchImportView />}
+            {activeTab === 'album' && <AlbumDetailView />}
+            {activeTab === 'artist' && <ArtistDetailView />}
+            {(activeTab === 'artist_albums' || activeTab === 'artist_tracks') && <ArtistListView />}
 
-        {activeTab === 'statistics' && <AnalyticsView />}
-        {activeTab === 'library' && <LibraryView />}
-        {activeTab === 'playlists' && <PlaylistsView />}
-        {activeTab === 'history' && <HistoryView />}
-        {activeTab === 'logs' && <LogView />}
-        {activeTab === 'settings' && <SettingsView />}
+            {activeTab === 'statistics' && <AnalyticsView />}
+            {activeTab === 'library' && <LibraryView />}
+            {activeTab === 'playlists' && <PlaylistsView />}
+            {activeTab === 'history' && <HistoryView />}
+            {activeTab === 'logs' && <LogView />}
+            {activeTab === 'settings' && <SettingsView />}
+          </motion.div>
+        </AnimatePresence>
 
         <Player sidebarCollapsed={sidebarCollapsed} />
       </main>

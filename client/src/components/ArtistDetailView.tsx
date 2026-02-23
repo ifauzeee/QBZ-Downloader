@@ -475,7 +475,7 @@ const styles = `
         background: var(--bg-card);
         border-radius: 12px;
         padding: 12px;
-        transition: transform 0.2s, background 0.2s;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         cursor: pointer;
         display: flex;
         flex-direction: column;
@@ -484,8 +484,9 @@ const styles = `
 
     .track-card-grid:hover {
         background: var(--bg-elevated);
-        transform: translateY(-4px);
-        border-color: rgba(255,255,255,0.05);
+        transform: translateY(-8px) scale(1.02);
+        border-color: var(--accent);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
     }
 
     .card-image {

@@ -161,7 +161,7 @@ export const QueueView: React.FC = () => {
                                 <div><span className={`badge ${item.status} status-badge`}>{item.status}</span></div>
                                 <div className="progress-cell">
                                     <div className="progress-bar">
-                                        <div className="progress-fill" style={{ width: `${item.progress || 0}%` }}></div>
+                                        <div className={`progress-fill ${item.status === 'downloading' || item.status === 'processing' ? 'progress-shimmer' : ''}`} style={{ width: `${item.progress || 0}%` }}></div>
                                     </div>
                                 </div>
                                 <div>
