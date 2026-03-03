@@ -76,7 +76,7 @@ export const QueueView: React.FC = () => {
     };
 
     return (
-        <div id="view-queue" className="view-section" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        <div id="view-queue" className="view-section" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="stats-grid shrink-0">
                 <div className="stat-card">
                     <h3>Total</h3>
