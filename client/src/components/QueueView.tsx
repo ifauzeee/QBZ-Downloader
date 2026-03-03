@@ -167,7 +167,7 @@ export const QueueView: React.FC = () => {
 
                 <div ref={parentRef} className="list-body flex-1" style={{ overflow: 'auto', position: 'relative' }}>
                     {queue.length === 0 ? (
-                        <div className="empty-state" style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="empty-state" style={{ height: '100%' }}>
                             <div className="empty-icon"><Icons.Queue width={48} height={48} /></div>
                             <h3>Queue is Empty</h3>
                             <p>Add URLs to start downloading</p>

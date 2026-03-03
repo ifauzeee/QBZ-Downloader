@@ -160,7 +160,7 @@ export const HistoryView: React.FC = () => {
 
                 <div ref={parentRef} className="list-body flex-1" style={{ overflow: 'auto', position: 'relative' }}>
                     {!loading && history.length === 0 && (
-                        <div className="empty-state" style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="empty-state" style={{ height: '100%' }}>
                             <div className="empty-icon"><Icons.History width={48} height={48} /></div>
                             <h3>{t('msg_no_history')}</h3>
                             <p>{t('msg_history_empty')}</p>

@@ -434,7 +434,7 @@ export const SearchView: React.FC = () => {
                 )}
 
                 {!loading && filteredResults.length === 0 && (
-                    <div className="empty-state" style={{ padding: '60px' }}>
+                    <div className="empty-state">
                         <div className="empty-icon"><Icons.Search width={48} height={48} /></div>
                         <h3>{hasSearched ? t('msg_no_results') : t('msg_start_searching')}</h3>
                         <p>{hasSearched ? t('msg_try_keywords') : t('msg_enter_keywords')}</p>

@@ -535,6 +535,10 @@ body {
 }
 
 .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     padding: 60px 20px;
     color: var(--text-secondary);
@@ -542,7 +546,8 @@ body {
 }
 
 .empty-state .empty-icon {
-    font-size: 48px;
+    display: flex;
+    justify-content: center;
     margin-bottom: 16px;
     opacity: 0.6;
 }
