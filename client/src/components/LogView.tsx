@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { smartFetch } from '../utils/api';
 import { Icons } from './Icons';
 import { useSocket } from '../contexts/SocketContext';
@@ -11,13 +12,64 @@ interface LogEntry {
     time: number;
 }
 
+const getTypeColor = (type: string) => {
+    switch (type) {
+        case 'success': return '#4ade80';
+        case 'warn': return '#facc15';
+        case 'error': return '#f87171';
+        case 'debug': return '#c084fc';
+        case 'system': return '#22d3ee';
+        default: return '#94a3b8';
+    }
+};
+
+const LogLine = React.memo(({ log, virtualItem }: { log: LogEntry, virtualItem: any }) => {
+    return (
+        <div
+            className="log-line"
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualItem.size}px`,
+                transform: `translateY(${virtualItem.start}px)`,
+                display: 'flex',
+                gap: '16px',
+                borderBottom: '1px solid var(--border)',
+                padding: '2px 0',
+                alignItems: 'center'
+            }}
+        >
+            <span style={{ color: 'var(--text-secondary)', minWidth: '85px', userSelect: 'none', fontSize: '11px', opacity: 0.8 }}>{log.timestamp}</span>
+            <div style={{ display: 'flex', minWidth: '80px' }}>
+                <span style={{
+                    color: getTypeColor(log.type),
+                    fontWeight: '700',
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                    background: `${getTypeColor(log.type)}15`,
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    display: 'inline-block',
+                    textAlign: 'center',
+                    minWidth: '60px'
+                }}>
+                    {log.type}
+                </span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)', minWidth: '90px', fontWeight: 600, fontSize: '11px' }}>{log.scope}</span>
+            <span style={{ color: log.type === 'error' ? 'var(--danger)' : 'var(--text-primary)', wordBreak: 'break-word', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.message}</span>
+        </div>
+    );
+});
+
 export const LogView: React.FC = () => {
     const { socket } = useSocket();
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [filter, setFilter] = useState('');
     const [autoScroll, setAutoScroll] = useState(true);
-    const logEndRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const parentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchLogs = async () => {
@@ -35,13 +87,26 @@ export const LogView: React.FC = () => {
         fetchLogs();
     }, []);
 
+    const filteredLogs = useMemo(() => logs.filter(log =>
+        log.message.toLowerCase().includes(filter.toLowerCase()) ||
+        log.scope.toLowerCase().includes(filter.toLowerCase()) ||
+        log.type.toLowerCase().includes(filter.toLowerCase())
+    ), [logs, filter]);
+
+    const rowVirtualizer = useVirtualizer({
+        count: filteredLogs.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 32,
+        overscan: 20,
+    });
+
     useEffect(() => {
         if (!socket) return;
 
         const handleNewLog = (log: LogEntry) => {
             setLogs(prev => {
                 const newLogs = [...prev, log];
-                if (newLogs.length > 1000) return newLogs.slice(newLogs.length - 1000);
+                if (newLogs.length > 2000) return newLogs.slice(newLogs.length - 2000);
                 return newLogs;
             });
         };
@@ -54,15 +119,15 @@ export const LogView: React.FC = () => {
     }, [socket]);
 
     useEffect(() => {
-        if (autoScroll && logEndRef.current) {
-            logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        if (autoScroll && filteredLogs.length > 0) {
+            rowVirtualizer.scrollToIndex(filteredLogs.length - 1, { behavior: 'smooth' });
         }
-    }, [logs, autoScroll]);
+    }, [filteredLogs.length, autoScroll, rowVirtualizer]);
 
     const handleScroll = () => {
-        if (!containerRef.current) return;
-        const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-        const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+        if (!parentRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = parentRef.current;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
 
         if (isAtBottom && !autoScroll) {
             setAutoScroll(true);
@@ -71,26 +136,9 @@ export const LogView: React.FC = () => {
         }
     };
 
-    const filteredLogs = logs.filter(log =>
-        log.message.toLowerCase().includes(filter.toLowerCase()) ||
-        log.scope.toLowerCase().includes(filter.toLowerCase()) ||
-        log.type.toLowerCase().includes(filter.toLowerCase())
-    );
-
-    const getTypeColor = (type: string) => {
-        switch (type) {
-            case 'success': return '#4ade80';
-            case 'warn': return '#facc15';
-            case 'error': return '#f87171';
-            case 'debug': return '#c084fc';
-            case 'system': return '#22d3ee';
-            default: return '#94a3b8';
-        }
-    };
-
     return (
         <div id="view-logs" className="view-section active" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div className="list-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '15px 20px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+            <div className="list-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '15px 20px', borderRadius: '12px', border: '1px solid var(--border)', flexShrink: 0 }}>
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flex: 1 }}>
                     <div className="search-input-wrapper" style={{ flex: 1, maxWidth: '400px' }}>
                         <Icons.Search className="search-icon" />
@@ -135,7 +183,7 @@ export const LogView: React.FC = () => {
 
             <div
                 className="log-container"
-                ref={containerRef}
+                ref={parentRef}
                 onScroll={handleScroll}
                 style={{
                     background: 'var(--bg-elevated)',
@@ -149,36 +197,22 @@ export const LogView: React.FC = () => {
                     border: '1px solid var(--border)',
                     lineHeight: '1.8',
                     scrollbarWidth: 'thin',
-                    scrollbarColor: 'var(--border) transparent'
+                    scrollbarColor: 'var(--border) transparent',
+                    position: 'relative'
                 }}>
                 {filteredLogs.length === 0 ? (
                     <div style={{ color: 'var(--text-secondary)', textAlign: 'center', marginTop: '50px', opacity: 0.5 }}>- No logs to display -</div>
                 ) : (
-                    filteredLogs.map((log, i) => (
-                        <div key={i} className="log-line" style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border)', padding: '2px 0' }}>
-                            <span style={{ color: 'var(--text-secondary)', minWidth: '85px', userSelect: 'none', fontSize: '11px', paddingTop: '1px', opacity: 0.8 }}>{log.timestamp}</span>
-                            <div style={{ display: 'flex', minWidth: '80px' }}>
-                                <span style={{
-                                    color: getTypeColor(log.type),
-                                    fontWeight: '700',
-                                    fontSize: '10px',
-                                    textTransform: 'uppercase',
-                                    background: `${getTypeColor(log.type)}15`,
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                    display: 'inline-block',
-                                    textAlign: 'center',
-                                    minWidth: '60px'
-                                }}>
-                                    {log.type}
-                                </span>
-                            </div>
-                            <span style={{ color: 'var(--text-secondary)', minWidth: '90px', fontWeight: 600, fontSize: '11px', paddingTop: '1px' }}>{log.scope}</span>
-                            <span style={{ color: log.type === 'error' ? 'var(--danger)' : 'var(--text-primary)', wordBreak: 'break-word', flex: 1 }}>{log.message}</span>
-                        </div>
-                    ))
+                    <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+                        {rowVirtualizer.getVirtualItems().map((virtualItem) => (
+                            <LogLine
+                                key={virtualItem.index}
+                                log={filteredLogs[virtualItem.index]}
+                                virtualItem={virtualItem}
+                            />
+                        ))}
+                    </div>
                 )}
-                <div ref={logEndRef} />
             </div>
         </div>
     );

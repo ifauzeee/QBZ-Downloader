@@ -313,6 +313,7 @@ export default class DownloadService {
 
             const writer = createWriteStream(filePath);
 
+            let lastProgressEmit = 0;
             await new Promise<void>((resolve, reject) => {
                 response.data.on('data', (chunk: Buffer) => {
                     downloaded += chunk.length;
@@ -320,15 +321,18 @@ export default class DownloadService {
 
                     if (options.onProgress) {
                         const currentTime = Date.now();
-                        const elapsed = (currentTime - startTime) / 1000;
-                        const speed = elapsed > 0 ? downloaded / elapsed : 0;
+                        if (currentTime - lastProgressEmit >= 100 || downloaded === totalLength) {
+                            const elapsed = (currentTime - startTime) / 1000;
+                            const speed = elapsed > 0 ? downloaded / elapsed : 0;
 
-                        options.onProgress({
-                            phase: 'download',
-                            loaded: downloaded,
-                            total: totalLength,
-                            speed
-                        });
+                            options.onProgress({
+                                phase: 'download',
+                                loaded: downloaded,
+                                total: totalLength,
+                                speed
+                            });
+                            lastProgressEmit = currentTime;
+                        }
                     }
                 });
 
@@ -400,7 +404,7 @@ export default class DownloadService {
                         await axios.head(highResUrl, { timeout: 2000 });
                         coverUrl = highResUrl;
                         logger.info('Cover upgraded to max resolution', 'COVER');
-                    } catch {}
+                    } catch { }
                 }
             }
 
@@ -886,7 +890,7 @@ export default class DownloadService {
                                                 return { filename, content };
                                             }
                                         }
-                                    } catch {}
+                                    } catch { }
                                     return null;
                                 })
                             )

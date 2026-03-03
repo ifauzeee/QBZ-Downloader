@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { smartFetch, getQualityLabel } from '../utils/api';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -16,11 +17,54 @@ interface HistoryItem {
     contentId: string;
 }
 
+const HistoryRow = React.memo(({ item, virtualItem, downloadFile, confirmDelete }: { item: HistoryItem, virtualItem: any, downloadFile: (id: string) => void, confirmDelete: (id: string) => void }) => {
+    return (
+        <div
+            className="list-row"
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualItem.size}px`,
+                transform: `translateY(${virtualItem.start}px)`,
+                display: 'grid',
+                gridTemplateColumns: '0.8fr 1.2fr 1.5fr 0.8fr 1.5fr 0.5fr',
+                gap: '10px',
+                padding: '0 24px',
+                borderBottom: '1px solid var(--border)',
+                alignItems: 'center'
+            }}
+        >
+            <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                {new Date(item.downloadedAt).toLocaleString()}
+            </div>
+            <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.albumArtist || item.artist}</div>
+            <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
+            <div>{getQualityLabel(item.quality)}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.filename}</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => downloadFile(item.contentId || item.id)}>Download</button>
+                <button className="btn danger" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => confirmDelete(item.id)} title="Delete"><Icons.Trash width={14} height={14} /></button>
+            </div>
+        </div>
+    );
+});
+
 export const HistoryView: React.FC = () => {
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [loading, setLoading] = useState(false);
     const { showToast } = useToast();
     const { t } = useLanguage();
+
+    const parentRef = useRef<HTMLDivElement>(null);
+
+    const rowVirtualizer = useVirtualizer({
+        count: history.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 64,
+        overscan: 10,
+    });
 
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -44,9 +88,9 @@ export const HistoryView: React.FC = () => {
         }
     };
 
-    const confirmDelete = (id: string) => {
+    const confirmDelete = useCallback((id: string) => {
         setItemToDelete(id);
-    };
+    }, []);
 
     const handleDelete = async () => {
         if (!itemToDelete) return;
@@ -80,17 +124,17 @@ export const HistoryView: React.FC = () => {
         }
     };
 
-    const downloadFile = (id: string) => {
+    const downloadFile = useCallback((id: string) => {
         window.location.href = `/api/download/${id}`;
-    };
+    }, []);
 
     const exportHistory = (format: string) => {
         window.location.href = `/api/history/export?format=${format}`;
     };
 
     return (
-        <div id="view-history" className="view-section active">
-            <div className="history-toolbar">
+        <div id="view-history" className="view-section active" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="history-toolbar shrink-0">
                 <div className="history-actions">
                     <button className="btn secondary" onClick={() => exportHistory('json')}>
                         <span className="icon"><Icons.Download width={14} height={14} /></span> {t('action_export_json')}
@@ -104,8 +148,8 @@ export const HistoryView: React.FC = () => {
                 </button>
             </div>
 
-            <div className="list-container">
-                <div className="list-header" style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr 1.5fr 0.8fr 1.5fr 0.5fr', gap: '10px' }}>
+            <div className="list-container flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="list-header shrink-0" style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr 1.5fr 0.8fr 1.5fr 0.5fr', gap: '10px', padding: '16px 24px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '12px' }}>
                     <div>Date</div>
                     <div>Artist</div>
                     <div>Title</div>
@@ -114,30 +158,28 @@ export const HistoryView: React.FC = () => {
                     <div>Action</div>
                 </div>
 
-                <div id="history-list" className="list-body">
+                <div ref={parentRef} className="list-body flex-1" style={{ overflow: 'auto', position: 'relative' }}>
                     {!loading && history.length === 0 && (
-                        <div className="empty-state">
+                        <div className="empty-state" style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <div className="empty-icon"><Icons.History width={48} height={48} /></div>
                             <h3>{t('msg_no_history')}</h3>
                             <p>{t('msg_history_empty')}</p>
                         </div>
-                    )}
+                    ) || null}
 
-                    {!loading && history.map(item => (
-                        <div key={item.id} className="list-row" style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr 1.5fr 0.8fr 1.5fr 0.5fr', gap: '10px' }}>
-                            <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                                {new Date(item.downloadedAt).toLocaleString()}
-                            </div>
-                            <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.albumArtist || item.artist}</div>
-                            <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
-                            <div>{getQualityLabel(item.quality)}</div>
-                            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.filename}</div>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => downloadFile(item.contentId || item.id)}>{t('action_download')}</button>
-                                <button className="btn danger" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => confirmDelete(item.id)} title={t('action_delete')}><Icons.Trash width={14} height={14} /></button>
-                            </div>
+                    {history.length > 0 && (
+                        <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+                            {rowVirtualizer.getVirtualItems().map((virtualItem) => (
+                                <HistoryRow
+                                    key={history[virtualItem.index].id}
+                                    item={history[virtualItem.index]}
+                                    virtualItem={virtualItem}
+                                    confirmDelete={confirmDelete}
+                                    downloadFile={downloadFile}
+                                />
+                            ))}
                         </div>
-                    ))}
+                    )}
                 </div>
             </div>
 

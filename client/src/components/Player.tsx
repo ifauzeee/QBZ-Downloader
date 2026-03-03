@@ -193,10 +193,10 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
             let barHeight;
             let x = 0;
 
+            const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
             for (let i = 0; i < bufferLength; i++) {
                 barHeight = (dataArray[i] / 255) * canvas.height;
 
-                const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
                 canvasCtx.fillStyle = accent;
                 canvasCtx.globalAlpha = 0.6;
                 canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
