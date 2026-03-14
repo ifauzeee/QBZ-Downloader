@@ -5,7 +5,7 @@ import { smartFetch, getQualityLabel } from '../utils/api';
 import { Icons } from './Icons';
 import { useQueueStore, type QueueItem } from '../stores/queueStore';
 
-const QueueRow = React.memo(({ item, virtualItem, handleCancel, handleDownload }: { item: QueueItem, virtualItem: any, handleCancel: (id: string) => void, handleDownload: (id: string) => void }) => {
+const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, handleDownload }: { item: QueueItem, virtualItem: any, scrollMargin: number, handleCancel: (id: string) => void, handleDownload: (id: string) => void }) => {
     return (
         <div
             className="list-row"
@@ -15,7 +15,7 @@ const QueueRow = React.memo(({ item, virtualItem, handleCancel, handleDownload }
                 left: 0,
                 width: '100%',
                 height: `${virtualItem.size}px`,
-                transform: `translateY(${virtualItem.start}px)`,
+                transform: `translateY(${virtualItem.start - scrollMargin}px)`,
                 display: 'grid',
                 gridTemplateColumns: '3fr 0.8fr 1.2fr 1fr 1.5fr 1fr',
                 padding: '0 24px',
@@ -55,12 +55,21 @@ export const QueueView: React.FC = () => {
     const { stats, queue, setStats, fetchQueue, updateItemProgress } = useQueueStore();
 
     const parentRef = useRef<HTMLDivElement>(null);
+    const [scrollMargin, setScrollMargin] = React.useState(0);
+    const listRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (listRef.current && parentRef.current) {
+            setScrollMargin(listRef.current.offsetTop);
+        }
+    }, [queue.length]);
 
     const rowVirtualizer = useVirtualizer({
         count: queue.length,
         getScrollElement: () => parentRef.current,
         estimateSize: () => 75,
         overscan: 10,
+        scrollMargin: scrollMargin,
     });
 
     useEffect(() => {
@@ -121,7 +130,7 @@ export const QueueView: React.FC = () => {
     }, []);
 
     return (
-        <div id="view-queue" className="view-section" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div id="view-queue" ref={parentRef} className="view-section" style={{ display: 'block', overflowY: 'auto' }}>
             <div className="stats-grid shrink-0">
                 <div className="stat-card">
                     <h3>Total</h3>
@@ -155,8 +164,26 @@ export const QueueView: React.FC = () => {
                 </div>
             </div>
 
-            <div className="list-container flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div className="list-header" style={{ display: 'grid', gridTemplateColumns: '3fr 0.8fr 1.2fr 1fr 1.5fr 1fr', padding: '16px 24px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', gap: '24px' }}>
+            <div ref={listRef} className="list-container" style={{ background: 'transparent' }}>
+                    <div className="list-header" style={{
+                        display: 'grid',
+                        gridTemplateColumns: '3fr 0.8fr 1.2fr 1fr 1.5fr 1fr',
+                        padding: '16px 24px',
+                        background: 'var(--bg-elevated)',
+                        borderBottom: '2px solid var(--border)',
+                        fontWeight: 700,
+                        color: 'var(--text-primary)',
+                        fontSize: '11px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        gap: '24px',
+                        position: 'sticky',
+                        top: '-32px',
+                        zIndex: 10,
+                        margin: '0 -32px 0 -32px',
+                        paddingLeft: '56px',
+                        paddingRight: '56px'
+                    }}>
                     <div>Title</div>
                     <div>Type</div>
                     <div>Quality</div>
@@ -165,9 +192,9 @@ export const QueueView: React.FC = () => {
                     <div>Action</div>
                 </div>
 
-                <div ref={parentRef} className="list-body flex-1" style={{ overflow: 'auto', position: 'relative' }}>
+                <div className="list-body" style={{ position: 'relative' }}>
                     {queue.length === 0 ? (
-                        <div className="empty-state" style={{ height: '100%' }}>
+                        <div className="empty-state" style={{ padding: '80px 0' }}>
                             <div className="empty-icon"><Icons.Queue width={48} height={48} /></div>
                             <h3>Queue is Empty</h3>
                             <p>Add URLs to start downloading</p>
@@ -179,6 +206,7 @@ export const QueueView: React.FC = () => {
                                     key={queue[virtualItem.index].id}
                                     item={queue[virtualItem.index]}
                                     virtualItem={virtualItem}
+                                    scrollMargin={scrollMargin}
                                     handleCancel={handleCancel}
                                     handleDownload={handleDownload}
                                 />
