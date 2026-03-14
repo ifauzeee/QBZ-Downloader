@@ -1285,8 +1285,9 @@ body {
 
 .album-header-artist {
     font-size: 18px;
-    color: var(--accent);
+    color: var(--text-secondary);
     margin-bottom: 12px;
+    font-weight: 500;
 }
 
 .album-header-meta {
