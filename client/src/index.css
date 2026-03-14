@@ -7,9 +7,9 @@
 
 :root {
     --bg-dark: #000000;
-    --bg-card: #0c0c0c;
-    --bg-hover: #161616;
-    --bg-elevated: #101010;
+    --bg-card: #080808;
+    --bg-hover: #121212;
+    --bg-elevated: #050505;
     --text-primary: #ffffff;
     --text-secondary: #aaaaaa;
     --accent-rgb: 99, 102, 241;
@@ -21,16 +21,16 @@
     --warning: #f59e0b;
     --hires: #f59e0b;
     --lossless: #22c55e;
-    --border: #222222;
-    --border-light: #333333;
+    --border: #161616;
+    --border-light: #222222;
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    --gradient-card: linear-gradient(145deg, #0c0c0c, #080808);
-    --player-bg: rgba(18, 18, 22, 0.85);
-    --player-border: rgba(255, 255, 255, 0.06);
-    --progress-bg: rgba(255, 255, 255, 0.1);
-    --lyrics-bg: rgba(20, 20, 24, 0.95);
-    --lyrics-fullscreen-bg: linear-gradient(135deg, rgba(20, 20, 24, 0.98) 0%, rgba(10, 10, 12, 0.99) 100%);
+    --gradient-card: linear-gradient(145deg, #080808, #000000);
+    --player-bg: rgba(0, 0, 0, 0.9);
+    --player-border: rgba(255, 255, 255, 0.05);
+    --progress-bg: rgba(255, 255, 255, 0.08);
+    --lyrics-bg: rgba(0, 0, 0, 0.98);
+    --lyrics-fullscreen-bg: #000000;
 }
 
 body.light-theme {
@@ -213,7 +213,8 @@ body {
     overflow-y: auto;
     padding: 32px;
     padding-bottom: 120px;
-    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.08) 0%, transparent 400px);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.04) 0%, transparent 400px);
+    background-attachment: fixed;
 }
 
 .stats-grid {
