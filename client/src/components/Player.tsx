@@ -898,13 +898,10 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                     height: 84px;
                     padding: 0 24px;
                     border-radius: 20px;
-                    background: var(--player-bg);
-                    backdrop-filter: blur(24px) saturate(180%);
-                    -webkit-backdrop-filter: blur(24px) saturate(180%);
+                    background: #050505;
                     border: 1px solid var(--player-border);
                     box-shadow: 
-                        0 24px 48px -12px rgba(0, 0, 0, 0.6),
-                        inset 0 1px 0 var(--player-border);
+                        0 24px 48px -12px rgba(0, 0, 0, 0.8);
                 }
 
                 /* Left Section */
