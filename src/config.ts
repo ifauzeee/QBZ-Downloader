@@ -64,6 +64,7 @@ export interface Config {
         saveLrcFile: boolean;
         coverSize: string;
         embedLyrics: boolean;
+        downloadLyrics: boolean;
         lyricsType: string;
         tags: {
             basic: string[];
@@ -159,6 +160,7 @@ export const CONFIG: Config = {
             saveLrcFile: getBool('SAVE_LRC_FILE', true),
             coverSize: getStr('COVER_SIZE', 'max'),
             embedLyrics: getBool('EMBED_LYRICS', true),
+            downloadLyrics: getBool('DOWNLOAD_LYRICS', true),
             lyricsType: getStr('LYRICS_TYPE', 'both'),
             tags: {
                 basic: ['title', 'artist', 'album', 'year', 'trackNumber', 'genre'],

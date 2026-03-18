@@ -362,29 +362,30 @@ export default class DownloadService {
                 logger.success(`Bit-Perfect verified: ${metadata.title}`, 'VERIFY');
             }
 
-            if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
-
             let lyricsResult = null;
-            try {
-                const processedLyrics = await this.lyricsProvider.getLyrics(
-                    metadata.title,
-                    metadata.artist,
-                    metadata.album,
-                    metadata.duration,
-                    metadata.albumArtist
-                );
-
-                if (processedLyrics.success) {
-                    lyricsResult = processedLyrics;
-                    logger.info(
-                        `Lyrics found for ${metadata.title}: ${processedLyrics.source}`,
-                        'LYRICS'
+            if (CONFIG.metadata.downloadLyrics) {
+                if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
+                try {
+                    const processedLyrics = await this.lyricsProvider.getLyrics(
+                        metadata.title,
+                        metadata.artist,
+                        metadata.album,
+                        metadata.duration,
+                        metadata.albumArtist
                     );
-                } else {
-                    logger.warn(`No lyrics found for ${metadata.title}`, 'LYRICS');
+
+                    if (processedLyrics.success) {
+                        lyricsResult = processedLyrics;
+                        logger.info(
+                            `Lyrics found for ${metadata.title}: ${processedLyrics.source}`,
+                            'LYRICS'
+                        );
+                    } else {
+                        logger.warn(`No lyrics found for ${metadata.title}`, 'LYRICS');
+                    }
+                } catch (e: any) {
+                    logger.error(`Error fetching lyrics: ${e.message}`, 'LYRICS');
                 }
-            } catch (e: any) {
-                logger.error(`Error fetching lyrics: ${e.message}`, 'LYRICS');
             }
 
             if (options.onProgress) options.onProgress({ phase: 'cover', loaded: 0 });
@@ -436,7 +437,7 @@ export default class DownloadService {
                 filePath,
                 metadata,
                 actualQuality,
-                lyricsResult,
+                CONFIG.metadata.embedLyrics ? lyricsResult : null,
                 coverBuffer
             );
 
