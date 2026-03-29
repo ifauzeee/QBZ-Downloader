@@ -8,8 +8,7 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE",
-    ".env.example"
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc && npm run copy-assets",
@@ -33,7 +32,7 @@
     "prepare": "husky",
     "prepublishOnly": "npm run build && npm run test",
     "docker:build": "docker build -t qbz-downloader .",
-    "docker:run": "docker run -it --env-file .env -v ./downloads:/app/downloads qbz-downloader"
+    "docker:run": "docker run -it -v ./downloads:/app/downloads -v ./data:/app/data qbz-downloader"
   },
   "keywords": [
     "qobuz",
@@ -78,7 +77,6 @@
       "assets/desktop/**/*",
       "node_modules/**/*",
       "package.json",
-      ".env.example",
       "LICENSE",
       "README.md"
     ],
@@ -130,7 +128,7 @@
     "chalk": "^5.3.0",
     "cheerio": "^1.1.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
+    "electron-updater": "^6.6.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "figlet": "^1.7.0",
@@ -139,8 +137,7 @@
     "music-metadata": "^11.10.6",
     "node-id3": "^0.2.6",
     "p-limit": "^7.2.0",
-    "socket.io": "^4.8.3",
-    "electron-updater": "^6.6.2"
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/archiver": "^7.0.0",

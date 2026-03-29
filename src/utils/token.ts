@@ -1,8 +1,7 @@
 import { EventEmitter } from 'events';
-import fs from 'fs';
-import path from 'path';
 import { CONFIG } from '../config.js';
 import { logger } from './logger.js';
+import { settingsService } from '../services/settings.js';
 
 class TokenManager extends EventEmitter {
     private token: string;
@@ -15,7 +14,12 @@ class TokenManager extends EventEmitter {
         this.token = CONFIG.credentials.token || '';
     }
 
+    private syncTokenFromConfig(): void {
+        this.token = CONFIG.credentials.token || '';
+    }
+
     getToken(): string {
+        this.syncTokenFromConfig();
         return this.token;
     }
 
@@ -41,13 +45,8 @@ class TokenManager extends EventEmitter {
             this.emit('token:updated', { oldToken: oldToken.slice(-4), newToken: val.slice(-4) });
         }
 
-        if (key === 'QOBUZ_APP_ID') process.env.QOBUZ_APP_ID = val;
-        if (key === 'QOBUZ_APP_SECRET') process.env.QOBUZ_APP_SECRET = val;
-        if (key === 'QOBUZ_USER_AUTH_TOKEN') process.env.QOBUZ_USER_AUTH_TOKEN = val;
-        if (key === 'QOBUZ_USER_ID') process.env.QOBUZ_USER_ID = val;
-
         try {
-            await this.persistToEnv(key, val);
+            settingsService.set(key, val);
             if (key === 'QOBUZ_USER_AUTH_TOKEN') {
                 this.isValid = null;
                 logger.success('Token updated successfully');
@@ -59,33 +58,6 @@ class TokenManager extends EventEmitter {
             logger.error(`Failed to persist ${key}: ${error.message}`);
             return false;
         }
-    }
-
-    private async persistToEnv(key: string, value: string): Promise<void> {
-        const envPath = path.resolve(process.cwd(), '.env');
-
-        if (!fs.existsSync(envPath)) {
-            fs.writeFileSync(envPath, `${key}=${value}\n`, 'utf8');
-            return;
-        }
-
-        const content = fs.readFileSync(envPath, 'utf8');
-        const lines = content.split('\n');
-
-        let found = false;
-        const newLines = lines.map((line) => {
-            if (line.startsWith(`${key}=`)) {
-                found = true;
-                return `${key}=${value}`;
-            }
-            return line;
-        });
-
-        if (!found) {
-            newLines.push(`${key}=${value}`);
-        }
-
-        fs.writeFileSync(envPath, newLines.join('\n'), 'utf8');
     }
 
     markInvalid(): void {
@@ -105,6 +77,7 @@ class TokenManager extends EventEmitter {
     }
 
     getStatus(): { configured: boolean; valid: boolean | null; lastValidated: number | null } {
+        this.syncTokenFromConfig();
         return {
             configured: !!this.token,
             valid: this.isValid,
@@ -119,7 +92,7 @@ export async function refreshUserToken(): Promise<string | null> {
     const status = tokenManager.getStatus();
 
     if (!status.configured) {
-        logger.warn('No token configured. Please set QOBUZ_USER_AUTH_TOKEN in .env');
+        logger.warn('No token configured. Please set QOBUZ_USER_AUTH_TOKEN in Settings.');
         return null;
     }
 

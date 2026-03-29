@@ -308,6 +308,12 @@ class DatabaseService {
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
         `);
 
         try {

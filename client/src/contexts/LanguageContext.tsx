@@ -213,7 +213,7 @@ const translations: Translations = {
         en: 'Current Configuration', id: 'Konfigurasi Saat Ini', es: 'Configuración Actual', fr: 'Configuration Actuelle', de: 'Aktuelle Konfiguration', ja: '現在の設定', zh: '当前配置', hi: 'वर्तमान कॉन्फ़िगरेशन'
     },
     desc_config: {
-        en: 'These settings are loaded from .env file.', id: 'Pengaturan ini dimuat dari file .env.', es: 'Cargado desde .env.', fr: 'Chargé depuis .env.', de: 'Aus .env geladen.', ja: '.envファイルから読み込まれました。', zh: '这些设置从.env文件加载。', hi: 'ये सेटिंग्स .env फ़ाइल से लोड की गई हैं।'
+        en: 'These settings are stored in local app database.', id: 'Pengaturan ini disimpan di database lokal aplikasi.', es: 'Estos ajustes se guardan en la base de datos local.', fr: 'Ces reglages sont stockes dans la base locale de application.', de: 'Diese Einstellungen werden in der lokalen App-Datenbank gespeichert.', ja: 'Settings tersimpan di database lokal aplikasi.', zh: 'Settings disimpan di database lokal aplikasi.', hi: 'Settings disimpan di database lokal aplikasi.'
     },
     sec_appearance: {
         en: 'Appearance', id: 'Tampilan', es: 'Apariencia', fr: 'Apparence', de: 'Erscheinungsbild', ja: '外観', zh: '外观', hi: 'दिखावट'

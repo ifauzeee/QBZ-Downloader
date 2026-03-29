@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import 'dotenv/config';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
@@ -56,7 +55,7 @@ async function main() {
     try {
         displayBanner();
 
-        logger.info('Validating environment configuration...', 'ENV');
+        logger.info('Validating application settings...', 'CONFIG');
         const { warnings, valid, missing } = validateEnvironment();
 
         if (warnings.length > 0) {
@@ -66,11 +65,11 @@ async function main() {
         if (!valid) {
             logger.warn(`Missing required credentials: ${missing?.join(', ')}`, 'AUTH');
             logger.info(
-                'Please configure your credentials via the Web Dashboard settings.',
+                'Please configure your credentials via Dashboard Settings.',
                 'CONFIG'
             );
         } else {
-            logger.success('Environment configuration validated.', 'ENV');
+            logger.success('Application settings validated.', 'CONFIG');
         }
 
         logger.info('Initializing Database Service...', 'DB');

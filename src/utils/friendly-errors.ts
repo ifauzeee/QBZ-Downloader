@@ -29,7 +29,7 @@ const ERROR_PATTERNS: Record<string, ErrorInfo> = {
     '401': {
         message: 'Autentikasi gagal',
         suggestion:
-            'Token Anda mungkin expired. Perbarui QOBUZ_USER_AUTH_TOKEN di file .env lalu restart server, atau perbarui dari halaman Settings di dashboard jika tersedia.',
+            'Token Anda mungkin expired. Perbarui QOBUZ_USER_AUTH_TOKEN dari halaman Settings di dashboard.',
         emoji: '🔐'
     },
     invalid_credentials: {

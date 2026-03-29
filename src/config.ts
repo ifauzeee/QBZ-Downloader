@@ -1,9 +1,13 @@
+import { settingsService } from './services/settings.js';
+
 const getSetting = <T>(key: string, def: T): T => {
-    const fromEnv = process.env[key];
-    if (fromEnv === undefined) return def;
-    if (fromEnv === 'true') return true as T;
-    if (fromEnv === 'false') return false as T;
-    return fromEnv as unknown as T;
+    const fromDb = settingsService.get(key);
+    const raw = fromDb;
+
+    if (raw === undefined) return def;
+    if (raw === 'true') return true as T;
+    if (raw === 'false') return false as T;
+    return raw as unknown as T;
 };
 
 const getBool = (key: string, def: boolean): boolean => getSetting<boolean>(key, def);
@@ -83,7 +87,7 @@ export const CONFIG: Config = {
         return {
             appId: getStr('QOBUZ_APP_ID', ''),
             appSecret: getStr('QOBUZ_APP_SECRET', ''),
-            token: getStr('QOBUZ_USER_AUTH_TOKEN', getStr('QOBUZ_TOKEN', '')),
+            token: getStr('QOBUZ_USER_AUTH_TOKEN', ''),
             userId: getStr('QOBUZ_USER_ID', '')
         };
     },

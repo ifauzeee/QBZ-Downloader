@@ -140,11 +140,26 @@ vi.mock('../../config.js', () => ({
             token: 'test-token',
             userId: '12345'
         },
+        quality: {
+            default: 27,
+            streaming: 5
+        },
         download: {
             outputDir: './downloads',
             folderStructure: '{artist}/{album}',
             fileNaming: '{track_number}. {title}',
-            concurrent: 2
+            concurrent: 2,
+            retryAttempts: 3,
+            retryDelay: 1000
+        },
+        metadata: {
+            embedCover: true,
+            saveCoverFile: true,
+            coverSize: 'max',
+            downloadLyrics: true,
+            embedLyrics: true,
+            saveLrcFile: true,
+            lyricsType: 'both'
         },
         dashboard: {
             port: 3000,
@@ -215,7 +230,7 @@ describe('Dashboard API Routes', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.QOBUZ_APP_ID).toBe('test-app-id');
-            expect(res.body.QOBUZ_APP_SECRET).toContain('••••');
+            expect(res.body.QOBUZ_APP_SECRET).toContain('****');
             expect(res.body.DOWNLOADS_PATH).toBe('./downloads');
         });
     });
@@ -333,3 +348,4 @@ describe('Dashboard API Routes', () => {
         });
     });
 });
+

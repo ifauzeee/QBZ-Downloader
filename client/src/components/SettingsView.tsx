@@ -7,10 +7,27 @@ import { ConfirmModal } from './Modals';
 import { Icons } from './Icons';
 
 interface AppSettings {
+    QOBUZ_APP_ID: string;
+    QOBUZ_APP_SECRET: string;
+    QOBUZ_USER_AUTH_TOKEN: string;
+    QOBUZ_USER_ID: string;
     DOWNLOADS_PATH: string;
     FOLDER_TEMPLATE: string;
     FILE_TEMPLATE: string;
     MAX_CONCURRENCY: number;
+    DEFAULT_QUALITY: number | string;
+    STREAMING_QUALITY: number;
+    RETRY_ATTEMPTS: number;
+    RETRY_DELAY: number;
+    EMBED_COVER_ART: boolean;
+    SAVE_COVER_FILE: boolean;
+    COVER_SIZE: string;
+    DOWNLOAD_LYRICS: boolean;
+    EMBED_LYRICS: boolean;
+    SAVE_LRC_FILE: boolean;
+    LYRICS_TYPE: string;
+    DASHBOARD_PORT: number;
+    DASHBOARD_PASSWORD_CONFIGURED: boolean;
 }
 
 interface Credentials {
@@ -34,6 +51,25 @@ export const SettingsView: React.FC = () => {
     } = useTheme();
 
     const [settings, setSettings] = useState<AppSettings | null>(null);
+    const [settingsForm, setSettingsForm] = useState({
+        downloadsPath: './downloads',
+        folderTemplate: '{albumArtist}/{album}',
+        fileTemplate: '{track_number}. {title}',
+        maxConcurrency: 2,
+        defaultQuality: '27',
+        streamingQuality: 5,
+        retryAttempts: 3,
+        retryDelay: 1000,
+        embedCoverArt: true,
+        saveCoverFile: true,
+        coverSize: 'max',
+        downloadLyrics: true,
+        embedLyrics: true,
+        saveLrcFile: true,
+        lyricsType: 'both',
+        dashboardPort: 3000,
+        dashboardPassword: ''
+    });
     const [creds, setCreds] = useState<Credentials | null>(null);
     const [validationResult, setValidationResult] = useState<any>(null);
     const [validationError, setValidationError] = useState<string | null>(null);
@@ -59,7 +95,34 @@ export const SettingsView: React.FC = () => {
                 smartFetch('/api/settings'),
                 smartFetch('/api/credentials/status')
             ]);
-            if (sRes && sRes.ok) setSettings(await sRes.json());
+            if (sRes && sRes.ok) {
+                const data = await sRes.json();
+                setSettings(data);
+                setSettingsForm({
+                    downloadsPath: data.DOWNLOADS_PATH || './downloads',
+                    folderTemplate: data.FOLDER_TEMPLATE || '{albumArtist}/{album}',
+                    fileTemplate: data.FILE_TEMPLATE || '{track_number}. {title}',
+                    maxConcurrency: Number(data.MAX_CONCURRENCY || 2),
+                    defaultQuality: String(data.DEFAULT_QUALITY ?? '27'),
+                    streamingQuality: Number(data.STREAMING_QUALITY || 5),
+                    retryAttempts: Number(data.RETRY_ATTEMPTS || 3),
+                    retryDelay: Number(data.RETRY_DELAY || 1000),
+                    embedCoverArt:
+                        data.EMBED_COVER_ART !== undefined ? Boolean(data.EMBED_COVER_ART) : true,
+                    saveCoverFile:
+                        data.SAVE_COVER_FILE !== undefined ? Boolean(data.SAVE_COVER_FILE) : true,
+                    coverSize: data.COVER_SIZE || 'max',
+                    downloadLyrics:
+                        data.DOWNLOAD_LYRICS !== undefined ? Boolean(data.DOWNLOAD_LYRICS) : true,
+                    embedLyrics:
+                        data.EMBED_LYRICS !== undefined ? Boolean(data.EMBED_LYRICS) : true,
+                    saveLrcFile:
+                        data.SAVE_LRC_FILE !== undefined ? Boolean(data.SAVE_LRC_FILE) : true,
+                    lyricsType: data.LYRICS_TYPE || 'both',
+                    dashboardPort: Number(data.DASHBOARD_PORT || 3000),
+                    dashboardPassword: ''
+                });
+            }
             if (cRes && cRes.ok) setCreds(await cRes.json());
         } catch (e) { console.error(e); }
     };
@@ -94,6 +157,55 @@ export const SettingsView: React.FC = () => {
             }
         } catch (e) {
             showToast('Error', 'error');
+        }
+    };
+
+    const updateAppSettings = async () => {
+        try {
+            const payload: Record<string, any> = {
+                downloads_path: settingsForm.downloadsPath,
+                folder_template: settingsForm.folderTemplate,
+                file_template: settingsForm.fileTemplate,
+                max_concurrency: settingsForm.maxConcurrency,
+                default_quality: settingsForm.defaultQuality,
+                streaming_quality: settingsForm.streamingQuality,
+                retry_attempts: settingsForm.retryAttempts,
+                retry_delay: settingsForm.retryDelay,
+                embed_cover_art: settingsForm.embedCoverArt,
+                save_cover_file: settingsForm.saveCoverFile,
+                cover_size: settingsForm.coverSize,
+                download_lyrics: settingsForm.downloadLyrics,
+                embed_lyrics: settingsForm.embedLyrics,
+                save_lrc_file: settingsForm.saveLrcFile,
+                lyrics_type: settingsForm.lyricsType,
+                dashboard_port: settingsForm.dashboardPort
+            };
+
+            if (settingsForm.dashboardPassword.trim()) {
+                payload.dashboard_password = settingsForm.dashboardPassword.trim();
+            }
+
+            const res = await smartFetch('/api/settings/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res && res.ok) {
+                showToast('Settings saved', 'success');
+                await loadSettings();
+                return;
+            }
+
+            if (res) {
+                const err = await res.json();
+                showToast(err.error || 'Failed to save settings', 'error');
+            } else {
+                showToast('Connection failed', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Failed to save settings', 'error');
         }
     };
 
@@ -312,24 +424,243 @@ export const SettingsView: React.FC = () => {
                     <span className="icon"><Icons.Library /></span> {t('sec_config')}
                 </h3>
                 <p className="section-desc">{t('desc_config')}</p>
-                <div className="current-settings-grid">
-                    <div className="setting-display-item">
-                        <span className="setting-label">{t('label_dl_path')}</span>
-                        <span className="setting-value">{settings?.DOWNLOADS_PATH || '-'}</span>
+                <div className="update-cred-grid">
+                    <div className="form-group">
+                        <label>{t('label_dl_path')}</label>
+                        <input
+                            type="text"
+                            value={settingsForm.downloadsPath}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, downloadsPath: e.target.value }))
+                            }
+                        />
                     </div>
-                    <div className="setting-display-item">
-                        <span className="setting-label">{t('label_folder_tmpl')}</span>
-                        <span className="setting-value">{settings?.FOLDER_TEMPLATE || '-'}</span>
+                    <div className="form-group">
+                        <label>{t('label_folder_tmpl')}</label>
+                        <input
+                            type="text"
+                            value={settingsForm.folderTemplate}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, folderTemplate: e.target.value }))
+                            }
+                        />
                     </div>
-                    <div className="setting-display-item">
-                        <span className="setting-label">{t('label_file_tmpl')}</span>
-                        <span className="setting-value">{settings?.FILE_TEMPLATE || '-'}</span>
+                    <div className="form-group">
+                        <label>{t('label_file_tmpl')}</label>
+                        <input
+                            type="text"
+                            value={settingsForm.fileTemplate}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, fileTemplate: e.target.value }))
+                            }
+                        />
                     </div>
-                    <div className="setting-display-item">
-                        <span className="setting-label">{t('label_concurrency')}</span>
-                        <span className="setting-value">{settings?.MAX_CONCURRENCY || '-'}</span>
+                    <div className="form-group">
+                        <label>{t('label_concurrency')}</label>
+                        <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={settingsForm.maxConcurrency}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    maxConcurrency: Number(e.target.value || 1)
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Default Quality</label>
+                        <select
+                            value={settingsForm.defaultQuality}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, defaultQuality: e.target.value }))
+                            }
+                        >
+                            <option value="5">MP3 320</option>
+                            <option value="6">FLAC 16/44.1</option>
+                            <option value="7">FLAC 24/96</option>
+                            <option value="27">FLAC 24/192</option>
+                            <option value="ask">Ask Every Time</option>
+                            <option value="min">Minimum</option>
+                            <option value="max">Maximum</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Streaming Quality</label>
+                        <select
+                            value={settingsForm.streamingQuality}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    streamingQuality: Number(e.target.value)
+                                }))
+                            }
+                        >
+                            <option value={5}>MP3 320</option>
+                            <option value={6}>FLAC 16/44.1</option>
+                            <option value={7}>FLAC 24/96</option>
+                            <option value={27}>FLAC 24/192</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Retry Attempts</label>
+                        <input
+                            type="number"
+                            min={0}
+                            max={10}
+                            value={settingsForm.retryAttempts}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    retryAttempts: Number(e.target.value || 0)
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Retry Delay (ms)</label>
+                        <input
+                            type="number"
+                            min={0}
+                            value={settingsForm.retryDelay}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    retryDelay: Number(e.target.value || 0)
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Cover Size</label>
+                        <select
+                            value={settingsForm.coverSize}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, coverSize: e.target.value }))
+                            }
+                        >
+                            <option value="small">Small</option>
+                            <option value="large">Large</option>
+                            <option value="max">Max</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Lyrics Type</label>
+                        <select
+                            value={settingsForm.lyricsType}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, lyricsType: e.target.value }))
+                            }
+                        >
+                            <option value="synced">Synced</option>
+                            <option value="plain">Plain</option>
+                            <option value="both">Both</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Dashboard Port</label>
+                        <input
+                            type="number"
+                            min={1}
+                            max={65535}
+                            value={settingsForm.dashboardPort}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    dashboardPort: Number(e.target.value || 3000)
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Dashboard Password (optional)</label>
+                        <input
+                            type="text"
+                            placeholder={
+                                settings?.DASHBOARD_PASSWORD_CONFIGURED
+                                    ? 'Configured (leave blank to keep current password)'
+                                    : 'Leave empty for public dashboard'
+                            }
+                            value={settingsForm.dashboardPassword}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    dashboardPassword: e.target.value
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                            id="embed-cover-art"
+                            type="checkbox"
+                            checked={settingsForm.embedCoverArt}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, embedCoverArt: e.target.checked }))
+                            }
+                        />
+                        <label htmlFor="embed-cover-art" style={{ margin: 0 }}>
+                            Embed Cover Art
+                        </label>
+                    </div>
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                            id="save-cover-file"
+                            type="checkbox"
+                            checked={settingsForm.saveCoverFile}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, saveCoverFile: e.target.checked }))
+                            }
+                        />
+                        <label htmlFor="save-cover-file" style={{ margin: 0 }}>
+                            Save Cover File
+                        </label>
+                    </div>
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                            id="download-lyrics"
+                            type="checkbox"
+                            checked={settingsForm.downloadLyrics}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, downloadLyrics: e.target.checked }))
+                            }
+                        />
+                        <label htmlFor="download-lyrics" style={{ margin: 0 }}>
+                            Download Lyrics
+                        </label>
+                    </div>
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                            id="embed-lyrics"
+                            type="checkbox"
+                            checked={settingsForm.embedLyrics}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, embedLyrics: e.target.checked }))
+                            }
+                        />
+                        <label htmlFor="embed-lyrics" style={{ margin: 0 }}>
+                            Embed Lyrics
+                        </label>
+                    </div>
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                            id="save-lrc-file"
+                            type="checkbox"
+                            checked={settingsForm.saveLrcFile}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, saveLrcFile: e.target.checked }))
+                            }
+                        />
+                        <label htmlFor="save-lrc-file" style={{ margin: 0 }}>
+                            Save LRC File
+                        </label>
                     </div>
                 </div>
+                <button className="btn primary" onClick={updateAppSettings}>
+                    Save App Settings
+                </button>
             </div>
 
             <div className="settings-section">

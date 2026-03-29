@@ -141,10 +141,6 @@ function migrateLegacyState(targetDir) {
   const migrated = [];
 
   for (const candidate of candidates) {
-    if (copyIfMissing(path.join(candidate, '.env'), path.join(targetDir, '.env'))) {
-      migrated.push(`.env <= ${candidate}`);
-    }
-
     const dbSrc = path.join(candidate, 'data', 'qbz.db');
     const dbDst = path.join(targetDir, 'data', 'qbz.db');
     if (copyIfMissing(dbSrc, dbDst)) {

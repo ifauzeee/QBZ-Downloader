@@ -9,8 +9,33 @@ import { AuthenticationError, APIError } from '../../utils/errors.js';
 
 import { tokenManager } from '../../utils/token.js';
 import { APP_VERSION } from '../../constants.js';
+import { settingsService } from '../settings.js';
 
 const api = new QobuzAPI();
+
+const APP_SETTING_KEYS = new Set([
+    'QOBUZ_APP_ID',
+    'QOBUZ_APP_SECRET',
+    'QOBUZ_USER_AUTH_TOKEN',
+    'QOBUZ_USER_ID',
+    'DOWNLOADS_PATH',
+    'DEFAULT_QUALITY',
+    'MAX_CONCURRENCY',
+    'RETRY_ATTEMPTS',
+    'RETRY_DELAY',
+    'FOLDER_TEMPLATE',
+    'FILE_TEMPLATE',
+    'EMBED_COVER_ART',
+    'SAVE_COVER_FILE',
+    'COVER_SIZE',
+    'DOWNLOAD_LYRICS',
+    'EMBED_LYRICS',
+    'SAVE_LRC_FILE',
+    'LYRICS_TYPE',
+    'DASHBOARD_PORT',
+    'DASHBOARD_PASSWORD',
+    'STREAMING_QUALITY'
+]);
 
 export function registerRoutes(app: any) {
     const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
@@ -55,7 +80,7 @@ export function registerRoutes(app: any) {
     });
 
     app.get('/api/settings', (req: Request, res: Response) => {
-        const mask = (s: string) => (s ? s.slice(0, 4) + '••••' + s.slice(-4) : '-');
+        const mask = (s: string) => (s ? s.slice(0, 4) + '****' + s.slice(-4) : '-');
         res.json({
             QOBUZ_APP_ID: CONFIG.credentials.appId,
             QOBUZ_APP_SECRET: mask(CONFIG.credentials.appSecret),
@@ -64,17 +89,78 @@ export function registerRoutes(app: any) {
             DOWNLOADS_PATH: CONFIG.download.outputDir,
             FOLDER_TEMPLATE: CONFIG.download.folderStructure,
             FILE_TEMPLATE: CONFIG.download.fileNaming,
-            MAX_CONCURRENCY: CONFIG.download.concurrent
+            MAX_CONCURRENCY: CONFIG.download.concurrent,
+            DEFAULT_QUALITY: CONFIG.quality.default,
+            STREAMING_QUALITY: CONFIG.quality.streaming,
+            RETRY_ATTEMPTS: CONFIG.download.retryAttempts,
+            RETRY_DELAY: CONFIG.download.retryDelay,
+            EMBED_COVER_ART: CONFIG.metadata.embedCover,
+            SAVE_COVER_FILE: CONFIG.metadata.saveCoverFile,
+            COVER_SIZE: CONFIG.metadata.coverSize,
+            DOWNLOAD_LYRICS: CONFIG.metadata.downloadLyrics,
+            EMBED_LYRICS: CONFIG.metadata.embedLyrics,
+            SAVE_LRC_FILE: CONFIG.metadata.saveLrcFile,
+            LYRICS_TYPE: CONFIG.metadata.lyricsType,
+            DASHBOARD_PORT: CONFIG.dashboard.port,
+            DASHBOARD_PASSWORD_CONFIGURED: !!CONFIG.dashboard.password
         });
     });
 
     app.post('/api/settings/update', async (req: Request, res: Response) => {
-        const { app_id, app_secret, token, user_id } = req.body;
         try {
-            if (app_id) await tokenManager.updateConfig('QOBUZ_APP_ID', app_id);
-            if (app_secret) await tokenManager.updateConfig('QOBUZ_APP_SECRET', app_secret);
-            if (token) await tokenManager.updateConfig('QOBUZ_USER_AUTH_TOKEN', token);
-            if (user_id) await tokenManager.updateConfig('QOBUZ_USER_ID', user_id);
+            const body = req.body || {};
+            const updates: Record<string, string> = {};
+
+            const setIfDefined = (key: string, value: any) => {
+                if (value === undefined || value === null) return;
+                if (!APP_SETTING_KEYS.has(key)) return;
+
+                const normalized =
+                    typeof value === 'boolean' ? String(value) : String(value).trim();
+                if (normalized === '' && key !== 'DASHBOARD_PASSWORD') return;
+                updates[key] = normalized;
+            };
+
+            setIfDefined('QOBUZ_APP_ID', body.app_id);
+            setIfDefined('QOBUZ_APP_SECRET', body.app_secret);
+            setIfDefined('QOBUZ_USER_AUTH_TOKEN', body.token);
+            setIfDefined('QOBUZ_USER_ID', body.user_id);
+
+            setIfDefined('DOWNLOADS_PATH', body.downloads_path);
+            setIfDefined('FOLDER_TEMPLATE', body.folder_template);
+            setIfDefined('FILE_TEMPLATE', body.file_template);
+            setIfDefined('MAX_CONCURRENCY', body.max_concurrency);
+            setIfDefined('DEFAULT_QUALITY', body.default_quality);
+            setIfDefined('STREAMING_QUALITY', body.streaming_quality);
+            setIfDefined('RETRY_ATTEMPTS', body.retry_attempts);
+            setIfDefined('RETRY_DELAY', body.retry_delay);
+            setIfDefined('EMBED_COVER_ART', body.embed_cover_art);
+            setIfDefined('SAVE_COVER_FILE', body.save_cover_file);
+            setIfDefined('COVER_SIZE', body.cover_size);
+            setIfDefined('DOWNLOAD_LYRICS', body.download_lyrics);
+            setIfDefined('EMBED_LYRICS', body.embed_lyrics);
+            setIfDefined('SAVE_LRC_FILE', body.save_lrc_file);
+            setIfDefined('LYRICS_TYPE', body.lyrics_type);
+            setIfDefined('DASHBOARD_PORT', body.dashboard_port);
+            setIfDefined('DASHBOARD_PASSWORD', body.dashboard_password);
+
+            if (body.settings && typeof body.settings === 'object') {
+                for (const [key, value] of Object.entries(body.settings)) {
+                    setIfDefined(key, value);
+                }
+            }
+
+            if (Object.keys(updates).length === 0) {
+                res.status(400).json({ error: 'No valid settings provided' });
+                return;
+            }
+
+            settingsService.setMany(updates);
+
+            if (updates.QOBUZ_USER_AUTH_TOKEN) {
+                tokenManager.markInvalid();
+            }
+
             res.json({ success: true, message: 'Settings updated successfully' });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -172,8 +258,8 @@ export function registerRoutes(app: any) {
                 quality !== undefined
                     ? quality
                     : typeof CONFIG.quality.default === 'number'
-                      ? CONFIG.quality.default
-                      : 27;
+                        ? CONFIG.quality.default
+                        : 27;
 
             const item = downloadQueue.add(type, id, qualityToUse, {
                 title,
@@ -322,7 +408,7 @@ export function registerRoutes(app: any) {
                                 item.image = latestAlbum.image;
                                 item.picture = latestAlbum.image;
                             }
-                        } catch {}
+                        } catch { }
                     }
                     return item;
                 });
@@ -1280,3 +1366,4 @@ export function registerRoutes(app: any) {
         }
     });
 }
+

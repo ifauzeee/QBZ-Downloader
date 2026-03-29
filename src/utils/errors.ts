@@ -62,7 +62,7 @@ export function handleError(error: Error | QobuzError, display: any) {
     } else if (error instanceof AuthenticationError) {
         display.displayError(`🔐 Authentication Error: ${error.message}`);
         logger.info(
-            '💡 Periksa QOBUZ_APP_ID, QOBUZ_APP_SECRET, dan QOBUZ_USER_AUTH_TOKEN di file .env lalu restart server.',
+            '💡 Periksa QOBUZ_APP_ID, QOBUZ_APP_SECRET, dan QOBUZ_USER_AUTH_TOKEN di Dashboard Settings.',
             'HELP'
         );
     } else if (error instanceof APIError) {
@@ -80,7 +80,7 @@ export function handleError(error: Error | QobuzError, display: any) {
         if (error.missingVars.length > 0) {
             logger.error(`Missing: ${error.missingVars.join(', ')}`, 'CONFIG');
         }
-        logger.info('💡 Lengkapi variabel yang hilang di file .env lalu restart server.', 'HELP');
+        logger.info('💡 Lengkapi variabel yang hilang di Dashboard Settings.', 'HELP');
     } else {
         display.displayError(`${friendlyError.emoji} ${friendlyError.message}`);
         logger.info(`💡 ${friendlyError.suggestion}`, 'HELP');

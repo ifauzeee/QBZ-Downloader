@@ -7,6 +7,7 @@ import { CONFIG } from '../config.js';
 import { APIError, AuthenticationError } from '../utils/errors.js';
 import { refreshUserToken } from '../utils/token.js';
 import { URL_PATTERNS } from '../constants.js';
+import { settingsService } from '../services/settings.js';
 
 import { Album, Track, UserInfo, SearchResults, LyricsResult, Playlist } from '../types/qobuz.js';
 
@@ -24,28 +25,28 @@ class QobuzAPI {
         return CONFIG.credentials.appId;
     }
     set appId(val: string) {
-        process.env.QOBUZ_APP_ID = val;
+        settingsService.set('QOBUZ_APP_ID', val);
     }
 
     get appSecret() {
         return CONFIG.credentials.appSecret;
     }
     set appSecret(val: string) {
-        process.env.QOBUZ_APP_SECRET = val;
+        settingsService.set('QOBUZ_APP_SECRET', val);
     }
 
     get token() {
         return CONFIG.credentials.token;
     }
     set token(val: string) {
-        process.env.QOBUZ_USER_AUTH_TOKEN = val;
+        settingsService.set('QOBUZ_USER_AUTH_TOKEN', val);
     }
 
     get userId() {
         return CONFIG.credentials.userId;
     }
     set userId(val: string) {
-        process.env.QOBUZ_USER_ID = val;
+        settingsService.set('QOBUZ_USER_ID', val);
     }
 
     constructor() {
