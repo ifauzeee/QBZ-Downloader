@@ -7,7 +7,6 @@
 [![React](https://img.shields.io/badge/React-18.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
 
 <br/>
@@ -18,12 +17,12 @@
 
 **Unlock the full potential of your music library.**
 
-A comprehensive, enterprise-grade music downloading and library management platform. Experience studio-quality audio up to **24-bit/192kHz** with complete metadata, synchronized lyrics, intelligent queue management, and a stunning real-time web dashboard.
+A comprehensive, enterprise-grade music downloading and library management platform. Experience studio-quality audio up to **24-bit/192kHz** with complete metadata, synchronized lyrics, intelligent queue management, and a stunning real-time desktop dashboard.
 
 [✨ Features](#-key-features) •
 [📥 Installation](#-installation) •
 [⚙️ Configuration](#-configuration) •
-[🚀 Usage](#-usage-guide) •
+[🖥️ Desktop Mode](#desktop-exe-windows) •
 [📸 Screenshots](#-interface-showcase)
 
 </div>
@@ -47,7 +46,7 @@ Everything you need to build the perfect local music library.
 | **📚 Library Manager** | Scans your library to **detect duplicates**, identify missing metadata, and suggest upgrades. |
 | **🎼 Visualizer** | Built-in real-time audio visualization for an immersive listening experience. |
 | **📊 Analytics** | Visualize your collection with charts: quality distribution, top artists, and storage mastery. |
-| **🐳 Docker Ready** | Deploy effortlessly with Docker. Keeps your system clean and secure. |
+| **🧩 Desktop-Only Runtime** | Optimized for Windows EXE delivery with local-first configuration and storage. |
 
 ---
 
@@ -96,40 +95,9 @@ Keep your collection pristine.
 
 ## 📥 Installation
 
-### Option A: 🐳 Docker (Recommended)
-The easiest way to get started.
-
-```bash
-# 1. Clone repository
-git clone https://github.com/ifauzeee/QBZ-Downloader.git
-cd QBZ-Downloader
-
-# 2. Build and run
-docker-compose up -d
-
-# 3. Open http://localhost:3000
-# 4. Fill your Qobuz credentials in Settings
-```
-
-### Option B: 🛠️ Manual Setup
-
-```bash
-# 1. Clone
-git clone https://github.com/ifauzeee/QBZ-Downloader.git
-cd QBZ-Downloader
-
-# 2. Install & Build
-npm install
-npm run build:full
-
-# 3. Start
-npm start
-
-# 4. Open dashboard and configure credentials in Settings
-```
-
-### Option C: 🖥️ Desktop EXE (Windows)
-Build an installer that runs the dashboard as a native desktop app.
+### Desktop EXE (Windows)
+This project now runs in **desktop-only mode**.
+Web/Docker usage has been removed and is no longer supported.
 
 ![Desktop EXE](./docs/screenshots/exe.png)
 
@@ -188,7 +156,7 @@ git push origin v4.0.1
 
 ## ⚙️ Configuration
 
-All runtime settings are managed from **Dashboard Settings** and stored in the **local SQLite database**.
+All runtime settings are managed from **Desktop Settings** and stored in the **local SQLite database**.
 
 ### 🔑 Authentication (Required)
 Fill these in Settings:
@@ -204,7 +172,7 @@ You can configure directly from Settings UI:
 - Download path, folder/file template, concurrency, retry
 - Audio quality defaults
 - Metadata and lyrics behavior
-- Dashboard port/password
+- Local desktop service port/password
 
 Notes:
 - No `.env` file is required for normal desktop usage.
@@ -216,8 +184,8 @@ Notes:
 
 ```mermaid
 graph TD
-    User[User] -->|Browser| Dashboard[React Dashboard]
-    Dashboard -->|WebSocket/REST| Server[Node.js Server]
+    User[User] -->|Windows EXE| Desktop[Electron Desktop App]
+    Desktop -->|Local WebSocket/REST| Server[Node.js Local Service]
     
     subgraph Backend Services
         Server --> API[Qobuz API Client]
