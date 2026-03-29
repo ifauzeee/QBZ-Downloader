@@ -104,14 +104,11 @@ The easiest way to get started.
 git clone https://github.com/ifauzeee/QBZ-Downloader.git
 cd QBZ-Downloader
 
-# 2. Setup environment
-cp .env.example .env
-# Edit .env with your Qobuz credentials
-
-# 3. specific Build and run
+# 2. Build and run
 docker-compose up -d
 
-# 4. Open http://localhost:3000
+# 3. Open http://localhost:3000
+# 4. Fill your Qobuz credentials in Settings
 ```
 
 ### Option B: 🛠️ Manual Setup
@@ -125,15 +122,22 @@ cd QBZ-Downloader
 npm install
 npm run build:full
 
-# 3. Configure
-cp .env.example .env
-
-# 4. Start
+# 3. Start
 npm start
+
+# 4. Open dashboard and configure credentials in Settings
 ```
 
 ### Option C: 🖥️ Desktop EXE (Windows)
 Build an installer that runs the dashboard as a native desktop app.
+
+![Desktop EXE](./docs/screenshots/exe.png)
+
+Install ready-to-use EXE directly from GitHub Releases (no clone required):
+
+1. Download EXE from GitHub Releases.
+2. Install/run.
+3. Fill in your own Qobuz credentials in Settings.
 
 ```bash
 # 1. Install dependencies
@@ -160,7 +164,7 @@ Desktop runtime data location:
 - Portable build: `QBZ-Data/` next to the portable executable
 
 First run migration:
-- Desktop app automatically migrates `.env`, `data/qbz.db`, `history.json`, and `settings.json` from your previous project folder when available.
+- Desktop app automatically migrates `data/qbz.db`, `history.json`, and `settings.json` from your previous project folder when available.
 
 Auto-update (optional):
 - Set environment variable `QBZ_UPDATE_URL` to a URL hosting `latest.yml` and installer artifacts.
@@ -180,33 +184,27 @@ git push origin v4.0.1
 
 ## ⚙️ Configuration
 
-Create a `.env` file in the root directory.
+All runtime settings are managed from **Dashboard Settings** and stored in the **local SQLite database**.
 
 ### 🔑 Authentication (Required)
-You must provide valid Qobuz credentials.
+Fill these in Settings:
 
-```properties
-# Your application credentials
-QOBUZ_APP_ID=your_app_id
-QOBUZ_APP_SECRET=your_app_secret
-
-# Your user token (get this from your browser cookies/local storage)
-QOBUZ_USER_AUTH_TOKEN=your_user_token
-QOBUZ_USER_ID=your_user_id
-```
+- `QOBUZ_APP_ID`
+- `QOBUZ_APP_SECRET`
+- `QOBUZ_USER_AUTH_TOKEN`
+- `QOBUZ_USER_ID`
 
 ### 📁 Preferences
-```properties
-# Downloads
-DOWNLOADS_PATH=./downloads
-FOLDER_TEMPLATE={albumArtist}/{album}
-FILE_TEMPLATE={track_number}. {title}
+You can configure directly from Settings UI:
 
-# Metadata
-EMBED_COVER_ART=true
-SAVE_COVER_FILE=true
-COVER_SIZE=max
-```
+- Download path, folder/file template, concurrency, retry
+- Audio quality defaults
+- Metadata and lyrics behavior
+- Dashboard port/password
+
+Notes:
+- No `.env` file is required for normal desktop usage.
+- All credentials and app settings are saved in the local SQLite database via Settings UI.
 
 ---
 
