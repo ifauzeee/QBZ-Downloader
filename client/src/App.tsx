@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { SocketProvider, useSocket } from './contexts/SocketContext';
 import { NavigationProvider, useNavigation, type Tab } from './contexts/NavigationContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -20,8 +20,10 @@ import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { LogView } from './components/LogView';
 import { AddUrlModal, LoginModal } from './components/Modals';
+import { DesktopSetupGate } from './components/DesktopSetupGate';
 import { Icons } from './components/Icons';
 import { applyAccent } from './utils/theme';
+import { smartFetch } from './utils/api';
 
 type UpdateState = {
   status: string;
@@ -30,6 +32,12 @@ type UpdateState = {
   available: boolean;
   downloaded: boolean;
   checkedAt: string | null;
+};
+
+type DesktopSetupState = 'checking' | 'required' | 'ready';
+
+type OnboardingStatusResponse = {
+  configured: boolean;
 };
 
 function AppContent() {
@@ -49,6 +57,9 @@ function AppContent() {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const desktopBridge = typeof window !== 'undefined' ? window.qbzDesktop : undefined;
   const isDesktop = Boolean(desktopBridge?.isDesktop);
+  const [desktopSetupState, setDesktopSetupState] = useState<DesktopSetupState>(
+    isDesktop ? 'checking' : 'ready'
+  );
 
   useEffect(() => {
     document.body.classList.remove('dark-theme', 'light-theme');
@@ -121,6 +132,35 @@ function AppContent() {
 
     return () => cleanup();
   }, [desktopBridge, isDesktop]);
+
+  const checkDesktopSetup = useCallback(async () => {
+    if (!isDesktop) {
+      setDesktopSetupState('ready');
+      return;
+    }
+
+    setDesktopSetupState('checking');
+    try {
+      const res = await smartFetch('/api/onboarding');
+      if (!res || !res.ok) {
+        setDesktopSetupState('required');
+        return;
+      }
+
+      const data = (await res.json()) as OnboardingStatusResponse;
+      setDesktopSetupState(data.configured ? 'ready' : 'required');
+    } catch {
+      setDesktopSetupState('required');
+    }
+  }, [isDesktop]);
+
+  useEffect(() => {
+    void checkDesktopSetup();
+  }, [checkDesktopSetup]);
+
+  const handleDesktopSetupContinue = useCallback(() => {
+    setDesktopSetupState('ready');
+  }, []);
 
   const toggleSidebar = () => {
     if (window.innerWidth <= 768) {
@@ -247,231 +287,244 @@ function AppContent() {
         </header>
       )}
 
-      <div className="app-container">
-        <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
-          <div className="logo">
-            <span className="logo-icon">🎵</span>
-            <h1 style={{ whiteSpace: 'nowrap' }}>QBZ-DL</h1>
-          </div>
-          <nav className="nav-menu">
-            {navItems.map((item) => (
-              <a
-                key={item.id}
-                href="#"
-                className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveTab(item.id);
-                  setSidebarOpen(false);
-                }}
-                title={sidebarCollapsed ? item.label : ''}
-              >
-                <span className="icon">{item.icon}</span>{' '}
-                <span className="nav-label">{item.label}</span>
-              </a>
-            ))}
-          </nav>
-          <div className="sidebar-footer">
-            <p
-              style={{
-                fontSize: '10px',
-                color: 'var(--text-secondary)',
-                opacity: 0.6,
-                marginBottom: '8px'
-              }}
-            >
-              This application uses the Qobuz API but is not certified by Qobuz.
-            </p>
-          </div>
-        </aside>
-
-        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
-
-        <main className="main-content">
-          <header className="top-bar">
-            <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <button id="menu-toggle" className="btn secondary icon-btn" onClick={toggleSidebar}>
-                <Icons.Menu />
-              </button>
-              <h2 id="page-title">{getPageTitle(activeTab)}</h2>
+      {isDesktop && desktopSetupState !== 'ready' ? (
+        <section className="desktop-onboarding-entry">
+          {desktopSetupState === 'checking' ? (
+            <div className="desktop-onboarding-loading">
+              <div className="desktop-onboarding-spinner" />
+              <p>Checking your local setup status...</p>
             </div>
-            <div className="header-right" style={{ display: 'flex', gap: '10px' }}>
-              <div className={`sync-pill ${connected ? 'online' : 'offline'}`}>
-                <span className="sync-dot" />
-                <span>{connected ? 'Synced' : 'Reconnecting'}</span>
-              </div>
-
-              {isDesktop && (
-                <div
-                  className={`update-pill ${updateState?.status || 'idle'} ${updateState?.downloaded ? 'ready' : ''}`}
-                  title={updateState?.message || 'Desktop updates'}
+          ) : (
+            <DesktopSetupGate onContinue={handleDesktopSetupContinue} />
+          )}
+        </section>
+      ) : (
+        <div className="app-container">
+          <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
+            <div className="logo">
+              <span className="logo-icon">🎵</span>
+              <h1 style={{ whiteSpace: 'nowrap' }}>QBZ-DL</h1>
+            </div>
+            <nav className="nav-menu">
+              {navItems.map((item) => (
+                <a
+                  key={item.id}
+                  href="#"
+                  className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveTab(item.id);
+                    setSidebarOpen(false);
+                  }}
+                  title={sidebarCollapsed ? item.label : ''}
                 >
-                  <span className="update-pill-label">{getUpdateLabel()}</span>
-                  {updateState?.downloaded ? (
-                    <button className="update-action-btn" onClick={handleInstallUpdate}>
-                      Install
-                    </button>
-                  ) : (
-                    <button
-                      className="update-action-btn"
-                      onClick={handleCheckUpdate}
-                      disabled={isCheckingUpdate}
+                  <span className="icon">{item.icon}</span>{' '}
+                  <span className="nav-label">{item.label}</span>
+                </a>
+              ))}
+            </nav>
+            <div className="sidebar-footer">
+              <p
+                style={{
+                  fontSize: '10px',
+                  color: 'var(--text-secondary)',
+                  opacity: 0.6,
+                  marginBottom: '8px'
+                }}
+              >
+                This application uses the Qobuz API but is not certified by Qobuz.
+              </p>
+            </div>
+          </aside>
+
+          <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
+
+          <main className="main-content">
+            <header className="top-bar">
+              <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <button id="menu-toggle" className="btn secondary icon-btn" onClick={toggleSidebar}>
+                  <Icons.Menu />
+                </button>
+                <h2 id="page-title">{getPageTitle(activeTab)}</h2>
+              </div>
+              <div className="header-right" style={{ display: 'flex', gap: '10px' }}>
+                <div className={`sync-pill ${connected ? 'online' : 'offline'}`}>
+                  <span className="sync-dot" />
+                  <span>{connected ? 'Synced' : 'Reconnecting'}</span>
+                </div>
+
+                {isDesktop && (
+                  <div
+                    className={`update-pill ${updateState?.status || 'idle'} ${updateState?.downloaded ? 'ready' : ''}`}
+                    title={updateState?.message || 'Desktop updates'}
+                  >
+                    <span className="update-pill-label">{getUpdateLabel()}</span>
+                    {updateState?.downloaded ? (
+                      <button className="update-action-btn" onClick={handleInstallUpdate}>
+                        Install
+                      </button>
+                    ) : (
+                      <button
+                        className="update-action-btn"
+                        onClick={handleCheckUpdate}
+                        disabled={isCheckingUpdate}
+                      >
+                        Check
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className="btn secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowLangMenu(!showLangMenu);
+                    }}
+                    style={{
+                      padding: '10px 16px',
+                      fontSize: '14px',
+                      minWidth: '85px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      height: '44px'
+                    }}
+                    title="Change Language"
+                  >
+                    {(() => {
+                      const config = flags[language] || flags.en;
+                      const Flag = config.icon;
+                      return (
+                        <>
+                          <Flag width={18} height={18} />
+                          <span>{config.label}</span>
+                        </>
+                      );
+                    })()}
+                  </button>
+
+                  {showLangMenu && (
+                    <div
+                      className="dropdown-menu"
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        right: 0,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '6px',
+                        zIndex: 2000,
+                        minWidth: '160px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px'
+                      }}
                     >
-                      Check
-                    </button>
+                      {Object.entries(flags).map(([code, config]) => {
+                        const FlagIcon = config.icon;
+                        return (
+                          <button
+                            key={code}
+                            onClick={() => {
+                              setLanguage(code as any);
+                              setShowLangMenu(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              padding: '10px 12px',
+                              width: '100%',
+                              border: 'none',
+                              background: language === code ? 'var(--bg-elevated)' : 'transparent',
+                              color: 'var(--text-primary)',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              textAlign: 'left',
+                              transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'var(--bg-hover)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background =
+                                language === code ? 'var(--bg-elevated)' : 'transparent';
+                            }}
+                          >
+                            <FlagIcon width={18} height={18} />
+                            <span>{config.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-              )}
 
-              <div style={{ position: 'relative' }}>
                 <button
+                  id="theme-toggle"
                   className="btn secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowLangMenu(!showLangMenu);
-                  }}
+                  title={t('common_toggle_theme')}
+                  onClick={toggleTheme}
                   style={{
                     padding: '10px 16px',
-                    fontSize: '14px',
-                    minWidth: '85px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px',
+                    minWidth: '85px',
                     height: '44px'
                   }}
-                  title="Change Language"
                 >
-                  {(() => {
-                    const config = flags[language] || flags.en;
-                    const Flag = config.icon;
-                    return (
-                      <>
-                        <Flag width={18} height={18} />
-                        <span>{config.label}</span>
-                      </>
-                    );
-                  })()}
+                  {theme === 'dark' ? (
+                    <Icons.Moon width={20} height={20} />
+                  ) : (
+                    <Icons.Sun width={20} height={20} />
+                  )}
                 </button>
 
-                {showLangMenu && (
-                  <div
-                    className="dropdown-menu"
-                    style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 8px)',
-                      right: 0,
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '12px',
-                      padding: '6px',
-                      zIndex: 2000,
-                      minWidth: '160px',
-                      boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '2px'
-                    }}
-                  >
-                    {Object.entries(flags).map(([code, config]) => {
-                      const FlagIcon = config.icon;
-                      return (
-                        <button
-                          key={code}
-                          onClick={() => {
-                            setLanguage(code as any);
-                            setShowLangMenu(false);
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '10px 12px',
-                            width: '100%',
-                            border: 'none',
-                            background: language === code ? 'var(--bg-elevated)' : 'transparent',
-                            color: 'var(--text-primary)',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            textAlign: 'left',
-                            transition: 'background 0.2s'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--bg-hover)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background =
-                              language === code ? 'var(--bg-elevated)' : 'transparent';
-                          }}
-                        >
-                          <FlagIcon width={18} height={18} />
-                          <span>{config.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                <button id="add-btn" className="btn primary" onClick={() => setShowAddModal(true)}>
+                  <span className="icon">
+                    <Icons.Plus />
+                  </span>{' '}
+                  <span className="desktop-only">{t('action_add_url')}</span>
+                </button>
               </div>
+            </header>
 
-              <button
-                id="theme-toggle"
-                className="btn secondary"
-                title={t('common_toggle_theme')}
-                onClick={toggleTheme}
-                style={{
-                  padding: '10px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: '85px',
-                  height: '44px'
-                }}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
               >
-                {theme === 'dark' ? (
-                  <Icons.Moon width={20} height={20} />
-                ) : (
-                  <Icons.Sun width={20} height={20} />
-                )}
-              </button>
+                {activeTab === 'queue' && <QueueView />}
+                {activeTab === 'search' && <SearchView />}
+                {activeTab === 'batch' && <BatchImportView />}
+                {activeTab === 'album' && <AlbumDetailView />}
+                {activeTab === 'artist' && <ArtistDetailView />}
+                {(activeTab === 'artist_albums' || activeTab === 'artist_tracks') && <ArtistListView />}
 
-              <button id="add-btn" className="btn primary" onClick={() => setShowAddModal(true)}>
-                <span className="icon">
-                  <Icons.Plus />
-                </span>{' '}
-                <span className="desktop-only">{t('action_add_url')}</span>
-              </button>
-            </div>
-          </header>
+                {activeTab === 'statistics' && <AnalyticsView />}
+                {activeTab === 'library' && <LibraryView />}
+                {activeTab === 'playlists' && <PlaylistsView />}
+                {activeTab === 'history' && <HistoryView />}
+                {activeTab === 'logs' && <LogView />}
+                {activeTab === 'settings' && <SettingsView />}
+              </motion.div>
+            </AnimatePresence>
 
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2, ease: 'easeInOut' }}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-            >
-              {activeTab === 'queue' && <QueueView />}
-              {activeTab === 'search' && <SearchView />}
-              {activeTab === 'batch' && <BatchImportView />}
-              {activeTab === 'album' && <AlbumDetailView />}
-              {activeTab === 'artist' && <ArtistDetailView />}
-              {(activeTab === 'artist_albums' || activeTab === 'artist_tracks') && <ArtistListView />}
-
-              {activeTab === 'statistics' && <AnalyticsView />}
-              {activeTab === 'library' && <LibraryView />}
-              {activeTab === 'playlists' && <PlaylistsView />}
-              {activeTab === 'history' && <HistoryView />}
-              {activeTab === 'logs' && <LogView />}
-              {activeTab === 'settings' && <SettingsView />}
-            </motion.div>
-          </AnimatePresence>
-
-          <Player sidebarCollapsed={sidebarCollapsed} />
-        </main>
-      </div>
+            <Player sidebarCollapsed={sidebarCollapsed} />
+          </main>
+        </div>
+      )}
 
       {showAddModal && <AddUrlModal onClose={() => setShowAddModal(false)} onSuccess={() => {}} />}
 
@@ -506,3 +559,4 @@ function App() {
 }
 
 export default App;
+
