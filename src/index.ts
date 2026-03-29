@@ -55,6 +55,14 @@ async function main() {
     try {
         displayBanner();
 
+        if (process.env.QBZ_DESKTOP !== '1') {
+            logger.error(
+                'Web dashboard mode has been removed. Launch this app via the desktop EXE.',
+                'BOOT'
+            );
+            process.exit(1);
+        }
+
         logger.info('Validating application settings...', 'CONFIG');
         const { warnings, valid, missing } = validateEnvironment();
 
