@@ -132,6 +132,50 @@ cp .env.example .env
 npm start
 ```
 
+### Option C: 🖥️ Desktop EXE (Windows)
+Build an installer that runs the dashboard as a native desktop app.
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Build EXE installer (NSIS)
+npm run desktop:dist
+```
+
+Output installer path:
+- `release/QBZ-Downloader-Setup-<version>.exe`
+
+Build portable EXE:
+
+```bash
+npm run desktop:dist:portable
+```
+
+Portable output path:
+- `release/QBZ-Downloader-Portable-<version>.exe`
+
+Desktop runtime data location:
+- Installer build: `%APPDATA%/QBZ Downloader`
+- Portable build: `QBZ-Data/` next to the portable executable
+
+First run migration:
+- Desktop app automatically migrates `.env`, `data/qbz.db`, `history.json`, and `settings.json` from your previous project folder when available.
+
+Auto-update (optional):
+- Set environment variable `QBZ_UPDATE_URL` to a URL hosting `latest.yml` and installer artifacts.
+- Example: `QBZ_UPDATE_URL=https://your-domain.com/qbz-updates/`
+- If `QBZ_UPDATE_URL` is not set, desktop app will use GitHub Releases provider from this repository.
+
+Release pipeline (GitHub Actions):
+- Push tag with format `v*` to trigger automatic desktop release build and publish.
+- Example:
+
+```bash
+git tag v4.0.1
+git push origin v4.0.1
+```
+
 ---
 
 ## ⚙️ Configuration
