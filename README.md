@@ -142,19 +142,23 @@ Install ready-to-use EXE directly from GitHub Releases (no clone required):
 ```bash
 # 1. Install dependencies
 npm install
+```
 
-# 2. Build EXE installer (NSIS)
+Build commands:
+
+```bash
+# Installer only
 npm run desktop:dist
+
+# Portable only
+npm run desktop:dist:portable
+
+# Both installer + portable
+npm run desktop:dist:all
 ```
 
 Output installer path:
 - `release/QBZ-Downloader-Setup-<version>.exe`
-
-Build portable EXE:
-
-```bash
-npm run desktop:dist:portable
-```
 
 Portable output path:
 - `release/QBZ-Downloader-Portable-<version>.exe`
