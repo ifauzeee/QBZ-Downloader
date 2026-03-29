@@ -30,6 +30,7 @@ desktop.ini
 # Build
 dist/
 build/
+release/
 src/services/dashboard/public/
 
 # Temporary files

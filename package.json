@@ -25,6 +25,11 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
     "docs": "typedoc --out docs src/index.ts",
+    "desktop:start": "npm run build:full && electron electron/main.cjs",
+    "desktop:pack": "npm run build:full && electron-builder --dir",
+    "desktop:dist": "npm run build:full && electron-builder --win nsis",
+    "desktop:dist:portable": "npm run build:full && electron-builder --win portable",
+    "desktop:dist:all": "npm run build:full && electron-builder --win nsis portable",
     "prepare": "husky",
     "prepublishOnly": "npm run build && npm run test",
     "docker:build": "docker build -t qbz-downloader .",
@@ -60,6 +65,62 @@
   "publishConfig": {
     "access": "public"
   },
+  "build": {
+    "appId": "com.ifauze.qbzdownloader",
+    "productName": "QBZ Downloader",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets/desktop"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "assets/desktop/**/*",
+      "node_modules/**/*",
+      "package.json",
+      ".env.example",
+      "LICENSE",
+      "README.md"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/desktop/icon.ico",
+      "artifactName": "QBZ-Downloader-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "QBZ-Downloader-Portable-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ifauzeee",
+        "repo": "QBZ-Downloader",
+        "releaseType": "release"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "assets/desktop/icon.ico",
+      "uninstallerIcon": "assets/desktop/icon.ico"
+    }
+  },
   "dependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "archiver": "^7.0.1",
@@ -78,7 +139,8 @@
     "music-metadata": "^11.10.6",
     "node-id3": "^0.2.6",
     "p-limit": "^7.2.0",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "@types/archiver": "^7.0.0",
@@ -92,6 +154,8 @@
     "@typescript-eslint/eslint-plugin": "^8.53.0",
     "@typescript-eslint/parser": "^8.53.0",
     "copyfiles": "^2.4.1",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
     "eslint": "^8.56.0",
     "husky": "^9.1.7",
     "prettier": "^3.1.0",
