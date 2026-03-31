@@ -170,6 +170,9 @@ function AppContent() {
     }
   };
   const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const handleOpenGithub = () => {
+    window.open('https://github.com/ifauzeee/QBZ-Downloader', '_blank', 'noopener,noreferrer');
+  };
 
   const flags: Record<string, { icon: any; label: string; name: string }> = {
     en: { icon: Icons.FlagUS, label: 'EN', name: 'English' },
@@ -485,6 +488,23 @@ function AppContent() {
                   ) : (
                     <Icons.Sun width={20} height={20} />
                   )}
+                </button>
+
+                <button
+                  id="github-link"
+                  className="btn secondary"
+                  title="Open GitHub Project"
+                  onClick={handleOpenGithub}
+                  style={{
+                    padding: '10px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '85px',
+                    height: '44px'
+                  }}
+                >
+                  <Icons.Github width={20} height={20} />
                 </button>
 
                 <button id="add-btn" className="btn primary" onClick={() => setShowAddModal(true)}>

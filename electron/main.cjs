@@ -56,6 +56,36 @@ function createLoadingMarkup(message) {
       }
       .title { margin: 0 0 8px; font-size: 22px; }
       .message { margin: 0; color: #bad0ea; line-height: 1.6; }
+      .project-copy {
+        margin: 14px 0 0;
+        color: #9db6d4;
+        line-height: 1.6;
+        font-size: 14px;
+      }
+      .project-links {
+        margin-top: 16px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .project-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.04);
+        color: #dbeafe;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+      }
+      .project-link:hover {
+        border-color: rgba(45, 212, 191, 0.7);
+        color: #e6fffb;
+      }
       .pulse {
         width: 12px;
         height: 12px;
@@ -83,6 +113,20 @@ function createLoadingMarkup(message) {
       <div class="pulse"></div>
       <h1 class="title">QBZ Downloader Desktop</h1>
       <p class="message">${message}</p>
+      <p class="project-copy">
+        Premium desktop downloader for Qobuz with Hi-Res audio, metadata automation,
+        synchronized lyrics, queue management, and local-first settings.
+      </p>
+      <div class="project-links">
+        <a
+          class="project-link"
+          href="https://github.com/ifauzeee/QBZ-Downloader"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          View on GitHub
+        </a>
+      </div>
     </section>
   </body>
 </html>`;
