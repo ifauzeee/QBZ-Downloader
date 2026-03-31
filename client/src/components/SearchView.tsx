@@ -272,7 +272,7 @@ export const SearchView: React.FC = () => {
                             {/* Artists Section */}
                             {suggestions.artists.length > 0 && (
                                 <div className="suggestion-section">
-                                    <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 'bold', padding: '8px 12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Artists</div>
+                                    <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 'bold', padding: '8px 12px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('label_artists')}</div>
                                     {suggestions.artists.map(a => (
                                         <div key={a.id} className="suggestion-item" onClick={() => { navigate('artist', { id: a.id }); setShowSuggestions(false); }} style={{ padding: '8px 12px', cursor: 'pointer', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-dark)', overflow: 'hidden' }}>
@@ -287,7 +287,7 @@ export const SearchView: React.FC = () => {
                             {/* Albums Section */}
                             {suggestions.albums.length > 0 && (
                                 <div className="suggestion-section">
-                                    <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 'bold', padding: '8px 12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Albums</div>
+                                    <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 'bold', padding: '8px 12px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('label_albums')}</div>
                                     {suggestions.albums.map(a => (
                                         <div key={a.id} className="suggestion-item" onClick={() => { navigate('album', { id: a.id }); setShowSuggestions(false); }} style={{ padding: '8px 12px', cursor: 'pointer', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                             <div style={{ width: '32px', height: '32px', borderRadius: '4px', background: 'var(--bg-dark)', overflow: 'hidden' }}>
@@ -305,7 +305,7 @@ export const SearchView: React.FC = () => {
                             {/* Tracks Section */}
                             {suggestions.tracks.length > 0 && (
                                 <div className="suggestion-section">
-                                    <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 'bold', padding: '8px 12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Tracks</div>
+                                    <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 'bold', padding: '8px 12px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('label_tracks')}</div>
                                     {suggestions.tracks.map(t => (
                                         <div key={t.id} className="suggestion-item" onClick={() => { navigate('album', { id: t.album?.id }); setShowSuggestions(false); }} style={{ padding: '8px 12px', cursor: 'pointer', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                             <div style={{ width: '32px', height: '32px', borderRadius: '4px', background: 'var(--bg-dark)', overflow: 'hidden' }}>
@@ -347,7 +347,7 @@ export const SearchView: React.FC = () => {
                                 }}
                             >
                                 <Icons.Settings width={14} height={14} />
-                                <span>Hi-Res Only</span>
+                                <span>{t('label_hires_only')}</span>
                             </button>
                         )}
                     </div>
@@ -490,7 +490,7 @@ export const SearchView: React.FC = () => {
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             {item.already_downloaded && (
-                                                <div className="hq-badge" style={{ position: 'static', margin: 0, fontSize: '10px', padding: '2px 6px', background: 'var(--success)', color: '#fff' }}>Downloaded</div>
+                                                <div className="hq-badge" style={{ position: 'static', margin: 0, fontSize: '10px', padding: '2px 6px', background: 'var(--success)', color: '#fff' }}>{t('label_already_downloaded')}</div>
                                             )}
                                             {itemType !== 'artist' && (
                                                 <div className={`hires-badge ${isHiRes ? 'hires' : 'cd'}`} style={{ position: 'static', margin: 0, fontSize: '10px', padding: '2px 6px' }}>{qualityText}</div>
@@ -513,7 +513,7 @@ export const SearchView: React.FC = () => {
                                                         {itemType === 'track' && <button className="btn-track-dl" onClick={(e) => { e.stopPropagation(); downloadLyrics(item.id); }} title="Download Lyrics"><Icons.Mic width={14} height={14} /></button>}
                                                     </>
                                                 ) : (
-                                                    <button className="btn-track-dl" style={{ fontSize: '12px', padding: '4px 10px' }}>View</button>
+                                                    <button className="btn-track-dl" style={{ fontSize: '12px', padding: '4px 10px' }}>{t('action_view')}</button>
                                                 )}
                                             </div>
                                         </div>
@@ -540,7 +540,7 @@ export const SearchView: React.FC = () => {
                                                         <Icons.Play width={24} height={24} />
                                                     </button>
                                                 ) : (
-                                                    <span style={{ color: 'white', fontWeight: 'bold' }}>View</span>
+                                                    <span style={{ color: 'white', fontWeight: 'bold' }}>{t('action_view')}</span>
                                                 )}
                                             </div>
                                             {itemType !== 'artist' && (
@@ -587,11 +587,11 @@ export const SearchView: React.FC = () => {
 
             {!loading && total > limit && (
                 <div id="search-pagination" className="pagination">
-                    <button disabled={page === 0} onClick={handlePrevPage}>← Prev</button>
+                    <button disabled={page === 0} onClick={handlePrevPage}>← {t('label_prev')}</button>
                     <span style={{ padding: '0 16px', color: 'var(--text-secondary)' }}>
-                        Page {page + 1} of {Math.ceil(total / limit)}
+                        {t('label_page')} {page + 1} {t('label_of')} {Math.ceil(total / limit)}
                     </span>
-                    <button disabled={(page + 1) * limit >= total} onClick={handleNextPage}>Next →</button>
+                    <button disabled={(page + 1) * limit >= total} onClick={handleNextPage}>{t('label_next')} →</button>
                 </div>
             )}
         </div>

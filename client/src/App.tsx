@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { SocketProvider, useSocket } from './contexts/SocketContext';
 import { NavigationProvider, useNavigation, type Tab } from './contexts/NavigationContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -182,7 +182,8 @@ function AppContent() {
     de: { icon: Icons.FlagDE, label: 'DE', name: 'Deutsch' },
     ja: { icon: Icons.FlagJA, label: 'JA', name: 'Japanese' },
     zh: { icon: Icons.FlagZH, label: 'ZH', name: 'Chinese' },
-    hi: { icon: Icons.FlagIN, label: 'HI', name: 'Hindi' }
+    hi: { icon: Icons.FlagIN, label: 'HI', name: 'Hindi' },
+    tr: { icon: Icons.FlagTR, label: 'TR', name: 'Turkish' }
   };
 
   const navItems: { id: Tab; icon: React.ReactNode; label: string }[] = [

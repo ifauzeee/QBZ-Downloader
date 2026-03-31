@@ -471,7 +471,7 @@ export const SettingsView: React.FC = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <label>Default Quality</label>
+                        <label>{t('label_default_quality')}</label>
                         <select
                             value={settingsForm.defaultQuality}
                             onChange={(e) =>
@@ -488,7 +488,7 @@ export const SettingsView: React.FC = () => {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>Streaming Quality</label>
+                        <label>{t('label_streaming_quality')}</label>
                         <select
                             value={settingsForm.streamingQuality}
                             onChange={(e) =>
@@ -505,7 +505,7 @@ export const SettingsView: React.FC = () => {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>Retry Attempts</label>
+                        <label>{t('label_retry_attempts')}</label>
                         <input
                             type="number"
                             min={0}
@@ -520,7 +520,7 @@ export const SettingsView: React.FC = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <label>Retry Delay (ms)</label>
+                        <label>{t('label_retry_delay')}</label>
                         <input
                             type="number"
                             min={0}
@@ -534,7 +534,7 @@ export const SettingsView: React.FC = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <label>Cover Size</label>
+                        <label>{t('label_cover_size')}</label>
                         <select
                             value={settingsForm.coverSize}
                             onChange={(e) =>
@@ -547,7 +547,7 @@ export const SettingsView: React.FC = () => {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>Lyrics Type</label>
+                        <label>{t('label_lyrics_type')}</label>
                         <select
                             value={settingsForm.lyricsType}
                             onChange={(e) =>
@@ -560,7 +560,7 @@ export const SettingsView: React.FC = () => {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>Dashboard Port</label>
+                        <label>{t('label_dashboard_port')}</label>
                         <input
                             type="number"
                             min={1}
@@ -575,7 +575,7 @@ export const SettingsView: React.FC = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <label>Dashboard Password (optional)</label>
+                        <label>{t('label_dashboard_password')}</label>
                         <input
                             type="text"
                             placeholder={
@@ -602,7 +602,7 @@ export const SettingsView: React.FC = () => {
                             }
                         />
                         <label htmlFor="embed-cover-art" style={{ margin: 0 }}>
-                            Embed Cover Art
+                            {t('label_embed_cover')}
                         </label>
                     </div>
                     <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -615,7 +615,7 @@ export const SettingsView: React.FC = () => {
                             }
                         />
                         <label htmlFor="save-cover-file" style={{ margin: 0 }}>
-                            Save Cover File
+                            {t('label_save_cover')}
                         </label>
                     </div>
                     <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -628,7 +628,7 @@ export const SettingsView: React.FC = () => {
                             }
                         />
                         <label htmlFor="download-lyrics" style={{ margin: 0 }}>
-                            Download Lyrics
+                            {t('label_download_lyrics')}
                         </label>
                     </div>
                     <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -641,7 +641,7 @@ export const SettingsView: React.FC = () => {
                             }
                         />
                         <label htmlFor="embed-lyrics" style={{ margin: 0 }}>
-                            Embed Lyrics
+                            {t('label_embed_lyrics')}
                         </label>
                     </div>
                     <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -654,12 +654,12 @@ export const SettingsView: React.FC = () => {
                             }
                         />
                         <label htmlFor="save-lrc-file" style={{ margin: 0 }}>
-                            Save LRC File
+                            {t('label_save_lrc')}
                         </label>
                     </div>
                 </div>
                 <button className="btn primary" onClick={updateAppSettings}>
-                    Save App Settings
+                    {t('action_save_settings')}
                 </button>
             </div>
 

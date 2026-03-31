@@ -3,8 +3,10 @@ import { smartFetch } from '../utils/api';
 import { useToast } from '../contexts/ToastContext';
 import { Icons } from './Icons';
 import { ConfirmModal } from './Modals';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const BatchImportView: React.FC = () => {
+    const { t } = useLanguage();
     const { showToast } = useToast();
 
     const [directInput, setDirectInput] = useState('');
@@ -176,30 +178,30 @@ export const BatchImportView: React.FC = () => {
                 {/* Top: Mode Selection */}
                 <div className="batch-sidebar">
                     <div className="sidebar-group">
-                        <div className="sidebar-title">Input Source</div>
+                        <div className="sidebar-title">{t('label_input_source')}</div>
                         <div className="modes-grid">
                             <button className={`mode-card ${mode === 'direct' ? 'active' : ''}`} onClick={() => setMode('direct')}>
                                 <div className="mode-icon"><Icons.Edit width={18} height={18} /></div>
                                 <div className="mode-info">
-                                    <span className="mode-name">Direct Input</span>
+                                    <span className="mode-name">{t('label_direct_input')}</span>
                                 </div>
                             </button>
                             <button className={`mode-card ${mode === 'file' ? 'active' : ''}`} onClick={() => setMode('file')}>
                                 <div className="mode-icon"><Icons.File width={18} height={18} /></div>
                                 <div className="mode-info">
-                                    <span className="mode-name">Text File</span>
+                                    <span className="mode-name">{t('label_text_file')}</span>
                                 </div>
                             </button>
                             <button className={`mode-card ${mode === 'm3u8' ? 'active' : ''}`} onClick={() => setMode('m3u8')}>
                                 <div className="mode-icon"><Icons.List width={18} height={18} /></div>
                                 <div className="mode-info">
-                                    <span className="mode-name">Playlist</span>
+                                    <span className="mode-name">{t('label_playlist')}</span>
                                 </div>
                             </button>
                             <button className={`mode-card ${mode === 'csv' ? 'active' : ''}`} onClick={() => setMode('csv')}>
                                 <div className="mode-icon"><Icons.Grid width={18} height={18} /></div>
                                 <div className="mode-info">
-                                    <span className="mode-name">CSV Data</span>
+                                    <span className="mode-name">{t('label_csv_data')}</span>
                                 </div>
                             </button>
                         </div>
@@ -211,7 +213,7 @@ export const BatchImportView: React.FC = () => {
 
                     {/* Quality Selector */}
                     <div className="config-section">
-                        <label className="section-label">Target Quality</label>
+                        <label className="section-label">{t('label_target_quality')}</label>
                         <div className="quality-grid">
                             {qualityOptions.map(opt => (
                                 <div
@@ -259,8 +261,8 @@ export const BatchImportView: React.FC = () => {
                                 {createZip && <Icons.Check width={14} height={14} />}
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Create ZIP Archive</span>
-                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Automatically bundle all files into a single ZIP archive after download</span>
+                                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t('label_create_zip')}</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('label_zip_desc')}</span>
                             </div>
                         </div>
                     </div>
@@ -268,14 +270,14 @@ export const BatchImportView: React.FC = () => {
                     {/* Input Area */}
                     <div className="config-section">
                         <label className="section-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>{mode === 'direct' ? 'URL List' : 'Select File'}</span>
+                            <span>{mode === 'direct' ? t('label_url_list') : t('label_select_file')}</span>
                             {mode === 'direct' && (
                                 <div className="action-links">
                                     <button className="text-btn" onClick={loadFromStaging} disabled={stagedCount === 0}>
-                                        Load Staged {stagedCount > 0 && `(${stagedCount})`}
+                                        {t('action_load_staged')} {stagedCount > 0 && `(${stagedCount})`}
                                     </button>
                                     <button className="text-btn danger" onClick={clearStaging} disabled={stagedCount === 0 && !directInput}>
-                                        Clear
+                                        {t('action_clear')}
                                     </button>
                                 </div>
                             )}
@@ -354,9 +356,9 @@ export const BatchImportView: React.FC = () => {
                             disabled={importing || (mode === 'direct' ? !directInput.trim() : parsedUrls.length === 0)}
                         >
                             {importing ? (
-                                <>Processing <div className="spinner small white"></div></>
+                                <>{t('label_processing')} <div className="spinner small white"></div></>
                             ) : (
-                                <>Start Import <Icons.Download width={20} height={20} /></>
+                                <>{t('action_start_import')} <Icons.Download width={20} height={20} /></>
                             )}
                         </button>
                     </div>
@@ -693,12 +695,12 @@ export const BatchImportView: React.FC = () => {
 
             <ConfirmModal
                 isOpen={showConfirmClear}
-                title="Clear Staging?"
-                message="This will clear all staged URLs and current input. This action cannot be undone."
+                title={t('action_clear')}
+                message={t('msg_confirm_clear_staging')}
                 onConfirm={executeClearStaging}
                 onCancel={() => setShowConfirmClear(false)}
-                confirmText="Clear"
-                cancelText="Cancel"
+                confirmText={t('action_clear')}
+                cancelText={t('action_cancel')}
             />
 
         </div>

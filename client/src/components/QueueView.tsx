@@ -4,8 +4,9 @@ import { useSocket } from '../contexts/SocketContext';
 import { smartFetch, getQualityLabel } from '../utils/api';
 import { Icons } from './Icons';
 import { useQueueStore, type QueueItem } from '../stores/queueStore';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, handleDownload }: { item: QueueItem, virtualItem: any, scrollMargin: number, handleCancel: (id: string) => void, handleDownload: (id: string) => void }) => {
+const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, handleDownload, t }: { item: QueueItem, virtualItem: any, scrollMargin: number, handleCancel: (id: string) => void, handleDownload: (id: string) => void, t: (key: string) => string }) => {
     return (
         <div
             className="list-row"
@@ -39,10 +40,10 @@ const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, ha
             </div>
             <div>
                 {(item.status === 'downloading' || item.status === 'pending' || item.status === 'processing') ? (
-                    <button className="btn danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleCancel(item.id)}>Cancel</button>
+                    <button className="btn danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleCancel(item.id)}>{t('action_cancel')}</button>
                 ) : item.status === 'completed' ? (
                     <button className="btn primary" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => handleDownload(item.contentId)}>
-                        <Icons.Download width={12} height={12} /> Download
+                        <Icons.Download width={12} height={12} /> {t('action_download')}
                     </button>
                 ) : null}
             </div>
@@ -51,6 +52,7 @@ const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, ha
 });
 
 export const QueueView: React.FC = () => {
+    const { t } = useLanguage();
     const { socket } = useSocket();
     const { stats, queue, setStats, fetchQueue, updateItemProgress } = useQueueStore();
 
@@ -133,19 +135,19 @@ export const QueueView: React.FC = () => {
         <div id="view-queue" ref={parentRef} className="view-section" style={{ display: 'block', overflowY: 'auto' }}>
             <div className="stats-grid shrink-0">
                 <div className="stat-card">
-                    <h3>Total</h3>
+                    <h3>{t('label_total')}</h3>
                     <div className="number" id="q-total">{stats.total}</div>
                 </div>
                 <div className="stat-card">
-                    <h3>Downloading</h3>
+                    <h3>{t('label_downloading')}</h3>
                     <div className="number text-accent" id="q-downloading">{stats.downloading}</div>
                 </div>
                 <div className="stat-card">
-                    <h3>Completed</h3>
+                    <h3>{t('label_completed')}</h3>
                     <div className="number text-success" id="q-completed">{stats.completed}</div>
                 </div>
                 <div className="stat-card">
-                    <h3>Failed</h3>
+                    <h3>{t('label_failed')}</h3>
                     <div className="number text-danger" id="q-failed">{stats.failed}</div>
                 </div>
             </div>
@@ -153,13 +155,13 @@ export const QueueView: React.FC = () => {
             <div className="queue-toolbar shrink-0">
                 <div className="queue-actions">
                     <button className="btn secondary" onClick={() => handleQueueAction('pause')}>
-                        <span className="icon"><Icons.Pause width={14} height={14} /></span> Pause
+                        <span className="icon"><Icons.Pause width={14} height={14} /></span> {t('action_pause')}
                     </button>
                     <button className="btn secondary" onClick={() => handleQueueAction('resume')}>
-                        <span className="icon"><Icons.Play width={14} height={14} /></span> Resume
+                        <span className="icon"><Icons.Play width={14} height={14} /></span> {t('action_resume')}
                     </button>
                     <button className="btn danger" onClick={() => handleQueueAction('clear')}>
-                        <span className="icon"><Icons.Trash width={14} height={14} /></span> Clear All
+                        <span className="icon"><Icons.Trash width={14} height={14} /></span> {t('action_clear')}
                     </button>
                 </div>
             </div>
@@ -184,20 +186,20 @@ export const QueueView: React.FC = () => {
                         paddingLeft: '56px',
                         paddingRight: '56px'
                     }}>
-                    <div>Title</div>
-                    <div>Type</div>
-                    <div>Quality</div>
-                    <div>Status</div>
-                    <div>Progress</div>
-                    <div>Action</div>
+                    <div>{t('label_title')}</div>
+                    <div>{t('label_type')}</div>
+                    <div>{t('label_quality')}</div>
+                    <div>{t('label_status')}</div>
+                    <div>{t('label_progress')}</div>
+                    <div>{t('label_action')}</div>
                 </div>
 
                 <div className="list-body" style={{ position: 'relative' }}>
                     {queue.length === 0 ? (
                         <div className="empty-state" style={{ padding: '80px 0' }}>
                             <div className="empty-icon"><Icons.Queue width={48} height={48} /></div>
-                            <h3>Queue is Empty</h3>
-                            <p>Add URLs to start downloading</p>
+                            <h3>{t('msg_queue_empty')}</h3>
+                            <p>{t('msg_add_urls')}</p>
                         </div>
                     ) : (
                         <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
@@ -209,6 +211,7 @@ export const QueueView: React.FC = () => {
                                     scrollMargin={scrollMargin}
                                     handleCancel={handleCancel}
                                     handleDownload={handleDownload}
+                                    t={t}
                                 />
                             ))}
                         </div>

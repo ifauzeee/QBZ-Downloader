@@ -17,7 +17,7 @@ interface HistoryItem {
     contentId: string;
 }
 
-const HistoryRow = React.memo(({ item, virtualItem, downloadFile, confirmDelete }: { item: HistoryItem, virtualItem: any, downloadFile: (id: string) => void, confirmDelete: (id: string) => void }) => {
+const HistoryRow = React.memo(({ item, virtualItem, downloadFile, confirmDelete, t }: { item: HistoryItem, virtualItem: any, downloadFile: (id: string) => void, confirmDelete: (id: string) => void, t: (key: string) => string }) => {
     return (
         <div
             className="list-row"
@@ -44,8 +44,8 @@ const HistoryRow = React.memo(({ item, virtualItem, downloadFile, confirmDelete 
             <div>{getQualityLabel(item.quality)}</div>
             <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.filename}</div>
             <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => downloadFile(item.contentId || item.id)}>Download</button>
-                <button className="btn danger" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => confirmDelete(item.id)} title="Delete"><Icons.Trash width={14} height={14} /></button>
+                <button className="btn primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => downloadFile(item.contentId || item.id)}>{t('action_download')}</button>
+                <button className="btn danger" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => confirmDelete(item.id)} title={t('action_delete')}><Icons.Trash width={14} height={14} /></button>
             </div>
         </div>
     );
@@ -150,12 +150,12 @@ export const HistoryView: React.FC = () => {
 
             <div className="list-container flex-1" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div className="list-header shrink-0" style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr 1.5fr 0.8fr 1.5fr 0.5fr', gap: '10px', padding: '16px 24px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '12px' }}>
-                    <div>Date</div>
-                    <div>Artist</div>
-                    <div>Title</div>
-                    <div>Quality</div>
-                    <div>Filename</div>
-                    <div>Action</div>
+                    <div>{t('label_date')}</div>
+                    <div>{t('label_artist')}</div>
+                    <div>{t('label_title')}</div>
+                    <div>{t('label_quality')}</div>
+                    <div>{t('label_filename')}</div>
+                    <div>{t('label_action')}</div>
                 </div>
 
                 <div ref={parentRef} className="list-body flex-1" style={{ overflow: 'auto', position: 'relative' }}>
@@ -176,6 +176,7 @@ export const HistoryView: React.FC = () => {
                                     virtualItem={virtualItem}
                                     confirmDelete={confirmDelete}
                                     downloadFile={downloadFile}
+                                    t={t}
                                 />
                             ))}
                         </div>
@@ -190,7 +191,7 @@ export const HistoryView: React.FC = () => {
                     onConfirm={handleDelete}
                     onCancel={() => setItemToDelete(null)}
                     confirmText={t('action_delete')}
-                    cancelText="Cancel"
+                    cancelText={t('action_cancel')}
                 />
             )}
 
@@ -201,7 +202,7 @@ export const HistoryView: React.FC = () => {
                     onConfirm={handleClearHistory}
                     onCancel={() => setShowClearConfirm(false)}
                     confirmText={t('action_clear')}
-                    cancelText="Cancel"
+                    cancelText={t('action_cancel')}
                 />
             )}
         </div>

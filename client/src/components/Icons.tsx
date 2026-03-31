@@ -167,6 +167,14 @@ export const Icons = {
             <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.2" />
         </svg>
     ),
+    FlagTR: (props: IconProps) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" {...props}>
+            <rect x="2" y="4" width="20" height="16" rx="2" fill="#E30A17" />
+            <path d="M10.5 12a3 3 0 1 1 0-6 3.5 3.5 0 1 0 0 6z" fill="white" />
+            <path d="M12.5 9.5l.3 1h1l-.8.6.3 1-.8-.6-.8.6.3-1-.8-.6h1z" fill="white" />
+            <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.2" />
+        </svg>
+    ),
     ArrowLeft: (props: IconProps) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
             <line x1="19" y1="12" x2="5" y2="12" />
