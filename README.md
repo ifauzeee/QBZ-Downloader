@@ -3,7 +3,7 @@
 # 🎵 QBZ-Downloader
 ### *The Ultimate High-Resolution Audio Downloader & Library Manager*
 
-[![Version](https://img.shields.io/badge/version-4.0.0-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
+[![Version](https://img.shields.io/badge/version-4.0.4-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
 [![React](https://img.shields.io/badge/React-18.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -17,7 +17,7 @@
 
 **Unlock the full potential of your music library.**
 
-A comprehensive, enterprise-grade music downloading and library management platform. Experience studio-quality audio up to **24-bit/192kHz** with complete metadata, synchronized lyrics, intelligent queue management, and a stunning real-time desktop dashboard.
+A comprehensive desktop-first music downloading and library management application for Windows. Experience studio-quality audio up to **24-bit/192kHz** with complete metadata, synchronized lyrics, intelligent queue management, and a polished EXE workflow.
 
 [✨ Features](#-key-features) •
 [📥 Installation](#-installation) •
@@ -39,7 +39,7 @@ Everything you need to build the perfect local music library.
 | Feature | Description |
 | :--- | :--- |
 | **🎵 Studio Quality** | Download in **Hi-Res FLAC (up to 24-bit/192kHz)**. Bit-perfect replicas of the source. |
-| **🖥️ Modern Dashboard** | Beautiful **React & Vite** interface with **Light/Dark Mode**, real-time updates, and smooth animations. |
+| **🖥️ Modern Desktop UI** | Beautiful **React & Vite** interface with **Light/Dark Mode**, real-time updates, and smooth animations. |
 | **🎤 Live Lyrics** | Experience synchronized lyrics with **60fps smooth scrolling**. Includes a built-in **Lyrics Editor**. |
 | **🏷️ Smart Tagging** | Automatic tagging with **High-Res Cover Art**, Artist, Album, Year, Genre, ISRC, and more. |
 | **📦 Batch Power** | Download **Full Albums**, **Artist Discographies**, or **Playlists** with a single click. |
@@ -101,11 +101,11 @@ Web/Docker usage has been removed and is no longer supported.
 
 ![Desktop EXE](./docs/screenshots/exe.png)
 
-Install ready-to-use EXE directly from GitHub Releases (no clone required):
+Install ready-to-use EXE directly from GitHub Releases (no clone required for end users):
 
 1. Download EXE from GitHub Releases.
 2. Install/run.
-3. Fill in your own Qobuz credentials in Settings.
+3. Complete onboarding and fill in your own Qobuz credentials.
 
 ```bash
 # 1. Install dependencies
@@ -214,3 +214,4 @@ This software is provided specifically for educational and personal archival pur
 <div align="center">
   Made with ❤️ by <b>Muhammad Ibnu Fauzi</b>
 </div>
+

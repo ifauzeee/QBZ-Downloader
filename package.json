@@ -1,7 +1,7 @@
 {
   "name": "qbz-downloader",
   "version": "4.0.4",
-  "description": "🎵 Premium Qobuz Downloader Web Dashboard with Hi-Res Audio, Complete Metadata & Embedded Lyrics",
+  "description": "Desktop-first Qobuz downloader EXE with Hi-Res audio, metadata automation, and lyrics support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -46,7 +46,9 @@
     "audio",
     "music-downloader",
     "hifi",
-    "web-dashboard"
+    "desktop-app",
+    "electron",
+    "windows-exe"
   ],
   "author": "ifauzeee",
   "license": "MIT",
