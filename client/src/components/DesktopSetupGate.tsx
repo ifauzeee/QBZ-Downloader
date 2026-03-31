@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { smartFetch } from '../utils/api';
 
 type OnboardingStep = {
@@ -11,30 +11,37 @@ type OnboardingResponse = {
     steps: OnboardingStep[];
 };
 
+type SetupStage = 'intro' | 'setup';
+type ChecklistId = OnboardingStep['id'] | 'downloads_path';
+
 interface DesktopSetupGateProps {
     onContinue: () => void;
 }
 
-const STEP_LABELS: Record<OnboardingStep['id'], string> = {
+const BASE_STEPS: OnboardingStep[] = [
+    { id: 'app_id', completed: false },
+    { id: 'app_secret', completed: false },
+    { id: 'token', completed: false },
+    { id: 'user_id', completed: false }
+];
+
+const STEP_LABELS: Record<ChecklistId, string> = {
     app_id: 'Qobuz App ID',
     app_secret: 'Qobuz App Secret',
     token: 'User Auth Token',
-    user_id: 'Qobuz User ID'
+    user_id: 'Qobuz User ID',
+    downloads_path: 'Download Path'
 };
 
 export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
-    const [steps, setSteps] = useState<OnboardingStep[]>([
-        { id: 'app_id', completed: false },
-        { id: 'app_secret', completed: false },
-        { id: 'token', completed: false },
-        { id: 'user_id', completed: false }
-    ]);
+    const [stage, setStage] = useState<SetupStage>('intro');
+    const [steps, setSteps] = useState<OnboardingStep[]>(BASE_STEPS);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [verifying, setVerifying] = useState(false);
-    const [message, setMessage] = useState<string>('');
-    const [error, setError] = useState<string>('');
-    const [verifiedAccount, setVerifiedAccount] = useState<string>('');
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+    const [verifiedAccount, setVerifiedAccount] = useState('');
     const [showSecret, setShowSecret] = useState(false);
     const [showToken, setShowToken] = useState(false);
 
@@ -42,18 +49,55 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
         appId: '',
         appSecret: '',
         token: '',
-        userId: ''
+        userId: '',
+        downloadsPath: './downloads'
     });
 
-    const missingStepIds = useMemo(
-        () => steps.filter((step) => !step.completed).map((step) => step.id),
-        [steps]
+    const remoteCompletion = useMemo(() => {
+        const map: Record<OnboardingStep['id'], boolean> = {
+            app_id: false,
+            app_secret: false,
+            token: false,
+            user_id: false
+        };
+
+        for (const step of steps) {
+            map[step.id] = Boolean(step.completed);
+        }
+
+        return map;
+    }, [steps]);
+
+    const checklist = useMemo(
+        () => [
+            {
+                id: 'app_id' as const,
+                completed: remoteCompletion.app_id || Boolean(form.appId.trim())
+            },
+            {
+                id: 'app_secret' as const,
+                completed: remoteCompletion.app_secret || Boolean(form.appSecret.trim())
+            },
+            {
+                id: 'token' as const,
+                completed: remoteCompletion.token || Boolean(form.token.trim())
+            },
+            {
+                id: 'user_id' as const,
+                completed: remoteCompletion.user_id || Boolean(form.userId.trim())
+            },
+            {
+                id: 'downloads_path' as const,
+                completed: Boolean(form.downloadsPath.trim())
+            }
+        ],
+        [form.appId, form.appSecret, form.downloadsPath, form.token, form.userId, remoteCompletion]
     );
 
-    const completion = useMemo(
-        () => Math.round((steps.filter((step) => step.completed).length / steps.length) * 100),
-        [steps]
-    );
+    const completion = useMemo(() => {
+        const done = checklist.filter((item) => item.completed).length;
+        return Math.round((done / checklist.length) * 100);
+    }, [checklist]);
 
     const loadStatus = async () => {
         setLoading(true);
@@ -75,7 +119,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                 return;
             }
 
-            setSteps(data.steps || []);
+            setSteps(data.steps?.length ? data.steps : BASE_STEPS);
             setError('');
         } catch (e) {
             console.error(e);
@@ -90,20 +134,14 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
     }, []);
 
     const validateMissingFields = () => {
-        const requiredByStep: Array<{ stepId: OnboardingStep['id']; field: keyof typeof form }> = [
-            { stepId: 'app_id', field: 'appId' },
-            { stepId: 'app_secret', field: 'appSecret' },
-            { stepId: 'token', field: 'token' },
-            { stepId: 'user_id', field: 'userId' }
-        ];
-
         const missing: string[] = [];
-        for (const item of requiredByStep) {
-            if (!missingStepIds.includes(item.stepId)) continue;
-            if (!form[item.field].trim()) {
-                missing.push(STEP_LABELS[item.stepId]);
-            }
-        }
+
+        if (!remoteCompletion.app_id && !form.appId.trim()) missing.push(STEP_LABELS.app_id);
+        if (!remoteCompletion.app_secret && !form.appSecret.trim())
+            missing.push(STEP_LABELS.app_secret);
+        if (!remoteCompletion.token && !form.token.trim()) missing.push(STEP_LABELS.token);
+        if (!remoteCompletion.user_id && !form.userId.trim()) missing.push(STEP_LABELS.user_id);
+        if (!form.downloadsPath.trim()) missing.push(STEP_LABELS.downloads_path);
 
         if (missing.length > 0) {
             setError(`Please complete: ${missing.join(', ')}`);
@@ -122,15 +160,12 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
         }
 
         const payload: Record<string, string> = {};
+
         if (form.appId.trim()) payload.app_id = form.appId.trim();
         if (form.appSecret.trim()) payload.app_secret = form.appSecret.trim();
         if (form.token.trim()) payload.token = form.token.trim();
         if (form.userId.trim()) payload.user_id = form.userId.trim();
-
-        if (Object.keys(payload).length === 0) {
-            setError('No new credentials to save.');
-            return false;
-        }
+        if (form.downloadsPath.trim()) payload.downloads_path = form.downloadsPath.trim();
 
         setSaving(true);
         try {
@@ -151,17 +186,20 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                 return false;
             }
 
-            setMessage('Credentials saved locally.');
-            await loadStatus();
+            setMessage('Credentials and path saved locally.');
 
-            if (continueAfterSave) {
-                const checkRes = await smartFetch('/api/onboarding');
-                if (checkRes && checkRes.ok) {
-                    const checkData = (await checkRes.json()) as OnboardingResponse;
+            const checkRes = await smartFetch('/api/onboarding');
+            if (checkRes && checkRes.ok) {
+                const checkData = (await checkRes.json()) as OnboardingResponse;
+                if (checkData.steps?.length) {
+                    setSteps(checkData.steps);
+                }
+
+                if (continueAfterSave) {
                     if (checkData.configured) {
                         onContinue();
                     } else {
-                        setError('Credentials are still incomplete. Please review all required fields.');
+                        setError('Credentials are still incomplete. Please review required fields.');
                         return false;
                     }
                 }
@@ -227,15 +265,62 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
         );
     }
 
+    if (stage === 'intro') {
+        return (
+            <section className="desktop-onboarding-screen">
+                <div className="desktop-onboarding-intro">
+                    <article className="onboarding-intro-main">
+                        <p className="onboarding-intro-badge">Desktop Onboarding</p>
+                        <h1>Welcome to QBZ Downloader Desktop</h1>
+                        <p className="onboarding-intro-copy">
+                            Complete a quick setup so your app can download in Hi-Res, keep metadata
+                            clean, and store everything locally.
+                        </p>
+                        <div className="onboarding-intro-actions">
+                            <button
+                                type="button"
+                                className="btn primary"
+                                onClick={() => setStage('setup')}
+                            >
+                                Continue Setup
+                            </button>
+                            <a
+                                className="desktop-onboarding-github hero"
+                                href="https://github.com/ifauzeee/QBZ-Downloader"
+                                target="_blank"
+                                rel="noreferrer noopener"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.02c-3.22.7-3.9-1.56-3.9-1.56-.52-1.35-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.56-2.57-.3-5.28-1.3-5.28-5.76 0-1.27.45-2.3 1.2-3.1-.12-.3-.52-1.5.12-3.1 0 0 .98-.32 3.2 1.18a11.1 11.1 0 0 1 5.84 0c2.2-1.5 3.19-1.18 3.19-1.18.64 1.6.24 2.8.12 3.1.74.8 1.2 1.83 1.2 3.1 0 4.47-2.72 5.46-5.31 5.75.41.36.79 1.07.79 2.17v3.22c0 .31.2.67.8.56A11.5 11.5 0 0 0 12 .5z" />
+                                </svg>
+                                <span>github.com/ifauzeee/QBZ-Downloader</span>
+                            </a>
+                        </div>
+                    </article>
+
+                    <aside className="onboarding-intro-side">
+                        <p className="desktop-onboarding-project-title">What You Will Configure</p>
+                        <ul className="onboarding-feature-list">
+                            <li className="onboarding-feature-item">Qobuz App ID & App Secret</li>
+                            <li className="onboarding-feature-item">User Auth Token & User ID</li>
+                            <li className="onboarding-feature-item">Download destination path</li>
+                            <li className="onboarding-feature-item">Connection validation before start</li>
+                        </ul>
+                    </aside>
+                </div>
+            </section>
+        );
+    }
+
     return (
         <section className="desktop-onboarding-screen">
             <div className="desktop-onboarding-shell">
                 <aside className="desktop-onboarding-panel">
-                    <p className="desktop-onboarding-eyebrow">Desktop First-Time Setup</p>
-                    <h1>Connect your Qobuz credentials to unlock the full dashboard.</h1>
+                    <p className="desktop-onboarding-eyebrow">Step 2 of 2 - Credential Setup</p>
+                    <h1>Connect Qobuz and choose your download destination.</h1>
                     <p className="desktop-onboarding-copy">
-                        Credentials are stored locally in your app database. Nothing is pushed to
-                        this repository.
+                        This setup runs only once for each local app data directory. You can always
+                        update values later from Settings.
                     </p>
 
                     <div className="desktop-onboarding-progress">
@@ -249,10 +334,10 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                     </div>
 
                     <ul className="desktop-onboarding-steps">
-                        {steps.map((step) => (
-                            <li key={step.id} className={step.completed ? 'done' : 'todo'}>
+                        {checklist.map((item) => (
+                            <li key={item.id} className={item.completed ? 'done' : 'todo'}>
                                 <span className="state-dot" />
-                                <span>{STEP_LABELS[step.id]}</span>
+                                <span>{STEP_LABELS[item.id]}</span>
                             </li>
                         ))}
                     </ul>
@@ -260,13 +345,21 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
 
                 <div className="desktop-onboarding-form-wrap">
                     <div className="desktop-onboarding-form">
+                        <div className="onboarding-form-header">
+                            <h2 className="onboarding-form-title">Qobuz Account Setup</h2>
+                            <p className="onboarding-form-copy">
+                                Paste your credentials below, set where downloads are stored, then
+                                continue to dashboard.
+                            </p>
+                        </div>
+
                         <div className="onboarding-form-group">
                             <label>Qobuz App ID</label>
                             <input
                                 type="text"
                                 value={form.appId}
                                 placeholder={
-                                    steps.find((s) => s.id === 'app_id')?.completed
+                                    remoteCompletion.app_id
                                         ? 'Already configured (optional to update)'
                                         : 'Required'
                                 }
@@ -283,7 +376,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                     type={showSecret ? 'text' : 'password'}
                                     value={form.appSecret}
                                     placeholder={
-                                        steps.find((s) => s.id === 'app_secret')?.completed
+                                        remoteCompletion.app_secret
                                             ? 'Already configured (optional to update)'
                                             : 'Required'
                                     }
@@ -294,7 +387,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                 <button
                                     type="button"
                                     className="toggle-input-btn"
-                                    onClick={() => setShowSecret((v) => !v)}
+                                    onClick={() => setShowSecret((value) => !value)}
                                 >
                                     {showSecret ? 'Hide' : 'Show'}
                                 </button>
@@ -308,7 +401,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                     type={showToken ? 'text' : 'password'}
                                     value={form.token}
                                     placeholder={
-                                        steps.find((s) => s.id === 'token')?.completed
+                                        remoteCompletion.token
                                             ? 'Already configured (optional to update)'
                                             : 'Required'
                                     }
@@ -319,7 +412,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                 <button
                                     type="button"
                                     className="toggle-input-btn"
-                                    onClick={() => setShowToken((v) => !v)}
+                                    onClick={() => setShowToken((value) => !value)}
                                 >
                                     {showToken ? 'Hide' : 'Show'}
                                 </button>
@@ -332,7 +425,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                 type="text"
                                 value={form.userId}
                                 placeholder={
-                                    steps.find((s) => s.id === 'user_id')?.completed
+                                    remoteCompletion.user_id
                                         ? 'Already configured (optional to update)'
                                         : 'Required'
                                 }
@@ -342,6 +435,21 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                             />
                         </div>
 
+                        <div className="onboarding-form-group">
+                            <label>Download Path</label>
+                            <input
+                                type="text"
+                                value={form.downloadsPath}
+                                placeholder="Example: D:\\Music\\Qobuz"
+                                onChange={(e) =>
+                                    setForm((prev) => ({ ...prev, downloadsPath: e.target.value }))
+                                }
+                            />
+                            <p className="onboarding-form-note">
+                                Use full path if you want to save downloads outside app folder.
+                            </p>
+                        </div>
+
                         {error && <p className="onboarding-error">{error}</p>}
                         {message && <p className="onboarding-success">{message}</p>}
                         {verifiedAccount && (
@@ -349,6 +457,14 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                         )}
 
                         <div className="onboarding-actions">
+                            <button
+                                type="button"
+                                className="btn secondary"
+                                onClick={() => setStage('intro')}
+                                disabled={saving || verifying}
+                            >
+                                Back
+                            </button>
                             <button
                                 type="button"
                                 className="btn secondary"
@@ -363,7 +479,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                 onClick={handleSaveAndContinue}
                                 disabled={saving || verifying}
                             >
-                                {saving ? 'Saving...' : 'Save & Continue'}
+                                {saving ? 'Saving...' : 'Save & Continue to Dashboard'}
                             </button>
                         </div>
                     </div>

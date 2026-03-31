@@ -188,6 +188,67 @@ body.desktop-mode {
     gap: 24px;
 }
 
+.desktop-onboarding-intro {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    gap: 24px;
+}
+
+.onboarding-intro-main,
+.onboarding-intro-side {
+    border-radius: 24px;
+    border: 1px solid var(--border-light);
+    background: linear-gradient(160deg, rgba(10, 16, 26, 0.95), rgba(6, 12, 20, 0.9));
+    box-shadow: 0 26px 70px rgba(0, 0, 0, 0.38);
+}
+
+.onboarding-intro-main {
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.onboarding-intro-side {
+    padding: 22px;
+}
+
+.onboarding-intro-badge {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(var(--accent-rgb), 0.15);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    color: #dffef7;
+    font-size: 11px;
+    letter-spacing: 0.9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.onboarding-intro-main h1 {
+    font-size: clamp(30px, 2.8vw, 42px);
+    line-height: 1.12;
+    max-width: 20ch;
+}
+
+.onboarding-intro-copy {
+    color: #b7c6dd;
+    max-width: 58ch;
+    line-height: 1.75;
+}
+
+.onboarding-intro-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+}
+
 .desktop-onboarding-panel,
 .desktop-onboarding-form {
     border-radius: 24px;
@@ -227,6 +288,91 @@ body.desktop-mode {
     color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.7;
+}
+
+.desktop-onboarding-project {
+    border-radius: 16px;
+    border: 1px solid rgba(var(--accent-rgb), 0.34);
+    background: linear-gradient(160deg, rgba(6, 15, 26, 0.8), rgba(4, 11, 20, 0.9));
+    padding: 14px;
+}
+
+.desktop-onboarding-project-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.9px;
+    color: #9dd9ff;
+    margin-bottom: 7px;
+    font-weight: 700;
+}
+
+.desktop-onboarding-project-copy {
+    color: #bed1e8;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.desktop-onboarding-github {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.19);
+    background: rgba(255, 255, 255, 0.03);
+    color: #e6efff;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 11px;
+    transition: all 0.2s ease;
+}
+
+.desktop-onboarding-github:hover {
+    border-color: rgba(var(--accent-rgb), 0.8);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.desktop-onboarding-github svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
+.desktop-onboarding-github.hero {
+    min-height: 44px;
+    font-size: 13px;
+    padding: 10px 13px;
+}
+
+.onboarding-feature-list {
+    list-style: none;
+    display: grid;
+    gap: 10px;
+}
+
+.onboarding-feature-item {
+    position: relative;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 11px 12px 11px 34px;
+    color: #c4d2e8;
+    font-size: 13px;
+}
+
+.onboarding-feature-item::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.2);
 }
 
 .desktop-onboarding-progress {
@@ -318,6 +464,22 @@ body.desktop-mode {
     gap: 18px;
 }
 
+.onboarding-form-header {
+    margin-bottom: 2px;
+}
+
+.onboarding-form-title {
+    font-size: 24px;
+    line-height: 1.2;
+    margin-bottom: 6px;
+}
+
+.onboarding-form-copy {
+    color: #b2c4db;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
 .onboarding-form-group {
     display: flex;
     flex-direction: column;
@@ -329,6 +491,11 @@ body.desktop-mode {
     letter-spacing: 0.4px;
     color: var(--text-secondary);
     font-weight: 600;
+}
+
+.onboarding-form-note {
+    color: #8ea3be;
+    font-size: 12px;
 }
 
 .onboarding-form-group input {
@@ -430,6 +597,10 @@ body.desktop-mode {
 }
 
 @media (max-width: 1024px) {
+    .desktop-onboarding-intro {
+        grid-template-columns: 1fr;
+    }
+
     .desktop-onboarding-shell {
         grid-template-columns: 1fr;
     }
@@ -444,6 +615,8 @@ body.desktop-mode {
         padding: 16px;
     }
 
+    .onboarding-intro-main,
+    .onboarding-intro-side,
     .desktop-onboarding-panel,
     .desktop-onboarding-form {
         border-radius: 18px;
