@@ -98,7 +98,19 @@ export class DashboardService {
         });
 
         this.app.use(express.static(path.join(__dirname, 'public')));
-        this.app.use('/downloads', express.static(path.resolve(CONFIG.download.outputDir)));
+
+        let activeDownloadsDir = '';
+        let activeDownloadsStatic: any = null;
+        this.app.use('/downloads', (req: Request, res: Response, next: NextFunction) => {
+            const currentDownloadsDir = path.resolve(CONFIG.download.outputDir || './downloads');
+            if (!activeDownloadsStatic || activeDownloadsDir !== currentDownloadsDir) {
+                activeDownloadsDir = currentDownloadsDir;
+                activeDownloadsStatic = express.static(activeDownloadsDir);
+                logger.info(`Downloads route updated: ${activeDownloadsDir}`, 'WEB');
+            }
+
+            return activeDownloadsStatic(req, res, next);
+        });
     }
 
     private setupRoutes(): void {

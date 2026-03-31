@@ -77,13 +77,16 @@ export default class DownloadService {
     api: QobuzAPI;
     lyricsProvider: LyricsProvider;
     metadataService: MetadataService;
-    outputDir: string;
 
     constructor(api: QobuzAPI, lyricsProvider: LyricsProvider, metadataService: MetadataService) {
         this.api = api;
         this.lyricsProvider = lyricsProvider;
         this.metadataService = metadataService;
-        this.outputDir = CONFIG.download.outputDir;
+    }
+
+    private getOutputDir(overrideDir?: string): string {
+        const candidate = (overrideDir ?? CONFIG.download.outputDir ?? './downloads').trim();
+        return path.resolve(candidate || './downloads');
     }
 
     sanitizeFilename(name: string) {
@@ -284,7 +287,8 @@ export default class DownloadService {
 
         if (options.onMetadata) options.onMetadata(metadata);
 
-        const folderPath = path.join(this.outputDir, this.buildFolderPath(metadata, actualQuality));
+        const outputDir = this.getOutputDir(options.outputDir);
+        const folderPath = path.join(outputDir, this.buildFolderPath(metadata, actualQuality));
         if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true });
 
         const filename = this.buildFilename(metadata, actualQuality);
@@ -802,7 +806,8 @@ export default class DownloadService {
             const quality = 27;
 
             const metadata = await this.metadataService.extractMetadata(track, album!, {});
-            const folderPath = path.join(this.outputDir, this.buildFolderPath(metadata, quality));
+            const outputDir = this.getOutputDir();
+            const folderPath = path.join(outputDir, this.buildFolderPath(metadata, quality));
 
             if (!existsSync(folderPath)) {
                 mkdirSync(folderPath, { recursive: true });
@@ -850,7 +855,7 @@ export default class DownloadService {
             const { createWriteStream } = await import('fs');
 
             const zipName = `${this.sanitizeFilename(album.artist.name)} - ${this.sanitizeFilename(album.title)} (Lyrics).zip`;
-            const zipPath = path.join(this.outputDir, zipName);
+            const zipPath = path.join(this.getOutputDir(), zipName);
 
             const output = createWriteStream(zipPath);
             const archive = archiver('zip', { zlib: { level: 9 } });

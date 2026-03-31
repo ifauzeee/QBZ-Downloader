@@ -177,6 +177,8 @@ You can configure directly from Settings UI:
 Notes:
 - No `.env` file is required for normal desktop usage.
 - All credentials and app settings are saved in the local SQLite database via Settings UI.
+- Download path changes are applied to new downloads immediately (no app restart required).
+- Files downloaded before changing the path stay in the old folder and are not moved automatically.
 
 ---
 
