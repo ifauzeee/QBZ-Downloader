@@ -1,5 +1,13 @@
 import { databaseService } from './database/index.js';
 import { logger } from '../utils/logger.js';
+import { encrypt, decrypt, isEncrypted } from '../utils/crypto.js';
+
+const SENSITIVE_KEYS = [
+    'QOBUZ_APP_ID',
+    'QOBUZ_APP_SECRET',
+    'QOBUZ_USER_AUTH_TOKEN',
+    'DASHBOARD_PASSWORD'
+];
 
 const KNOWN_SETTING_KEYS = [
     'QOBUZ_APP_ID',
@@ -51,7 +59,8 @@ class SettingsService {
 
             this.cache.clear();
             for (const row of rows) {
-                this.cache.set(row.key, row.value);
+                const value = SENSITIVE_KEYS.includes(row.key) ? decrypt(row.value) : row.value;
+                this.cache.set(row.key, value);
             }
 
             if (this.cache.size === 0) {
@@ -103,13 +112,15 @@ class SettingsService {
 
         try {
             const db = databaseService.getDb();
+            const valueToStore = SENSITIVE_KEYS.includes(key) ? encrypt(value) : value;
+
             db.prepare(
                 `INSERT INTO app_settings (key, value, updated_at)
                  VALUES (?, ?, CURRENT_TIMESTAMP)
                  ON CONFLICT(key) DO UPDATE SET
                     value = excluded.value,
                     updated_at = CURRENT_TIMESTAMP`
-            ).run(key, value);
+            ).run(key, valueToStore);
 
             this.cache.set(key, value);
             process.env[key] = value;
@@ -134,7 +145,8 @@ class SettingsService {
                 );
 
                 for (const [key, value] of entries) {
-                    stmt.run(key, value);
+                    const valueToStore = SENSITIVE_KEYS.includes(key) ? encrypt(value) : value;
+                    stmt.run(key, valueToStore);
                     this.cache.set(key, value);
                     process.env[key] = value;
                 }

@@ -3,7 +3,7 @@
 # 🎵 QBZ-Downloader
 ### *The Ultimate High-Resolution Audio Downloader & Library Manager*
 
-[![Version](https://img.shields.io/badge/version-4.0.4-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
+[![Version](https://img.shields.io/badge/version-5.0.0--beta.1-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
 [![React](https://img.shields.io/badge/React-18.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -46,6 +46,9 @@ Everything you need to build the perfect local music library.
 | **📚 Library Manager** | Scans your library to **detect duplicates**, identify missing metadata, and suggest upgrades. |
 | **🎼 Visualizer** | Built-in real-time audio visualization for an immersive listening experience. |
 | **📊 Analytics** | Visualize your collection with charts: quality distribution, top artists, and storage mastery. |
+| **🔄 Resumable** | **New!** Support for HTTP Range to resume interrupted downloads seamlessly. |
+| **🔌 Bandwidth Ctrl** | **New!** Limit download speed to save bandwidth for other activities. |
+| **🔐 Encrypted Auth** | **New!** Sensitive Qobuz credentials are now encrypted in the local database. |
 | **🧩 Desktop-Only Runtime** | Optimized for Windows EXE delivery with local-first configuration and storage. |
 
 ---

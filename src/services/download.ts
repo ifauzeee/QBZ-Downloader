@@ -2,8 +2,9 @@ import path from 'path';
 import crypto from 'crypto';
 import { downloadFile } from '../utils/network.js';
 import { logger } from '../utils/logger.js';
+import { ThrottleStream } from '../utils/throttle.js';
 
-import { createWriteStream, mkdirSync, unlinkSync, existsSync } from 'fs';
+import { createWriteStream, mkdirSync, unlinkSync, existsSync, statSync, createReadStream } from 'fs';
 import { CONFIG } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
@@ -309,13 +310,57 @@ export default class DownloadService {
         }
 
         try {
-            const response = await downloadFile(fileUrlData.url);
-            const totalLength = parseInt(response.headers['content-length'] || '0', 10);
+            const trackIdStr = trackId.toString();
             let downloaded = 0;
+            const headers: Record<string, string> = {};
+            let isResuming = false;
+
+            if (resumeService.canResume(trackIdStr)) {
+                downloaded = resumeService.getResumePosition(trackIdStr);
+                headers['Range'] = `bytes=${downloaded}-`;
+                isResuming = true;
+                logger.info(`Resuming download for ${metadata.title} from ${downloaded} bytes`, 'DOWNLOAD');
+            }
+
+            const response = await downloadFile(fileUrlData.url, { headers });
+            
+            // Jika resume berhasil, status code biasanya 206 Partial Content.
+            // Jika server tidak mendukung Range, ia mungkin mengembalikan 200 dan mengirim seluruh file.
+            const isPartial = response.status === 206;
+            if (isResuming && !isPartial) {
+                logger.warn('Server did not honor Range request, restarting download from scratch', 'DOWNLOAD');
+                downloaded = 0;
+                isResuming = false;
+            }
+
+            const contentRange = response.headers['content-range'];
+            let totalLength = parseInt(response.headers['content-length'] || '0', 10);
+            
+            if (isPartial && contentRange) {
+                const match = contentRange.match(/\/(\d+)$/);
+                if (match) totalLength = parseInt(match[1], 10);
+            }
+
             const startTime = Date.now();
             const md5Hash = crypto.createHash('md5');
 
-            const writer = createWriteStream(filePath);
+            // Jika resume, kita harus meng-hash bagian yang sudah ada agar checksum akhir akurat
+            if (isResuming && downloaded > 0) {
+                try {
+                    const existingData = createReadStream(filePath);
+                    for await (const chunk of existingData) {
+                        md5Hash.update(chunk);
+                    }
+                } catch (hashErr: any) {
+                    logger.warn(`Failed to re-hash existing part: ${hashErr.message}. Checksum may be invalid.`, 'DOWNLOAD');
+                }
+            }
+
+            const writer = createWriteStream(filePath, { flags: isResuming ? 'a' : 'w' });
+            
+            if (!isResuming) {
+                resumeService.startDownload(trackIdStr, filePath, totalLength, actualQuality);
+            }
 
             let lastProgressEmit = 0;
             await new Promise<void>((resolve, reject) => {
@@ -327,7 +372,7 @@ export default class DownloadService {
                         const currentTime = Date.now();
                         if (currentTime - lastProgressEmit >= 100 || downloaded === totalLength) {
                             const elapsed = (currentTime - startTime) / 1000;
-                            const speed = elapsed > 0 ? downloaded / elapsed : 0;
+                            const speed = elapsed > 0 ? (downloaded - (isResuming ? resumeService.getResumePosition(trackIdStr) : 0)) / elapsed : 0;
 
                             options.onProgress({
                                 phase: 'download',
@@ -336,11 +381,17 @@ export default class DownloadService {
                                 speed
                             });
                             lastProgressEmit = currentTime;
+                            resumeService.updateProgress(trackIdStr, downloaded);
                         }
                     }
                 });
 
-                response.data.pipe(writer);
+                if (CONFIG.download.bandwidthLimit > 0) {
+                    const throttle = new ThrottleStream(CONFIG.download.bandwidthLimit);
+                    response.data.pipe(throttle).pipe(writer);
+                } else {
+                    response.data.pipe(writer);
+                }
 
                 writer.on('finish', resolve);
                 writer.on('error', reject);

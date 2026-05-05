@@ -11,5 +11,9 @@ export function createAxiosInstance(config: AxiosRequestConfig = {}) {
 
 export async function downloadFile(url: string, axiosConfig: AxiosRequestConfig = {}) {
     const instance = createAxiosInstance(axiosConfig);
-    return instance.get(url, { ...axiosConfig, responseType: 'stream' });
+    return instance.get(url, { 
+        ...axiosConfig, 
+        responseType: 'stream',
+        decompress: false
+    });
 }

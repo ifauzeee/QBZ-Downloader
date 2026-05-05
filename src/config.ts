@@ -61,6 +61,7 @@ export interface Config {
         concurrent: number;
         retryAttempts: number;
         retryDelay: number;
+        bandwidthLimit: number;
     };
     metadata: {
         embedCover: boolean;
@@ -154,7 +155,8 @@ export const CONFIG: Config = {
             fileNaming: getStr('FILE_TEMPLATE', '{track_number}. {title}'),
             concurrent: getInt('MAX_CONCURRENCY', 2),
             retryAttempts: getInt('RETRY_ATTEMPTS', 3),
-            retryDelay: getInt('RETRY_DELAY', 1000)
+            retryDelay: getInt('RETRY_DELAY', 1000),
+            bandwidthLimit: getInt('BANDWIDTH_LIMIT', 0)
         };
     },
     get metadata() {
