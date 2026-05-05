@@ -6,6 +6,7 @@ import { logger } from '../../utils/logger.js';
 import { CONFIG } from '../../config.js';
 import QobuzAPI from '../../api/qobuz.js';
 import { AuthenticationError, APIError } from '../../utils/errors.js';
+import { createMigrationService } from '../migration.js';
 
 import { tokenManager } from '../../utils/token.js';
 import { APP_VERSION } from '../../constants.js';
@@ -34,7 +35,9 @@ const APP_SETTING_KEYS = new Set([
     'LYRICS_TYPE',
     'DASHBOARD_PORT',
     'DASHBOARD_PASSWORD',
-    'STREAMING_QUALITY'
+    'STREAMING_QUALITY',
+    'SPOTIFY_CLIENT_ID',
+    'SPOTIFY_CLIENT_SECRET'
 ]);
 
 export function registerRoutes(app: any) {
@@ -102,7 +105,9 @@ export function registerRoutes(app: any) {
             SAVE_LRC_FILE: CONFIG.metadata.saveLrcFile,
             LYRICS_TYPE: CONFIG.metadata.lyricsType,
             DASHBOARD_PORT: CONFIG.dashboard.port,
-            DASHBOARD_PASSWORD_CONFIGURED: !!CONFIG.dashboard.password
+            DASHBOARD_PASSWORD_CONFIGURED: !!CONFIG.dashboard.password,
+            SPOTIFY_CLIENT_ID: CONFIG.spotify.clientId,
+            SPOTIFY_CLIENT_SECRET: CONFIG.spotify.clientSecret ? '****' : ''
         });
     });
 
@@ -143,6 +148,8 @@ export function registerRoutes(app: any) {
             setIfDefined('LYRICS_TYPE', body.lyrics_type);
             setIfDefined('DASHBOARD_PORT', body.dashboard_port);
             setIfDefined('DASHBOARD_PASSWORD', body.dashboard_password);
+            setIfDefined('SPOTIFY_CLIENT_ID', body.spotify_client_id);
+            setIfDefined('SPOTIFY_CLIENT_SECRET', body.spotify_client_secret);
 
             if (body.settings && typeof body.settings === 'object') {
                 for (const [key, value] of Object.entries(body.settings)) {
@@ -195,6 +202,32 @@ export function registerRoutes(app: any) {
             historyService.clearAll();
             downloadQueue.clear();
             res.json({ success: true });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    const migrationService = createMigrationService(api);
+
+    app.post('/api/migration/spotify/analyze', async (req: Request, res: Response) => {
+        try {
+            const { url, quality } = req.body;
+            if (!url) return res.status(400).json({ error: 'Spotify URL is required' });
+
+            const result = await migrationService.migrateFromSpotify(url, quality);
+            res.json(result);
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/migration/spotify/import', async (req: Request, res: Response) => {
+        try {
+            const { results, quality } = req.body;
+            if (!Array.isArray(results)) return res.status(400).json({ error: 'Results array is required' });
+
+            const added = await migrationService.startMigrationDownload(results, quality);
+            res.json({ success: true, added });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
         }

@@ -140,6 +140,23 @@ vi.mock('../../config.js', () => ({
             token: 'test-token',
             userId: '12345'
         },
+        spotify: {
+            clientId: '',
+            clientSecret: ''
+        },
+        api: {
+            baseUrl: 'https://www.qobuz.com/api.json/0.2',
+            endpoints: {
+                track: '/track/get',
+                album: '/album/get',
+                artist: '/artist/get',
+                playlist: '/playlist/get',
+                search: '/catalog/search',
+                fileUrl: '/track/getFileUrl',
+                userInfo: '/user/get',
+                favorites: '/favorite/getUserFavorites'
+            }
+        },
         quality: {
             default: 27,
             streaming: 5

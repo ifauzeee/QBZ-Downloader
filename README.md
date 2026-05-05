@@ -49,6 +49,7 @@ Everything you need to build the perfect local music library.
 | **🔄 Resumable** | **New!** Support for HTTP Range to resume interrupted downloads seamlessly. |
 | **🔌 Bandwidth Ctrl** | **New!** Limit download speed to save bandwidth for other activities. |
 | **🔐 Encrypted Auth** | **New!** Sensitive Qobuz credentials are now encrypted in the local database. |
+| **🌍 Spotify Migration** | **New!** Import your playlists from Spotify directly into Qobuz for high-res downloading. |
 | **🧩 Desktop-Only Runtime** | Optimized for Windows EXE delivery with local-first configuration and storage. |
 
 ---

@@ -28,6 +28,10 @@ export interface Config {
         token: string;
         userId: string;
     };
+    spotify: {
+        clientId: string;
+        clientSecret: string;
+    };
     api: {
         baseUrl: string;
         endpoints: {
@@ -92,7 +96,12 @@ export const CONFIG: Config = {
             userId: getStr('QOBUZ_USER_ID', '')
         };
     },
-
+    get spotify() {
+        return {
+            clientId: getStr('SPOTIFY_CLIENT_ID', ''),
+            clientSecret: getStr('SPOTIFY_CLIENT_SECRET', '')
+        };
+    },
     get api() {
         return {
             baseUrl: 'https://www.qobuz.com/api.json/0.2',
