@@ -97,7 +97,7 @@ class MigrationService {
                     };
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             logger.error(`Migration Search Error: ${error.message}`, 'MIGRATION');
         }
 
