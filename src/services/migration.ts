@@ -18,7 +18,7 @@ class MigrationService {
         this.qobuzApi = qobuzApi;
     }
 
-    async migrateFromSpotify(url: string, quality: number = 27): Promise<{
+    async migrateFromSpotify(url: string, _quality: number = 27): Promise<{
         total: number;
         found: number;
         results: MigrationResult[];
@@ -68,7 +68,7 @@ class MigrationService {
             try {
                 // Qobuz search allows ISRC? If not, we search normally
                 // For now, let's search title + artist
-            } catch (e) {}
+            } catch { }
         }
 
         // 2. Search Title + Artist

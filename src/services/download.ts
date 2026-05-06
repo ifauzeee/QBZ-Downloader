@@ -4,7 +4,7 @@ import { downloadFile } from '../utils/network.js';
 import { logger } from '../utils/logger.js';
 import { ThrottleStream } from '../utils/throttle.js';
 
-import { createWriteStream, mkdirSync, unlinkSync, existsSync, statSync, createReadStream } from 'fs';
+import { createWriteStream, mkdirSync, unlinkSync, existsSync, createReadStream } from 'fs';
 import { CONFIG } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';

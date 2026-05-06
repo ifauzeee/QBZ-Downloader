@@ -53,7 +53,7 @@ class SpotifyAPI {
     async getPlaylistTracks(playlistId: string): Promise<SpotifyTrack[]> {
         await this.ensureToken();
 
-        let tracks: SpotifyTrack[] = [];
+        const tracks: SpotifyTrack[] = [];
         let url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100`;
 
         try {
@@ -92,7 +92,7 @@ class SpotifyAPI {
             });
 
             const albumName = albumRes.data.name;
-            let tracks: SpotifyTrack[] = [];
+            const tracks: SpotifyTrack[] = [];
             let url = `https://api.spotify.com/v1/albums/${albumId}/tracks?limit=50`;
 
             while (url) {

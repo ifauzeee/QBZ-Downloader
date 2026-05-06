@@ -1,6 +1,6 @@
 import { databaseService } from './database/index.js';
 import { logger } from '../utils/logger.js';
-import { encrypt, decrypt, isEncrypted } from '../utils/crypto.js';
+import { encrypt, decrypt } from '../utils/crypto.js';
 
 const SENSITIVE_KEYS = [
     'QOBUZ_APP_ID',

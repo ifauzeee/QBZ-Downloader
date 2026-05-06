@@ -29,7 +29,7 @@ export function decrypt(text: string): string {
         let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
         return decrypted;
-    } catch (e) {
+    } catch {
         // If decryption fails, return original text (might be unencrypted from previous versions)
         return text;
     }
