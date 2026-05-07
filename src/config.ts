@@ -81,6 +81,13 @@ export interface Config {
             credits: string[];
         };
     };
+    export: {
+        enabled: boolean;
+        format: 'mp3' | 'aac' | 'opus';
+        bitrate: string;
+        outputDir?: string;
+        keepOriginal: boolean;
+    };
     dashboard: {
         port: number;
         password?: string;
@@ -236,6 +243,16 @@ export const CONFIG: Config = {
         return {
             port: getInt('DASHBOARD_PORT', 3000),
             password: getStr('DASHBOARD_PASSWORD', '')
+        };
+    },
+
+    get export() {
+        return {
+            enabled: getBool('EXPORT_ENABLED', false),
+            format: getStr('EXPORT_FORMAT', 'mp3') as any,
+            bitrate: getStr('EXPORT_BITRATE', '320k'),
+            outputDir: getStr('EXPORT_PATH', ''),
+            keepOriginal: getBool('EXPORT_KEEP_ORIGINAL', true)
         };
     },
 

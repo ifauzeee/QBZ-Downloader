@@ -16,6 +16,7 @@ import { DownloadEngine, DownloadProgress } from './DownloadEngine.js';
 import { MetadataProcessor } from './MetadataProcessor.js';
 import { qualityScannerService, QualityReport } from './QualityScannerService.js';
 import { mediaServerService } from './MediaServerService.js';
+import { formatConverterService } from './FormatConverterService.js';
 
 export { DownloadProgress };
 
@@ -259,9 +260,17 @@ export default class DownloadService {
                 }
             }
 
+            let finalFilePath = filePath;
+            if (CONFIG.export.enabled) {
+                const exportedPath = await formatConverterService.convert(filePath, metadata);
+                if (exportedPath && !CONFIG.export.keepOriginal) {
+                    finalFilePath = exportedPath;
+                }
+            }
+
             resumeService.completeDownload(trackId.toString());
 
-            this.updateDatabase(trackId, metadata, actualQuality, filePath, size, md5, track, album, scanResult);
+            this.updateDatabase(trackId, metadata, actualQuality, finalFilePath, size, md5, track, album, scanResult);
 
             mediaServerService.notifyNewContent({
                 title: metadata.title,
