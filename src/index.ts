@@ -12,6 +12,7 @@ import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
 import { logger } from './utils/logger.js';
 import figlet from 'figlet';
 import gradient from 'gradient-string';
+import { playlistWatcherService } from './services/PlaylistWatcherService.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf-8'));
@@ -32,6 +33,8 @@ async function gracefulShutdown(signal: string) {
 
     dashboardService.stop();
     logger.info('Dashboard service terminated.', 'WEB');
+
+    playlistWatcherService.stop();
 
     logger.success('System shutdown sequence completed successfully.', 'SYSTEM');
     process.exit(0);
@@ -97,6 +100,9 @@ async function main() {
 
         logger.info('Initializing Dashboard Service...', 'WEB');
         dashboardService.start();
+
+        logger.info('Starting Playlist Watcher Service...', 'WATCHER');
+        playlistWatcherService.start();
 
         logger.success('System initialization complete. Waiting for commands.', 'SYSTEM');
 
