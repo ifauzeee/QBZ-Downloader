@@ -334,10 +334,10 @@ export default class DownloadService {
         const results = await Promise.all(promises);
         const completed = results.filter(r => r.success).length;
 
-        if (completed > 0) {
+        if (completed > 0 && album) {
             mediaServerService.notifyNewContent({
                 title: album.title,
-                artist: album.artist.name,
+                artist: album.artist?.name || 'Unknown Artist',
                 album: album.title,
                 type: 'album'
             });
@@ -371,9 +371,9 @@ export default class DownloadService {
 
         if (completed > 0) {
             mediaServerService.notifyNewContent({
-                title: playlist.title,
-                artist: playlist.owner.name,
-                album: playlist.title,
+                title: playlist.name,
+                artist: playlist.owner?.name || 'Unknown Owner',
+                album: playlist.name,
                 type: 'playlist'
             });
         }
