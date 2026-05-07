@@ -59,7 +59,8 @@ router.post('/item/:id/:action', (req: Request, res: Response) => {
     switch (action) {
         case 'cancel':
         case 'remove': {
-            const success = downloadQueue.remove(id) || downloadQueue.cancel(id);
+            const trackId = getParam(id);
+            const success = downloadQueue.remove(trackId) || downloadQueue.cancel(trackId);
             res.json({ success });
             break;
         }
@@ -116,7 +117,7 @@ router.delete('/history', (req: Request, res: Response) => {
 });
 
 router.get('/download/:id', (req: Request, res: Response) => {
-    const id = req.params.id;
+    const id = getParam(req.params.id);
     const historyItem = historyService.get(id);
     const queueItem = downloadQueue.get(id);
     
@@ -129,7 +130,7 @@ router.get('/download/:id', (req: Request, res: Response) => {
 
 
 router.get('/preview/:id', async (req: Request, res: Response) => {
-    const id = req.params.id;
+    const id = getParam(req.params.id);
     const result = await api.getFileUrl(id, 5);
     if (result.success) {
         res.json(result.data);
@@ -203,8 +204,8 @@ router.post('/lyrics/:id/save', async (req: Request, res: Response) => {
 
 router.post('/migrate/spotify', async (req: Request, res: Response) => {
     try {
-        const migrationService = createMigrationService();
-        const results = await migrationService.migrateSpotifyPlaylist(req.body.url);
+        const migrationService = createMigrationService(api);
+        const results = await migrationService.migrateFromSpotify(req.body.url);
         res.json(results);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -212,7 +213,7 @@ router.post('/migrate/spotify', async (req: Request, res: Response) => {
 });
 
 router.get('/analytics/overview', (req: Request, res: Response) => {
-    res.json(databaseService.getOverview?.() || {});
+    res.json(databaseService.getOverallStats() || {});
 });
 
 export default router;

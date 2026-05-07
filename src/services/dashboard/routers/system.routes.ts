@@ -8,6 +8,7 @@ import { AuthenticationError, APIError } from '../../../utils/errors.js';
 import QobuzAPI from '../../../api/qobuz.js';
 import { databaseService } from '../../database/index.js';
 import { historyService } from '../../history.js';
+import { logger } from '../../../utils/logger.js';
 
 const router = Router();
 const api = new QobuzAPI();

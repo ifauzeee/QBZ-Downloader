@@ -7,17 +7,17 @@ const router = Router();
 const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
 
 router.get('/scan/status', (req: Request, res: Response) => {
-    res.json(libraryScannerService.getStatus());
+    res.json(libraryScannerService.getScanStats());
 });
 
 router.post('/scan/start', (req: Request, res: Response) => {
     const { path } = req.body;
-    libraryScannerService.startScan(path);
+    libraryScannerService.scanLibrary(path);
     res.json({ success: true });
 });
 
 router.post('/scan/stop', (req: Request, res: Response) => {
-    libraryScannerService.stopScan();
+    libraryScannerService.abortScan();
     res.json({ success: true });
 });
 
@@ -43,7 +43,7 @@ router.get('/duplicates', (req: Request, res: Response) => {
 
 router.get('/integrity', (req: Request, res: Response) => {
     try {
-        const issues = databaseService.getIntegrityIssues();
+        const issues = databaseService.getDuplicates();
         res.json(issues);
     } catch (error: any) {
         res.status(500).json({ error: error.message });

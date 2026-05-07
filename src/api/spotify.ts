@@ -117,6 +117,25 @@ class SpotifyAPI {
         }
     }
 
+    async getTrack(trackId: string): Promise<SpotifyTrack | null> {
+        await this.ensureToken();
+        try {
+            const response = await this.client.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
+                headers: { 'Authorization': `Bearer ${this.accessToken}` }
+            });
+            return {
+                title: response.data.name,
+                artist: response.data.artists.map((a: any) => a.name).join(', '),
+                album: response.data.album.name,
+                duration_ms: response.data.duration_ms,
+                isrc: response.data.external_ids?.isrc
+            };
+        } catch (error: any) {
+            logger.error(`Spotify Track Error: ${error.message}`, 'SPOTIFY');
+            return null;
+        }
+    }
+
     extractId(url: string): { id: string; type: 'playlist' | 'album' | 'track' } | null {
         const playlistMatch = url.match(/playlist\/([a-zA-Z0-9]+)/);
         if (playlistMatch) return { id: playlistMatch[1], type: 'playlist' };

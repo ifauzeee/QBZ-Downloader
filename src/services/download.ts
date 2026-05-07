@@ -334,4 +334,24 @@ export default class DownloadService {
 
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
+
+    async downloadArtist(artistId: string | number, quality = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
+        const artistInfo = await this.api.getArtist(artistId);
+        if (!artistInfo.success) return { success: false, error: artistInfo.error };
+        
+        const albumsRes = await this.api.getArtistAlbums(artistId, 50);
+        if (!albumsRes.success) return { success: false, error: albumsRes.error };
+
+        const albums = (albumsRes.data as any)?.items || [];
+        const limit = pLimit(CONFIG.download.concurrent);
+        
+        const results = [];
+        for (const album of albums) {
+            const res = await limit(() => this.downloadAlbum(album.id, quality, options));
+            results.push(res);
+        }
+
+        const completed = results.filter(r => r.success).length;
+        return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
+    }
 }
