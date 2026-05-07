@@ -17,6 +17,7 @@ import { MetadataProcessor } from './MetadataProcessor.js';
 import { qualityScannerService, QualityReport } from './QualityScannerService.js';
 import { mediaServerService } from './MediaServerService.js';
 import { formatConverterService } from './FormatConverterService.js';
+import { aiMetadataService } from './AIMetadataService.js';
 
 export { DownloadProgress };
 
@@ -169,7 +170,15 @@ export default class DownloadService {
         const actualQuality = fileUrlData.format_id || quality;
         if (options.onQuality) options.onQuality(actualQuality);
 
-        const metadata = await this.metadataService.extractMetadata(track, album!, {});
+        let metadata = await this.metadataService.extractMetadata(track, album!, {});
+        
+        if (CONFIG.ai.enabled) {
+            const repaired = await aiMetadataService.repairMetadata(metadata);
+            if (repaired) {
+                metadata = { ...metadata, ...repaired };
+            }
+        }
+
         if (options.onMetadata) options.onMetadata(metadata);
 
         const outputDir = this.getOutputDir(options.outputDir);

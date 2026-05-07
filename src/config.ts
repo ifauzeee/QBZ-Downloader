@@ -99,6 +99,12 @@ export interface Config {
         token: string;
         libraryId?: string;
     };
+    ai: {
+        enabled: boolean;
+        provider: 'gemini' | 'openai' | 'none';
+        apiKey: string;
+        model: string;
+    };
 }
 
 export const CONFIG: Config = {
@@ -263,6 +269,15 @@ export const CONFIG: Config = {
             url: getStr('MEDIA_SERVER_URL', ''),
             token: getStr('MEDIA_SERVER_TOKEN', ''),
             libraryId: getStr('MEDIA_SERVER_LIBRARY_ID', '')
+        };
+    },
+
+    get ai() {
+        return {
+            enabled: getBool('AI_REPAIR_ENABLED', false),
+            provider: getStr('AI_PROVIDER', 'none') as any,
+            apiKey: getStr('AI_API_KEY', ''),
+            model: getStr('AI_MODEL', 'gemini-1.5-flash')
         };
     }
 };
