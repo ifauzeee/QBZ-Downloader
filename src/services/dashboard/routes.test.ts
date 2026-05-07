@@ -33,7 +33,12 @@ vi.mock('../queue/queue.js', () => {
             clear: vi.fn(),
             cancel: vi.fn().mockReturnValue(true),
             remove: vi.fn().mockReturnValue(true),
-            clearCompleted: vi.fn().mockReturnValue(1)
+            clearCompleted: vi.fn().mockReturnValue(1),
+            get: (id: string) => {
+                if (id === '1') return { id: '1', type: 'track', status: 'pending', title: 'Test Track' };
+                if (id === '123') return { id: '123', type: 'track', status: 'completed', title: 'Downloaded Track' };
+                return undefined;
+            }
         }
     };
 });
@@ -365,4 +370,3 @@ describe('Dashboard API Routes', () => {
         });
     });
 });
-
