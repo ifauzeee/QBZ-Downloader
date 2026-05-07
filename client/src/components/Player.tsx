@@ -8,6 +8,7 @@ import { usePlayer } from '../contexts/PlayerContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { extractRGB } from '../utils/colorExtractor';
+import { AudioVisualizer } from './AudioVisualizer';
 
 interface TrackInfo {
     id: string;
@@ -59,10 +60,6 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     }, [track?.cover, setDynamicAccent]);
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const analyserRef = useRef<AnalyserNode | null>(null);
-    const animationFrameRef = useRef<number | null>(null);
-    const ctxRef = useRef<AudioContext | null>(null);
 
     const [lyrics, setLyrics] = useState<{ time: number, text: string }[] | null>(null);
     const [lyricsRaw, setLyricsRaw] = useState<string>('');
@@ -169,63 +166,9 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         window.addEventListener('player:play', handlePlayEvent as EventListener);
         return () => {
             window.removeEventListener('player:play', handlePlayEvent as EventListener);
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         };
     }, []);
 
-    const startVisualizer = () => {
-        if (!canvasRef.current || !analyserRef.current) return;
-
-        const canvas = canvasRef.current;
-        const canvasCtx = canvas.getContext('2d');
-        if (!canvasCtx) return;
-
-        const bufferLength = analyserRef.current.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
-        const draw = () => {
-            animationFrameRef.current = requestAnimationFrame(draw);
-            analyserRef.current!.getByteFrequencyData(dataArray);
-
-            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const barWidth = (canvas.width / bufferLength) * 2.5;
-            let barHeight;
-            let x = 0;
-
-            const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
-            for (let i = 0; i < bufferLength; i++) {
-                barHeight = (dataArray[i] / 255) * canvas.height;
-
-                canvasCtx.fillStyle = accent;
-                canvasCtx.globalAlpha = 0.6;
-                canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-                x += barWidth + 2;
-            }
-        };
-
-        draw();
-    };
-
-    useEffect(() => {
-        if (playing && audioRef.current && !ctxRef.current) {
-            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-            ctxRef.current = new AudioContext();
-            const analyser = ctxRef.current.createAnalyser();
-            analyser.fftSize = 64;
-            const source = ctxRef.current.createMediaElementSource(audioRef.current);
-            source.connect(analyser);
-            analyser.connect(ctxRef.current.destination);
-            analyserRef.current = analyser;
-        }
-
-        if (playing && ctxRef.current?.state === 'suspended') {
-            ctxRef.current.resume();
-        }
-
-        if (playing) startVisualizer();
-        else if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    }, [playing, track]);
 
     useEffect(() => {
         if (track && audioRef.current) {
@@ -543,8 +486,13 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                 <div className="player-left">
                     <div className="album-art">
                         <img src={track?.cover || ''} alt={track?.title || ''} onError={(e) => e.currentTarget.style.display = 'none'} />
-                        <div className={`visualizer-calm ${playing ? 'playing' : ''}`}>
-                            <span></span><span></span><span></span><span></span>
+                        <div className="visualizer-overlay">
+                            <AudioVisualizer 
+                                audioElement={audioRef.current} 
+                                isPlaying={playing} 
+                                color="var(--accent)"
+                                barCount={32}
+                            />
                         </div>
                     </div>
                     <div className="track-details">
@@ -640,6 +588,19 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                     opacity: 1;
                     transform: translateX(-50%) translateY(0) scale(1);
                     pointer-events: auto;
+                }
+
+                .visualizer-overlay {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    pointer-events: none;
+                    background: rgba(0,0,0,0.2);
                 }
 
                 /* Lyrics Overlay */
