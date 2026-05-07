@@ -1018,6 +1018,18 @@ class DatabaseService {
             id
         );
     }
+
+    updateTrackPath(id: string, newPath: string): void {
+        const db = this.getDb();
+        db.prepare('UPDATE library_files SET file_path = ? WHERE id = ?').run(newPath, id);
+    }
+
+    updateTrackMetadata(id: string, metadata: { genre?: string }): void {
+        const db = this.getDb();
+        if (metadata.genre) {
+            db.prepare('UPDATE library_files SET genre = ? WHERE id = ?').run(metadata.genre, id);
+        }
+    }
 }
 
 export const databaseService = new DatabaseService();
