@@ -69,7 +69,7 @@ export class QualityScannerService {
     }
 
     private parseMeanVolume(output: string): number {
-        const match = output.match(/mean_volume: ([\-\d\.]+) dB/);
+        const match = output.match(/mean_volume: ([-\d.]+) dB/);
         return match ? parseFloat(match[1]) : -100;
     }
 }

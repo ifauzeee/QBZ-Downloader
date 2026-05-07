@@ -34,8 +34,7 @@ export class RecommendationService {
             const recommendations: Album[] = [];
             const seenAlbumIds = new Set<string | number>();
 
-            history.forEach(entry => {
-            });
+
 
             for (const artistName of topArtists) {
                 const searchRes = await this.api.search(artistName, 'artists', 1);

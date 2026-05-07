@@ -63,8 +63,7 @@ class MigrationService {
     }
 
     private async findOnQobuz(sTrack: SpotifyTrack): Promise<{ id: string; quality: number; score: number } | null> {
-        if (sTrack.isrc) {
-        }
+
 
         try {
             const query = `${sTrack.title} ${sTrack.artist.split(',')[0]}`;
