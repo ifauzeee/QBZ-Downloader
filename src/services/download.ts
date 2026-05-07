@@ -14,6 +14,7 @@ import { resumeService } from './batch.js';
 
 import { DownloadEngine, DownloadProgress } from './DownloadEngine.js';
 import { MetadataProcessor } from './MetadataProcessor.js';
+import { qualityScannerService, QualityReport } from './QualityScannerService.js';
 
 export { DownloadProgress };
 
@@ -244,9 +245,22 @@ export default class DownloadService {
                 coverBuffer
             );
 
+            let scanResult: QualityReport | undefined;
+            if (actualQuality >= 6) {
+                if (options.onProgress) options.onProgress({ phase: 'verifying', loaded: 0 });
+                try {
+                    scanResult = await qualityScannerService.scanFile(filePath);
+                    if (!scanResult.isTrueLossless) {
+                        logger.warn(`Quality Warning for ${metadata.title}: ${scanResult.details}`, 'SCANNER');
+                    }
+                } catch (e: any) {
+                    logger.error(`Quality scan failed: ${e.message}`, 'SCANNER');
+                }
+            }
+
             resumeService.completeDownload(trackId.toString());
 
-            this.updateDatabase(trackId, metadata, actualQuality, filePath, size, md5, track, album);
+            this.updateDatabase(trackId, metadata, actualQuality, filePath, size, md5, track, album, scanResult);
 
             return { success: true, filePath, quality: actualQuality, metadata, lyrics: lyricsResult };
         } catch (error: any) {
@@ -255,14 +269,19 @@ export default class DownloadService {
         }
     }
 
-    private async updateDatabase(trackId: any, metadata: any, quality: any, filePath: any, size: any, md5: any, _track: any, _album: any) {
+    private async updateDatabase(trackId: any, metadata: any, quality: any, filePath: any, size: any, md5: any, _track: any, _album: any, scanResult?: QualityReport) {
         historyService.add(trackId, {
             filename: filePath,
             quality: quality,
             title: metadata.title,
             artist: metadata.artist,
             albumArtist: metadata.albumArtist || metadata.artist,
-            album: metadata.album
+            album: metadata.album,
+            qualityScan: scanResult ? {
+                isTrueLossless: scanResult.isTrueLossless,
+                confidence: scanResult.confidence,
+                details: scanResult.details
+            } : undefined
         });
 
         try {

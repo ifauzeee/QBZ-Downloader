@@ -12,6 +12,11 @@ export interface HistoryEntry {
     artistImageUrl?: string;
     album?: string;
     type?: 'track' | 'album' | 'playlist' | 'artist';
+    qualityScan?: {
+        isTrueLossless: boolean;
+        confidence: number;
+        details: string;
+    };
 }
 
 interface HistoryData {

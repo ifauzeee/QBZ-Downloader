@@ -8,7 +8,7 @@ import { resumeService } from './batch.js';
 import { Metadata } from './metadata.js';
 
 export interface DownloadProgress {
-    phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging';
+    phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging' | 'verifying';
     loaded: number;
     total?: number;
     speed?: number;

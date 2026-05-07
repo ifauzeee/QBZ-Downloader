@@ -147,7 +147,6 @@ class Logger {
 
             fs.appendFileSync(logFilePath, line, 'utf8');
         } catch {
-            // Silently fail if file logging is impossible
         }
     }
 
