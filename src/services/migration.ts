@@ -34,8 +34,6 @@ class MigrationService {
         } else if (extraction.type === 'album') {
             spotifyTracks = await spotifyApi.getAlbumTracks(extraction.id);
         } else if (extraction.type === 'track') {
-            // Handle single track
-            // spotifyTracks = [await spotifyApi.getTrack(extraction.id)];
         }
 
         logger.info(`Migration: Found ${spotifyTracks.length} tracks on Spotify. Searching on Qobuz...`, 'MIGRATION');
@@ -63,15 +61,11 @@ class MigrationService {
     }
 
     private async findOnQobuz(sTrack: SpotifyTrack): Promise<{ id: string; quality: number; score: number } | null> {
-        // 1. Try ISRC if available
         if (sTrack.isrc) {
             try {
-                // Qobuz search allows ISRC? If not, we search normally
-                // For now, let's search title + artist
             } catch { }
         }
 
-        // 2. Search Title + Artist
         try {
             const query = `${sTrack.title} ${sTrack.artist.split(',')[0]}`;
             const searchRes = await this.qobuzApi.search(query, 'track', 5);
@@ -92,7 +86,7 @@ class MigrationService {
                 if (bestMatch) {
                     return {
                         id: bestMatch.id.toString(),
-                        quality: bestMatch.maximum_sampling_rate ? 27 : 6, // Hi-Res vs CD
+                        quality: bestMatch.maximum_sampling_rate ? 27 : 6,
                         score: highestScore
                     };
                 }
@@ -107,7 +101,6 @@ class MigrationService {
     private calculateMatchScore(sTrack: SpotifyTrack, qTrack: any): number {
         let score = 0;
         
-        // Normalize strings
         const sTitle = sTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
         const qTitle = qTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
         
@@ -119,7 +112,6 @@ class MigrationService {
 
         if (qArtist.includes(sArtist) || sArtist.includes(qArtist)) score += 0.4;
 
-        // Duration check (allow 5s difference)
         const sDuration = sTrack.duration_ms / 1000;
         const qDuration = qTrack.duration;
         if (Math.abs(sDuration - qDuration) < 5) score += 0.1;
@@ -142,6 +134,4 @@ class MigrationService {
     }
 }
 
-// We need a factory or an instance here
-// For now, let's export a way to initialize it with the QobuzAPI instance
 export const createMigrationService = (qobuzApi: QobuzAPI) => new MigrationService(qobuzApi);

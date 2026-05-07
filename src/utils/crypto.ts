@@ -1,13 +1,9 @@
 import crypto from 'crypto';
 import os from 'os';
 
-// Simple encryption utility for sensitive settings
-// In a production Electron app, consider using electron.safeStorage
-
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
 
-// Derive a key from machine info to make it somewhat unique per machine
 const SECRET_SEED = os.hostname() + os.platform() + os.arch() + (process.env.USERDOMAIN || 'qbz-default');
 const ENCRYPTION_KEY = crypto.createHash('sha256').update(SECRET_SEED).digest();
 
@@ -22,7 +18,7 @@ export function encrypt(text: string): string {
 export function decrypt(text: string): string {
     try {
         const [ivHex, encryptedHex] = text.split(':');
-        if (!ivHex || !encryptedHex) return text; // Probably not encrypted
+        if (!ivHex || !encryptedHex) return text;
 
         const iv = Buffer.from(ivHex, 'hex');
         const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
@@ -30,7 +26,6 @@ export function decrypt(text: string): string {
         decrypted += decipher.final('utf8');
         return decrypted;
     } catch {
-        // If decryption fails, return original text (might be unencrypted from previous versions)
         return text;
     }
 }

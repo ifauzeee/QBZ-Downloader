@@ -1,12 +1,9 @@
 import { Transform, TransformCallback } from 'stream';
 
-/**
- * A simple transform stream to throttle data transfer.
- */
 export class ThrottleStream extends Transform {
     private bytesRead = 0;
     private startTime: number = Date.now();
-    private limit: number; // Bytes per second
+    private limit: number;
 
     constructor(limitKbps: number) {
         super();
