@@ -15,6 +15,7 @@ import { resumeService } from './batch.js';
 import { DownloadEngine, DownloadProgress } from './DownloadEngine.js';
 import { MetadataProcessor } from './MetadataProcessor.js';
 import { qualityScannerService, QualityReport } from './QualityScannerService.js';
+import { mediaServerService } from './MediaServerService.js';
 
 export { DownloadProgress };
 
@@ -262,6 +263,14 @@ export default class DownloadService {
 
             this.updateDatabase(trackId, metadata, actualQuality, filePath, size, md5, track, album, scanResult);
 
+            mediaServerService.notifyNewContent({
+                title: metadata.title,
+                artist: metadata.artist,
+                album: metadata.album,
+                type: 'track',
+                filePath
+            });
+
             return { success: true, filePath, quality: actualQuality, metadata, lyrics: lyricsResult };
         } catch (error: any) {
             if (existsSync(filePath)) unlinkSync(filePath);
@@ -325,6 +334,15 @@ export default class DownloadService {
         const results = await Promise.all(promises);
         const completed = results.filter(r => r.success).length;
 
+        if (completed > 0) {
+            mediaServerService.notifyNewContent({
+                title: album.title,
+                artist: album.artist.name,
+                album: album.title,
+                type: 'album'
+            });
+        }
+
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
 
@@ -350,6 +368,15 @@ export default class DownloadService {
 
         const results = await Promise.all(promises);
         const completed = results.filter(r => r.success).length;
+
+        if (completed > 0) {
+            mediaServerService.notifyNewContent({
+                title: playlist.title,
+                artist: playlist.owner.name,
+                album: playlist.title,
+                type: 'playlist'
+            });
+        }
 
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }

@@ -85,6 +85,13 @@ export interface Config {
         port: number;
         password?: string;
     };
+    mediaServer: {
+        enabled: boolean;
+        type: 'plex' | 'jellyfin' | 'webhook' | 'none';
+        url: string;
+        token: string;
+        libraryId?: string;
+    };
 }
 
 export const CONFIG: Config = {
@@ -229,6 +236,16 @@ export const CONFIG: Config = {
         return {
             port: getInt('DASHBOARD_PORT', 3000),
             password: getStr('DASHBOARD_PASSWORD', '')
+        };
+    },
+
+    get mediaServer() {
+        return {
+            enabled: getBool('MEDIA_SERVER_ENABLED', false),
+            type: getStr('MEDIA_SERVER_TYPE', 'none') as any,
+            url: getStr('MEDIA_SERVER_URL', ''),
+            token: getStr('MEDIA_SERVER_TOKEN', ''),
+            libraryId: getStr('MEDIA_SERVER_LIBRARY_ID', '')
         };
     }
 };
