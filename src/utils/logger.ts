@@ -1,4 +1,6 @@
 import chalk from 'chalk';
+import fs from 'fs';
+import path from 'path';
 
 export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'system';
 
@@ -6,8 +8,13 @@ class Logger {
     private static instance: Logger;
     private logs: any[] = [];
     private readonly MAX_LOGS = 500;
+    private readonly LOG_DIR = path.resolve('./logs');
+    private readonly CURRENT_LOG_FILE = 'qbz-latest.log';
+    private readonly MAX_LOG_FILES = 5;
 
-    private constructor() {}
+    private constructor() {
+        this.initLogDir();
+    }
 
     static getInstance(): Logger {
         if (!Logger.instance) {
@@ -32,13 +39,16 @@ class Logger {
 
     log(message: string, type: LogType = 'info', scope?: string) {
         const timestampStr = this.getTimestamp();
-        this.logs.push({
+        const logEntry = {
             timestamp: timestampStr,
             type,
             scope: scope?.toUpperCase() || 'SYSTEM',
             message,
             time: Date.now()
-        });
+        };
+
+        this.logs.push(logEntry);
+        this.writeToLogFile(logEntry);
 
         if (this.logs.length > this.MAX_LOGS) {
             this.logs.shift();
@@ -118,6 +128,49 @@ class Logger {
     }
     system(message: string, scope?: string) {
         this.log(message, 'system', scope);
+    }
+
+    private initLogDir() {
+        if (!fs.existsSync(this.LOG_DIR)) {
+            fs.mkdirSync(this.LOG_DIR, { recursive: true });
+        }
+    }
+
+    private writeToLogFile(logEntry: any) {
+        try {
+            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
+            const line = `[${logEntry.timestamp}] [${logEntry.type.toUpperCase().padEnd(7)}] [${logEntry.scope}] ${logEntry.message}\n`;
+
+            if (fs.existsSync(logFilePath) && fs.statSync(logFilePath).size > 5 * 1024 * 1024) {
+                this.rotateLogs();
+            }
+
+            fs.appendFileSync(logFilePath, line, 'utf8');
+        } catch (e) {
+        }
+    }
+
+    private rotateLogs() {
+        try {
+            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
+
+            for (let i = this.MAX_LOG_FILES - 1; i >= 1; i--) {
+                const oldPath = path.join(this.LOG_DIR, `qbz-old-${i}.log`);
+                const nextPath = path.join(this.LOG_DIR, `qbz-old-${i + 1}.log`);
+                if (fs.existsSync(oldPath)) {
+                    if (i === this.MAX_LOG_FILES - 1) {
+                        fs.unlinkSync(oldPath);
+                    } else {
+                        fs.renameSync(oldPath, nextPath);
+                    }
+                }
+            }
+
+            if (fs.existsSync(logFilePath)) {
+                fs.renameSync(logFilePath, path.join(this.LOG_DIR, 'qbz-old-1.log'));
+            }
+        } catch (e) {
+        }
     }
 }
 
