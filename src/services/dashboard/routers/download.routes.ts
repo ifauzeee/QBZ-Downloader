@@ -44,10 +44,11 @@ router.post('/queue/action', (req: Request, res: Response) => {
             downloadQueue.clear();
             res.json({ success: true });
             break;
-        case 'clear-completed':
+        case 'clear-completed': {
             const count = downloadQueue.clearCompleted();
             res.json({ success: true, count });
             break;
+        }
         default:
             res.status(400).json({ error: 'Invalid action' });
     }
@@ -57,10 +58,11 @@ router.post('/item/:id/:action', (req: Request, res: Response) => {
     const { id, action } = req.params;
     switch (action) {
         case 'cancel':
-        case 'remove':
+        case 'remove': {
             const success = downloadQueue.remove(id) || downloadQueue.cancel(id);
             res.json({ success });
             break;
+        }
         default:
             res.status(400).json({ error: 'Invalid action' });
     }
@@ -187,7 +189,7 @@ router.post('/lyrics/:id/save', async (req: Request, res: Response) => {
         const historyItem = historyService.get(id);
         if (!historyItem) return res.status(404).json({ error: 'Track not found in history' });
 
-        const { writeFileSync, existsSync } = await import('fs');
+        const { writeFileSync } = await import('fs');
         const lrcPath = historyItem.filename.replace(/\.[^.]+$/, '.lrc');
 
         writeFileSync(lrcPath, content, 'utf8');

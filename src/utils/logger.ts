@@ -146,7 +146,8 @@ class Logger {
             }
 
             fs.appendFileSync(logFilePath, line, 'utf8');
-        } catch (e) {
+        } catch {
+            // Silently fail if file logging is impossible
         }
     }
 
@@ -169,7 +170,7 @@ class Logger {
             if (fs.existsSync(logFilePath)) {
                 fs.renameSync(logFilePath, path.join(this.LOG_DIR, 'qbz-old-1.log'));
             }
-        } catch (e) {
+        } catch {
         }
     }
 }

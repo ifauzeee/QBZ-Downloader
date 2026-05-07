@@ -34,6 +34,8 @@ class MigrationService {
         } else if (extraction.type === 'album') {
             spotifyTracks = await spotifyApi.getAlbumTracks(extraction.id);
         } else if (extraction.type === 'track') {
+            const track = await spotifyApi.getTrack(extraction.id);
+            if (track) spotifyTracks = [track];
         }
 
         logger.info(`Migration: Found ${spotifyTracks.length} tracks on Spotify. Searching on Qobuz...`, 'MIGRATION');
@@ -62,14 +64,13 @@ class MigrationService {
 
     private async findOnQobuz(sTrack: SpotifyTrack): Promise<{ id: string; quality: number; score: number } | null> {
         if (sTrack.isrc) {
-            try {
-            } catch { }
+            // Future implementation for ISRC lookup
         }
 
         try {
             const query = `${sTrack.title} ${sTrack.artist.split(',')[0]}`;
             const searchRes = await this.qobuzApi.search(query, 'track', 5);
-            
+
             if (searchRes.success && searchRes.data?.tracks?.items) {
                 const candidates = searchRes.data.tracks.items;
                 let bestMatch = null;
@@ -100,10 +101,10 @@ class MigrationService {
 
     private calculateMatchScore(sTrack: SpotifyTrack, qTrack: any): number {
         let score = 0;
-        
+
         const sTitle = sTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
         const qTitle = qTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
-        
+
         if (sTitle === qTitle) score += 0.5;
         else if (qTitle.includes(sTitle) || sTitle.includes(qTitle)) score += 0.3;
 

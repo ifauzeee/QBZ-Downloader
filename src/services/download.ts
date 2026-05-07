@@ -8,7 +8,7 @@ import { CONFIG } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import MetadataService, { Metadata } from './metadata.js';
-import { Track, Album, FileUrlData } from '../types/qobuz.js';
+import { Album, FileUrlData } from '../types/qobuz.js';
 import { historyService } from './history.js';
 import { resumeService } from './batch.js';
 
