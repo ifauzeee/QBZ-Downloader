@@ -5,6 +5,7 @@ import { RecommendationService } from '../../RecommendationService.js';
 import { historyService } from '../../history.js';
 import QobuzAPI from '../../../api/qobuz.js';
 import { libraryHealerService } from '../../LibraryHealerService.js';
+import { statisticsService } from '../../StatisticsService.js';
 
 const router = Router();
 
@@ -29,6 +30,15 @@ router.post('/heal', async (req: Request, res: Response) => {
     try {
         const report = await libraryHealerService.performFullHeal();
         res.json(report);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/statistics', async (req: Request, res: Response) => {
+    try {
+        const stats = await statisticsService.getLibraryStats();
+        res.json(stats);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
