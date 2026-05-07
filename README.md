@@ -48,9 +48,13 @@ Everything you need to build the perfect local music library.
 | **📊 Analytics** | Visualize your collection with charts: quality distribution, top artists, and storage mastery. |
 | **🔄 Resumable** | **New!** Support for HTTP Range to resume interrupted downloads seamlessly. |
 | **🔌 Bandwidth Ctrl** | **New!** Limit download speed to save bandwidth for other activities. |
-| **🔐 Encrypted Auth** | **New!** Sensitive Qobuz credentials are now encrypted in the local database. |
-| **🌍 Spotify Migration** | **New!** Import your playlists from Spotify directly into Qobuz for high-res downloading. |
-| **🧩 Desktop-Only Runtime** | Optimized for Windows EXE delivery with local-first configuration and storage. |
+| **🔐 Encrypted Auth** | Sensitive Qobuz credentials are now encrypted in the local database. |
+| **🌍 Spotify Migration** | Import your playlists from Spotify directly into Qobuz for high-res downloading. |
+| **🔍 Quality Scan** | **New!** Automated spectral analysis to detect upsampled/fake lossless files. |
+| **📡 Media Sync** | **New!** Auto-notify **Plex** or **Jellyfin** to rescan library after download. |
+| **📤 Auto Export** | **New!** Automatically convert FLAC to **MP3/AAC/Opus** for mobile devices. |
+| **👀 Playlist Watcher**| **New!** Automatically monitor and sync new tracks from your favorite playlists. |
+| **🧩 Desktop Runtime** | Optimized for Windows EXE delivery with local-first configuration and storage. |
 
 ---
 
@@ -174,8 +178,10 @@ Fill these in Settings:
 You can configure directly from Settings UI:
 
 - Download path, folder/file template, concurrency, retry
-- Audio quality defaults
+- Audio quality defaults (up to 24-bit/192kHz)
 - Metadata and lyrics behavior
+- Media Server integration (Plex, Jellyfin, Webhooks)
+- Automated format conversion and export
 - Local desktop service port/password
 
 Notes:
