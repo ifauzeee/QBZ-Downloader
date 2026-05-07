@@ -3,6 +3,7 @@ import { QueueItem, QueueItemStatus, QueuePriority, QueueStats, DownloadType } f
 import { generateQueueId } from './utils.js';
 import { logger } from '../../utils/logger.js';
 import { databaseService } from '../database/index.js';
+import { eventBus, EVENTS } from '../../utils/events.js';
 
 export class DownloadQueue {
     private items: Map<string, QueueItem> = new Map();
@@ -97,6 +98,7 @@ export class DownloadQueue {
         }
         databaseService.updateQueueItemStatus(id, item.status, item.progress);
         this.emit('item:progress', item, progress);
+        this.emitGlobalProgress();
     }
 
     updateMetadata(id: string, metadata: { title?: string; artist?: any; album?: any }): void {
@@ -318,7 +320,23 @@ export class DownloadQueue {
     private checkQueueEmpty(): void {
         if (!this.hasPending() && !this.isProcessing()) {
             this.emit('queue:empty');
+            eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, -1);
         }
+    }
+
+    private emitGlobalProgress(): void {
+        const items = Array.from(this.items.values());
+        const activeItems = items.filter(i => i.status === 'downloading' || i.status === 'processing');
+        
+        if (activeItems.length === 0) {
+            eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, -1);
+            return;
+        }
+
+        const totalProgress = activeItems.reduce((acc, curr) => acc + curr.progress, 0);
+        const averageProgress = totalProgress / activeItems.length / 100;
+        
+        eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, averageProgress);
     }
 
     on(event: string, listener: (...args: any[]) => void): this {

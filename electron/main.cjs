@@ -507,6 +507,7 @@ async function bootstrap() {
     if (online) {
       await mainWindow.loadURL(DASHBOARD_URL);
       setupAutoUpdater();
+      setupEventBridge().catch(err => console.error('Failed to setup event bridge:', err));
     } else {
       await loadInlinePage(
         mainWindow,
@@ -518,6 +519,25 @@ async function bootstrap() {
 
     const message = error instanceof Error ? error.message : String(error);
     await loadInlinePage(mainWindow, `Failed to start service: <code>${message}</code>`);
+  }
+}
+
+async function setupEventBridge() {
+  try {
+    const eventsPath = path.join(app.getAppPath(), 'dist', 'utils', 'events.js');
+    if (!fs.existsSync(eventsPath)) return;
+
+    const { eventBus, EVENTS } = await import(pathToFileURL(eventsPath).href);
+    
+    eventBus.on(EVENTS.DOWNLOAD.PROGRESS, (progress) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setProgressBar(progress);
+      }
+    });
+
+    console.log('Event bridge established: Taskbar progress enabled.');
+  } catch (error) {
+    console.error('Event bridge failure:', error);
   }
 }
 
