@@ -6,12 +6,9 @@ import libraryRouter from './routers/library.routes.js';
 
 export function registerRoutes(app: Express) {
     app.use('/api', systemRouter);
-    app.use('/api/system', systemRouter);
-
     app.use('/api', catalogRouter);
-
     app.use('/api', downloadRouter);
-
     app.use('/api/library', libraryRouter);
     app.use('/api/database', libraryRouter);
 }
+
