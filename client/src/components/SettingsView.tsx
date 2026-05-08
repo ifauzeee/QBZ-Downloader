@@ -648,7 +648,6 @@ export const SettingsView: React.FC = () => {
                     <span className="icon">🎨</span> {t('sec_appearance')}
                 </h3>
                 <div className="appearance-options">
-                <div className="appearance-options">
                     <div className="settings-checkbox-group" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
                         <div className="settings-checkbox-item" onClick={() => setFollowSystem(!followSystem)}>
                             <input
