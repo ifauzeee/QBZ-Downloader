@@ -25,6 +25,7 @@ import { DesktopSetupGate } from './components/DesktopSetupGate';
 import { MiniPlayer } from './components/MiniPlayer';
 import { CommandPalette } from './components/CommandPalette';
 import { DropZone } from './components/DropZone';
+import { QueuePanel } from './components/QueuePanel';
 import { Icons } from './components/Icons';
 import { applyAccent } from './utils/theme';
 import { smartFetch } from './utils/api';
@@ -576,6 +577,8 @@ function AppContent() {
           }}
         />
       )}
+      <CommandPalette />
+      <QueuePanel />
       </DropZone>
     </div>
   );

@@ -32,7 +32,11 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     const {
         showLyrics, setShowLyrics,
         isLyricsFullscreen, setIsLyricsFullscreen,
-        showEditor, setShowEditor
+        showEditor, setShowEditor,
+        playQueue, setPlayQueue,
+        currentTrackIndex, setCurrentTrackIndex,
+        addToPlaybackQueue, removeFromQueue,
+        showQueue, setShowQueue
     } = usePlayer();
     const { setDynamicAccent } = useTheme();
 
@@ -45,7 +49,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         setIsLyricsFullscreen(false);
     }, [activeTab, setShowLyrics, setIsLyricsFullscreen]);
 
-    const [track, setTrack] = useState<TrackInfo | null>(null);
+    const track = currentTrackIndex >= 0 && currentTrackIndex < playQueue.length ? playQueue[currentTrackIndex] : null;
     const [playing, setPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -199,7 +203,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
 
     useEffect(() => {
         const handlePlayEvent = (e: CustomEvent<TrackInfo>) => {
-            setTrack(e.detail);
+            addToPlaybackQueue(e.detail, true);
             setPlaying(true);
         };
 
@@ -635,6 +639,14 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                             style={{ color: showLyrics ? 'var(--accent)' : '' }}
                         >
                             <Icons.Mic width={18} height={18} />
+                        </button>
+                        <button
+                            className={`icon-btn ${showQueue ? 'active-btn' : ''}`}
+                            onClick={() => setShowQueue(!showQueue)}
+                            title="Queue"
+                            style={{ color: showQueue ? 'var(--accent)' : '' }}
+                        >
+                            <Icons.Batch width={18} height={18} />
                         </button>
                         <button className="icon-btn" onClick={addToQueue} title="Download">
                             <Icons.Download width={18} height={18} />
