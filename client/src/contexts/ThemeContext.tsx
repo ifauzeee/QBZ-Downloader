@@ -17,6 +17,8 @@ interface ThemeContextType {
     applyTheme: (theme: Theme) => void;
     resetTheme: () => void;
     setDynamicAccent: (colorRgb: string | null, source?: 'player' | 'view') => void;
+    dynamicMode: boolean;
+    setDynamicMode: (enabled: boolean) => void;
 }
 
 const defaultTheme: Theme = {
@@ -42,13 +44,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
     const [themes, setThemes] = useState<Theme[]>([]);
     const [dynamicColors, setDynamicColors] = useState<{ player: string | null, view: string | null }>({ player: null, view: null });
+    const [dynamicMode, setDynamicMode] = useState(localStorage.getItem('dynamicTheme') === 'true');
+
+    useEffect(() => {
+        localStorage.setItem('dynamicTheme', String(dynamicMode));
+    }, [dynamicMode]);
 
     useEffect(() => {
         fetchThemes();
-
-        const savedThemeId = localStorage.getItem('activeThemeId');
-        if (savedThemeId) {
-        }
     }, []);
 
     const fetchThemes = async () => {
@@ -140,7 +143,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         root.style.setProperty('--accent', `rgb(${targetColor})`);
         root.style.setProperty('--accent-hover', `rgba(${targetColor}, 0.8)`);
         root.style.setProperty('--accent-glow', `rgba(${targetColor}, 0.3)`);
-    }, [dynamicColors, currentTheme]);
+
+        if (dynamicMode && dynamicColors.player) {
+            root.style.setProperty('--bg-dynamic', `radial-gradient(circle at 100% 100%, rgba(${targetColor}, 0.15) 0%, var(--bg-dark) 100%)`);
+            document.body.classList.add('dynamic-theme-active');
+        } else {
+            root.style.setProperty('--bg-dynamic', 'none');
+            document.body.classList.remove('dynamic-theme-active');
+        }
+    }, [dynamicColors, currentTheme, dynamicMode]);
 
     return (
         <ThemeContext.Provider value={{
@@ -151,7 +162,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             deleteTheme,
             applyTheme,
             resetTheme,
-            setDynamicAccent
+            setDynamicAccent,
+            dynamicMode,
+            setDynamicMode
         }}>
             {children}
         </ThemeContext.Provider>

@@ -47,7 +47,9 @@ export const SettingsView: React.FC = () => {
         saveTheme,
         deleteTheme,
         applyTheme,
-        resetTheme
+        resetTheme,
+        dynamicMode,
+        setDynamicMode
     } = useTheme();
 
     const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -298,9 +300,6 @@ export const SettingsView: React.FC = () => {
 
     return (
         <div id="view-settings" className="view-section active">
-
-
-
             <div className="settings-section">
                 <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="icon">🔐</span> {t('sec_creds')}
@@ -668,6 +667,21 @@ export const SettingsView: React.FC = () => {
                     <span className="icon">🎨</span> {t('sec_appearance')}
                 </h3>
                 <div className="appearance-options">
+                    <div className="form-group" style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={dynamicMode}
+                                onChange={(e) => setDynamicMode(e.target.checked)}
+                                style={{ width: '18px', height: '18px' }}
+                            />
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontWeight: 600 }}>Dynamic Theme Mode</span>
+                                <span style={{ fontSize: '12px', opacity: 0.7 }}>Generate UI colors from current album art</span>
+                            </div>
+                        </label>
+                    </div>
+
                     <div className="form-group">
                         <label>{t('label_theme')}</label>
                         <div style={{ display: 'flex', gap: '10px' }}>
@@ -828,6 +842,6 @@ export const SettingsView: React.FC = () => {
                 }}
                 onCancel={() => setShowDeleteThemeConfirm(null)}
             />
-        </div >
+        </div>
     );
 };

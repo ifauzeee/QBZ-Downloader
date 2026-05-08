@@ -159,6 +159,14 @@ router.delete('/file', async (req: Request, res: Response) => {
     }
 });
 
+router.get('/health', async (req: Request, res: Response) => {
+    try {
+        res.json(databaseService.getLibraryHealth());
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/database/stats', async (req: Request, res: Response) => {
     try {
         res.json(databaseService.getOverallStats());
