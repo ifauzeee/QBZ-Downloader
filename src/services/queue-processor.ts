@@ -188,15 +188,14 @@ export class QueueProcessor {
             }
         }
 
-        while (true) {
-            const item = downloadQueue.dequeue();
-            if (!item) break;
-
+        let item;
+        while ((item = downloadQueue.dequeue())) {
             logger.info(`Processing item: ${item.title || item.contentId} (${item.type})`, 'QUEUE');
-            this.runTask(item).catch(err => {
+            this.runTask(item).catch((err) => {
                 logger.error(`Fatal task error: ${err.message}`, 'QUEUE');
             });
         }
+
     }
 
     private async runTask(item: QueueItem): Promise<void> {
