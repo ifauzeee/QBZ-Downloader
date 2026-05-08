@@ -48,11 +48,17 @@ export class DownloadEngine {
         const md5Hash = crypto.createHash('md5');
 
         if (isResuming && downloaded > 0) {
+            logger.info(`Re-hashing ${downloaded} bytes of existing data...`, 'DOWNLOAD');
             try {
-                const existingData = createReadStream(filePath);
-                for await (const chunk of existingData) {
-                    md5Hash.update(chunk);
-                }
+                await new Promise<void>((resolve, reject) => {
+                    const existingData = createReadStream(filePath, {
+                        end: downloaded - 1,
+                        highWaterMark: 1024 * 1024 // 1MB buffer for faster reading
+                    });
+                    existingData.on('data', (chunk) => md5Hash.update(chunk));
+                    existingData.on('end', resolve);
+                    existingData.on('error', reject);
+                });
             } catch (hashErr: any) {
                 logger.warn(`Failed to re-hash existing part: ${hashErr.message}. Checksum may be invalid.`, 'DOWNLOAD');
             }
