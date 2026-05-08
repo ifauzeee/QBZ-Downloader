@@ -1,6 +1,7 @@
 import { parentPort } from 'worker_threads';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { execSync } from 'child_process';
 import { parseFile } from 'music-metadata';
 
@@ -95,6 +96,14 @@ parentPort?.on('message', async (filePath: string) => {
         }
 
         const fingerprint = getAudioFingerprint(filePath);
+        
+        const checksum = await new Promise<string>((resolve) => {
+            const hash = crypto.createHash('md5');
+            const stream = fs.createReadStream(filePath);
+            stream.on('data', (data) => hash.update(data));
+            stream.on('end', () => resolve(hash.digest('hex')));
+            stream.on('error', () => resolve(''));
+        });
 
         parentPort?.postMessage({
             filePath,
@@ -110,6 +119,7 @@ parentPort?.on('message', async (filePath: string) => {
             sampleRate,
             needsUpgrade: quality < 7,
             audioFingerprint: fingerprint,
+            checksum,
             missingInternalTags: missingTags.length > 0,
             missingTags
         });

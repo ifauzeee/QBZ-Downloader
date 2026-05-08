@@ -170,7 +170,9 @@ class LibraryScannerService extends EventEmitter {
                         needs_upgrade: fileInfo.needsUpgrade,
                         audio_fingerprint: fileInfo.audioFingerprint,
                         missing_metadata: fileInfo.missingInternalTags,
-                        missing_tags: fileInfo.missingTags
+                        missing_tags: fileInfo.missingTags,
+                        checksum: fileInfo.checksum,
+                        verification_status: fileInfo.checksum ? 'verified' : 'pending'
                     });
                 }
 

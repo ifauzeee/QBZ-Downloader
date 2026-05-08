@@ -24,6 +24,8 @@ export interface DbTrack {
     year: number;
     isrc: string;
     label: string;
+    checksum?: string;
+    verification_status?: string;
 }
 
 export interface DbAlbum {
@@ -460,8 +462,8 @@ class DatabaseService {
         const db = this.getDb();
         const stmt = db.prepare(`
             INSERT OR REPLACE INTO tracks 
-            (id, title, artist, album_artist, album, album_id, duration, quality, file_path, file_size, cover_url, genre, year, isrc, label, downloaded_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, title, artist, album_artist, album, album_id, duration, quality, file_path, file_size, cover_url, genre, year, isrc, label, downloaded_at, checksum, verification_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         stmt.run(
             track.id,
@@ -479,7 +481,9 @@ class DatabaseService {
             track.year,
             track.isrc,
             track.label,
-            track.downloaded_at || new Date().toISOString()
+            track.downloaded_at || new Date().toISOString(),
+            track.checksum || null,
+            track.verification_status || 'verified'
         );
 
         this.updateDailyStats('tracks');
@@ -717,13 +721,15 @@ class DatabaseService {
         audio_fingerprint?: string;
         missing_metadata?: boolean;
         missing_tags?: string[];
+        checksum?: string;
+        verification_status?: string;
     }): void {
         const db = this.getDb();
         db.prepare(
             `
             INSERT OR REPLACE INTO library_files 
-            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint, missing_metadata, missing_tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint, missing_metadata, missing_tags, checksum, verification_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
             file.file_path,
@@ -743,7 +749,9 @@ class DatabaseService {
             new Date().toISOString(),
             file.audio_fingerprint || null,
             file.missing_metadata ? 1 : 0,
-            file.missing_tags ? JSON.stringify(file.missing_tags) : null
+            file.missing_tags ? JSON.stringify(file.missing_tags) : null,
+            file.checksum || null,
+            file.verification_status || 'verified'
         );
     }
 

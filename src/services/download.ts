@@ -330,8 +330,9 @@ export default class DownloadService {
                 quality: quality,
                 file_path: filePath,
                 file_size: size,
-                checksum: md5
-            } as any);
+                checksum: md5,
+                verification_status: 'verified'
+            });
         } catch (e: any) {
             logger.warn(`DB update failed: ${e.message}`, 'DB');
         }

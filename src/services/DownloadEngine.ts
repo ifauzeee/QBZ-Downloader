@@ -60,7 +60,8 @@ export class DownloadEngine {
                     existingData.on('error', reject);
                 });
             } catch (hashErr: any) {
-                logger.warn(`Failed to re-hash existing part: ${hashErr.message}. Checksum may be invalid.`, 'DOWNLOAD');
+                logger.error(`Critical failure re-hashing existing part: ${hashErr.message}`, 'DOWNLOAD');
+                throw new Error(`Integrity check failed: Could not re-hash existing file part for resume. ${hashErr.message}`);
             }
         }
 
