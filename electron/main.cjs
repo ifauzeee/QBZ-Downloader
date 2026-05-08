@@ -39,84 +39,182 @@ function createLoadingMarkup(message) {
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>QBZ Downloader</title>
     <style>
-      html, body { height: 100%; margin: 0; }
+      :root {
+        --bg: #05070a;
+        --accent: #2dd4bf;
+        --accent-glow: rgba(45, 212, 191, 0.35);
+        --text: #e8f1ff;
+        --text-dim: #94a3b8;
+        --glass: rgba(255, 255, 255, 0.03);
+        --border: rgba(255, 255, 255, 0.08);
+      }
+
+      html, body { 
+        height: 100%; 
+        margin: 0; 
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+
       body {
         display: grid;
         place-items: center;
-        background: radial-gradient(circle at top, #11253b 0%, #05070c 62%);
-        color: #e8f1ff;
-        font-family: "Segoe UI", sans-serif;
+        position: relative;
       }
+
+      /* Mesh Gradients */
+      body::before, body::after {
+        content: "";
+        position: absolute;
+        width: 60vmax;
+        height: 60vmax;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.15;
+        z-index: -1;
+        animation: drift 20s infinite alternate linear;
+      }
+
+      body::before {
+        background: radial-gradient(circle, #2dd4bf, transparent 70%);
+        top: -10%;
+        left: -10%;
+      }
+
+      body::after {
+        background: radial-gradient(circle, #6366f1, transparent 70%);
+        bottom: -10%;
+        right: -10%;
+        animation-delay: -10s;
+      }
+
+      @keyframes drift {
+        from { transform: translate(0, 0) rotate(0deg) scale(1); }
+        to { transform: translate(10%, 10%) rotate(180deg) scale(1.2); }
+      }
+
       .panel {
-        width: min(520px, 86vw);
-        padding: 28px;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 18px;
-        background: rgba(3, 9, 17, 0.76);
-        backdrop-filter: blur(8px);
+        width: min(500px, 88vw);
+        padding: 48px;
+        border: 1px solid var(--border);
+        border-radius: 32px;
+        background: var(--glass);
+        backdrop-filter: blur(24px);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        text-align: center;
+        animation: slideUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
       }
-      .title { margin: 0 0 8px; font-size: 22px; }
-      .message { margin: 0; color: #bad0ea; line-height: 1.6; }
-      .project-copy {
-        margin: 14px 0 0;
-        color: #9db6d4;
+
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .loader-wrap {
+        position: relative;
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 32px;
+      }
+
+      .pulse {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 30px var(--accent-glow);
+        animation: pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      .pulse-inner {
+        position: absolute;
+        top: 20px; left: 20px; right: 20px; bottom: 20px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 0 20px #fff;
+        z-index: 2;
+      }
+
+      @keyframes pulseRing {
+        0% { transform: scale(0.8); opacity: 0.5; }
+        50% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(0.8); opacity: 0.5; }
+      }
+
+      .title { 
+        margin: 0 0 12px; 
+        font-size: 28px; 
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        background: linear-gradient(to bottom, #fff, #94a3b8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .message { 
+        margin: 0; 
+        color: var(--text-dim); 
         line-height: 1.6;
-        font-size: 14px;
+        font-size: 16px;
       }
+
+      .project-copy {
+        margin: 24px 0 0;
+        color: rgba(148, 163, 184, 0.6);
+        line-height: 1.6;
+        font-size: 13px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+      }
+
       .project-links {
-        margin-top: 16px;
+        margin-top: 24px;
         display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
+        justify-content: center;
       }
+
       .project-link {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        background: rgba(255, 255, 255, 0.04);
-        color: #dbeafe;
+        gap: 10px;
+        padding: 12px 24px;
+        border-radius: 14px;
+        background: #fff;
+        color: #000;
         text-decoration: none;
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
+        font-size: 14px;
+        font-weight: 700;
+        transition: all 0.3s ease;
       }
+
       .project-link:hover {
-        border-color: rgba(45, 212, 191, 0.7);
-        color: #e6fffb;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        background: var(--accent);
       }
-      .pulse {
-        width: 12px;
-        height: 12px;
-        border-radius: 999px;
-        background: #2dd4bf;
-        box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.75);
-        animation: pulse 1.8s infinite;
-        margin-bottom: 18px;
-      }
-      @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.75); }
-        70% { box-shadow: 0 0 0 14px rgba(45, 212, 191, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
-      }
+
       code {
-        color: #f9c46b;
-        background: rgba(255, 255, 255, 0.08);
-        padding: 2px 8px;
-        border-radius: 6px;
+        color: var(--accent);
+        background: rgba(45, 212, 191, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
       }
     </style>
   </head>
   <body>
     <section class="panel">
-      <div class="pulse"></div>
-      <h1 class="title">QBZ Downloader Desktop</h1>
+      <div class="loader-wrap">
+        <div class="pulse"></div>
+        <div class="pulse-inner"></div>
+      </div>
+      <h1 class="title">QBZ Downloader</h1>
       <p class="message">${message}</p>
       <p class="project-copy">
         Premium desktop downloader for Qobuz with Hi-Res audio, metadata automation,
-        synchronized lyrics, queue management, and local-first settings.
+        synchronized lyrics, and local-first settings.
       </p>
       <div class="project-links">
         <a
