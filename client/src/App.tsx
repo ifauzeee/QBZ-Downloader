@@ -22,7 +22,8 @@ import { LogView } from './components/LogView';
 import { LibraryHealthView } from './components/LibraryHealthView';
 import { AddUrlModal, LoginModal } from './components/Modals';
 import { DesktopSetupGate } from './components/DesktopSetupGate';
-import { MiniPlayer } from './components/MiniPlayer';
+
+
 import { CommandPalette } from './components/CommandPalette';
 import { DropZone } from './components/DropZone';
 import { QueuePanel } from './components/QueuePanel';
@@ -269,15 +270,8 @@ function AppContent() {
     return 'Updates';
   };
   
-  const isMiniPlayer = new URLSearchParams(window.location.search).get('mode') === 'mini';
 
-  if (isMiniPlayer) {
-    return (
-      <div className="mini-player-wrapper">
-        <MiniPlayer />
-      </div>
-    );
-  }
+
 
   return (
     <div className="app-shell">

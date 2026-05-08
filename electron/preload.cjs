@@ -26,16 +26,7 @@ contextBridge.exposeInMainWorld('qbzDesktop', {
       return () => ipcRenderer.removeListener('desktop:update-status', listener);
     }
   },
-  miniPlayer: {
-    toggle: () => ipcRenderer.invoke('desktop:mini-player:toggle'),
-    isOpen: () => ipcRenderer.invoke('desktop:mini-player:is-open'),
-    sendPlayerEvent: (type, data) => ipcRenderer.send('desktop:player:event', type, data),
-    onPlayerEvent: (callback) => {
-      const listener = (_event, type, data) => callback(type, data);
-      ipcRenderer.on('desktop:player:event', listener);
-      return () => ipcRenderer.removeListener('desktop:player:event', listener);
-    }
-  },
+
   getSystemTheme: () => ipcRenderer.invoke('desktop:get-system-theme'),
   onSystemThemeChanged: (callback) => {
     const listener = (_event, theme) => callback(theme);

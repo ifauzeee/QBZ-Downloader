@@ -30,7 +30,8 @@ let updateState = {
   downloaded: false,
   checkedAt: null
 };
-let miniPlayerWindow = null;
+
+
 
 function createLoadingMarkup(message) {
   return `<!doctype html>
@@ -434,42 +435,8 @@ function createWindow() {
   return win;
 }
 
-function createMiniPlayerWindow() {
-  if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
-    miniPlayerWindow.focus();
-    return;
-  }
 
-  const iconPath = path.join(baseAppPath, 'assets', 'desktop', 'icon.png');
 
-  miniPlayerWindow = new BrowserWindow({
-    width: 320,
-    height: 120,
-    resizable: false,
-    frame: false,
-    alwaysOnTop: true,
-    icon: fs.existsSync(iconPath) ? iconPath : undefined,
-    backgroundColor: '#04070d',
-    title: 'QBZ Mini Player',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      spellcheck: false,
-      webSecurity: false,
-      allowRunningInsecureContent: true
-    }
-  });
-
-  miniPlayerWindow.loadURL(`${DASHBOARD_URL}?mode=mini`);
-
-  miniPlayerWindow.on('closed', () => {
-    miniPlayerWindow = null;
-  });
-
-  return miniPlayerWindow;
-}
 
 function setupAutoUpdater() {
   if (!autoUpdater || !app.isPackaged) {
@@ -652,17 +619,11 @@ function registerIpc() {
     return { ok: true };
   });
 
-  ipcMain.handle('desktop:mini-player:toggle', () => {
-    if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
-      miniPlayerWindow.close();
-    } else {
-      createMiniPlayerWindow();
-    }
-  });
 
-  ipcMain.handle('desktop:mini-player:is-open', () => {
-    return !!(miniPlayerWindow && !miniPlayerWindow.isDestroyed());
-  });
+
+
+
+
 
   // Proxy player events between windows
   ipcMain.on('desktop:player:event', (event, type, data) => {

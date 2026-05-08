@@ -354,38 +354,8 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         }
     }, [track]);
 
-    // Mini Player Sync
-    useEffect(() => {
-        const desktopBridge = window.qbzDesktop;
-        if (!desktopBridge) return;
 
-        const syncState = () => {
-            desktopBridge.miniPlayer.sendPlayerEvent('state', {
-                track,
-                playing,
-                progress,
-                duration,
-                accent: document.documentElement.style.getPropertyValue('--accent')
-            });
-        };
 
-        // Sync on changes
-        syncState();
-
-        const cleanup = desktopBridge.miniPlayer.onPlayerEvent((type, data) => {
-            if (type === 'command') {
-                switch (data.action) {
-                    case 'toggle': togglePlay(); break;
-                    case 'next': handleNext(); break;
-                    case 'prev': handlePrevious(); break;
-                }
-            } else if (type === 'request-state') {
-                syncState();
-            }
-        });
-
-        return () => cleanup();
-    }, [track, playing, progress, duration, togglePlay, handleNext, handlePrevious]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -651,15 +621,8 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                         <button className="icon-btn" onClick={addToQueue} title="Download">
                             <Icons.Download width={18} height={18} />
                         </button>
-                        {window.qbzDesktop && (
-                            <button 
-                                className="icon-btn" 
-                                onClick={() => window.qbzDesktop?.miniPlayer.toggle()} 
-                                title="Mini Player"
-                            >
-                                <Icons.Monitor width={18} height={18} />
-                            </button>
-                        )}
+
+
                         <div className="divider"></div>
                         <button className="icon-btn close-btn" onClick={() => { setPlaying(false); setCurrentTrackIndex(-1); setShowLyrics(false); }}>
                             <Icons.Close width={20} height={20} />

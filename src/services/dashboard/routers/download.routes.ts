@@ -130,12 +130,18 @@ router.get('/download/:id', (req: Request, res: Response) => {
 
 
 router.get('/preview/:id', async (req: Request, res: Response) => {
-    const id = getParam(req.params.id);
-    const result = await api.getFileUrl(id, 5);
-    if (result.success) {
-        res.json(result.data);
-    } else {
-        res.status(500).json({ error: result.error });
+    try {
+        const { audioPreviewService } = await import('../../audio-preview/index.js');
+        const id = getParam(req.params.id);
+        const info = await audioPreviewService.getPreviewInfo(id);
+        
+        if (info) {
+            res.json(info);
+        } else {
+            res.status(404).json({ error: 'Preview info not found' });
+        }
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
     }
 });
 
