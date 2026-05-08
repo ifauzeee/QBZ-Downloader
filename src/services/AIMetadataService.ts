@@ -21,7 +21,11 @@ export class AIMetadataService {
             }
             return null;
         } catch (error: any) {
-            logger.error(`AI Metadata Repair Failed: ${error.message}`, 'AI');
+            let message = error.message || 'Unknown error';
+            if (apiKey) {
+                message = message.split(apiKey).join('***REDACTED***');
+            }
+            logger.error(`AI Metadata Repair Failed: ${message}`, 'AI');
             return null;
         }
     }
@@ -43,10 +47,14 @@ export class AIMetadataService {
             Do not include any explanation or other text.
         `;
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         
         const response = await axios.post(url, {
             contents: [{ parts: [{ text: prompt }] }]
+        }, {
+            headers: {
+                'x-goog-api-key': apiKey
+            }
         });
 
         const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
