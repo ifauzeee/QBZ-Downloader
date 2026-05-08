@@ -152,6 +152,7 @@
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.53.0",
     "@typescript-eslint/parser": "^8.53.0",
+    "@vitest/coverage-v8": "^4.1.5",
     "copyfiles": "^2.4.1",
     "electron": "^37.2.0",
     "electron-builder": "^26.0.12",

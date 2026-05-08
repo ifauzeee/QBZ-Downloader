@@ -31,9 +31,17 @@ export class DashboardService {
         this.port = port;
         this.app = express();
         this.httpServer = createServer(this.app);
+        const allowedOrigins = ['http://localhost:' + this.port, 'http://127.0.0.1:' + this.port];
+        
         this.io = new SocketServer(this.httpServer, {
             cors: {
-                origin: '*',
+                origin: (origin, callback) => {
+                    if (!origin || allowedOrigins.includes(origin)) {
+                        callback(null, true);
+                    } else {
+                        callback(new Error('Not allowed by CORS'));
+                    }
+                },
                 methods: ['GET', 'POST']
             },
             transports: ['websocket', 'polling'],
@@ -46,7 +54,16 @@ export class DashboardService {
     }
 
     private setupMiddleware(): void {
-        this.app.use(cors());
+        const allowedOrigins = ['http://localhost:' + this.port, 'http://127.0.0.1:' + this.port];
+        this.app.use(cors({
+            origin: (origin, callback) => {
+                if (!origin || allowedOrigins.includes(origin)) {
+                    callback(null, true);
+                } else {
+                    callback(new Error('Not allowed by CORS'));
+                }
+            }
+        }));
         this.app.use(express.json());
 
         const limiter = rateLimit({

@@ -1021,13 +1021,22 @@ class DatabaseService {
 
     updateTrackPath(id: string, newPath: string): void {
         const db = this.getDb();
-        db.prepare('UPDATE library_files SET file_path = ? WHERE id = ?').run(newPath, id);
+        db.transaction(() => {
+            db.prepare('UPDATE tracks SET file_path = ? WHERE id = ?').run(newPath, id);
+            db.prepare('UPDATE library_files SET file_path = ? WHERE track_id = ?').run(newPath, id);
+        })();
     }
 
     updateTrackMetadata(id: string, metadata: { genre?: string }): void {
         const db = this.getDb();
         if (metadata.genre) {
-            db.prepare('UPDATE library_files SET genre = ? WHERE id = ?').run(metadata.genre, id);
+            db.transaction(() => {
+                db.prepare('UPDATE tracks SET genre = ? WHERE id = ?').run(metadata.genre, id);
+                db.prepare('UPDATE library_files SET genre = ? WHERE track_id = ?').run(
+                    metadata.genre,
+                    id
+                );
+            })();
         }
     }
 }
