@@ -182,10 +182,19 @@ export default class DownloadService {
         if (options.onMetadata) options.onMetadata(metadata);
 
         const outputDir = this.getOutputDir(options.outputDir);
-        const folderPath = path.join(outputDir, this.processor.buildFolderPath(metadata, actualQuality));
+        const rawFolderPath = this.processor.buildFolderPath(metadata, actualQuality);
+        const rawFilename = this.processor.buildFilename(metadata, actualQuality);
+
+        const { folder: safeFolder, file: safeFile } = this.processor.ensurePathSafety(
+            outputDir,
+            rawFolderPath,
+            rawFilename
+        );
+
+        const folderPath = path.join(outputDir, safeFolder);
         if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true });
 
-        const filename = this.processor.buildFilename(metadata, actualQuality);
+        const filename = safeFile;
         const filePath = path.join(folderPath, filename);
 
         if (options.skipExisting && existsSync(filePath)) {
