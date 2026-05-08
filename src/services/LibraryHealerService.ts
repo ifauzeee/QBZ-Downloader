@@ -1,10 +1,9 @@
-import { existsSync, readdirSync, statSync } from 'fs';
+import { promises as fs, existsSync } from 'fs';
 import path from 'path';
 import { databaseService } from './database/index.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../config.js';
 import { aiMetadataService } from './AIMetadataService.js';
-import { downloadQueue } from './queue/queue.js';
 
 export interface HealingReport {
     scanned: number;
@@ -33,13 +32,24 @@ export class LibraryHealerService {
             await this.healTrack(track, report);
         }
 
-        logger.success(`LibraryHealer: Scan complete. Fixed: ${report.fixed}, Missing: ${report.missing}`, 'HEALER');
+        logger.success(
+            `LibraryHealer: Scan complete. Fixed: ${report.fixed}, Missing: ${report.missing}`,
+            'HEALER'
+        );
         return report;
     }
 
     private async healTrack(track: any, report: HealingReport) {
-        if (!existsSync(track.file_path)) {
-            const foundPath = this.searchForFile(path.basename(track.file_path));
+        let exists = false;
+        try {
+            await fs.access(track.file_path);
+            exists = true;
+        } catch {
+            exists = false;
+        }
+
+        if (!exists) {
+            const foundPath = await this.searchForFile(path.basename(track.file_path));
             if (foundPath) {
                 databaseService.updateTrackPath(track.id, foundPath);
                 report.fixed++;
@@ -66,23 +76,28 @@ export class LibraryHealerService {
         }
     }
 
-    private searchForFile(filename: string): string | null {
+    private async searchForFile(filename: string): Promise<string | null> {
         const root = CONFIG.download.outputDir;
         if (!existsSync(root)) return null;
 
         return this.recursiveSearch(root, filename);
     }
 
-    private recursiveSearch(dir: string, target: string): string | null {
-        const files = readdirSync(dir);
-        for (const file of files) {
-            const fullPath = path.join(dir, file);
-            if (statSync(fullPath).isDirectory()) {
-                const found = this.recursiveSearch(fullPath, target);
-                if (found) return found;
-            } else if (file === target) {
-                return fullPath;
+    private async recursiveSearch(dir: string, target: string): Promise<string | null> {
+        try {
+            const files = await fs.readdir(dir);
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                const stats = await fs.stat(fullPath);
+                if (stats.isDirectory()) {
+                    const found = await this.recursiveSearch(fullPath, target);
+                    if (found) return found;
+                } else if (file === target) {
+                    return fullPath;
+                }
             }
+        } catch (err) {
+            logger.error(`Error searching in ${dir}: ${err}`, 'HEALER');
         }
         return null;
     }
