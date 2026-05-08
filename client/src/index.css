@@ -172,12 +172,19 @@ body.desktop-mode {
     flex: 1;
     min-height: 0;
     display: flex;
-    padding: 28px;
+    padding: 40px;
     overflow: auto;
-    background:
-        radial-gradient(circle at 8% 0%, rgba(6, 182, 212, 0.18), transparent 36%),
-        radial-gradient(circle at 100% 0%, rgba(245, 158, 11, 0.14), transparent 30%),
-        linear-gradient(160deg, rgba(5, 10, 17, 0.98), rgba(4, 7, 13, 0.95));
+    background: 
+        radial-gradient(circle at 0% 0%, rgba(6, 182, 212, 0.2) 0%, transparent 45%),
+        radial-gradient(circle at 100% 100%, rgba(245, 158, 11, 0.15) 0%, transparent 45%),
+        radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+        var(--bg-dark);
+    animation: fadeIn 0.8s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .desktop-onboarding-shell {
@@ -198,21 +205,30 @@ body.desktop-mode {
 
 .onboarding-intro-main,
 .onboarding-intro-side {
-    border-radius: 24px;
+    border-radius: 32px;
     border: 1px solid var(--border-light);
-    background: linear-gradient(160deg, rgba(10, 16, 26, 0.95), rgba(6, 12, 20, 0.9));
-    box-shadow: 0 26px 70px rgba(0, 0, 0, 0.38);
+    background: var(--gradient-card);
+    backdrop-filter: blur(24px);
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.onboarding-intro-main:hover,
+.onboarding-intro-side:hover {
+    transform: translateY(-4px);
+    border-color: rgba(var(--accent-rgb), 0.4);
 }
 
 .onboarding-intro-main {
-    padding: 30px;
+    padding: 48px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
 }
 
 .onboarding-intro-side {
-    padding: 22px;
+    padding: 40px;
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .onboarding-intro-badge {
@@ -231,15 +247,21 @@ body.desktop-mode {
 }
 
 .onboarding-intro-main h1 {
-    font-size: clamp(30px, 2.8vw, 42px);
-    line-height: 1.12;
-    max-width: 20ch;
+    font-size: clamp(32px, 3.5vw, 56px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    background: linear-gradient(to bottom right, #fff, #a6b0c3);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .onboarding-intro-copy {
-    color: #b7c6dd;
-    max-width: 58ch;
-    line-height: 1.75;
+    color: var(--text-secondary);
+    font-size: 18px;
+    max-width: 48ch;
+    line-height: 1.6;
 }
 
 .onboarding-intro-actions {
@@ -316,27 +338,28 @@ body.desktop-mode {
 .desktop-onboarding-github {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.19);
-    background: rgba(255, 255, 255, 0.03);
-    color: #e6efff;
+    gap: 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
     text-decoration: none;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
-    padding: 8px 11px;
-    transition: all 0.2s ease;
+    padding: 12px 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .desktop-onboarding-github:hover {
-    border-color: rgba(var(--accent-rgb), 0.8);
-    color: #ffffff;
-    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(var(--accent-rgb), 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
 .desktop-onboarding-github svg {
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     fill: currentColor;
 }
 
@@ -354,54 +377,65 @@ body.desktop-mode {
 
 .onboarding-feature-item {
     position: relative;
-    border-radius: 12px;
+    border-radius: 20px;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.02);
-    padding: 11px 12px 11px 34px;
-    color: #c4d2e8;
-    font-size: 13px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 16px 16px 16px 48px;
+    color: var(--text-secondary);
+    font-size: 15px;
+    transition: all 0.3s ease;
+}
+
+.onboarding-feature-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--border-light);
+    color: var(--text-primary);
 }
 
 .onboarding-feature-item::before {
     content: '';
     position: absolute;
-    left: 12px;
+    left: 18px;
     top: 50%;
     transform: translateY(-50%);
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: var(--accent);
-    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.2);
+    box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.6);
 }
 
 .desktop-onboarding-progress {
     margin-top: 4px;
-    padding: 16px;
-    border-radius: 16px;
+    padding: 24px;
+    border-radius: 24px;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .desktop-onboarding-progress-label {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 13px;
-    margin-bottom: 10px;
+    font-size: 14px;
+    margin-bottom: 12px;
     color: var(--text-secondary);
+    font-weight: 600;
 }
 
 .desktop-onboarding-progress-label strong {
-    color: #fff;
-    font-size: 14px;
+    color: var(--accent);
+    font-size: 16px;
+    text-shadow: 0 0 10px var(--accent-glow);
 }
 
 .desktop-onboarding-progress-track {
-    height: 8px;
+    height: 10px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.05);
     overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .desktop-onboarding-progress-track span {
@@ -409,7 +443,8 @@ body.desktop-mode {
     height: 100%;
     background: var(--gradient-primary);
     border-radius: inherit;
-    transition: width 0.3s ease;
+    transition: width 0.8s cubic-bezier(0.65, 0, 0.35, 1);
+    box-shadow: 0 0 15px var(--accent-glow);
 }
 
 .desktop-onboarding-steps {
@@ -456,27 +491,17 @@ body.desktop-mode {
     display: flex;
 }
 
-.desktop-onboarding-form {
-    width: 100%;
-    padding: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.onboarding-form-header {
-    margin-bottom: 2px;
-}
-
 .onboarding-form-title {
-    font-size: 24px;
-    line-height: 1.2;
-    margin-bottom: 6px;
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
 }
 
 .onboarding-form-copy {
-    color: #b2c4db;
-    font-size: 14px;
+    color: var(--text-secondary);
+    font-size: 16px;
     line-height: 1.6;
 }
 
@@ -486,34 +511,23 @@ body.desktop-mode {
     gap: 9px;
 }
 
-.onboarding-form-group label {
-    font-size: 12px;
-    letter-spacing: 0.4px;
-    color: var(--text-secondary);
-    font-weight: 600;
-}
-
-.onboarding-form-note {
-    color: #8ea3be;
-    font-size: 12px;
-}
-
 .onboarding-form-group input {
     width: 100%;
-    height: 48px;
-    border-radius: 12px;
+    height: 52px;
+    border-radius: 16px;
     border: 1px solid var(--border);
-    background: rgba(6, 12, 20, 0.88);
+    background: rgba(0, 0, 0, 0.2);
     color: var(--text-primary);
-    padding: 0 14px;
-    font-size: 14px;
+    padding: 0 18px;
+    font-size: 15px;
     outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: all 0.3s ease;
 }
 
 .onboarding-form-group input:focus {
-    border-color: rgba(var(--accent-rgb), 0.8);
-    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+    border-color: var(--accent);
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 20px var(--accent-glow);
 }
 
 .onboarding-input-with-action {

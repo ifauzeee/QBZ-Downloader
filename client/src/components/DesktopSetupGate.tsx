@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { smartFetch } from '../utils/api';
 
 type OnboardingStep = {
@@ -270,19 +270,23 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
             <section className="desktop-onboarding-screen">
                 <div className="desktop-onboarding-intro">
                     <article className="onboarding-intro-main">
-                        <p className="onboarding-intro-badge">Desktop Onboarding</p>
+                        <div className="onboarding-intro-badge">
+                            <span className="sync-dot" style={{ background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }}></span>
+                            Ready to Start
+                        </div>
                         <h1>Welcome to QBZ Downloader Desktop</h1>
                         <p className="onboarding-intro-copy">
-                            Complete a quick setup so your app can download in Hi-Res, keep metadata
-                            clean, and store everything locally.
+                            The professional way to manage your high-resolution audio library. 
+                            Complete a quick setup to unlock bit-perfect downloads and automated metadata management.
                         </p>
                         <div className="onboarding-intro-actions">
                             <button
                                 type="button"
-                                className="btn primary"
+                                className="btn primary hero"
                                 onClick={() => setStage('setup')}
+                                style={{ minHeight: '52px', padding: '0 32px', fontSize: '16px' }}
                             >
-                                Continue Setup
+                                Get Started
                             </button>
                             <a
                                 className="desktop-onboarding-github hero"
@@ -293,19 +297,26 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                 <svg viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.02c-3.22.7-3.9-1.56-3.9-1.56-.52-1.35-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.56-2.57-.3-5.28-1.3-5.28-5.76 0-1.27.45-2.3 1.2-3.1-.12-.3-.52-1.5.12-3.1 0 0 .98-.32 3.2 1.18a11.1 11.1 0 0 1 5.84 0c2.2-1.5 3.19-1.18 3.19-1.18.64 1.6.24 2.8.12 3.1.74.8 1.2 1.83 1.2 3.1 0 4.47-2.72 5.46-5.31 5.75.41.36.79 1.07.79 2.17v3.22c0 .31.2.67.8.56A11.5 11.5 0 0 0 12 .5z" />
                                 </svg>
-                                <span>github.com/ifauzeee/QBZ-Downloader</span>
+                                <span>Project Documentation</span>
                             </a>
                         </div>
                     </article>
 
                     <aside className="onboarding-intro-side">
-                        <p className="desktop-onboarding-project-title">What You Will Configure</p>
+                        <p className="desktop-onboarding-project-title">Setup Roadmap</p>
                         <ul className="onboarding-feature-list">
-                            <li className="onboarding-feature-item">Qobuz App ID & App Secret</li>
-                            <li className="onboarding-feature-item">User Auth Token & User ID</li>
-                            <li className="onboarding-feature-item">Download destination path</li>
-                            <li className="onboarding-feature-item">Connection validation before start</li>
+                            <li className="onboarding-feature-item">Qobuz API credentials integration</li>
+                            <li className="onboarding-feature-item">User authentication & session token</li>
+                            <li className="onboarding-feature-item">Local library destination mapping</li>
+                            <li className="onboarding-feature-item">Real-time connection validation</li>
                         </ul>
+                        
+                        <div style={{ marginTop: '32px', opacity: 0.6 }}>
+                            <p style={{ fontSize: '12px', lineHeight: '1.6' }}>
+                                Your credentials are encrypted and stored locally in your app data folder. 
+                                We never share your data with third parties.
+                            </p>
+                        </div>
                     </aside>
                 </div>
             </section>
@@ -316,11 +327,10 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
         <section className="desktop-onboarding-screen">
             <div className="desktop-onboarding-shell">
                 <aside className="desktop-onboarding-panel">
-                    <p className="desktop-onboarding-eyebrow">Step 2 of 2 - Credential Setup</p>
-                    <h1>Connect Qobuz and choose your download destination.</h1>
+                    <p className="desktop-onboarding-eyebrow">Step 2 - Configuration</p>
+                    <h1 style={{ fontWeight: 800 }}>Core Credentials</h1>
                     <p className="desktop-onboarding-copy">
-                        This setup runs only once for each local app data directory. You can always
-                        update values later from Settings.
+                        We need to connect to Qobuz API to fetch high-quality audio streams and official metadata.
                     </p>
 
                     <div className="desktop-onboarding-progress">
@@ -346,10 +356,9 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                 <div className="desktop-onboarding-form-wrap">
                     <div className="desktop-onboarding-form">
                         <div className="onboarding-form-header">
-                            <h2 className="onboarding-form-title">Qobuz Account Setup</h2>
+                            <h2 className="onboarding-form-title">Account Details</h2>
                             <p className="onboarding-form-copy">
-                                Paste your credentials below, set where downloads are stored, then
-                                continue to dashboard.
+                                Enter your credentials. You only need to do this once.
                             </p>
                         </div>
 
