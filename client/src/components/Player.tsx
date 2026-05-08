@@ -218,7 +218,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     useEffect(() => {
         if (track && audioRef.current) {
 
-            audioRef.current.src = `/api/preview/${track.id}/stream`;
+            audioRef.current.src = `/api/stream/${track.id}`;
             audioRef.current.play().catch(e => console.error(e));
         }
     }, [track]);

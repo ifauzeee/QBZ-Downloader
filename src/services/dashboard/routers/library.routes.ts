@@ -210,13 +210,8 @@ router.get('/database/search', async (req: Request, res: Response) => {
     }
 });
 
-router.get('/playlists/watched', async (req: Request, res: Response) => {
-    try {
-        res.json(databaseService.getWatchedPlaylists());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
+// Moved to catalog.routes.ts for path consistency
+
 
 router.get('/recommendations', async (req: Request, res: Response) => {
     try {
@@ -263,41 +258,7 @@ router.get('/quality-stats', (req: Request, res: Response) => {
     }
 });
 
-router.post('/playlists/watch', async (req: Request, res: Response) => {
-    try {
-        const { playlistId, quality, intervalHours } = req.body;
+// Moved to catalog.routes.ts for path consistency
 
-        if (!playlistId) return res.status(400).json({ error: 'playlistId is required' });
-
-        const QobuzAPI = (await import('../../../api/qobuz.js')).default;
-        const api = new QobuzAPI();
-        const result = await api.getPlaylist(playlistId);
-        if (!result.success || !result.data) {
-            return res.status(404).json({ error: 'Playlist not found on Qobuz' });
-        }
-
-        const playlist = result.data as any;
-        databaseService.addWatchedPlaylist({
-            id: playlistId,
-            playlistId,
-            title: playlist.title,
-            quality: quality || 27,
-            intervalHours: intervalHours || 24
-        });
-
-        res.json({ success: true, message: 'Playlist added to watch list' });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.delete('/playlists/watch/:id', async (req: Request, res: Response) => {
-    try {
-        databaseService.removeWatchedPlaylist(getParam(req.params.id));
-        res.json({ success: true });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
 export default router;

@@ -17,6 +17,7 @@ const DESKTOP_PORT = Number.parseInt(
 );
 const DASHBOARD_URL = `http://127.0.0.1:${DESKTOP_PORT}`;
 
+const baseAppPath = app.isPackaged ? app.getAppPath() : path.join(__dirname, '..');
 let runtimeDir = initialCwd;
 let mainWindow = null;
 let backendBootPromise = null;
@@ -367,18 +368,18 @@ async function startBackend() {
     process.env.NODE_ENV = process.env.NODE_ENV || (app.isPackaged ? 'production' : 'development');
     process.env.DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || path.join(runtimeDir, 'downloads');
 
-    const serverEntry = path.join(app.getAppPath(), 'dist', 'index.js');
+    const serverEntry = path.join(baseAppPath, 'dist', 'index.js');
     await import(pathToFileURL(serverEntry).href);
 
     // Setup Native Notifications Bridge
     try {
-      const notifServicePath = path.join(app.getAppPath(), 'dist', 'services', 'notifications.js');
+      const notifServicePath = path.join(baseAppPath, 'dist', 'services', 'notifications.js');
       const { notificationService } = await import(pathToFileURL(notifServicePath).href);
       
       notificationService.on('notification', (notif) => {
         if (!Notification.isSupported()) return;
         
-        const iconPath = path.join(app.getAppPath(), 'assets', 'desktop', 'icon.png');
+        const iconPath = path.join(baseAppPath, 'assets', 'desktop', 'icon.png');
         new Notification({
           title: notif.title || 'QBZ Downloader',
           body: notif.message,
@@ -395,7 +396,7 @@ async function startBackend() {
 }
 
 function createWindow() {
-  const iconPath = path.join(app.getAppPath(), 'assets', 'desktop', 'icon.png');
+  const iconPath = path.join(baseAppPath, 'assets', 'desktop', 'icon.png');
 
   const win = new BrowserWindow({
     width: 1480,
@@ -411,7 +412,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      spellcheck: false
+      spellcheck: false,
+      webSecurity: false,
+      allowRunningInsecureContent: true
     }
   });
 
@@ -437,7 +440,7 @@ function createMiniPlayerWindow() {
     return;
   }
 
-  const iconPath = path.join(app.getAppPath(), 'assets', 'desktop', 'icon.png');
+  const iconPath = path.join(baseAppPath, 'assets', 'desktop', 'icon.png');
 
   miniPlayerWindow = new BrowserWindow({
     width: 320,
@@ -453,7 +456,9 @@ function createMiniPlayerWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      spellcheck: false
+      spellcheck: false,
+      webSecurity: false,
+      allowRunningInsecureContent: true
     }
   });
 
@@ -671,7 +676,7 @@ function registerIpc() {
 
   ipcMain.on('desktop:show-notification', (event, { title, body }) => {
     if (!Notification.isSupported()) return;
-    const iconPath = path.join(app.getAppPath(), 'assets', 'desktop', 'icon.png');
+    const iconPath = path.join(baseAppPath, 'assets', 'desktop', 'icon.png');
     new Notification({
       title: title || 'QBZ Downloader',
       body: body,
@@ -722,7 +727,7 @@ async function bootstrap() {
 
 async function setupEventBridge() {
   try {
-    const eventsPath = path.join(app.getAppPath(), 'dist', 'utils', 'events.js');
+    const eventsPath = path.join(baseAppPath, 'dist', 'utils', 'events.js');
     if (!fs.existsSync(eventsPath)) return;
 
     const { eventBus, EVENTS } = await import(pathToFileURL(eventsPath).href);

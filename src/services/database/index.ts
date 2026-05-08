@@ -245,6 +245,9 @@ class DatabaseService {
                 sample_rate INTEGER,
                 scanned_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 needs_upgrade INTEGER DEFAULT 0,
+                audio_fingerprint TEXT,
+                missing_metadata INTEGER DEFAULT 0,
+                missing_tags TEXT,
                 checksum TEXT,
                 verification_status TEXT DEFAULT 'pending'
             )
@@ -809,29 +812,34 @@ class DatabaseService {
     }
 
     getLibraryHealth(): any {
-        const db = this.getDb();
-        
-        const totalTracks = db.prepare('SELECT COUNT(*) as count FROM library_files').get() as { count: number };
-        const missingCovers = db.prepare('SELECT COUNT(*) as count FROM library_files lf LEFT JOIN tracks t ON lf.track_id = t.id WHERE lf.track_id IS NOT NULL AND (t.cover_url IS NULL OR t.cover_url = "")').get() as { count: number };
-        const lowQuality = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE quality < 6').get() as { count: number }; // quality < 6 is MP3 or lower
-        const hiRes = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE quality >= 7').get() as { count: number };
-        const duplicates = db.prepare('SELECT COUNT(*) as count FROM duplicates WHERE resolved = 0').get() as { count: number };
-        const missingTags = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE missing_metadata = 1').get() as { count: number };
-        
-        const avgQuality = db.prepare('SELECT AVG(quality) as avg FROM library_files').get() as { avg: number };
-        const commonFormat = db.prepare('SELECT format, COUNT(*) as count FROM library_files GROUP BY format ORDER BY count DESC LIMIT 1').get() as { format: string, count: number };
+        try {
+            const db = this.getDb();
+            
+            const totalTracks = db.prepare('SELECT COUNT(*) as count FROM library_files').get() as { count: number };
+            const missingCovers = db.prepare('SELECT COUNT(*) as count FROM library_files lf LEFT JOIN tracks t ON lf.track_id = t.id WHERE lf.track_id IS NOT NULL AND (t.cover_url IS NULL OR t.cover_url = \'\')').get() as { count: number };
+            const lowQuality = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE quality < 6').get() as { count: number };
+            const hiRes = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE quality >= 7').get() as { count: number };
+            const duplicates = db.prepare('SELECT COUNT(*) as count FROM duplicates WHERE resolved = 0').get() as { count: number };
+            const missingTags = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE missing_metadata = 1').get() as { count: number };
+            
+            const avgQuality = db.prepare('SELECT AVG(quality) as avg FROM library_files').get() as { avg: number };
+            const commonFormat = db.prepare('SELECT format, COUNT(*) as count FROM library_files GROUP BY format ORDER BY count DESC LIMIT 1').get() as { format: string, count: number };
 
-        return {
-            totalTracks: totalTracks.count,
-            missingCovers: missingCovers.count,
-            lowQuality: lowQuality.count,
-            hiRes: hiRes.count,
-            duplicates: duplicates.count,
-            missingTags: missingTags.count,
-            healthScore: this.calculateHealthScore(totalTracks.count, missingTags.count, duplicates.count, lowQuality.count),
-            avgQuality: avgQuality.avg || 0,
-            commonFormat: commonFormat?.format || 'Unknown'
-        };
+            return {
+                totalTracks: totalTracks.count,
+                missingCovers: missingCovers.count,
+                lowQuality: lowQuality.count,
+                hiRes: hiRes.count,
+                duplicates: duplicates.count,
+                missingTags: missingTags.count,
+                healthScore: this.calculateHealthScore(totalTracks.count, missingTags.count, duplicates.count, lowQuality.count),
+                avgQuality: avgQuality.avg || 0,
+                commonFormat: commonFormat?.format || 'Unknown'
+            };
+        } catch (err) {
+            logger.error(`Health check failed: ${err}`, 'DB');
+            throw err;
+        }
     }
 
     private calculateHealthScore(total: number, missing: number, dups: number, low: number): number {

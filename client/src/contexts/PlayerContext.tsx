@@ -58,22 +58,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [showQueue, setShowQueue] = useState(false);
 
     const addToPlaybackQueue = (track: PlaybackTrack, playNow = false) => {
-        setPlayQueue(prev => {
-            const exists = prev.findIndex(t => t.id === track.id);
-            if (exists !== -1) {
-                if (playNow) setCurrentTrackIndex(exists);
-                return prev;
-            }
-            
-            const newQueue = [...prev, track];
-            if (playNow) {
-                setCurrentTrackIndex(newQueue.length - 1);
-            } else if (currentTrackIndex === -1) {
-                setCurrentTrackIndex(0);
-            }
-            return newQueue;
-        });
+        const exists = playQueue.findIndex(t => t.id === track.id);
+        if (exists !== -1) {
+            if (playNow) setCurrentTrackIndex(exists);
+            return;
+        }
+        
+        const newQueue = [...playQueue, track];
+        setPlayQueue(newQueue);
+        
+        if (playNow) {
+            setCurrentTrackIndex(newQueue.length - 1);
+        } else if (currentTrackIndex === -1) {
+            setCurrentTrackIndex(0);
+        }
     };
+
 
     const removeFromQueue = (index: number) => {
         const newQueue = playQueue.filter((_, i) => i !== index);

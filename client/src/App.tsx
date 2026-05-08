@@ -27,6 +27,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { DropZone } from './components/DropZone';
 import { QueuePanel } from './components/QueuePanel';
 import { Icons } from './components/Icons';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { applyAccent } from './utils/theme';
 import { smartFetch } from './utils/api';
 
@@ -280,306 +281,308 @@ function AppContent() {
 
   return (
     <div className="app-shell">
-      <DropZone>
-        <CommandPalette />
-        {isDesktop && (
-        <header className="desktop-titlebar">
-          <div className="desktop-titlebar-brand">
-            <span className="desktop-titlebar-logo">QBZ</span>
-            <span>QBZ Downloader Desktop</span>
-          </div>
-          <div className="desktop-window-controls">
-            <button className="window-control" aria-label="Minimize window" onClick={handleMinimize}>
-              <Icons.Minimize width={14} height={14} />
-            </button>
-            <button
-              className="window-control"
-              aria-label="Toggle maximize window"
-              onClick={handleMaximizeToggle}
-            >
-              {isMaximized ? (
-                <Icons.Archive width={14} height={14} />
-              ) : (
-                <Icons.Maximize width={14} height={14} />
-              )}
-            </button>
-            <button className="window-control danger" aria-label="Close window" onClick={handleClose}>
-              <Icons.Close width={14} height={14} />
-            </button>
-          </div>
-        </header>
-      )}
-
-      {isDesktop && desktopSetupState !== 'ready' ? (
-        <section className="desktop-onboarding-entry">
-          {desktopSetupState === 'checking' ? (
-            <div className="desktop-onboarding-loading">
-              <div className="desktop-onboarding-spinner" />
-              <p>Checking your local setup status...</p>
-            </div>
-          ) : (
-            <DesktopSetupGate onContinue={handleDesktopSetupContinue} />
-          )}
-        </section>
-      ) : (
-        <div className="app-container">
-          <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
-            <div className="logo">
-              <span className="logo-icon">🎵</span>
-              <h1 style={{ whiteSpace: 'nowrap' }}>QBZ-DL</h1>
-            </div>
-            <nav className="nav-menu">
-              {navItems.map((item) => (
-                <a
-                  key={item.id}
-                  href="#"
-                  className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setActiveTab(item.id);
-                    setSidebarOpen(false);
-                  }}
-                  title={sidebarCollapsed ? item.label : ''}
-                >
-                  <span className="icon">{item.icon}</span>{' '}
-                  <span className="nav-label">{item.label}</span>
-                </a>
-              ))}
-            </nav>
-            <div className="sidebar-footer">
-              <p
-                style={{
-                  fontSize: '10px',
-                  color: 'var(--text-secondary)',
-                  opacity: 0.6,
-                  marginBottom: '8px'
-                }}
-              >
-                This application uses the Qobuz API but is not certified by Qobuz.
-              </p>
-            </div>
-          </aside>
-
-          <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
-
-          <main className="main-content">
-            <header className="top-bar">
-              <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <button id="menu-toggle" className="btn secondary icon-btn" onClick={toggleSidebar}>
-                  <Icons.Menu />
-                </button>
-                <h2 id="page-title">{getPageTitle(activeTab)}</h2>
+      <ErrorBoundary>
+        <DropZone>
+          <CommandPalette />
+          {isDesktop && (
+            <header className="desktop-titlebar">
+              <div className="desktop-titlebar-brand">
+                <span className="desktop-titlebar-logo">QBZ</span>
+                <span>QBZ Downloader Desktop</span>
               </div>
-              <div className="header-right" style={{ display: 'flex', gap: '10px' }}>
-                <div className={`sync-pill ${connected ? 'online' : 'offline'}`}>
-                  <span className="sync-dot" />
-                  <span>{connected ? 'Synced' : 'Reconnecting'}</span>
-                </div>
-
-                {isDesktop && (
-                  <div
-                    className={`update-pill ${updateState?.status || 'idle'} ${updateState?.downloaded ? 'ready' : ''}`}
-                    title={updateState?.message || 'Desktop updates'}
-                  >
-                    <span className="update-pill-label">{getUpdateLabel()}</span>
-                    {updateState?.downloaded ? (
-                      <button className="update-action-btn" onClick={handleInstallUpdate}>
-                        Install
-                      </button>
-                    ) : (
-                      <button
-                        className="update-action-btn"
-                        onClick={handleCheckUpdate}
-                        disabled={isCheckingUpdate}
-                      >
-                        Check
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                <div style={{ position: 'relative' }}>
-                  <button
-                    className="btn secondary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowLangMenu(!showLangMenu);
-                    }}
-                    style={{
-                      padding: '10px 16px',
-                      fontSize: '14px',
-                      minWidth: '85px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      height: '44px'
-                    }}
-                    title="Change Language"
-                  >
-                    {(() => {
-                      const config = flags[language] || flags.en;
-                      const Flag = config.icon;
-                      return (
-                        <>
-                          <Flag width={18} height={18} />
-                          <span>{config.label}</span>
-                        </>
-                      );
-                    })()}
-                  </button>
-
-                  {showLangMenu && (
-                    <div
-                      className="dropdown-menu"
-                      style={{
-                        position: 'absolute',
-                        top: 'calc(100% + 8px)',
-                        right: 0,
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '12px',
-                        padding: '6px',
-                        zIndex: 2000,
-                        minWidth: '160px',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '2px'
-                      }}
-                    >
-                      {Object.entries(flags).map(([code, config]) => {
-                        const FlagIcon = config.icon;
-                        return (
-                          <button
-                            key={code}
-                            onClick={() => {
-                              setLanguage(code as any);
-                              setShowLangMenu(false);
-                            }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px',
-                              padding: '10px 12px',
-                              width: '100%',
-                              border: 'none',
-                              background: language === code ? 'var(--bg-elevated)' : 'transparent',
-                              color: 'var(--text-primary)',
-                              borderRadius: '8px',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              textAlign: 'left',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'var(--bg-hover)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background =
-                                language === code ? 'var(--bg-elevated)' : 'transparent';
-                            }}
-                          >
-                            <FlagIcon width={18} height={18} />
-                            <span>{config.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
+              <div className="desktop-window-controls">
+                <button className="window-control" aria-label="Minimize window" onClick={handleMinimize}>
+                  <Icons.Minimize width={14} height={14} />
+                </button>
                 <button
-                  id="theme-toggle"
-                  className="btn secondary"
-                  title={t('common_toggle_theme')}
-                  onClick={toggleTheme}
-                  style={{
-                    padding: '10px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '85px',
-                    height: '44px'
-                  }}
+                  className="window-control"
+                  aria-label="Toggle maximize window"
+                  onClick={handleMaximizeToggle}
                 >
-                  {theme === 'dark' ? (
-                    <Icons.Moon width={20} height={20} />
+                  {isMaximized ? (
+                    <Icons.Archive width={14} height={14} />
                   ) : (
-                    <Icons.Sun width={20} height={20} />
+                    <Icons.Maximize width={14} height={14} />
                   )}
                 </button>
-
-                <button
-                  id="github-link"
-                  className="btn secondary"
-                  title="Open GitHub Project"
-                  onClick={handleOpenGithub}
-                  style={{
-                    padding: '10px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '85px',
-                    height: '44px'
-                  }}
-                >
-                  <Icons.Github width={20} height={20} />
-                </button>
-
-                <button id="add-btn" className="btn primary" onClick={() => setShowAddModal(true)}>
-                  <span className="icon">
-                    <Icons.Plus />
-                  </span>{' '}
-                  <span className="desktop-only">{t('action_add_url')}</span>
+                <button className="window-control danger" aria-label="Close window" onClick={handleClose}>
+                  <Icons.Close width={14} height={14} />
                 </button>
               </div>
             </header>
+          )}
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2, ease: 'easeInOut' }}
-                style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-              >
-                {activeTab === 'queue' && <QueueView />}
-                {activeTab === 'search' && <SearchView />}
-                {activeTab === 'batch' && <BatchImportView />}
-                {activeTab === 'album' && <AlbumDetailView />}
-                {activeTab === 'artist' && <ArtistDetailView />}
-                {(activeTab === 'artist_albums' || activeTab === 'artist_tracks') && <ArtistListView />}
+          {isDesktop && desktopSetupState !== 'ready' ? (
+            <section className="desktop-onboarding-entry">
+              {desktopSetupState === 'checking' ? (
+                <div className="desktop-onboarding-loading">
+                  <div className="desktop-onboarding-spinner" />
+                  <p>Checking your local setup status...</p>
+                </div>
+              ) : (
+                <DesktopSetupGate onContinue={handleDesktopSetupContinue} />
+              )}
+            </section>
+          ) : (
+            <div className="app-container">
+              <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
+                <div className="logo">
+                  <span className="logo-icon">🎵</span>
+                  <h1 style={{ whiteSpace: 'nowrap' }}>QBZ-DL</h1>
+                </div>
+                <nav className="nav-menu">
+                  {navItems.map((item) => (
+                    <a
+                      key={item.id}
+                      href="#"
+                      className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setActiveTab(item.id);
+                        setSidebarOpen(false);
+                      }}
+                      title={sidebarCollapsed ? item.label : ''}
+                    >
+                      <span className="icon">{item.icon}</span>{' '}
+                      <span className="nav-label">{item.label}</span>
+                    </a>
+                  ))}
+                </nav>
+                <div className="sidebar-footer">
+                  <p
+                    style={{
+                      fontSize: '10px',
+                      color: 'var(--text-secondary)',
+                      opacity: 0.6,
+                      marginBottom: '8px'
+                    }}
+                  >
+                    This application uses the Qobuz API but is not certified by Qobuz.
+                  </p>
+                </div>
+              </aside>
 
-                {activeTab === 'statistics' && <AnalyticsView />}
-                {activeTab === 'health' && <LibraryHealthView />}
-                {activeTab === 'library' && <LibraryView />}
-                {activeTab === 'playlists' && <PlaylistsView />}
-                {activeTab === 'history' && <HistoryView />}
-                {activeTab === 'logs' && <LogView />}
-                {activeTab === 'settings' && <SettingsView />}
-              </motion.div>
-            </AnimatePresence>
+              <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
 
-            <Player sidebarCollapsed={sidebarCollapsed} />
-          </main>
-        </div>
-      )}
+              <main className="main-content">
+                <header className="top-bar">
+                  <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <button id="menu-toggle" className="btn secondary icon-btn" onClick={toggleSidebar}>
+                      <Icons.Menu />
+                    </button>
+                    <h2 id="page-title">{getPageTitle(activeTab)}</h2>
+                  </div>
+                  <div className="header-right" style={{ display: 'flex', gap: '10px' }}>
+                    <div className={`sync-pill ${connected ? 'online' : 'offline'}`}>
+                      <span className="sync-dot" />
+                      <span>{connected ? 'Synced' : 'Reconnecting'}</span>
+                    </div>
 
-      {showAddModal && <AddUrlModal onClose={() => setShowAddModal(false)} onSuccess={() => {}} />}
+                    {isDesktop && (
+                      <div
+                        className={`update-pill ${updateState?.status || 'idle'} ${updateState?.downloaded ? 'ready' : ''}`}
+                        title={updateState?.message || 'Desktop updates'}
+                      >
+                        <span className="update-pill-label">{getUpdateLabel()}</span>
+                        {updateState?.downloaded ? (
+                          <button className="update-action-btn" onClick={handleInstallUpdate}>
+                            Install
+                          </button>
+                        ) : (
+                          <button
+                            className="update-action-btn"
+                            onClick={handleCheckUpdate}
+                            disabled={isCheckingUpdate}
+                          >
+                            Check
+                          </button>
+                        )}
+                      </div>
+                    )}
 
-      {showLoginModal && (
-        <LoginModal
-          onSuccess={() => {
-            setShowLoginModal(false);
-            window.location.reload();
-          }}
-        />
-      )}
-      <CommandPalette />
-      <QueuePanel />
-      </DropZone>
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        className="btn secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowLangMenu(!showLangMenu);
+                        }}
+                        style={{
+                          padding: '10px 16px',
+                          fontSize: '14px',
+                          minWidth: '85px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          height: '44px'
+                        }}
+                        title="Change Language"
+                      >
+                        {(() => {
+                          const config = flags[language] || flags.en;
+                          const Flag = config.icon;
+                          return (
+                            <>
+                              <Flag width={18} height={18} />
+                              <span>{config.label}</span>
+                            </>
+                          );
+                        })()}
+                      </button>
+
+                      {showLangMenu && (
+                        <div
+                          className="dropdown-menu"
+                          style={{
+                            position: 'absolute',
+                            top: 'calc(100% + 8px)',
+                            right: 0,
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '12px',
+                            padding: '6px',
+                            zIndex: 2000,
+                            minWidth: '160px',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px'
+                          }}
+                        >
+                          {Object.entries(flags).map(([code, config]) => {
+                            const FlagIcon = config.icon;
+                            return (
+                              <button
+                                key={code}
+                                onClick={() => {
+                                  setLanguage(code as any);
+                                  setShowLangMenu(false);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '12px',
+                                  padding: '10px 12px',
+                                  width: '100%',
+                                  border: 'none',
+                                  background: language === code ? 'var(--bg-elevated)' : 'transparent',
+                                  color: 'var(--text-primary)',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  textAlign: 'left',
+                                  transition: 'background 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = 'var(--bg-hover)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background =
+                                    language === code ? 'var(--bg-elevated)' : 'transparent';
+                                }}
+                              >
+                                <FlagIcon width={18} height={18} />
+                                <span>{config.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      id="theme-toggle"
+                      className="btn secondary"
+                      title={t('common_toggle_theme')}
+                      onClick={toggleTheme}
+                      style={{
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '85px',
+                        height: '44px'
+                      }}
+                    >
+                      {theme === 'dark' ? (
+                        <Icons.Moon width={20} height={20} />
+                      ) : (
+                        <Icons.Sun width={20} height={20} />
+                      )}
+                    </button>
+
+                    <button
+                      id="github-link"
+                      className="btn secondary"
+                      title="Open GitHub Project"
+                      onClick={handleOpenGithub}
+                      style={{
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '85px',
+                        height: '44px'
+                      }}
+                    >
+                      <Icons.Github width={20} height={20} />
+                    </button>
+
+                    <button id="add-btn" className="btn primary" onClick={() => setShowAddModal(true)}>
+                      <span className="icon">
+                        <Icons.Plus />
+                      </span>{' '}
+                      <span className="desktop-only">{t('action_add_url')}</span>
+                    </button>
+                  </div>
+                </header>
+
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+                  >
+                    {activeTab === 'queue' && <QueueView />}
+                    {activeTab === 'search' && <SearchView />}
+                    {activeTab === 'batch' && <BatchImportView />}
+                    {activeTab === 'album' && <AlbumDetailView />}
+                    {activeTab === 'artist' && <ArtistDetailView />}
+                    {(activeTab === 'artist_albums' || activeTab === 'artist_tracks') && <ArtistListView />}
+
+                    {activeTab === 'statistics' && <AnalyticsView />}
+                    {activeTab === 'health' && <LibraryHealthView />}
+                    {activeTab === 'library' && <LibraryView />}
+                    {activeTab === 'playlists' && <PlaylistsView />}
+                    {activeTab === 'history' && <HistoryView />}
+                    {activeTab === 'logs' && <LogView />}
+                    {activeTab === 'settings' && <SettingsView />}
+                  </motion.div>
+                </AnimatePresence>
+
+                <Player sidebarCollapsed={sidebarCollapsed} />
+              </main>
+            </div>
+          )}
+
+          {showAddModal && <AddUrlModal onClose={() => setShowAddModal(false)} onSuccess={() => {}} />}
+
+          {showLoginModal && (
+            <LoginModal
+              onSuccess={() => {
+                setShowLoginModal(false);
+                window.location.reload();
+              }}
+            />
+          )}
+          <QueuePanel />
+        </DropZone>
+      </ErrorBoundary>
+
     </div>
   );
 }
