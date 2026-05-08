@@ -593,75 +593,54 @@ export const SettingsView: React.FC = () => {
                             }
                         />
                     </div>
-                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                            id="embed-cover-art"
-                            type="checkbox"
-                            checked={settingsForm.embedCoverArt}
-                            onChange={(e) =>
-                                setSettingsForm((prev) => ({ ...prev, embedCoverArt: e.target.checked }))
-                            }
-                        />
-                        <label htmlFor="embed-cover-art" style={{ margin: 0 }}>
-                            {t('label_embed_cover')}
-                        </label>
-                    </div>
-                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                            id="save-cover-file"
-                            type="checkbox"
-                            checked={settingsForm.saveCoverFile}
-                            onChange={(e) =>
-                                setSettingsForm((prev) => ({ ...prev, saveCoverFile: e.target.checked }))
-                            }
-                        />
-                        <label htmlFor="save-cover-file" style={{ margin: 0 }}>
-                            {t('label_save_cover')}
-                        </label>
-                    </div>
-                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                            id="download-lyrics"
-                            type="checkbox"
-                            checked={settingsForm.downloadLyrics}
-                            onChange={(e) =>
-                                setSettingsForm((prev) => ({ ...prev, downloadLyrics: e.target.checked }))
-                            }
-                        />
-                        <label htmlFor="download-lyrics" style={{ margin: 0 }}>
-                            {t('label_download_lyrics')}
-                        </label>
-                    </div>
-                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                            id="embed-lyrics"
-                            type="checkbox"
-                            checked={settingsForm.embedLyrics}
-                            onChange={(e) =>
-                                setSettingsForm((prev) => ({ ...prev, embedLyrics: e.target.checked }))
-                            }
-                        />
-                        <label htmlFor="embed-lyrics" style={{ margin: 0 }}>
-                            {t('label_embed_lyrics')}
-                        </label>
-                    </div>
-                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                            id="save-lrc-file"
-                            type="checkbox"
-                            checked={settingsForm.saveLrcFile}
-                            onChange={(e) =>
-                                setSettingsForm((prev) => ({ ...prev, saveLrcFile: e.target.checked }))
-                            }
-                        />
-                        <label htmlFor="save-lrc-file" style={{ margin: 0 }}>
-                            {t('label_save_lrc')}
-                        </label>
+                    <div className="settings-checkbox-group">
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, embedCoverArt: !prev.embedCoverArt }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.embedCoverArt}
+                                onChange={() => {}} // Controlled by parent div click
+                            />
+                            <label>{t('label_embed_cover')}</label>
+                        </div>
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, saveCoverFile: !prev.saveCoverFile }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.saveCoverFile}
+                                onChange={() => {}}
+                            />
+                            <label>{t('label_save_cover')}</label>
+                        </div>
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, downloadLyrics: !prev.downloadLyrics }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.downloadLyrics}
+                                onChange={() => {}}
+                            />
+                            <label>{t('label_download_lyrics')}</label>
+                        </div>
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, embedLyrics: !prev.embedLyrics }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.embedLyrics}
+                                onChange={() => {}}
+                            />
+                            <label>{t('label_embed_lyrics')}</label>
+                        </div>
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, saveLrcFile: !prev.saveLrcFile }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.saveLrcFile}
+                                onChange={() => {}}
+                            />
+                            <label>{t('label_save_lrc')}</label>
+                        </div>
                     </div>
                 </div>
-                <button className="btn primary" onClick={updateAppSettings}>
-                    {t('action_save_settings')}
-                </button>
+                <div style={{ marginTop: '32px' }}>
+                    <button className="btn primary hero" onClick={updateAppSettings} style={{ minHeight: '52px', padding: '0 40px' }}>
+                        {t('action_save_settings')}
+                    </button>
+                </div>
             </div>
 
             <div className="settings-section">
@@ -669,34 +648,31 @@ export const SettingsView: React.FC = () => {
                     <span className="icon">🎨</span> {t('sec_appearance')}
                 </h3>
                 <div className="appearance-options">
-                    <div className="form-group" style={{ marginBottom: '10px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <div className="appearance-options">
+                    <div className="settings-checkbox-group" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+                        <div className="settings-checkbox-item" onClick={() => setFollowSystem(!followSystem)}>
                             <input
                                 type="checkbox"
                                 checked={followSystem}
-                                onChange={(e) => setFollowSystem(e.target.checked)}
-                                style={{ width: '18px', height: '18px' }}
+                                onChange={() => {}}
                             />
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: 600 }}>Follow System Theme</span>
-                                <span style={{ fontSize: '12px', opacity: 0.7 }}>Automatically switch between dark and light modes</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <span style={{ fontWeight: 700, fontSize: '15px' }}>Follow System Theme</span>
+                                <span style={{ fontSize: '12px', opacity: 0.6 }}>Sync with Windows dark/light mode</span>
                             </div>
-                        </label>
-                    </div>
+                        </div>
 
-                    <div className="form-group" style={{ marginBottom: '20px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                        <div className="settings-checkbox-item" onClick={() => setDynamicMode(!dynamicMode)}>
                             <input
                                 type="checkbox"
                                 checked={dynamicMode}
-                                onChange={(e) => setDynamicMode(e.target.checked)}
-                                style={{ width: '18px', height: '18px' }}
+                                onChange={() => {}}
                             />
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: 600 }}>Dynamic Theme Mode</span>
-                                <span style={{ fontSize: '12px', opacity: 0.7 }}>Generate UI colors from current album art</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <span style={{ fontWeight: 700, fontSize: '15px' }}>Dynamic Theme Mode</span>
+                                <span style={{ fontSize: '12px', opacity: 0.6 }}>Colors based on current album art</span>
                             </div>
-                        </label>
+                        </div>
                     </div>
 
                     <div className="form-group">
