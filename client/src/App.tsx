@@ -23,6 +23,7 @@ import { LibraryHealthView } from './components/LibraryHealthView';
 import { AddUrlModal, LoginModal } from './components/Modals';
 import { DesktopSetupGate } from './components/DesktopSetupGate';
 import { MiniPlayer } from './components/MiniPlayer';
+import { CommandPalette } from './components/CommandPalette';
 import { Icons } from './components/Icons';
 import { applyAccent } from './utils/theme';
 import { smartFetch } from './utils/api';
@@ -277,6 +278,7 @@ function AppContent() {
 
   return (
     <div className="app-shell">
+      <CommandPalette />
       {isDesktop && (
         <header className="desktop-titlebar">
           <div className="desktop-titlebar-brand">
