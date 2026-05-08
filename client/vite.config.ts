@@ -7,7 +7,12 @@ export default defineConfig({
     tailwindcss(),
     react()
   ],
+  build: {
+    outDir: '../src/services/dashboard/public',
+    emptyOutDir: true
+  },
   server: {
+
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

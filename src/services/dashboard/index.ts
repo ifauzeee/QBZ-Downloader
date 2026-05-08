@@ -226,7 +226,8 @@ export class DashboardService {
     public start(port?: number): void {
         if (port) this.port = port;
         try {
-            this.httpServer.listen(this.port, async () => {
+            this.httpServer.listen(this.port, '127.0.0.1', async () => {
+
                 try {
                     const { default: boxen } = await import('boxen');
                     const message = `

@@ -104,94 +104,49 @@ Keep your collection pristine.
 ## 📥 Installation
 
 ### Desktop EXE (Windows)
-This project now runs in **desktop-only mode**.
-Web/Docker usage has been removed and is no longer supported.
+QBZ-Downloader is built as a native Windows application. Install the ready-to-use EXE directly from GitHub Releases:
 
-![Desktop EXE](./docs/screenshots/exe.png)
+1. Download the latest `.exe` from [Releases](https://github.com/ifauzeee/QBZ-Downloader/releases).
+2. Run the installer or the portable version.
+3. Complete the onboarding process and enter your Qobuz credentials in Settings.
 
-Install ready-to-use EXE directly from GitHub Releases (no clone required for end users):
-
-1. Download EXE from GitHub Releases.
-2. Install/run.
-3. Complete onboarding and fill in your own Qobuz credentials.
+### Development Build
+If you wish to build the EXE from source:
 
 ```bash
 # 1. Install dependencies
 npm install
-```
 
-Build commands:
+# 2. Build both client and server
+npm run build:full
 
-```bash
-# Installer only
+# 3. Create installer
 npm run desktop:dist
-
-# Portable only
-npm run desktop:dist:portable
-
-# Both installer + portable
-npm run desktop:dist:all
 ```
 
-Output installer path:
-- `release/QBZ-Downloader-Setup-<version>.exe`
-
-Portable output path:
-- `release/QBZ-Downloader-Portable-<version>.exe`
-
-Desktop runtime data location:
-- Installer build: `%APPDATA%/QBZ Downloader`
-- Portable build: `QBZ-Data/` next to the portable executable
-
-First run migration:
-- Desktop app automatically migrates `data/qbz.db`, `history.json`, and `settings.json` from your previous project folder when available.
-
-Auto-update (optional):
-- Set environment variable `QBZ_UPDATE_URL` to a URL hosting `latest.yml` and installer artifacts.
-- Example: `QBZ_UPDATE_URL=https://your-domain.com/qbz-updates/`
-- If `QBZ_UPDATE_URL` is not set, desktop app will use GitHub Releases provider from this repository.
-
-Release pipeline (GitHub Actions):
-- Push tag with format `v*` to trigger automatic desktop release build and publish.
-- Example:
-
-```bash
-git tag v5.0.0
-git push origin v5.0.0
-
-```
+Output paths:
+- Installer: `release/QBZ-Downloader-Setup-<version>.exe`
+- Portable: `release/QBZ-Downloader-Portable-<version>.exe`
 
 ---
 
 ## ⚙️ Configuration
 
-All runtime settings are managed from **Desktop Settings** and stored in the **local SQLite database**.
+All settings are managed directly within the app's **Settings UI** and stored in a local SQLite database.
 
-### 🔑 Authentication (Required)
-Fill these in Settings:
-
+### 🔑 Authentication
+Configure these in the app:
 - `QOBUZ_APP_ID`
 - `QOBUZ_APP_SECRET`
 - `QOBUZ_USER_AUTH_TOKEN`
 - `QOBUZ_USER_ID`
 
-### 📁 Preferences
-You can configure directly from Settings UI:
-
-- Download path, folder/file template, concurrency, retry
-- Audio quality defaults (up to 24-bit/192kHz)
-- Metadata and lyrics behavior
-- Media Server integration (Plex, Jellyfin, Webhooks)
-- Automated format conversion and export
-- Local desktop service port/password
-
 Notes:
-- No `.env` file is required for normal desktop usage.
-- All credentials and app settings are saved in the local SQLite database via Settings UI.
-- Download path changes are applied to new downloads immediately (no app restart required).
-- Files downloaded before changing the path stay in the old folder and are not moved automatically.
+- No `.env` file or manual configuration is required.
+- App data is stored in `%APPDATA%/QBZ Downloader` (Installer) or `QBZ-Data/` (Portable).
 
 ---
+
 
 ## 🏗️ System Architecture
 

@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "tsc && npm run copy-assets",
-    "build:full": "cd client && npm install && npm run build && cd .. && node scripts/sync-ui.js && npm run build",
+    "build:full": "cd client && npm install && npm run build && cd .. && npm run build",
     "clean": "rimraf dist coverage",
     "copy-assets": "copyfiles -u 1 \"src/services/dashboard/public/**/*\" dist",
     "start": "node dist/index.js",
@@ -29,10 +29,7 @@
     "desktop:dist": "npm run build:full && electron-builder --win nsis",
     "desktop:dist:portable": "npm run build:full && electron-builder --win portable",
     "desktop:dist:all": "npm run build:full && electron-builder --win nsis portable",
-    "prepare": "husky",
-    "prepublishOnly": "npm run build && npm run test",
-    "docker:build": "docker build -t qbz-downloader .",
-    "docker:run": "docker run -it -v ./downloads:/app/downloads -v ./data:/app/data qbz-downloader"
+    "prepare": "husky"
   },
   "keywords": [
     "qobuz",
