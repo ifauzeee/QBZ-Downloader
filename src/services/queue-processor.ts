@@ -78,7 +78,6 @@ function sleep(ms: number): Promise<void> {
 export class QueueProcessor {
     private api: QobuzAPI;
     private downloadService: DownloadService;
-    private isProcessing: boolean = false;
     private lastErrorTime: number = 0;
     private consecutiveErrors: number = 0;
     private isHydrationRunning: boolean = false;
@@ -173,7 +172,7 @@ export class QueueProcessor {
     }
 
     private async processNext(): Promise<void> {
-        if (this.isProcessing && downloadQueue.isProcessing()) return;
+        if (downloadQueue.isPaused()) return;
 
         if (this.consecutiveErrors >= 5) {
             const timeSinceLastError = Date.now() - this.lastErrorTime;
@@ -189,14 +188,18 @@ export class QueueProcessor {
             }
         }
 
-        const item = downloadQueue.getNext();
-        if (!item) return;
+        while (true) {
+            const item = downloadQueue.dequeue();
+            if (!item) break;
 
-        this.isProcessing = true;
-        downloadQueue.startItem(item.id);
+            logger.info(`Processing item: ${item.title || item.contentId} (${item.type})`, 'QUEUE');
+            this.runTask(item).catch(err => {
+                logger.error(`Fatal task error: ${err.message}`, 'QUEUE');
+            });
+        }
+    }
 
-        logger.info(`Processing item: ${item.title || item.contentId} (${item.type})`, 'QUEUE');
-
+    private async runTask(item: QueueItem): Promise<void> {
         try {
             if (item.type === 'track') {
                 await this.processTrack(item);
@@ -207,7 +210,6 @@ export class QueueProcessor {
         } catch (error: any) {
             await this.handleError(item, error);
         } finally {
-            this.isProcessing = false;
             this.processNext();
         }
     }

@@ -54,7 +54,6 @@ export class DownloadQueue {
 
     getNext(): QueueItem | null {
         if (this.paused) return null;
-        if (this.processing.size >= this.maxConcurrent) return null;
 
         const pending = Array.from(this.items.values())
             .filter((item) => item.status === 'pending')
@@ -70,6 +69,18 @@ export class DownloadQueue {
             });
 
         return pending[0] || null;
+    }
+
+    dequeue(): QueueItem | null {
+        if (this.paused) return null;
+        if (this.processing.size >= this.maxConcurrent) return null;
+
+        const item = this.getNext();
+        if (item) {
+            this.startItem(item.id);
+            return item;
+        }
+        return null;
     }
 
     startItem(id: string): boolean {
