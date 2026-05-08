@@ -33,9 +33,9 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         showLyrics, setShowLyrics,
         isLyricsFullscreen, setIsLyricsFullscreen,
         showEditor, setShowEditor,
-        playQueue, setPlayQueue,
+        playQueue,
         currentTrackIndex, setCurrentTrackIndex,
-        addToPlaybackQueue, removeFromQueue,
+        addToPlaybackQueue,
         showQueue, setShowQueue
     } = usePlayer();
     const { setDynamicAccent } = useTheme();
@@ -661,7 +661,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                             </button>
                         )}
                         <div className="divider"></div>
-                        <button className="icon-btn close-btn" onClick={() => { setPlaying(false); setTrack(null); setShowLyrics(false); }}>
+                        <button className="icon-btn close-btn" onClick={() => { setPlaying(false); setCurrentTrackIndex(-1); setShowLyrics(false); }}>
                             <Icons.Close width={20} height={20} />
                         </button>
                     </div>

@@ -7,6 +7,7 @@ export interface PlaybackTrack {
     cover: string;
     duration?: number;
     albumId?: string;
+    contextTracks?: any[];
 }
 
 interface PlayerContextType {
