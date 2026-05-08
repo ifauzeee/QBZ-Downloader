@@ -26,11 +26,4 @@ contextBridge.exposeInMainWorld('qbzDesktop', {
       return () => ipcRenderer.removeListener('desktop:update-status', listener);
     }
   },
-
-  getSystemTheme: () => ipcRenderer.invoke('desktop:get-system-theme'),
-  onSystemThemeChanged: (callback) => {
-    const listener = (_event, theme) => callback(theme);
-    ipcRenderer.on('desktop:system-theme-changed', listener);
-    return () => ipcRenderer.removeListener('desktop:system-theme-changed', listener);
-  }
 });

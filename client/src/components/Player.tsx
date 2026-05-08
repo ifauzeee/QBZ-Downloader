@@ -6,8 +6,6 @@ import { LyricsEditor } from './LyricsEditor';
 import { useToast } from '../contexts/ToastContext';
 import { usePlayer } from '../contexts/PlayerContext';
 import { useNavigation } from '../contexts/NavigationContext';
-import { useTheme } from '../contexts/ThemeContext';
-import { extractRGB } from '../utils/colorExtractor';
 import { AudioVisualizer } from './AudioVisualizer';
 
 import '../styles/Player.css';
@@ -38,7 +36,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         addToPlaybackQueue,
         showQueue, setShowQueue
     } = usePlayer();
-    const { setDynamicAccent } = useTheme();
+
 
     const { activeTab } = useNavigation();
 
@@ -55,15 +53,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     const [duration, setDuration] = useState(0);
     const [quality, setQuality] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (track && track.cover) {
-            extractRGB(track.cover).then(color => {
-                setDynamicAccent(color, 'player');
-            });
-        } else {
-            setDynamicAccent(null, 'player');
-        }
-    }, [track?.cover, setDynamicAccent]);
+
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
 

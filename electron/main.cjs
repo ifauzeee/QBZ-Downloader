@@ -644,18 +644,6 @@ function registerIpc() {
       icon: fs.existsSync(iconPath) ? iconPath : undefined
     }).show();
   });
-
-  ipcMain.handle('desktop:get-system-theme', () => {
-    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
-  });
-
-  nativeTheme.on('updated', () => {
-    const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
-    const windows = BrowserWindow.getAllWindows();
-    for (const win of windows) {
-      win.webContents.send('desktop:system-theme-changed', theme);
-    }
-  });
 }
 
 async function bootstrap() {

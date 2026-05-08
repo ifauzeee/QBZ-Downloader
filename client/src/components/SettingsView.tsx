@@ -47,11 +47,7 @@ export const SettingsView: React.FC = () => {
         saveTheme,
         deleteTheme,
         applyTheme,
-        resetTheme,
-        dynamicMode,
-        setDynamicMode,
-        followSystem,
-        setFollowSystem
+        resetTheme
     } = useTheme();
 
     const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -418,7 +414,7 @@ export const SettingsView: React.FC = () => {
                 <button className="btn primary" onClick={updateCredentials} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Icons.Download width={14} height={14} /> {t('action_update_creds')}
                 </button>
-            </div >
+            </div>
 
             <div className="settings-section">
                 <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -598,7 +594,7 @@ export const SettingsView: React.FC = () => {
                             <input
                                 type="checkbox"
                                 checked={settingsForm.embedCoverArt}
-                                onChange={() => {}} // Controlled by parent div click
+                                onChange={() => { }} // Controlled by parent div click
                             />
                             <label>{t('label_embed_cover')}</label>
                         </div>
@@ -606,7 +602,7 @@ export const SettingsView: React.FC = () => {
                             <input
                                 type="checkbox"
                                 checked={settingsForm.saveCoverFile}
-                                onChange={() => {}}
+                                onChange={() => { }}
                             />
                             <label>{t('label_save_cover')}</label>
                         </div>
@@ -614,7 +610,7 @@ export const SettingsView: React.FC = () => {
                             <input
                                 type="checkbox"
                                 checked={settingsForm.downloadLyrics}
-                                onChange={() => {}}
+                                onChange={() => { }}
                             />
                             <label>{t('label_download_lyrics')}</label>
                         </div>
@@ -622,7 +618,7 @@ export const SettingsView: React.FC = () => {
                             <input
                                 type="checkbox"
                                 checked={settingsForm.embedLyrics}
-                                onChange={() => {}}
+                                onChange={() => { }}
                             />
                             <label>{t('label_embed_lyrics')}</label>
                         </div>
@@ -630,7 +626,7 @@ export const SettingsView: React.FC = () => {
                             <input
                                 type="checkbox"
                                 checked={settingsForm.saveLrcFile}
-                                onChange={() => {}}
+                                onChange={() => { }}
                             />
                             <label>{t('label_save_lrc')}</label>
                         </div>
@@ -647,146 +643,118 @@ export const SettingsView: React.FC = () => {
                 <h3 className="section-title">
                     <span className="icon">🎨</span> {t('sec_appearance')}
                 </h3>
-                <div className="appearance-options">
-                    <div className="settings-checkbox-group" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-                        <div className="settings-checkbox-item" onClick={() => setFollowSystem(!followSystem)}>
-                            <input
-                                type="checkbox"
-                                checked={followSystem}
-                                onChange={() => {}}
-                            />
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <span style={{ fontWeight: 700, fontSize: '15px' }}>Follow System Theme</span>
-                                <span style={{ fontSize: '12px', opacity: 0.6 }}>Sync with Windows dark/light mode</span>
-                            </div>
-                        </div>
 
-                        <div className="settings-checkbox-item" onClick={() => setDynamicMode(!dynamicMode)}>
-                            <input
-                                type="checkbox"
-                                checked={dynamicMode}
-                                onChange={() => {}}
-                            />
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <span style={{ fontWeight: 700, fontSize: '15px' }}>Dynamic Theme Mode</span>
-                                <span style={{ fontSize: '12px', opacity: 0.6 }}>Colors based on current album art</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="form-group">
-                        <label>{t('label_theme')}</label>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <select id="theme-select" value={currentTheme.id} onChange={handleThemeChange} style={{ flex: 1 }} disabled={followSystem}>
-                                <option value="default">{t('default_theme') || 'Default Dark'}</option>
-                                <option value="default-light">Default Light</option>
-                                {themes.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
-                                ))}
-                            </select>
-                            <button className="btn primary" onClick={startEditingTheme} title="Create Custom Theme">
-                                <Icons.Plus width={16} height={16} />
+                <div className="form-group">
+                    <label>{t('label_theme')}</label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <select id="theme-select" value={currentTheme.id} onChange={handleThemeChange} style={{ flex: 1 }}>
+                            <option value="default">{t('default_theme') || 'Default Dark'}</option>
+                            {themes.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                        <button className="btn primary" onClick={startEditingTheme} title="Create Custom Theme">
+                            <Icons.Plus width={16} height={16} />
+                        </button>
+                        {currentTheme.id !== 'default' && (
+                            <button
+                                className="btn danger"
+                                onClick={() => setShowDeleteThemeConfirm(currentTheme.id)}
+                                title="Delete Theme"
+                            >
+                                <Icons.Trash width={16} height={16} />
                             </button>
-                            {currentTheme.id !== 'default' && (
-                                <button
-                                    className="btn danger"
-                                    onClick={() => setShowDeleteThemeConfirm(currentTheme.id)}
-                                    title="Delete Theme"
-                                >
-                                    <Icons.Trash width={16} height={16} />
-                                </button>
-                            )}
+                        )}
+                    </div>
+                </div>
+
+                {isEditingTheme && (
+                    <div className="theme-editor" style={{
+                        marginTop: '20px',
+                        padding: '15px',
+                        background: 'var(--bg-elevated)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border)'
+                    }}>
+                        <h4>Create Custom Theme</h4>
+                        <div className="form-group">
+                            <label>Theme Name</label>
+                            <input
+                                type="text"
+                                value={themeName}
+                                onChange={(e) => setThemeName(e.target.value)}
+                                placeholder="My Cool Theme"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Base Mode</label>
+                            <div style={{ display: 'flex', gap: '15px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                                    <input
+                                        type="radio"
+                                        checked={isDarkTheme}
+                                        onChange={() => setIsDarkTheme(true)}
+                                    /> Dark
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                                    <input
+                                        type="radio"
+                                        checked={!isDarkTheme}
+                                        onChange={() => setIsDarkTheme(false)}
+                                    /> Light
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="color-section">
+                            <label style={{ marginBottom: '10px', display: 'block' }}>Colors</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                                {[
+                                    { key: '--bg-dark', label: 'Background' },
+                                    { key: '--bg-card', label: 'Card Background' },
+                                    { key: '--text-primary', label: 'Primary Text' },
+                                    { key: '--accent-rgb', label: 'Accent Color', isRgb: true }
+                                ].map(item => (
+                                    <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <input
+                                            type="color"
+                                            value={
+                                                item.isRgb
+                                                    ? (() => {
+                                                        const rgb = themeColors[item.key] || '99, 102, 241';
+                                                        const [r, g, b] = rgb.split(',').map(s => parseInt(s.trim()));
+                                                        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+                                                    })()
+                                                    : (themeColors[item.key] || '#000000')
+                                            }
+                                            onChange={(e) => {
+                                                let val = e.target.value;
+                                                if (item.isRgb) {
+                                                    const r = parseInt(val.slice(1, 3), 16);
+                                                    const g = parseInt(val.slice(3, 5), 16);
+                                                    const b = parseInt(val.slice(5, 7), 16);
+                                                    val = `${r}, ${g}, ${b}`;
+                                                }
+                                                updateColor(item.key, val);
+                                            }}
+                                            style={{ width: '30px', height: '30px', padding: 0, border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                        />
+                                        <span style={{ fontSize: '13px' }}>{item.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button className="btn secondary" onClick={() => {
+                                setIsEditingTheme(false);
+                                applyTheme(currentTheme);
+                            }}>Cancel</button>
+                            <button className="btn primary" onClick={saveCurrentTheme}>Save Theme</button>
                         </div>
                     </div>
-
-                    {isEditingTheme && (
-                        <div className="theme-editor" style={{
-                            marginTop: '20px',
-                            padding: '15px',
-                            background: 'var(--bg-elevated)',
-                            borderRadius: '8px',
-                            border: '1px solid var(--border)'
-                        }}>
-                            <h4>Create Custom Theme</h4>
-                            <div className="form-group">
-                                <label>Theme Name</label>
-                                <input
-                                    type="text"
-                                    value={themeName}
-                                    onChange={(e) => setThemeName(e.target.value)}
-                                    placeholder="My Cool Theme"
-                                    autoFocus
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Base Mode</label>
-                                <div style={{ display: 'flex', gap: '15px' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-                                        <input
-                                            type="radio"
-                                            checked={isDarkTheme}
-                                            onChange={() => setIsDarkTheme(true)}
-                                        /> Dark
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-                                        <input
-                                            type="radio"
-                                            checked={!isDarkTheme}
-                                            onChange={() => setIsDarkTheme(false)}
-                                        /> Light
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="color-section">
-                                <label style={{ marginBottom: '10px', display: 'block' }}>Colors</label>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                                    {[
-                                        { key: '--bg-dark', label: 'Background' },
-                                        { key: '--bg-card', label: 'Card Background' },
-                                        { key: '--text-primary', label: 'Primary Text' },
-                                        { key: '--accent-rgb', label: 'Accent Color', isRgb: true }
-                                    ].map(item => (
-                                        <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <input
-                                                type="color"
-                                                value={
-                                                    item.isRgb
-                                                        ? (() => {
-                                                            const rgb = themeColors[item.key] || '99, 102, 241';
-                                                            const [r, g, b] = rgb.split(',').map(s => parseInt(s.trim()));
-                                                            return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-                                                        })()
-                                                        : (themeColors[item.key] || '#000000')
-                                                }
-                                                onChange={(e) => {
-                                                    let val = e.target.value;
-                                                    if (item.isRgb) {
-                                                        const r = parseInt(val.slice(1, 3), 16);
-                                                        const g = parseInt(val.slice(3, 5), 16);
-                                                        const b = parseInt(val.slice(5, 7), 16);
-                                                        val = `${r}, ${g}, ${b}`;
-                                                    }
-                                                    updateColor(item.key, val);
-                                                }}
-                                                style={{ width: '30px', height: '30px', padding: 0, border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                                            />
-                                            <span style={{ fontSize: '13px' }}>{item.label}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                                <button className="btn secondary" onClick={() => {
-                                    setIsEditingTheme(false);
-                                    applyTheme(currentTheme);
-                                }}>Cancel</button>
-                                <button className="btn primary" onClick={saveCurrentTheme}>Save Theme</button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
 
             <div className="settings-section" style={{ border: '1px solid var(--danger)', background: 'rgba(220, 53, 69, 0.05)' }}>

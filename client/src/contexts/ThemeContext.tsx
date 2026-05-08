@@ -16,11 +16,6 @@ interface ThemeContextType {
     deleteTheme: (id: string) => Promise<void>;
     applyTheme: (theme: Theme) => void;
     resetTheme: () => void;
-    setDynamicAccent: (colorRgb: string | null, source?: 'player' | 'view') => void;
-    dynamicMode: boolean;
-    setDynamicMode: (enabled: boolean) => void;
-    followSystem: boolean;
-    setFollowSystem: (enabled: boolean) => void;
 }
 
 const defaultTheme: Theme = {
@@ -40,69 +35,13 @@ const defaultTheme: Theme = {
     }
 };
 
-const defaultLightTheme: Theme = {
-    id: 'default-light',
-    name: 'Default Light',
-    is_dark: false,
-    colors: {
-        '--bg-dark': '#f8fafc',
-        '--bg-card': '#ffffff',
-        '--bg-hover': '#f1f5f9',
-        '--bg-elevated': '#fdfdfd',
-        '--text-primary': '#0f172a',
-        '--text-secondary': '#64748b',
-        '--accent-rgb': '99, 102, 241',
-        '--border': '#e2e8f0',
-        '--border-light': '#f1f5f9'
-    }
-};
+
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
     const [themes, setThemes] = useState<Theme[]>([]);
-    const [dynamicColors, setDynamicColors] = useState<{ player: string | null, view: string | null }>({ player: null, view: null });
-    const [dynamicMode, setDynamicMode] = useState(localStorage.getItem('dynamicTheme') === 'true');
-    const [followSystem, setFollowSystem] = useState(localStorage.getItem('followSystemTheme') === 'true');
-
-    useEffect(() => {
-        localStorage.setItem('dynamicTheme', String(dynamicMode));
-    }, [dynamicMode]);
-
-    useEffect(() => {
-        localStorage.setItem('followSystemTheme', String(followSystem));
-        if (followSystem && window.qbzDesktop) {
-            window.qbzDesktop.getSystemTheme().then((theme: 'dark' | 'light') => {
-                handleSystemThemeChange(theme);
-            });
-        }
-    }, [followSystem]);
-
-    const handleSystemThemeChange = (theme: 'dark' | 'light') => {
-        if (!followSystem) return;
-        
-        // Find a suitable theme for the current system mode
-        // If it's dark, we use the default dark. If it's light, we look for a light theme.
-        if (theme === 'dark') {
-            applyTheme(defaultTheme);
-        } else {
-            // Find first light theme or fallback to a generated light theme
-            const lightTheme = themes.find(t => !t.is_dark) || defaultLightTheme;
-            applyTheme(lightTheme);
-        }
-    };
-
-    useEffect(() => {
-        if (window.qbzDesktop) {
-            const cleanup = window.qbzDesktop.onSystemThemeChanged((theme: 'dark' | 'light') => {
-                if (followSystem) {
-                    handleSystemThemeChange(theme);
-                }
-            });
-            return cleanup;
-        }
-    }, [followSystem, themes]);
 
     useEffect(() => {
         fetchThemes();
@@ -135,6 +74,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
 
         if (theme.colors['--accent-rgb']) {
+            root.style.setProperty('--accent-rgb', theme.colors['--accent-rgb']);
             root.style.setProperty('--accent', `rgb(${theme.colors['--accent-rgb']})`);
             root.style.setProperty('--accent-hover', `rgba(${theme.colors['--accent-rgb']}, 0.8)`);
             root.style.setProperty('--accent-glow', `rgba(${theme.colors['--accent-rgb']}, 0.3)`);
@@ -185,28 +125,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         applyTheme(defaultTheme);
     };
 
-    const setDynamicAccent = (colorRgb: string | null, source: 'player' | 'view' = 'view') => {
-        setDynamicColors(prev => ({ ...prev, [source]: colorRgb }));
-    };
-
-    useEffect(() => {
-        const root = document.documentElement;
-        const targetColor = dynamicColors.player || dynamicColors.view || currentTheme.colors['--accent-rgb'] || defaultTheme.colors['--accent-rgb'];
-
-        root.style.setProperty('--accent-rgb', targetColor);
-        root.style.setProperty('--accent', `rgb(${targetColor})`);
-        root.style.setProperty('--accent-hover', `rgba(${targetColor}, 0.8)`);
-        root.style.setProperty('--accent-glow', `rgba(${targetColor}, 0.3)`);
-
-        if (dynamicMode && dynamicColors.player) {
-            root.style.setProperty('--bg-dynamic', `radial-gradient(circle at 100% 100%, rgba(${targetColor}, 0.15) 0%, var(--bg-dark) 100%)`);
-            document.body.classList.add('dynamic-theme-active');
-        } else {
-            root.style.setProperty('--bg-dynamic', 'none');
-            document.body.classList.remove('dynamic-theme-active');
-        }
-    }, [dynamicColors, currentTheme, dynamicMode]);
-
     return (
         <ThemeContext.Provider value={{
             currentTheme,
@@ -215,12 +133,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             saveTheme,
             deleteTheme,
             applyTheme,
-            resetTheme,
-            setDynamicAccent,
-            dynamicMode,
-            setDynamicMode,
-            followSystem,
-            setFollowSystem
+            resetTheme
         }}>
             {children}
         </ThemeContext.Provider>
