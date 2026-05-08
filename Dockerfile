@@ -42,7 +42,7 @@ RUN node scripts/sync-ui.js && \
 FROM node:22-alpine AS production
 
 LABEL maintainer="ifauzeee"
-LABEL version="4.0.0"
+LABEL version="5.0.0"
 
 RUN apk add --no-cache chromaprint
 

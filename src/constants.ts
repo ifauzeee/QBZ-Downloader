@@ -7,4 +7,5 @@ export const URL_PATTERNS = {
     NUMERIC_ID: /^\d+$/
 };
 
-export const APP_VERSION = '4.0.0';
+export const APP_VERSION = '5.0.0';
+
