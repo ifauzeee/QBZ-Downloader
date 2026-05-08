@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import chalk from 'chalk';
 import { Server as HttpServer, createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
-import cors from 'cors';
+
 import { rateLimit } from 'express-rate-limit';
 import path from 'path';
 import crypto from 'crypto';
@@ -34,19 +34,10 @@ export class DashboardService {
         const allowedOrigins = ['http://localhost:' + this.port, 'http://127.0.0.1:' + this.port];
         
         this.io = new SocketServer(this.httpServer, {
-            cors: {
-                origin: (origin, callback) => {
-                    if (!origin || allowedOrigins.includes(origin)) {
-                        callback(null, true);
-                    } else {
-                        callback(new Error('Not allowed by CORS'));
-                    }
-                },
-                methods: ['GET', 'POST']
-            },
             transports: ['websocket', 'polling'],
             allowEIO3: true
         });
+
 
         this.setupMiddleware();
         this.setupRoutes();
@@ -54,17 +45,8 @@ export class DashboardService {
     }
 
     private setupMiddleware(): void {
-        const allowedOrigins = ['http://localhost:' + this.port, 'http://127.0.0.1:' + this.port];
-        this.app.use(cors({
-            origin: (origin, callback) => {
-                if (!origin || allowedOrigins.includes(origin)) {
-                    callback(null, true);
-                } else {
-                    callback(new Error('Not allowed by CORS'));
-                }
-            }
-        }));
         this.app.use(express.json());
+
 
         const limiter = rateLimit({
             windowMs: 15 * 60 * 1000,
