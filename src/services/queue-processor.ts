@@ -226,8 +226,8 @@ export class QueueProcessor {
         logger.error(`Processor Error [${category.toUpperCase()}]: ${err.message}`, 'ERROR');
 
         if (!isRetryable) {
-            downloadQueue.fail(item.id, `${error.message} (non-retryable)`);
-            notifyDownloadError(item.title || 'Item', error.message);
+            downloadQueue.fail(item.id, `${err.message} (non-retryable)`);
+            notifyDownloadError(item.title || 'Item', err.message);
             return;
         }
 
@@ -241,14 +241,15 @@ export class QueueProcessor {
                 'RETRY'
             );
 
-            downloadQueue.fail(item.id, error.message);
+            downloadQueue.fail(item.id, err.message);
 
             await sleep(delay);
         } else {
-            downloadQueue.fail(item.id, error.message);
+            downloadQueue.fail(item.id, err.message);
             logger.error(`Max retries reached for item: ${item.title}`, 'QUEUE');
-            notifyDownloadError(item.title || 'Item', error.message);
+            notifyDownloadError(item.title || 'Item', err.message);
         }
+
     }
 
     private async processTrack(item: QueueItem): Promise<void> {
