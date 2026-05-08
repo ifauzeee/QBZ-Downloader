@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Notification, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -579,6 +579,18 @@ function registerIpc() {
       body: body,
       icon: fs.existsSync(iconPath) ? iconPath : undefined
     }).show();
+  });
+
+  ipcMain.handle('desktop:get-system-theme', () => {
+    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+  });
+
+  nativeTheme.on('updated', () => {
+    const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send('desktop:system-theme-changed', theme);
+    }
   });
 }
 

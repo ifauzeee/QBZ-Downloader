@@ -49,7 +49,9 @@ export const SettingsView: React.FC = () => {
         applyTheme,
         resetTheme,
         dynamicMode,
-        setDynamicMode
+        setDynamicMode,
+        followSystem,
+        setFollowSystem
     } = useTheme();
 
     const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -667,6 +669,21 @@ export const SettingsView: React.FC = () => {
                     <span className="icon">🎨</span> {t('sec_appearance')}
                 </h3>
                 <div className="appearance-options">
+                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={followSystem}
+                                onChange={(e) => setFollowSystem(e.target.checked)}
+                                style={{ width: '18px', height: '18px' }}
+                            />
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontWeight: 600 }}>Follow System Theme</span>
+                                <span style={{ fontSize: '12px', opacity: 0.7 }}>Automatically switch between dark and light modes</span>
+                            </div>
+                        </label>
+                    </div>
+
                     <div className="form-group" style={{ marginBottom: '20px' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                             <input
@@ -685,8 +702,9 @@ export const SettingsView: React.FC = () => {
                     <div className="form-group">
                         <label>{t('label_theme')}</label>
                         <div style={{ display: 'flex', gap: '10px' }}>
-                            <select id="theme-select" value={currentTheme.id} onChange={handleThemeChange} style={{ flex: 1 }}>
+                            <select id="theme-select" value={currentTheme.id} onChange={handleThemeChange} style={{ flex: 1 }} disabled={followSystem}>
                                 <option value="default">{t('default_theme') || 'Default Dark'}</option>
+                                <option value="default-light">Default Light</option>
                                 {themes.map(t => (
                                     <option key={t.id} value={t.id}>{t.name}</option>
                                 ))}

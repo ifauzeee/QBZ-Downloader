@@ -35,6 +35,8 @@ declare global {
         sendPlayerEvent: (type: string, data: any) => void;
         onPlayerEvent: (callback: (type: string, data: any) => void) => () => void;
       };
+      getSystemTheme: () => Promise<'dark' | 'light'>;
+      onSystemThemeChanged: (callback: (theme: 'dark' | 'light') => void) => () => void;
     };
   }
 }
