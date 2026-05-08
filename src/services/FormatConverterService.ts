@@ -8,7 +8,7 @@ import { logger } from '../utils/logger.js';
 const execAsync = promisify(exec);
 
 export class FormatConverterService {
-    async convert(inputPath: string, metadata: any): Promise<string | null> {
+    async convert(inputPath: string): Promise<string | null> {
         const { enabled, format, bitrate, outputDir, keepOriginal } = CONFIG.export;
 
         if (!enabled || !inputPath.endsWith('.flac')) {

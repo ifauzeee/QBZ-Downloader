@@ -280,7 +280,7 @@ export default class DownloadService {
 
             let finalFilePath = filePath;
             if (CONFIG.export.enabled) {
-                const exportedPath = await formatConverterService.convert(filePath, metadata);
+                const exportedPath = await formatConverterService.convert(filePath);
                 if (exportedPath && !CONFIG.export.keepOriginal) {
                     finalFilePath = exportedPath;
                 }
