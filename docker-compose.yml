@@ -1,16 +1,17 @@
-# Docker Compose for QBZ-Downloader (Web Dashboard only)
-
 services:
   qbz-web:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - PUID=${PUID:-1000}
+        - PGID=${PGID:-1000}
     container_name: qbz-web
     restart: unless-stopped
     environment:
       - NODE_ENV=production
       - SQLITE_JOURNAL_MODE=WAL
-    user: "root"
+
     volumes:
       - ./downloads:/app/downloads
       - ./data:/app/data

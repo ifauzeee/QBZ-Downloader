@@ -48,10 +48,13 @@ RUN apk add --no-cache chromaprint
 
 WORKDIR /app
 
-RUN addgroup -g 1001 -S qbz && \
-    adduser -S -u 1001 -G qbz qbz
+ARG PUID=1000
+ARG PGID=1000
 
-# SUPER TURBO: Menggunakan --link untuk penyalinan instan
+RUN addgroup -g ${PGID} -S qbz && \
+    adduser -S -u ${PUID} -G qbz qbz
+
+
 COPY --link --from=prod-deps /app/node_modules ./node_modules
 COPY --link --from=builder /app/dist ./dist
 COPY --link package.json ./
