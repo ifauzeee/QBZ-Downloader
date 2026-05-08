@@ -105,6 +105,44 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     }, [track]);
 
     useEffect(() => {
+        const handleLrcDrop = async (e: any) => {
+            if (!track) {
+                showToast('Play a song first to import lyrics', 'error');
+                return;
+            }
+
+            const { content, fileName } = e.detail;
+            try {
+                const res = await smartFetch(`/api/lyrics/${track.id}/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+
+                if (res && res.ok) {
+                    showToast(`Lyrics imported: ${fileName}`, 'success');
+                    // Refresh lyrics
+                    setLyricsRaw(content);
+                    // Use the existing logic to parse lyrics (assuming it exists in a utility or I can parse it here)
+                    // For now, let's just refetch to be sure or use a local parser if available.
+                    smartFetch(`/api/lyrics/${track.id}`)
+                        .then(r => r?.json())
+                        .then(data => {
+                            if (data?.parsedLyrics) setLyrics(data.parsedLyrics);
+                        });
+                } else {
+                    showToast('Failed to save lyrics', 'error');
+                }
+            } catch (err) {
+                showToast('Error importing lyrics', 'error');
+            }
+        };
+
+        window.addEventListener('qbz:lrc-dropped', handleLrcDrop);
+        return () => window.removeEventListener('qbz:lrc-dropped', handleLrcDrop);
+    }, [track, showToast]);
+
+    useEffect(() => {
         if (!lyrics) return;
         const index = lyrics.findIndex((l, i) => {
             const next = lyrics[i + 1];

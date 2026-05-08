@@ -1,0 +1,73 @@
+.drop-zone-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(var(--accent-rgb), 0.15);
+    backdrop-filter: blur(12px);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 3px dashed var(--accent);
+    margin: 20px;
+    border-radius: 24px;
+}
+
+.drop-zone-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+}
+
+.drop-zone-content {
+    text-align: center;
+    background: var(--bg-card);
+    padding: 40px 60px;
+    border-radius: 32px;
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-light);
+    transform: translateY(20px);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.drop-zone-overlay.active .drop-zone-content {
+    transform: translateY(0);
+}
+
+.drop-zone-icon {
+    width: 80px;
+    height: 80px;
+    background: rgba(var(--accent-rgb), 0.1);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+    color: var(--accent);
+}
+
+.drop-zone-content h2 {
+    font-size: 24px;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.drop-zone-content p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    max-width: 300px;
+    line-height: 1.5;
+}
+
+.drop-zone-file-info {
+    margin-top: 20px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
