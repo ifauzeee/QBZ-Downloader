@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -271,6 +271,26 @@ async function startBackend() {
 
     const serverEntry = path.join(app.getAppPath(), 'dist', 'index.js');
     await import(pathToFileURL(serverEntry).href);
+
+    // Setup Native Notifications Bridge
+    try {
+      const notifServicePath = path.join(app.getAppPath(), 'dist', 'services', 'notifications.js');
+      const { notificationService } = await import(pathToFileURL(notifServicePath).href);
+      
+      notificationService.on('notification', (notif) => {
+        if (!Notification.isSupported()) return;
+        
+        const iconPath = path.join(app.getAppPath(), 'assets', 'desktop', 'icon.png');
+        new Notification({
+          title: notif.title || 'QBZ Downloader',
+          body: notif.message,
+          icon: fs.existsSync(iconPath) ? iconPath : undefined,
+          silent: false
+        }).show();
+      });
+    } catch (err) {
+      console.error('Failed to bridge notification service:', err);
+    }
   })();
 
   return backendBootPromise;
@@ -549,6 +569,16 @@ function registerIpc() {
         win.webContents.send('desktop:player:event', type, data);
       }
     }
+  });
+
+  ipcMain.on('desktop:show-notification', (event, { title, body }) => {
+    if (!Notification.isSupported()) return;
+    const iconPath = path.join(app.getAppPath(), 'assets', 'desktop', 'icon.png');
+    new Notification({
+      title: title || 'QBZ Downloader',
+      body: body,
+      icon: fs.existsSync(iconPath) ? iconPath : undefined
+    }).show();
   });
 }
 

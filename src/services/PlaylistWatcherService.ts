@@ -3,6 +3,7 @@ import { databaseService } from './database/index.js';
 import { downloadQueue } from './queue/queue.js';
 import { logger } from '../utils/logger.js';
 import { historyService } from './history.js';
+import { notificationService } from './notifications.js';
 
 export class PlaylistWatcherService {
     private api: QobuzAPI;
@@ -86,6 +87,10 @@ export class PlaylistWatcherService {
 
             if (newTracksCount > 0) {
                 logger.success(`PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`, 'WATCHER');
+                notificationService.info(
+                    'Playlist Watcher',
+                    `Added ${newTracksCount} new tracks from "${p.title}" to queue.`
+                );
             }
 
             databaseService.updatePlaylistSyncTime(p.id);
