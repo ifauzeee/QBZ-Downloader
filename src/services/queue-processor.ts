@@ -80,6 +80,7 @@ export class QueueProcessor {
     private downloadService: DownloadService;
     private lastErrorTime: number = 0;
     private consecutiveErrors: number = 0;
+    private isProcessingNext: boolean = false;
     private isHydrationRunning: boolean = false;
 
     constructor() {
@@ -155,7 +156,6 @@ export class QueueProcessor {
                             `Failed to hydrate metadata for ${item.contentId}: ${err.message}`
                         );
                     }
-
                 }
             } catch (error) {
                 logger.error(`Metadata hydration error: ${error}`, 'ERROR');
@@ -174,31 +174,42 @@ export class QueueProcessor {
     }
 
     private async processNext(): Promise<void> {
-        if (downloadQueue.isPaused()) return;
+        if (this.isProcessingNext) return;
+        this.isProcessingNext = true;
 
-        if (this.consecutiveErrors >= 5) {
-            const timeSinceLastError = Date.now() - this.lastErrorTime;
-            if (timeSinceLastError < 60000) {
-                logger.warn(
-                    `Circuit breaker active: ${this.consecutiveErrors} consecutive errors. Pausing execution...`,
-                    'SYSTEM'
-                );
-                await sleep(30000);
-                this.consecutiveErrors = Math.max(0, this.consecutiveErrors - 2);
-            } else {
-                this.consecutiveErrors = 0;
+
+        try {
+            if (downloadQueue.isPaused()) return;
+
+            if (this.consecutiveErrors >= 5) {
+                const timeSinceLastError = Date.now() - this.lastErrorTime;
+                if (timeSinceLastError < 60000) {
+                    logger.warn(
+                        `Circuit breaker active: ${this.consecutiveErrors} consecutive errors. Pausing execution...`,
+                        'SYSTEM'
+                    );
+                    await sleep(30000);
+                    this.consecutiveErrors = Math.max(0, this.consecutiveErrors - 2);
+                } else {
+                    this.consecutiveErrors = 0;
+                }
             }
-        }
 
-        let item;
-        while ((item = downloadQueue.dequeue())) {
-            logger.info(`Processing item: ${item.title || item.contentId} (${item.type})`, 'QUEUE');
-            this.runTask(item).catch((err) => {
-                logger.error(`Fatal task error: ${err.message}`, 'QUEUE');
-            });
+            let item;
+            while ((item = downloadQueue.dequeue())) {
+                logger.info(
+                    `Processing item: ${item.title || item.contentId} (${item.type})`,
+                    'QUEUE'
+                );
+                this.runTask(item).catch((err) => {
+                    logger.error(`Fatal task error: ${err.message}`, 'QUEUE');
+                });
+            }
+        } finally {
+            this.isProcessingNext = false;
         }
-
     }
+
 
     private async runTask(item: QueueItem): Promise<void> {
         try {

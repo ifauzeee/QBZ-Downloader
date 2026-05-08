@@ -77,15 +77,23 @@ export class DownloadQueue {
 
         const item = this.getNext();
         if (item) {
-            this.startItem(item.id);
-            return item;
+            const success = this.startItem(item.id);
+            if (success) {
+                return item;
+            }
+            // If starting failed (someone else got it), try the next one
+            return this.dequeue();
         }
         return null;
     }
 
+
     startItem(id: string): boolean {
         const item = this.items.get(id);
         if (!item || item.status !== 'pending') return false;
+        
+        // Final concurrency guard
+        if (this.processing.size >= this.maxConcurrent) return false;
 
         item.status = 'downloading';
         item.startedAt = new Date();
@@ -99,18 +107,26 @@ export class DownloadQueue {
         return true;
     }
 
+
     updateProgress(id: string, progress: number, status?: QueueItemStatus): void {
         const item = this.items.get(id);
         if (!item) return;
 
         item.progress = Math.min(100, Math.max(0, progress));
-        if (status) {
+        if (status && item.status !== status) {
             item.status = status;
+            
+            // If status changed to a finished state, remove from processing
+            const activeStatuses: QueueItemStatus[] = ['downloading', 'processing', 'uploading'];
+            if (!activeStatuses.includes(status)) {
+                this.processing.delete(id);
+            }
         }
         databaseService.updateQueueItemStatus(id, item.status, item.progress);
         this.emit('item:progress', item, progress);
         this.emitGlobalProgress();
     }
+
 
     updateMetadata(id: string, metadata: { title?: string; artist?: any; album?: any }): void {
         const item = this.items.get(id);
