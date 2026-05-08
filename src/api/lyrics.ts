@@ -2,6 +2,8 @@ import { createAxiosInstance } from '../utils/network.js';
 import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger.js';
 
+import { AxiosInstance } from 'axios';
+
 interface LrclibResponse {
     syncedLyrics?: string;
     plainLyrics?: string;
@@ -17,13 +19,24 @@ interface LyricsSearchResult {
     error?: string;
 }
 
+interface ParsedLyric {
+    time: number;
+    timeStr: string;
+    text: string;
+}
+
+interface SyltLine {
+    text: string;
+    timeStamp: number;
+}
+
 interface ProcessedLyrics {
     success: boolean;
     source?: string;
     syncedLyrics?: string | null;
     plainLyrics?: string | null;
-    parsedLyrics?: Record<string, any>[] | null;
-    syltFormat?: Record<string, any>[] | null;
+    parsedLyrics?: ParsedLyric[] | null;
+    syltFormat?: SyltLine[] | null;
     instrumental?: boolean;
     offset?: number;
     error?: string;
@@ -32,7 +45,8 @@ interface ProcessedLyrics {
 class LyricsProvider {
     providers: { name: string; enabled: boolean }[];
     userAgent: string;
-    client: any;
+    client: AxiosInstance;
+
 
     constructor() {
         this.providers = [

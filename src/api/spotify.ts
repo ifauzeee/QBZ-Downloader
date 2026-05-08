@@ -2,6 +2,8 @@ import { createAxiosInstance } from '../utils/network.js';
 import { CONFIG } from '../config.js';
 import { logger } from '../utils/logger.js';
 
+import { AxiosInstance } from 'axios';
+
 export interface SpotifyTrack {
     title: string;
     artist: string;
@@ -10,8 +12,13 @@ export interface SpotifyTrack {
     isrc?: string;
 }
 
+interface SpotifyArtist {
+    name: string;
+}
+
 class SpotifyAPI {
-    private client: any;
+    private client: AxiosInstance;
+
     private accessToken: string | null = null;
     private tokenExpiry: number = 0;
 
@@ -44,10 +51,12 @@ class SpotifyAPI {
             this.tokenExpiry = Date.now() + (response.data.expires_in - 60) * 1000;
             logger.info('Spotify API: Successfully authenticated', 'SPOTIFY');
             return true;
-        } catch (error: any) {
-            logger.error(`Spotify Auth Error: ${error.response?.data?.error || error.message}`, 'SPOTIFY');
+        } catch (error: unknown) {
+            const err = error as any;
+            logger.error(`Spotify Auth Error: ${err.response?.data?.error || err.message}`, 'SPOTIFY');
             return false;
         }
+
     }
 
     async getPlaylistTracks(playlistId: string): Promise<SpotifyTrack[]> {
@@ -67,20 +76,23 @@ class SpotifyAPI {
                     if (!item.track) continue;
                     tracks.push({
                         title: item.track.name,
-                        artist: item.track.artists.map((a: any) => a.name).join(', '),
+                        artist: item.track.artists.map((a: SpotifyArtist) => a.name).join(', '),
                         album: item.track.album.name,
                         duration_ms: item.track.duration_ms,
                         isrc: item.track.external_ids?.isrc
                     });
+
                 }
 
                 url = response.data.next;
             }
             return tracks;
-        } catch (error: any) {
-            logger.error(`Spotify Playlist Error: ${error.message}`, 'SPOTIFY');
+        } catch (error: unknown) {
+            const err = error as Error;
+            logger.error(`Spotify Playlist Error: ${err.message}`, 'SPOTIFY');
             throw error;
         }
+
     }
 
     async getAlbumTracks(albumId: string): Promise<SpotifyTrack[]> {
@@ -103,18 +115,21 @@ class SpotifyAPI {
                 for (const item of response.data.items) {
                     tracks.push({
                         title: item.name,
-                        artist: item.artists.map((a: any) => a.name).join(', '),
+                        artist: item.artists.map((a: SpotifyArtist) => a.name).join(', '),
                         album: albumName,
                         duration_ms: item.duration_ms
                     });
                 }
+
                 url = response.data.next;
             }
             return tracks;
-        } catch (error: any) {
-            logger.error(`Spotify Album Error: ${error.message}`, 'SPOTIFY');
+        } catch (error: unknown) {
+            const err = error as Error;
+            logger.error(`Spotify Album Error: ${err.message}`, 'SPOTIFY');
             throw error;
         }
+
     }
 
     async getTrack(trackId: string): Promise<SpotifyTrack | null> {
@@ -125,15 +140,18 @@ class SpotifyAPI {
             });
             return {
                 title: response.data.name,
-                artist: response.data.artists.map((a: any) => a.name).join(', '),
+                artist: response.data.artists.map((a: SpotifyArtist) => a.name).join(', '),
                 album: response.data.album.name,
                 duration_ms: response.data.duration_ms,
                 isrc: response.data.external_ids?.isrc
             };
-        } catch (error: any) {
-            logger.error(`Spotify Track Error: ${error.message}`, 'SPOTIFY');
+
+        } catch (error: unknown) {
+            const err = error as Error;
+            logger.error(`Spotify Track Error: ${err.message}`, 'SPOTIFY');
             return null;
         }
+
     }
 
     extractId(url: string): { id: string; type: 'playlist' | 'album' | 'track' } | null {

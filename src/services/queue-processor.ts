@@ -149,11 +149,13 @@ export class QueueProcessor {
                         }
 
                         await sleep(200);
-                    } catch (e: any) {
+                    } catch (e: unknown) {
+                        const err = e as Error;
                         logger.debug(
-                            `Failed to hydrate metadata for ${item.contentId}: ${e.message}`
+                            `Failed to hydrate metadata for ${item.contentId}: ${err.message}`
                         );
                     }
+
                 }
             } catch (error) {
                 logger.error(`Metadata hydration error: ${error}`, 'ERROR');
@@ -206,21 +208,22 @@ export class QueueProcessor {
                 await this.processBatch(item);
             }
             this.consecutiveErrors = 0;
-        } catch (error: any) {
+        } catch (error: unknown) {
             await this.handleError(item, error);
         } finally {
             this.processNext();
         }
     }
 
-    private async handleError(item: QueueItem, error: any): Promise<void> {
-        const category = categorizeError(error);
+    private async handleError(item: QueueItem, error: unknown): Promise<void> {
+        const err = error as Error;
+        const category = categorizeError(err);
         const isRetryable = isRetryableError(category);
 
         this.lastErrorTime = Date.now();
         this.consecutiveErrors++;
 
-        logger.error(`Processor Error [${category.toUpperCase()}]: ${error.message}`, 'ERROR');
+        logger.error(`Processor Error [${category.toUpperCase()}]: ${err.message}`, 'ERROR');
 
         if (!isRetryable) {
             downloadQueue.fail(item.id, `${error.message} (non-retryable)`);
