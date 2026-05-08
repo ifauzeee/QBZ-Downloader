@@ -29,6 +29,7 @@ let updateState = {
   downloaded: false,
   checkedAt: null
 };
+let miniPlayerWindow = null;
 
 function createLoadingMarkup(message) {
   return `<!doctype html>
@@ -312,6 +313,41 @@ function createWindow() {
   return win;
 }
 
+function createMiniPlayerWindow() {
+  if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+    miniPlayerWindow.focus();
+    return;
+  }
+
+  const iconPath = path.join(app.getAppPath(), 'assets', 'desktop', 'icon.png');
+
+  miniPlayerWindow = new BrowserWindow({
+    width: 320,
+    height: 120,
+    resizable: false,
+    frame: false,
+    alwaysOnTop: true,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    backgroundColor: '#04070d',
+    title: 'QBZ Mini Player',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      spellcheck: false
+    }
+  });
+
+  miniPlayerWindow.loadURL(`${DASHBOARD_URL}?mode=mini`);
+
+  miniPlayerWindow.on('closed', () => {
+    miniPlayerWindow = null;
+  });
+
+  return miniPlayerWindow;
+}
+
 function setupAutoUpdater() {
   if (!autoUpdater || !app.isPackaged) {
     pushUpdateState({ status: 'disabled', message: 'Auto update only active in packaged builds.' });
@@ -491,6 +527,28 @@ function registerIpc() {
     });
 
     return { ok: true };
+  });
+
+  ipcMain.handle('desktop:mini-player:toggle', () => {
+    if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+      miniPlayerWindow.close();
+    } else {
+      createMiniPlayerWindow();
+    }
+  });
+
+  ipcMain.handle('desktop:mini-player:is-open', () => {
+    return !!(miniPlayerWindow && !miniPlayerWindow.isDestroyed());
+  });
+
+  // Proxy player events between windows
+  ipcMain.on('desktop:player:event', (event, type, data) => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      if (win.webContents !== event.sender) {
+        win.webContents.send('desktop:player:event', type, data);
+      }
+    }
   });
 }
 

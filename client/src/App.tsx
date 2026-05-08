@@ -22,6 +22,7 @@ import { LogView } from './components/LogView';
 import { LibraryHealthView } from './components/LibraryHealthView';
 import { AddUrlModal, LoginModal } from './components/Modals';
 import { DesktopSetupGate } from './components/DesktopSetupGate';
+import { MiniPlayer } from './components/MiniPlayer';
 import { Icons } from './components/Icons';
 import { applyAccent } from './utils/theme';
 import { smartFetch } from './utils/api';
@@ -263,6 +264,16 @@ function AppContent() {
     if (updateState.status === 'error') return 'Update Error';
     return 'Updates';
   };
+  
+  const isMiniPlayer = new URLSearchParams(window.location.search).get('mode') === 'mini';
+
+  if (isMiniPlayer) {
+    return (
+      <div className="mini-player-wrapper">
+        <MiniPlayer />
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">

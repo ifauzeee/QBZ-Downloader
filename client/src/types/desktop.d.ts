@@ -29,6 +29,12 @@ declare global {
         install: () => Promise<{ ok: boolean; reason?: string }>;
         onStatusChanged: (callback: (status: DesktopUpdateStatus) => void) => () => void;
       };
+      miniPlayer: {
+        toggle: () => Promise<void>;
+        isOpen: () => Promise<boolean>;
+        sendPlayerEvent: (type: string, data: any) => void;
+        onPlayerEvent: (callback: (type: string, data: any) => void) => () => void;
+      };
     };
   }
 }
