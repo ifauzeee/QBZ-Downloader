@@ -222,6 +222,96 @@ router.post('/lyrics/:id/save', async (req: Request, res: Response) => {
     }
 });
 
+router.post('/lyrics/download', async (req: Request, res: Response) => {
+    try {
+        const { trackId } = req.body;
+        if (!trackId) return res.status(400).json({ error: 'trackId is required' });
+
+        const { downloadService } = await import('../../../index.js');
+        const trackRes = await api.getTrack(trackId);
+        if (!trackRes.success || !trackRes.data) return res.status(404).json({ error: 'Track not found' });
+
+        const track = trackRes.data;
+        const lyrics = await downloadService.lyricsProvider.getLyrics(
+            track.title,
+            track.performer?.name || track.artist?.name || 'Unknown',
+            track.album?.title,
+            track.duration
+        );
+
+        if (lyrics.success) {
+            const historyItem = historyService.get(trackId);
+            if (historyItem && (lyrics.syncedLyrics || lyrics.plainLyrics)) {
+                const { writeFileSync } = await import('fs');
+                const lrcPath = historyItem.filename.replace(/\.[^.]+$/, '.lrc');
+                writeFileSync(lrcPath, lyrics.syncedLyrics || lyrics.plainLyrics || '', 'utf8');
+            }
+            res.json(lyrics);
+        } else {
+            res.status(404).json({ error: 'Lyrics not found' });
+        }
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/lyrics/download-album-zip', async (req: Request, res: Response) => {
+    try {
+        const { albumId } = req.body;
+        if (!albumId) return res.status(400).json({ error: 'albumId is required' });
+
+        const albumRes = await api.getAlbum(albumId);
+        if (!albumRes.success || !albumRes.data) return res.status(404).json({ error: 'Album not found' });
+
+        const album = albumRes.data;
+        const tracks = album.tracks.items;
+
+        const { downloadService } = await import('../../../index.js');
+        const { existsSync, mkdirSync, createWriteStream } = await import('fs');
+        const { default: archiver } = await import('archiver');
+        const path = await import('path');
+
+        const zipDir = path.join(CONFIG.download.outputDir || './downloads', '_lyrics');
+        if (!existsSync(zipDir)) mkdirSync(zipDir, { recursive: true });
+
+        const zipName = `${album.artist.name} - ${album.title} - Lyrics.zip`.replace(/[\\/:*?"<>|]/g, '_');
+        const zipPath = path.join(zipDir, zipName);
+
+        const output = createWriteStream(zipPath);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+
+        output.on('close', () => {
+            logger.info(`Lyrics ZIP created: ${zipName}`, 'LYRICS');
+        });
+
+        archive.pipe(output);
+
+        for (const track of tracks) {
+            try {
+                const lyrics = await downloadService.lyricsProvider.getLyrics(
+                    track.title,
+                    track.performer?.name || track.artist?.name || album.artist.name,
+                    album.title,
+                    track.duration
+                );
+
+                if (lyrics.success && (lyrics.syncedLyrics || lyrics.plainLyrics)) {
+                    const content = lyrics.syncedLyrics || lyrics.plainLyrics || '';
+                    const filename = `${track.track_number.toString().padStart(2, '0')}. ${track.title}.lrc`.replace(/[\\/:*?"<>|]/g, '_');
+                    archive.append(content, { name: filename });
+                }
+            } catch (e) {
+                logger.warn(`Failed to fetch lyrics for ZIP: ${track.title}`, 'LYRICS');
+            }
+        }
+
+        await archive.finalize();
+        res.json({ success: true, filePath: zipPath });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 router.post('/migrate/spotify', async (req: Request, res: Response) => {
     try {
