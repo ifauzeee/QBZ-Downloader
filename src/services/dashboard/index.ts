@@ -53,7 +53,8 @@ export class DashboardService {
                 "default-src 'self'; " +
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-                "img-src 'self' data: https: http:; " +
+                "img-src 'self' data: https: http: blob:; " +
+                "media-src 'self' data: blob: https: http:; " +
                 "connect-src 'self' ws: wss: http: https:; " +
                 "font-src 'self' data: https: https://fonts.gstatic.com;"
             );

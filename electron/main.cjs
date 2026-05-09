@@ -39,6 +39,7 @@ function createLoadingMarkup(message) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';">
     <title>QBZ Downloader</title>
     <style>
       :root {
@@ -435,6 +436,31 @@ function createWindow() {
   return win;
 }
 
+function setupSecurityHeaders() {
+  const { session } = require('electron');
+  
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    // Only apply to our dashboard
+    if (details.url.startsWith(DASHBOARD_URL) || details.url.startsWith('data:')) {
+      const existingCsp = details.responseHeaders['content-security-policy'] || details.responseHeaders['Content-Security-Policy'];
+      
+      // If we already have a CSP (from Express), we might want to ensure media-src is there
+      // But actually, it's cleaner to just set a unified one here for Electron
+      details.responseHeaders['Content-Security-Policy'] = [
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+        "img-src 'self' data: https: http: blob:; " +
+        "media-src 'self' data: blob: https: http:; " +
+        "connect-src 'self' ws: wss: http: https:; " +
+        "font-src 'self' data: https: https://fonts.gstatic.com;"
+      ];
+    }
+    
+    callback({ responseHeaders: details.responseHeaders });
+  });
+}
+
 
 
 
@@ -706,6 +732,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
+    setupSecurityHeaders();
     registerIpc();
     await bootstrap();
   });
