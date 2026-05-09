@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.1.0] - 2026-05-09
+
+### ✨ New Features
+- **Missing Tracks Logging**: Automatically creates a `missing_tracks.txt` file in the album folder when tracks are unavailable or fail to download, providing a clear record of missing content.
+
 ## [5.0.0] - 2026-05-09
 
 ### 🚀 Major New Features

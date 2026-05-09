@@ -763,7 +763,7 @@ class MetadataService {
 
             const processor = new flac.Processor({ parseMetaDataBlocks: true });
             const comments = tags.map(([key, val]) => `${key}=${val}`);
-            const vendor = 'QBZ-Downloader v5.0.0';
+            const vendor = 'QBZ-Downloader v5.1.0';
 
             let metadataInserted = false;
 
