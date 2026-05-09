@@ -13,6 +13,7 @@ import { logger } from './utils/logger.js';
 import figlet from 'figlet';
 import { playlistWatcherService } from './services/PlaylistWatcherService.js';
 import { printLogo } from './utils/ui.js';
+import { CONFIG } from './config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf-8'));
@@ -87,6 +88,17 @@ async function main() {
 
         logger.info('Starting Playlist Watcher Service...', 'WATCHER');
         playlistWatcherService.start();
+
+        // Check for ffmpeg if export is enabled
+        if (CONFIG.export.enabled) {
+            const { formatConverterService } = await import('./services/FormatConverterService.js');
+            if (!(await formatConverterService.isAvailable())) {
+                logger.warn('Converter: export is enabled but ffmpeg was not found in your system PATH.', 'CONVERTER');
+                logger.info('Converter: please install ffmpeg to use the format conversion features.', 'CONVERTER');
+            } else {
+                logger.success('Converter: ffmpeg detected and ready for format conversion.', 'CONVERTER');
+            }
+        }
 
         logger.success('System initialization complete. Waiting for commands.', 'SYSTEM');
 

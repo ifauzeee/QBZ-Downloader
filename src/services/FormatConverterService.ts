@@ -15,6 +15,14 @@ export class FormatConverterService {
             return null;
         }
 
+        if (!(await this.isAvailable())) {
+            logger.error(
+                'Converter: ffmpeg is not installed or not in PATH. Conversion disabled.',
+                'CONVERTER'
+            );
+            return null;
+        }
+
         const baseName = path.basename(inputPath, '.flac');
         const dirName = path.dirname(inputPath);
         const finalOutputDir = outputDir || dirName;
