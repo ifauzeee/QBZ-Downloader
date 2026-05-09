@@ -16,7 +16,6 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
-    const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
     const animationFrameRef = useRef<number | null>(null);
     const [hasError, setHasError] = React.useState(false);
     const [errorMsg, setErrorMsg] = React.useState('');
