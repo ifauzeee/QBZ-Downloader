@@ -4,6 +4,7 @@ import { downloadQueue } from './queue/queue.js';
 import { logger } from '../utils/logger.js';
 import { historyService } from './history.js';
 import { notificationService } from './notifications.js';
+import { normalizeDownloadQuality } from '../config.js';
 
 export class PlaylistWatcherService {
     private api: QobuzAPI;
@@ -77,7 +78,7 @@ export class PlaylistWatcherService {
                 const inQueue = downloadQueue.hasContent('track', trackId);
 
                 if (!inHistory && !inDb && !inQueue) {
-                    downloadQueue.add('track', trackId, p.quality || 27, {
+                    downloadQueue.add('track', trackId, normalizeDownloadQuality(p.quality, 27), {
                         title: track.title,
                         metadata: { source: 'playlist-watcher', playlistTitle: p.title }
                     });

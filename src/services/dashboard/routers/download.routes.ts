@@ -5,7 +5,7 @@ import { databaseService } from '../../database/index.js';
 import { createMigrationService } from '../../migration.js';
 import QobuzAPI from '../../../api/qobuz.js';
 import { logger } from '../../../utils/logger.js';
-import { CONFIG } from '../../../config.js';
+import { CONFIG, normalizeDownloadQuality } from '../../../config.js';
 
 const router = Router();
 const api = new QobuzAPI();
@@ -24,7 +24,7 @@ router.post('/queue/add', async (req: Request, res: Response) => {
         return;
     }
 
-    const q = quality || CONFIG.quality.default || 27;
+    const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
     const item = downloadQueue.add(type, id, q, { title, priority, metadata });
     res.json(item);
 });
@@ -73,7 +73,7 @@ router.post('/item/:id/:action', (req: Request, res: Response) => {
 router.post('/download/track', (req: Request, res: Response) => {
     const { id, quality } = req.body;
     if (!id) return res.status(400).json({ error: 'ID is required' });
-    const q = quality || CONFIG.quality.default || 27;
+    const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
     downloadQueue.add('track', id, q);
     res.json({ success: true });
 });
@@ -81,7 +81,7 @@ router.post('/download/track', (req: Request, res: Response) => {
 router.post('/download/album', async (req: Request, res: Response) => {
     const { id, quality, indices } = req.body;
     if (!id) return res.status(400).json({ error: 'ID is required' });
-    const q = quality || CONFIG.quality.default || 27;
+    const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
 
     const result = await api.getAlbum(id);
     if (result.success && result.data) {

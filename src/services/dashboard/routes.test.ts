@@ -145,6 +145,12 @@ vi.mock('../FormatConverterService.js', () => ({
 }));
 
 vi.mock('../../config.js', () => ({
+    normalizeDownloadQuality: (quality: number | string | null | undefined, fallback = 27) => {
+        if (quality === 'max') return 27;
+        if (quality === 'min') return 5;
+        const parsed = Number(quality ?? fallback);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    },
     CONFIG: {
         credentials: {
             appId: 'test-app-id',

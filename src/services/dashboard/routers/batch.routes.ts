@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { downloadQueue } from '../../queue/queue.js';
 import QobuzAPI from '../../../api/qobuz.js';
 import { logger } from '../../../utils/logger.js';
-import { CONFIG } from '../../../config.js';
+import { CONFIG, normalizeDownloadQuality } from '../../../config.js';
 
 const router = Router();
 const api = new QobuzAPI();
@@ -15,7 +15,7 @@ router.post('/import/direct', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'URLs array is required' });
         }
 
-        const q = quality || CONFIG.quality.default || 27;
+        const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
         let imported = 0;
         let failed = 0;
 

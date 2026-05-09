@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import QobuzAPI from '../../api/qobuz.js';
 import { logger } from '../../utils/logger.js';
 import { cacheService } from '../../utils/cache.js';
-import { CONFIG } from '../../config.js';
+import { CONFIG, normalizeDownloadQuality } from '../../config.js';
 
 export interface PreviewInfo {
     trackId: string;
@@ -60,7 +60,7 @@ class AudioPreviewService extends EventEmitter {
 
             const track = trackResult.data;
 
-            const streamQuality = CONFIG.quality.streaming || 5;
+            const streamQuality = normalizeDownloadQuality(CONFIG.quality.streaming, 5);
             const urlResult = await this.api.getFileUrl(trackId, streamQuality);
 
             if (!urlResult.success || !urlResult.data) {
@@ -95,9 +95,12 @@ class AudioPreviewService extends EventEmitter {
         }
     }
 
-    async getStreamUrl(trackId: string, quality?: number): Promise<string | null> {
+    async getStreamUrl(trackId: string, quality?: number | string): Promise<string | null> {
         try {
-            const preferredQuality = quality || CONFIG.quality.streaming || 5;
+            const preferredQuality = normalizeDownloadQuality(
+                quality,
+                CONFIG.quality.streaming || 5
+            );
             const result = await this.api.getFileUrl(trackId, preferredQuality);
 
             if (result.success && result.data) {

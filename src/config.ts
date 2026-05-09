@@ -296,4 +296,24 @@ export const getQualityEmoji = (formatId: number) => {
     return emojis[formatId] || '🎵';
 };
 
+export const normalizeDownloadQuality = (
+    value: number | string | null | undefined,
+    fallback: number | string | null | undefined = 27
+): number => {
+    const normalize = (candidate: number | string | null | undefined): number | null => {
+        if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
+        if (typeof candidate !== 'string') return null;
+
+        const trimmed = candidate.trim().toLowerCase();
+        if (!trimmed || trimmed === 'ask') return null;
+        if (trimmed === 'max') return 27;
+        if (trimmed === 'min') return 5;
+
+        const parsed = Number(trimmed);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    return normalize(value) ?? normalize(fallback) ?? 27;
+};
+
 export default CONFIG;

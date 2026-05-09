@@ -3,7 +3,7 @@ import { cacheService } from '../utils/cache.js';
 import { logger } from '../utils/logger.js';
 import { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import crypto from 'crypto';
-import { CONFIG } from '../config.js';
+import { CONFIG, normalizeDownloadQuality } from '../config.js';
 import { APIError, AuthenticationError } from '../utils/errors.js';
 import { refreshUserToken } from '../utils/token.js';
 import { URL_PATTERNS } from '../constants.js';
@@ -274,14 +274,15 @@ class QobuzAPI {
         }
     }
 
-    async getFileUrl(trackId: string | number, formatId = 27): Promise<ApiResponse> {
+    async getFileUrl(trackId: string | number, formatId: number | string = 27): Promise<ApiResponse> {
         try {
-            const { timestamp, signature } = this.generateSignature(trackId, formatId);
+            const requestedFormatId = normalizeDownloadQuality(formatId, 27);
+            const { timestamp, signature } = this.generateSignature(trackId, requestedFormatId);
 
             const response = await this.client.get('/track/getFileUrl', {
                 params: {
                     track_id: trackId,
-                    format_id: formatId,
+                    format_id: requestedFormatId,
                     intent: 'stream',
                     request_ts: timestamp,
                     request_sig: signature,
@@ -291,7 +292,7 @@ class QobuzAPI {
             });
 
             if (response.data) {
-                let detectedFormat = formatId;
+                let detectedFormat = requestedFormatId;
                 const { bit_depth, sampling_rate, mime_type } = response.data;
 
                 if (mime_type === 'audio/mpeg' || mime_type === 'audio/mp3') {
@@ -327,13 +328,15 @@ class QobuzAPI {
 
             return { success: true, data: response.data };
         } catch (error) {
-            if (formatId === 27) {
+            const requestedFormatId = normalizeDownloadQuality(formatId, 27);
+
+            if (requestedFormatId === 27) {
                 return await this.getFileUrl(trackId, 7);
-            } else if (formatId === 7) {
+            } else if (requestedFormatId === 7) {
                 return await this.getFileUrl(trackId, 6);
-            } else if (formatId === 6) {
+            } else if (requestedFormatId === 6) {
                 return await this.getFileUrl(trackId, 5);
-            } else if (formatId === 5) {
+            } else if (requestedFormatId === 5) {
                 // Last resort: format 1 is often used for 30s preview
                 return await this.getFileUrl(trackId, 1);
             }

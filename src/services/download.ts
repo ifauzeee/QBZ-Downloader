@@ -4,7 +4,7 @@ import pLimit from 'p-limit';
 
 import { logger } from '../utils/logger.js';
 import { retryOperation } from '../utils/async.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, normalizeDownloadQuality } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import MetadataService, { Metadata } from './metadata.js';
@@ -166,9 +166,10 @@ export default class DownloadService {
 
     async downloadTrack(
         trackId: string | number,
-        quality = 27,
+        quality: number | string = 27,
         options: DownloadOptions = {}
     ): Promise<DownloadResult> {
+        const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         let trackInfo;
         try {
             trackInfo = await retryOperation(
@@ -212,7 +213,7 @@ export default class DownloadService {
         try {
             fileUrl = await retryOperation(
                 async () => {
-                    const res = await this.api.getFileUrl(trackId, quality);
+                    const res = await this.api.getFileUrl(trackId, requestedQuality);
                     if (!res.success) throw new Error(res.error || 'Failed to get file URL');
                     return res;
                 },
@@ -225,7 +226,7 @@ export default class DownloadService {
         }
 
         const fileUrlData = fileUrl.data as FileUrlData;
-        const actualQuality = fileUrlData.format_id || quality;
+        const actualQuality = fileUrlData.format_id || requestedQuality;
         if (options.onQuality) options.onQuality(actualQuality);
 
         let metadata = await this.metadataService.extractMetadata(track, album!, {});
@@ -410,7 +411,8 @@ export default class DownloadService {
         }
     }
 
-    async downloadAlbum(albumId: string | number, quality = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
+    async downloadAlbum(albumId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
+        const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const albumInfo = await this.api.getAlbum(albumId);
         if (!albumInfo.success) return { success: false, error: albumInfo.error };
         const album = albumInfo.data;
@@ -418,7 +420,7 @@ export default class DownloadService {
         const tracks = album?.tracks?.items || [];
         const limit = pLimit(CONFIG.download.concurrent);
 
-        const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, quality, {
+        const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, requestedQuality, {
             album,
             isCancelled: options.isCancelled,
             onProgress: (p) => {
@@ -447,7 +449,8 @@ export default class DownloadService {
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
 
-    async downloadPlaylist(playlistId: string | number, quality = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
+    async downloadPlaylist(playlistId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
+        const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const playlistInfo = await this.api.getPlaylist(playlistId);
         if (!playlistInfo.success) return { success: false, error: playlistInfo.error };
         const playlist = playlistInfo.data!;
@@ -455,7 +458,7 @@ export default class DownloadService {
         const tracks = playlist.tracks.items;
         const limit = pLimit(CONFIG.download.concurrent);
 
-        const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, quality, {
+        const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, requestedQuality, {
             isCancelled: options.isCancelled,
             onProgress: (p) => {
                 if (options.onProgress) options.onProgress(track.id.toString(), {
@@ -483,7 +486,8 @@ export default class DownloadService {
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
 
-    async downloadArtist(artistId: string | number, quality = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
+    async downloadArtist(artistId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
+        const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const artistInfo = await this.api.getArtist(artistId);
         if (!artistInfo.success) return { success: false, error: artistInfo.error };
         
@@ -495,7 +499,7 @@ export default class DownloadService {
         
         const results = [];
         for (const album of albums) {
-            const res = await limit(() => this.downloadAlbum(album.id, quality, options));
+            const res = await limit(() => this.downloadAlbum(album.id, requestedQuality, options));
             results.push(res);
         }
 

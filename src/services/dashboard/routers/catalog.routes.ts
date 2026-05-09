@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import QobuzAPI from '../../../api/qobuz.js';
 import { databaseService } from '../../database/index.js';
+import { normalizeDownloadQuality } from '../../../config.js';
 
 const router = Router();
 const api = new QobuzAPI();
@@ -241,7 +242,7 @@ router.post('/playlists/watch', async (req: Request, res: Response) => {
             id: playlistId,
             playlistId,
             title: playlist.title,
-            quality: quality || 27,
+            quality: normalizeDownloadQuality(quality, 27),
             intervalHours: intervalHours || 24
         });
 

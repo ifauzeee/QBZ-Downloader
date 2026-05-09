@@ -4,6 +4,7 @@ import { generateQueueId } from './utils.js';
 import { logger } from '../../utils/logger.js';
 import { databaseService } from '../database/index.js';
 import { eventBus, EVENTS } from '../../utils/events.js';
+import { CONFIG, normalizeDownloadQuality } from '../../config.js';
 
 export class DownloadQueue {
     private items: Map<string, QueueItem> = new Map();
@@ -19,7 +20,7 @@ export class DownloadQueue {
     add(
         type: DownloadType,
         contentId: string | number,
-        quality: number,
+        quality: number | string,
         options: {
             title?: string;
             priority?: QueuePriority;
@@ -28,11 +29,12 @@ export class DownloadQueue {
         } = {}
     ): QueueItem {
         const id = generateQueueId();
+        const normalizedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const item: QueueItem = {
             id,
             type,
             contentId,
-            quality,
+            quality: normalizedQuality,
             status: 'pending',
             priority: options.priority || 'normal',
             progress: 0,
@@ -140,11 +142,11 @@ export class DownloadQueue {
         this.emit('item:progress', item, item.progress);
     }
 
-    updateQuality(id: string, quality: number): void {
+    updateQuality(id: string, quality: number | string): void {
         const item = this.items.get(id);
         if (!item) return;
 
-        item.quality = quality;
+        item.quality = normalizeDownloadQuality(quality, item.quality);
         databaseService.addQueueItem(item);
         this.emit('item:progress', item, item.progress);
     }
@@ -397,6 +399,7 @@ export class DownloadQueue {
                     item.progress = 0;
                     databaseService.updateQueueItemStatus(item.id, 'pending', 0);
                 }
+                item.quality = normalizeDownloadQuality(item.quality, CONFIG.quality.default);
                 this.items.set(item.id, item);
             }
             logger.info(`Queue: Loaded ${persistedItems.length} items from database`, 'QUEUE');
