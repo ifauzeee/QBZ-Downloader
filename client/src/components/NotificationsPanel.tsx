@@ -2,6 +2,7 @@ import React from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { Icons } from './Icons';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface NotificationsPanelProps {
     isOpen: boolean;
@@ -9,6 +10,7 @@ interface NotificationsPanelProps {
 }
 
 export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose }) => {
+    const { t } = useLanguage();
     const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAll } = useNotifications();
 
     if (!isOpen) return null;
@@ -33,12 +35,12 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
             >
                 <div className="notifications-header">
                     <div className="header-title">
-                        <h3>Notifications</h3>
-                        {unreadCount > 0 && <span className="unread-badge">{unreadCount} new</span>}
+                        <h3>{t('title_notifications')}</h3>
+                        {unreadCount > 0 && <span className="unread-badge">{unreadCount} {t('label_new')}</span>}
                     </div>
                     <div className="header-actions">
                         {notifications.length > 0 && (
-                            <button className="btn-text" onClick={markAllAsRead}>Mark all read</button>
+                            <button className="btn-text" onClick={markAllAsRead}>{t('action_mark_all_read')}</button>
                         )}
                         <button className="btn icon-btn" onClick={onClose}>
                             <Icons.Close />
@@ -51,7 +53,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
                         {notifications.length === 0 ? (
                             <div className="empty-notifications">
                                 <span className="empty-icon">🔔</span>
-                                <p>No notifications yet</p>
+                                <p>{t('msg_no_notifications')}</p>
                             </div>
                         ) : (
                             notifications.map((notif) => (
@@ -91,7 +93,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
                 {notifications.length > 0 && (
                     <div className="notifications-footer">
                         <button className="btn secondary full-width" onClick={clearAll}>
-                            Clear All
+                            {t('action_clear')}
                         </button>
                     </div>
                 )}

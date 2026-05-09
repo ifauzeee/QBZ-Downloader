@@ -7,6 +7,7 @@
     "menu_playlists": "Playlists",
     "menu_history": "History",
     "menu_settings": "Settings",
+    "menu_recommendations": "Recommendations",
     "title_queue": "Download Queue",
     "title_search": "Library Search",
     "title_batch": "Batch Import",
@@ -15,6 +16,7 @@
     "title_playlists": "Watched Playlists",
     "title_history": "Download History",
     "title_settings": "Settings",
+    "title_recommendations": "Recommendations",
     "title_album": "Album View",
     "title_artist": "Artist Detail",
     "title_dashboard": "Dashboard",
@@ -148,5 +150,9 @@
     "label_select_file": "Select File",
     "action_load_staged": "Load Staged",
     "action_start_import": "Start Import",
-    "msg_confirm_clear_staging": "This will clear all staged URLs and current input. This action cannot be undone."
+    "msg_confirm_clear_staging": "This will clear all staged URLs and current input. This action cannot be undone.",
+    "title_notifications": "Notifications",
+    "action_mark_all_read": "Mark all read",
+    "msg_no_notifications": "No notifications yet",
+    "label_new": "new"
 }

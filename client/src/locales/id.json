@@ -7,6 +7,7 @@
     "menu_playlists": "Playlist",
     "menu_history": "Riwayat",
     "menu_settings": "Pengaturan",
+    "menu_recommendations": "Rekomendasi",
     "title_queue": "Antrian Unduhan",
     "title_search": "Pencarian Pustaka",
     "title_batch": "Impor Batch",
@@ -15,6 +16,7 @@
     "title_playlists": "Playlist Tersimpan",
     "title_history": "Riwayat Unduhan",
     "title_settings": "Pengaturan",
+    "title_recommendations": "Rekomendasi",
     "title_album": "Tampilan Album",
     "title_artist": "Detail Artis",
     "title_dashboard": "Dasbor",
@@ -148,5 +150,9 @@
     "label_select_file": "Pilih File",
     "action_load_staged": "Muat Aşamalı",
     "action_start_import": "Mulai Impor",
-    "msg_confirm_clear_staging": "Ini akan menghapus semua URL yang dipentaskan dan input saat ini. Tindakan ini tidak dapat dibatalkan."
+    "msg_confirm_clear_staging": "Ini akan menghapus semua URL yang dipentaskan dan input saat ini. Tindakan ini tidak dapat dibatalkan.",
+    "title_notifications": "Notifikasi",
+    "action_mark_all_read": "Tandai semua dibaca",
+    "msg_no_notifications": "Belum ada notifikasi",
+    "label_new": "baru"
 }
