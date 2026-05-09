@@ -24,37 +24,61 @@ export class QualityScannerService {
                 throw new Error('File not found');
             }
 
-            const cmd16 = `ffmpeg -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
-            const cmd20 = `ffmpeg -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
+            // Using -v error to reduce noise and specifically target mean_volume
+            // Use quotes and ensure we handle potential UTF-8 issues by using a more robust way to call ffmpeg if needed
+            const cmd16 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
+            const cmd20 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
 
             const [result16, result20] = await Promise.all([
-                execPromise(cmd16).catch(e => e),
-                execPromise(cmd20).catch(e => e)
+                execPromise(cmd16).catch(e => {
+                    logger.debug(`FFmpeg 16k error: ${e.message}`);
+                    return { stderr: e.stderr || '' };
+                }),
+                execPromise(cmd20).catch(e => {
+                    logger.debug(`FFmpeg 20k error: ${e.message}`);
+                    return { stderr: e.stderr || '' };
+                })
             ]);
 
-            const mean16 = this.parseMeanVolume(result16.stderr || '');
-            const mean20 = this.parseMeanVolume(result20.stderr || '');
+            const stderr16 = result16.stderr || '';
+            const stderr20 = result20.stderr || '';
 
-            logger.debug(`QualityScan: ${path.basename(filePath)} | Mean >16kHz: ${mean16}dB | Mean >20kHz: ${mean20}dB`);
+            const mean16 = this.parseMeanVolume(stderr16);
+            const mean20 = this.parseMeanVolume(stderr20);
+
+            // Log detailed stats for debugging
+            logger.debug(`QualityScan Details: ${path.basename(filePath)} | >16kHz: ${mean16}dB | >20kHz: ${mean20}dB`);
 
             let isTrueLossless = true;
             let confidence = 100;
             let details = 'Crystal clear high frequencies detected.';
 
-            if (mean16 < -75) {
+            // Slightly more relaxed thresholds to avoid false positives on acoustic/lo-fi tracks
+            // Also check if we actually got a reading (not -100 default)
+            if (mean16 !== -100 && mean16 < -80) {
                 isTrueLossless = false;
                 confidence = 95;
-                details = 'Fake Lossless: Sharp cutoff at 16kHz detected (Common for 128kbps MP3).';
-            } else if (mean20 < -80) {
+                details = 'Fake Lossless: Sharp cutoff at 16kHz detected (Likely transcoded from low-bitrate source).';
+            } else if (mean20 !== -100 && mean20 < -85) {
+                // Many real lossless tracks have a natural roll-off at 20kHz, so we are even more relaxed here
                 isTrueLossless = false;
-                confidence = 80;
-                details = 'Likely Upsampled: High frequency roll-off at 20kHz detected (Common for 320kbps MP3).';
+                confidence = 75;
+                details = 'Likely Upsampled: High frequency roll-off at 20kHz detected (Common for 320kbps MP3 or older recordings).';
+            }
+
+            // If we got -100 for both, something might be wrong with the scan, but we don't want to flag it as fake
+            if (mean16 === -100 && mean20 === -100) {
+                return {
+                    isTrueLossless: true,
+                    confidence: 50,
+                    details: 'Quality scan inconclusive (Frequency analysis failed or no high frequency content found).'
+                };
             }
 
             return {
                 isTrueLossless,
                 confidence,
-                cutoffFrequency: mean20 < -80 ? (mean16 < -75 ? 16000 : 20000) : undefined,
+                cutoffFrequency: !isTrueLossless ? (mean16 < -80 ? 16000 : 20000) : undefined,
                 details
             };
 
@@ -70,7 +94,11 @@ export class QualityScannerService {
 
     private parseMeanVolume(output: string): number {
         const match = output.match(/mean_volume: ([-\d.]+) dB/);
-        return match ? parseFloat(match[1]) : -100;
+        if (match) return parseFloat(match[1]);
+        
+        // If no match, check if there's any output at all. 
+        // If ffmpeg failed, we return -100 as "no signal"
+        return -100;
     }
 }
 

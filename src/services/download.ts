@@ -231,10 +231,13 @@ export default class DownloadService {
                     );
                     if (res.success) {
                         lyricsResult = res;
+                        logger.success(`Lyrics found for: ${metadata.title} (Source: ${res.source})`, 'LYRICS');
                         if (CONFIG.metadata.saveLrcFile) {
                             const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
                             writeFileSync(lrcPath, res.syncedLyrics || res.plainLyrics || '', 'utf8');
                         }
+                    } else {
+                        logger.warn(`No lyrics found for: ${metadata.title}`, 'LYRICS');
                     }
                 } catch (e: any) {
                     logger.error(`Lyrics error: ${e.message}`, 'LYRICS');
@@ -329,10 +332,18 @@ export default class DownloadService {
                 id: trackId.toString(),
                 title: metadata.title,
                 artist: metadata.artist,
+                album_artist: metadata.albumArtist || metadata.artist,
                 album: metadata.album,
+                album_id: metadata.qobuzAlbumId,
+                duration: metadata.duration,
                 quality: quality,
                 file_path: filePath,
                 file_size: size,
+                cover_url: metadata.coverUrl,
+                genre: metadata.genre,
+                year: metadata.year ? parseInt(metadata.year.toString()) : undefined,
+                isrc: metadata.isrc,
+                label: metadata.label,
                 checksum: md5,
                 verification_status: 'verified'
             });
