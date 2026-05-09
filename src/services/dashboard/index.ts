@@ -13,6 +13,7 @@ import { registerRoutes } from './routes.js';
 import { CONFIG } from '../../config.js';
 import { libraryScannerService } from '../library-scanner/index.js';
 import { notificationService } from '../notifications.js';
+import { tokenManager } from '../../utils/token.js';
 import { printBox } from '../../utils/ui.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -238,6 +239,15 @@ export class DashboardService {
 
         notificationService.on('notifications:cleared', () => {
             this.io.emit('notifications:unreadCount', 0);
+        });
+        
+        tokenManager.on('token:invalid', () => {
+            this.io.emit('auth:token-invalid');
+            notificationService.error(
+                'Authentication Failed',
+                'Your Qobuz token is invalid or expired. Please update it in Settings.',
+                { source: 'QOBUZ' }
+            );
         });
     }
 

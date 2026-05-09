@@ -56,7 +56,14 @@ export class DownloadEngine {
                         end: downloaded - 1,
                         highWaterMark: 1024 * 1024 // 1MB buffer for faster reading
                     });
-                    existingData.on('data', (chunk) => md5Hash.update(chunk));
+                    existingData.on('data', (chunk) => {
+                        if (isCancelled && isCancelled()) {
+                            existingData.destroy();
+                            reject(new Error('Cancelled by user during re-hashing'));
+                            return;
+                        }
+                        md5Hash.update(chunk);
+                    });
                     existingData.on('end', resolve);
                     existingData.on('error', reject);
                 });

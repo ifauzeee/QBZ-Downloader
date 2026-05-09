@@ -106,7 +106,7 @@ router.post('/download/artist', async (req: Request, res: Response) => {
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
 
-    const { downloadService } = await import('../../../index.js');
+    const { downloadService } = await import('../../queue-processor.js');
     const result = await downloadService.downloadArtist(id, q);
 
     if (result.success) {
@@ -194,7 +194,7 @@ router.get('/preview/:id', async (req: Request, res: Response) => {
 
 router.get('/lyrics/:id', async (req: Request, res: Response) => {
     try {
-        const { downloadService } = await import('../../../index.js');
+        const { downloadService } = await import('../../queue-processor.js');
         const id = getParam(req.params.id);
 
         const historyItem = historyService.get(id);
@@ -259,7 +259,7 @@ router.post('/lyrics/download', async (req: Request, res: Response) => {
         const { trackId } = req.body;
         if (!trackId) return res.status(400).json({ error: 'trackId is required' });
 
-        const { downloadService } = await import('../../../index.js');
+            const { downloadService } = await import('../../queue-processor.js');
         const trackRes = await api.getTrack(trackId);
         if (!trackRes.success || !trackRes.data) return res.status(404).json({ error: 'Track not found' });
 
@@ -299,7 +299,7 @@ router.post('/lyrics/download-album-zip', async (req: Request, res: Response) =>
         const tracks = album.tracks?.items || [];
         if (tracks.length === 0) return res.status(404).json({ error: 'No tracks found for this album' });
 
-        const { downloadService } = await import('../../../index.js');
+            const { downloadService } = await import('../../queue-processor.js');
         const { existsSync, mkdirSync, createWriteStream } = await import('fs');
         const { default: archiver } = await import('archiver');
         const path = await import('path');

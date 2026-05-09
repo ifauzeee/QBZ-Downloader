@@ -210,20 +210,28 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
 
     useEffect(() => {
         if (track && audioRef.current) {
-
             audioRef.current.src = `/api/stream/${track.id}`;
-            audioRef.current.play().catch(e => console.error(e));
+            audioRef.current.play().catch(e => {
+                console.error('Playback failed:', e);
+                showToast('Playback failed. The track may be restricted or missing.', 'error');
+                setPlaying(false);
+            });
         }
-    }, [track]);
-
-
+    }, [track, showToast]);
 
     useEffect(() => {
         if (audioRef.current) {
-            if (playing) audioRef.current.play().catch(() => { });
-            else audioRef.current.pause();
+            if (playing) {
+                audioRef.current.play().catch(e => {
+                    console.error('Resume failed:', e);
+                    showToast('Failed to resume playback.', 'error');
+                    setPlaying(false);
+                });
+            } else {
+                audioRef.current.pause();
+            }
         }
-    }, [playing]);
+    }, [playing, showToast]);
 
     const togglePlay = React.useCallback(() => setPlaying(prev => !prev), []);
 
@@ -521,12 +529,21 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                         setDuration(e.currentTarget.duration || 0);
                     }}
                     onLoadedMetadata={(e) => {
-
                         setDuration(e.currentTarget.duration);
-                        if (playing) e.currentTarget.play().catch(console.error);
+                        if (playing) {
+                            e.currentTarget.play().catch(e => {
+                                console.error('Play on load failed:', e);
+                                showToast('Playback failed after loading metadata.', 'error');
+                                setPlaying(false);
+                            });
+                        }
                     }}
                     onEnded={handleNext}
-                    onError={(e) => console.error('Audio Error', e)}
+                    onError={(e) => {
+                        console.error('Audio Element Error', e);
+                        showToast('Audio stream error. The track may be unavailable.', 'error');
+                        setPlaying(false);
+                    }}
                 />
 
                 <div className="player-left">

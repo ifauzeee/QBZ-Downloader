@@ -28,8 +28,11 @@ export function resolveBinaryPath(binaryName: string): string {
     }
 
     // 2. Check local 'bin' directory in the application root
-    // In production (Electron), this might be in resourcesPath or similar
-    const appRoot = isDev ? path.join(__dirname, '..', '..') : process.cwd();
+    // In production (Electron), this is in resourcesPath
+    const isDesktop = Boolean(process.versions.electron);
+    const appRoot = isDev 
+        ? path.join(__dirname, '..', '..') 
+        : (isDesktop ? (process as any).resourcesPath : process.cwd());
     const localBinPath = path.join(appRoot, 'bin', nameWithExt);
 
     if (fs.existsSync(localBinPath)) {
