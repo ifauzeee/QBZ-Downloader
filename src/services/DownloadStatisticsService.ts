@@ -224,13 +224,6 @@ class DownloadStatisticsService {
         );
 
         for (const entry of sortedEntries) {
-            if (entry.title && entry.title.includes('Lonely')) {
-                logger.info(
-                    `[STATS DEBUG] Found Lonely: Artist="${entry.artist}", AlbumArtist="${entry.albumArtist}"`,
-                    'STATS'
-                );
-            }
-
             let artistName = entry.albumArtist;
 
             const currentName = artistName || entry.artist || '';
