@@ -9,6 +9,7 @@ import QobuzAPI from '../../../api/qobuz.js';
 import { databaseService } from '../../database/index.js';
 import { historyService } from '../../history.js';
 import { logger } from '../../../utils/logger.js';
+import { formatConverterService } from '../../FormatConverterService.js';
 
 const router = Router();
 const api = new QobuzAPI();
@@ -45,7 +46,12 @@ const APP_SETTING_KEYS = new Set([
     'MEDIA_SERVER_TYPE',
     'MEDIA_SERVER_URL',
     'MEDIA_SERVER_TOKEN',
-    'MEDIA_SERVER_LIBRARY_ID'
+    'MEDIA_SERVER_LIBRARY_ID',
+    'EXPORT_ENABLED',
+    'EXPORT_FORMAT',
+    'EXPORT_BITRATE',
+    'EXPORT_KEEP_ORIGINAL',
+    'EXPORT_PATH'
 ]);
 
 router.get('/status', (req: Request, res: Response) => {
@@ -87,7 +93,7 @@ router.get('/onboarding', (req: Request, res: Response) => {
     });
 });
 
-router.get('/settings', (req: Request, res: Response) => {
+router.get('/settings', async (req: Request, res: Response) => {
     const mask = (s: string) => (s ? s.slice(0, 4) + '****' + s.slice(-4) : '-');
     res.json({
         QOBUZ_APP_ID: CONFIG.credentials.appId,
@@ -121,7 +127,13 @@ router.get('/settings', (req: Request, res: Response) => {
         MEDIA_SERVER_TYPE: CONFIG.mediaServer.type,
         MEDIA_SERVER_URL: CONFIG.mediaServer.url,
         MEDIA_SERVER_TOKEN_CONFIGURED: !!CONFIG.mediaServer.token,
-        MEDIA_SERVER_LIBRARY_ID: CONFIG.mediaServer.libraryId
+        MEDIA_SERVER_LIBRARY_ID: CONFIG.mediaServer.libraryId,
+        EXPORT_ENABLED: CONFIG.export.enabled,
+        EXPORT_FORMAT: CONFIG.export.format,
+        EXPORT_BITRATE: CONFIG.export.bitrate,
+        EXPORT_KEEP_ORIGINAL: CONFIG.export.keepOriginal,
+        EXPORT_PATH: CONFIG.export.outputDir,
+        FFMPEG_AVAILABLE: await formatConverterService.isAvailable()
     });
 });
 
@@ -173,6 +185,11 @@ router.post('/settings/update', async (req: Request, res: Response) => {
         setIfDefined('MEDIA_SERVER_URL', body.media_server_url);
         setIfDefined('MEDIA_SERVER_TOKEN', body.media_server_token);
         setIfDefined('MEDIA_SERVER_LIBRARY_ID', body.media_server_library_id);
+        setIfDefined('EXPORT_ENABLED', body.export_enabled);
+        setIfDefined('EXPORT_FORMAT', body.export_format);
+        setIfDefined('EXPORT_BITRATE', body.export_bitrate);
+        setIfDefined('EXPORT_KEEP_ORIGINAL', body.export_keep_original);
+        setIfDefined('EXPORT_PATH', body.export_path);
 
         if (body.settings && typeof body.settings === 'object') {
             for (const [key, value] of Object.entries(body.settings)) {

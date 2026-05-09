@@ -57,6 +57,15 @@ export class FormatConverterService {
             return null;
         }
     }
+
+    async isAvailable(): Promise<boolean> {
+        try {
+            await execAsync('ffmpeg -version');
+            return true;
+        } catch {
+            return false;
+        }
+    }
 }
 
 export const formatConverterService = new FormatConverterService();

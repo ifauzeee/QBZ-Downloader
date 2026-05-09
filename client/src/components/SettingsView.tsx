@@ -37,6 +37,12 @@ interface AppSettings {
     MEDIA_SERVER_URL: string;
     MEDIA_SERVER_TOKEN_CONFIGURED: boolean;
     MEDIA_SERVER_LIBRARY_ID: string;
+    EXPORT_ENABLED: boolean;
+    EXPORT_FORMAT: string;
+    EXPORT_BITRATE: string;
+    EXPORT_KEEP_ORIGINAL: boolean;
+    EXPORT_PATH: string;
+    FFMPEG_AVAILABLE: boolean;
 }
 
 interface Credentials {
@@ -86,7 +92,12 @@ export const SettingsView: React.FC = () => {
         mediaServerType: 'none',
         mediaServerUrl: '',
         mediaServerToken: '',
-        mediaServerLibraryId: ''
+        mediaServerLibraryId: '',
+        exportEnabled: false,
+        exportFormat: 'mp3',
+        exportBitrate: '320k',
+        exportKeepOriginal: true,
+        exportPath: ''
     });
     const [creds, setCreds] = useState<Credentials | null>(null);
     const [validationResult, setValidationResult] = useState<any>(null);
@@ -147,7 +158,12 @@ export const SettingsView: React.FC = () => {
                     mediaServerType: data.MEDIA_SERVER_TYPE || 'none',
                     mediaServerUrl: data.MEDIA_SERVER_URL || '',
                     mediaServerToken: '',
-                    mediaServerLibraryId: data.MEDIA_SERVER_LIBRARY_ID || ''
+                    mediaServerLibraryId: data.MEDIA_SERVER_LIBRARY_ID || '',
+                    exportEnabled: Boolean(data.EXPORT_ENABLED),
+                    exportFormat: data.EXPORT_FORMAT || 'mp3',
+                    exportBitrate: data.EXPORT_BITRATE || '320k',
+                    exportKeepOriginal: data.EXPORT_KEEP_ORIGINAL !== undefined ? Boolean(data.EXPORT_KEEP_ORIGINAL) : true,
+                    exportPath: data.EXPORT_PATH || ''
                 });
             }
             if (cRes && cRes.ok) setCreds(await cRes.json());
@@ -212,7 +228,12 @@ export const SettingsView: React.FC = () => {
                 media_server_enabled: settingsForm.mediaServerEnabled,
                 media_server_type: settingsForm.mediaServerType,
                 media_server_url: settingsForm.mediaServerUrl,
-                media_server_library_id: settingsForm.mediaServerLibraryId
+                media_server_library_id: settingsForm.mediaServerLibraryId,
+                export_enabled: settingsForm.exportEnabled,
+                export_format: settingsForm.exportFormat,
+                export_bitrate: settingsForm.exportBitrate,
+                export_keep_original: settingsForm.exportKeepOriginal,
+                export_path: settingsForm.exportPath
             };
 
             if (settingsForm.dashboardPassword.trim()) {
@@ -819,6 +840,95 @@ export const SettingsView: React.FC = () => {
                                 onChange={() => { }}
                             />
                             <label>{t('label_ms_enabled')}</label>
+                        </div>
+                    </div>
+                </div>
+                <div style={{ marginTop: '32px' }}>
+                    <button className="btn primary hero" onClick={updateAppSettings} style={{ minHeight: '52px', padding: '0 40px' }}>
+                        {t('action_save_settings')}
+                    </button>
+                </div>
+            </div>
+
+            <div className="settings-section">
+                <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="icon">🔄</span> {t('sec_export')}
+                </h3>
+                <p className="section-desc">{t('desc_export')}</p>
+                
+                <div style={{ 
+                    marginBottom: '24px', 
+                    padding: '12px 16px', 
+                    borderRadius: '12px', 
+                    background: settings?.FFMPEG_AVAILABLE ? 'rgba(var(--success-rgb), 0.1)' : 'rgba(var(--danger-rgb), 0.1)',
+                    border: `1px solid ${settings?.FFMPEG_AVAILABLE ? 'var(--success)' : 'var(--danger)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    fontSize: '0.9em'
+                }}>
+                    <span style={{ fontSize: '1.2em' }}>{settings?.FFMPEG_AVAILABLE ? '✅' : '❌'}</span>
+                    <span style={{ color: settings?.FFMPEG_AVAILABLE ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                        {settings?.FFMPEG_AVAILABLE ? t('msg_ffmpeg_found') : t('msg_ffmpeg_missing')}
+                    </span>
+                </div>
+
+                <div className="update-cred-grid">
+                    <div className="form-group">
+                        <label>{t('label_export_format')}</label>
+                        <select
+                            value={settingsForm.exportFormat}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, exportFormat: e.target.value }))
+                            }
+                        >
+                            <option value="mp3">MP3</option>
+                            <option value="aac">AAC (M4A)</option>
+                            <option value="opus">Opus</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>{t('label_export_bitrate')}</label>
+                        <select
+                            value={settingsForm.exportBitrate}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, exportBitrate: e.target.value }))
+                            }
+                        >
+                            <option value="128k">128 kbps</option>
+                            <option value="192k">192 kbps</option>
+                            <option value="256k">256 kbps</option>
+                            <option value="320k">320 kbps</option>
+                        </select>
+                    </div>
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                        <label>{t('label_export_path')}</label>
+                        <input
+                            type="text"
+                            placeholder="Leave empty to save in same folder as FLAC"
+                            value={settingsForm.exportPath}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, exportPath: e.target.value }))
+                            }
+                        />
+                    </div>
+                    <div className="settings-checkbox-group" style={{ gridColumn: 'span 2' }}>
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, exportEnabled: !prev.exportEnabled }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.exportEnabled}
+                                onChange={() => { }}
+                                disabled={!settings?.FFMPEG_AVAILABLE}
+                            />
+                            <label style={{ opacity: settings?.FFMPEG_AVAILABLE ? 1 : 0.5 }}>{t('label_export_enabled')}</label>
+                        </div>
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, exportKeepOriginal: !prev.exportKeepOriginal }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.exportKeepOriginal}
+                                onChange={() => { }}
+                            />
+                            <label>{t('label_export_keep')}</label>
                         </div>
                     </div>
                 </div>

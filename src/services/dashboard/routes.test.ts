@@ -137,6 +137,13 @@ vi.mock('../../constants.js', () => ({
     APP_VERSION: '2.0.0'
 }));
 
+vi.mock('../FormatConverterService.js', () => ({
+    formatConverterService: {
+        isAvailable: vi.fn().mockResolvedValue(true),
+        convert: vi.fn().mockResolvedValue('/path/to/output.mp3')
+    }
+}));
+
 vi.mock('../../config.js', () => ({
     CONFIG: {
         credentials: {
@@ -199,6 +206,13 @@ vi.mock('../../config.js', () => ({
             url: '',
             token: '',
             libraryId: ''
+        },
+        export: {
+            enabled: false,
+            format: 'mp3',
+            bitrate: '320k',
+            outputDir: '',
+            keepOriginal: true
         }
     }
 }));
