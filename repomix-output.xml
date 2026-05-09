@@ -2372,81 +2372,6 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 export const useToast = () => useContext(ToastContext);
 </file>
 
-<file path="client/src/main.tsx">
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
-
-const isDesktop = typeof window !== 'undefined' && Boolean(window.qbzDesktop?.isDesktop);
-const isWebMode = typeof window !== 'undefined' && window.location.search.includes('mode=web');
-const root = document.getElementById('root');
-
-if (!root) {
-  throw new Error('Root element not found');
-}
-
-if (!isDesktop && !isWebMode) {
-  createRoot(root).render(
-    <StrictMode>
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'grid',
-          placeItems: 'center',
-          background:
-            'radial-gradient(circle at top, #11253b 0%, #05070c 62%)',
-          color: '#e8f1ff',
-          fontFamily: 'Sora, "Segoe UI", sans-serif',
-          padding: '24px'
-        }}
-      >
-        <section
-          style={{
-            width: 'min(560px, 92vw)',
-            border: '1px solid rgba(255,255,255,0.16)',
-            borderRadius: '18px',
-            background: 'rgba(3, 9, 17, 0.82)',
-            backdropFilter: 'blur(8px)',
-            padding: '28px'
-          }}
-        >
-          <h1 style={{ margin: '0 0 10px', fontSize: '24px' }}>
-            QBZ Downloader Desktop Only
-          </h1>
-          <p style={{ margin: 0, lineHeight: 1.7, color: '#bad0ea' }}>
-            This project now runs exclusively as a desktop EXE.
-            Please open the app from the generated installer or portable build.
-          </p>
-        </section>
-      </div>
-    </StrictMode>,
-  );
-} else {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker
-      .getRegistrations()
-      .then((registrations) =>
-        Promise.all(registrations.map((registration) => registration.unregister())),
-      )
-      .catch(() => undefined);
-  }
-
-  if ('caches' in window) {
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-      .catch(() => undefined);
-  }
-
-  createRoot(root).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
-}
-</file>
-
 <file path="client/src/stores/queueStore.ts">
 import { create } from 'zustand';
 import { smartFetch } from '../utils/api';
@@ -4655,87 +4580,6 @@ export async function retryOperation<T>(
 }
 </file>
 
-<file path="src/utils/binaries.ts">
-import { execSync } from 'child_process';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import { logger } from './logger.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const isDev = process.env.NODE_ENV === 'development';
-
-export interface BinaryInfo {
-    path: string;
-    available: boolean;
-    version?: string;
-}
-
-/**
- * Resolves the path to a binary (ffmpeg, fpcalc, etc)
- * prioritizing local versions in the application directory.
- */
-export function resolveBinaryPath(binaryName: string): string {
-    const ext = process.platform === 'win32' ? '.exe' : '';
-    const nameWithExt = `${binaryName}${ext}`;
-
-    // 1. Check environment variable override
-    const envVar = `QBZ_${binaryName.toUpperCase()}_PATH`;
-    if (process.env[envVar] && fs.existsSync(process.env[envVar]!)) {
-        return process.env[envVar]!;
-    }
-
-    // 2. Check local 'bin' directory in the application root
-    // In production (Electron), this might be in resourcesPath or similar
-    const appRoot = isDev ? path.join(__dirname, '..', '..') : process.cwd();
-    const localBinPath = path.join(appRoot, 'bin', nameWithExt);
-
-    if (fs.existsSync(localBinPath)) {
-        return localBinPath;
-    }
-
-    // 3. Check for the binary in the current directory (for portable versions)
-    const portablePath = path.join(process.cwd(), nameWithExt);
-    if (fs.existsSync(portablePath)) {
-        return portablePath;
-    }
-
-    // 4. Fallback to system PATH
-    return binaryName;
-}
-
-/**
- * Validates if a binary is available and functional.
- */
-export async function checkBinaryAvailability(binaryName: string): Promise<BinaryInfo> {
-    const binaryPath = resolveBinaryPath(binaryName);
-    try {
-        const cmd = `"${binaryPath}" -version`;
-        const output = execSync(cmd, { stdio: 'pipe' }).toString();
-        const firstLine = output.split('\n')[0];
-        
-        return {
-            path: binaryPath,
-            available: true,
-            version: firstLine
-        };
-    } catch (err) {
-        return {
-            path: binaryPath,
-            available: false
-        };
-    }
-}
-
-/**
- * Logs a helpful message if a binary is missing.
- */
-export function warnMissingBinary(binaryName: string, featureName: string) {
-    logger.warn(`${binaryName} not found. ${featureName} will be disabled.`, 'BINARIES');
-    logger.info(`To enable ${featureName}, please install ${binaryName} or place ${binaryName}${process.platform === 'win32' ? '.exe' : ''} in the application folder.`, 'BINARIES');
-}
-</file>
-
 <file path="src/utils/cache.ts">
 import { logger } from './logger.js';
 
@@ -5140,24 +4984,6 @@ export function validateSelection(input: string, max: number): string | boolean 
 }
 </file>
 
-<file path="src/utils/limit.ts">
-import pLimit from 'p-limit';
-import { CONFIG } from '../config.js';
-
-/**
- * Global concurrency controller for all Qobuz API requests.
- * This ensures we don't exceed the rate limit even when
- * multiple services (Download, Migration, Search) are active.
- */
-export const globalApiLimit = pLimit(CONFIG.download.concurrent || 4);
-
-/**
- * Global concurrency controller for external metadata/lyrics lookups.
- * Usually more relaxed than the main API.
- */
-export const globalMetadataLimit = pLimit(10);
-</file>
-
 <file path="src/utils/network.ts">
 import axios, { AxiosRequestConfig } from 'axios';
 
@@ -5376,214 +5202,6 @@ export async function refreshUserToken(): Promise<string | null> {
 
     return null;
 }
-</file>
-
-<file path="src/utils/validator.ts">
-import { logger } from './logger.js';
-
-export interface UrlValidationResult {
-    valid: boolean;
-    type?: string;
-    id?: string;
-    error?: string;
-}
-
-export interface QueryValidationResult {
-    valid: boolean;
-    sanitized?: string;
-    error?: string;
-}
-
-export interface ValidatorConfig {
-    maxQueryLength: number;
-    maxUrlLength: number;
-    allowedHosts: string[];
-    strictMode: boolean;
-}
-
-const DEFAULT_CONFIG: ValidatorConfig = {
-    maxQueryLength: 200,
-    maxUrlLength: 500,
-    allowedHosts: ['qobuz.com', 'play.qobuz.com', 'open.qobuz.com', 'www.qobuz.com'],
-    strictMode: true
-};
-
-export class InputValidator {
-    private config: ValidatorConfig;
-
-    private readonly URL_PATTERNS = {
-        album: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?album\/|\/album\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
-        track: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?track\/|\/track\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
-        playlist:
-            /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?playlist\/|\/playlist\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
-        artist: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?(?:interpreter|artist)\/|\/(?:interpreter|artist)\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
-        spotify_album: /spotify\.com\/album\/([a-zA-Z0-9]+)/i,
-        spotify_track: /spotify\.com\/track\/([a-zA-Z0-9]+)/i,
-        spotify_playlist: /spotify\.com\/playlist\/([a-zA-Z0-9]+)/i
-    };
-
-    private readonly DANGEROUS_PATTERNS = [
-        /<script/i,
-        /javascript:/i,
-        /data:/i,
-        /vbscript:/i,
-        /on\w+\s*=/i,
-        /&#/,
-        /%3C/i,
-        /%3E/i
-    ];
-
-    constructor(config: Partial<ValidatorConfig> = {}) {
-        this.config = { ...DEFAULT_CONFIG, ...config };
-    }
-
-    validateUrl(url: string): UrlValidationResult {
-        if (!url || typeof url !== 'string') {
-            return { valid: false, error: 'URL is required' };
-        }
-
-        url = url.trim();
-        if (url.length > this.config.maxUrlLength) {
-            return { valid: false, error: 'URL is too long' };
-        }
-
-        for (const pattern of this.DANGEROUS_PATTERNS) {
-            if (pattern.test(url)) {
-                logger.warn(
-                    `Validator: Dangerous pattern detected in URL: ${url.substring(0, 50)}`
-                );
-                return { valid: false, error: 'Invalid URL format' };
-            }
-        }
-
-        const isQobuz = url.includes('qobuz.com');
-        const isSpotify = url.includes('spotify.com');
-
-        if (!isQobuz && !isSpotify) {
-            return { valid: false, error: 'Not a supported URL (Qobuz/Spotify)' };
-        }
-
-        try {
-            const parsedUrl = new URL(url);
-
-            if (this.config.strictMode) {
-                const host = parsedUrl.hostname.toLowerCase();
-                const allowedHosts = [...this.config.allowedHosts, 'open.spotify.com', 'spotify.com'];
-                if (!allowedHosts.some((h) => host.includes(h))) {
-                    return { valid: false, error: 'Invalid domain' };
-                }
-            }
-
-            if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
-                return { valid: false, error: 'Invalid protocol' };
-            }
-        } catch {
-            // Some URLs might not parse if they are relative, but we handle them with patterns
-        }
-
-        for (const [type, pattern] of Object.entries(this.URL_PATTERNS)) {
-            const match = url.match(pattern);
-            if (match) {
-                const id = match[1];
-
-                if (!this.isValidId(id)) {
-                    return { valid: false, error: 'Invalid ID format' };
-                }
-
-                return { valid: true, type, id };
-            }
-        }
-
-        return { valid: false, error: 'Could not parse URL' };
-    }
-
-    validateQuery(query: string): QueryValidationResult {
-        if (!query || typeof query !== 'string') {
-            return { valid: false, error: 'Query is required' };
-        }
-
-        query = query.trim();
-
-        if (query.length === 0) {
-            return { valid: false, error: 'Query cannot be empty' };
-        }
-        if (query.length > this.config.maxQueryLength) {
-            return {
-                valid: false,
-                error: `Query too long (max ${this.config.maxQueryLength} chars)`
-            };
-        }
-        if (query.length < 2) {
-            return { valid: false, error: 'Query too short (min 2 chars)' };
-        }
-
-        for (const pattern of this.DANGEROUS_PATTERNS) {
-            if (pattern.test(query)) {
-                logger.warn(`Validator: Dangerous pattern in query: ${query.substring(0, 30)}`);
-                return { valid: false, error: 'Invalid query format' };
-            }
-        }
-
-        const sanitized = query
-            .replace(/[<>'"\\]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        if (sanitized.length === 0) {
-            return { valid: false, error: 'Query contains only invalid characters' };
-        }
-
-        return { valid: true, sanitized };
-    }
-
-    validateQuality(quality: number | string): boolean {
-        const validQualities = [5, 6, 7, 27];
-
-        if (typeof quality === 'string') {
-            if (quality === 'ask' || quality === 'min' || quality === 'max') {
-                return true;
-            }
-            quality = parseInt(quality, 10);
-        }
-
-        return !isNaN(quality) && validQualities.includes(quality);
-    }
-
-    isValidId(id: string | number): boolean {
-        if (id === undefined || id === null) return false;
-
-        const strId = String(id);
-
-        if (!/^[a-zA-Z0-9]+$/.test(strId)) return false;
-        if (strId.length < 1 || strId.length > 50) return false;
-
-        return true;
-    }
-
-    sanitizeForDisplay(str: string): string {
-        if (!str || typeof str !== 'string') return '';
-
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#x27;');
-    }
-
-    isValidUserId(userId: string | number): boolean {
-        if (userId === undefined || userId === null) return false;
-
-        const strId = String(userId);
-
-        if (!/^\d+$/.test(strId)) return false;
-        if (strId.length < 1 || strId.length > 20) return false;
-
-        return true;
-    }
-}
-
-export const inputValidator = new InputValidator();
 </file>
 
 <file path="tsconfig.json">
@@ -8454,6 +8072,81 @@ export const useLanguage = () => {
 };
 </file>
 
+<file path="client/src/main.tsx">
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+const isDesktop = typeof window !== 'undefined' && Boolean(window.qbzDesktop?.isDesktop);
+const isWebMode = typeof window !== 'undefined' && window.location.search.includes('mode=web');
+const root = document.getElementById('root');
+
+if (!root) {
+  throw new Error('Root element not found');
+}
+
+if (!isDesktop && !isWebMode) {
+  createRoot(root).render(
+    <StrictMode>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          background:
+            'radial-gradient(circle at top, #11253b 0%, #05070c 62%)',
+          color: '#e8f1ff',
+          fontFamily: 'Sora, "Segoe UI", sans-serif',
+          padding: '24px'
+        }}
+      >
+        <section
+          style={{
+            width: 'min(560px, 92vw)',
+            border: '1px solid rgba(255,255,255,0.16)',
+            borderRadius: '18px',
+            background: 'rgba(3, 9, 17, 0.82)',
+            backdropFilter: 'blur(8px)',
+            padding: '28px'
+          }}
+        >
+          <h1 style={{ margin: '0 0 10px', fontSize: '24px' }}>
+            QBZ Downloader Desktop Only
+          </h1>
+          <p style={{ margin: 0, lineHeight: 1.7, color: '#bad0ea' }}>
+            This project now runs exclusively as a desktop EXE.
+            Please open the app from the generated installer or portable build.
+          </p>
+        </section>
+      </div>
+    </StrictMode>,
+  );
+} else {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister())),
+      )
+      .catch(() => undefined);
+  }
+
+  if ('caches' in window) {
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .catch(() => undefined);
+  }
+
+  createRoot(root).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+}
+</file>
+
 <file path="client/src/styles/CommandPalette.css">
 .command-palette-overlay {
     position: fixed;
@@ -9284,6 +8977,90 @@ export interface FileUrlData {
 }
 </file>
 
+<file path="src/utils/binaries.ts">
+import { execSync } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { logger } from './logger.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isDev = process.env.NODE_ENV === 'development';
+
+export interface BinaryInfo {
+    path: string;
+    available: boolean;
+    version?: string;
+}
+
+/**
+ * Resolves the path to a binary (ffmpeg, fpcalc, etc)
+ * prioritizing local versions in the application directory.
+ */
+export function resolveBinaryPath(binaryName: string): string {
+    const ext = process.platform === 'win32' ? '.exe' : '';
+    const nameWithExt = `${binaryName}${ext}`;
+
+    // 1. Check environment variable override
+    const envVar = `QBZ_${binaryName.toUpperCase()}_PATH`;
+    if (process.env[envVar] && fs.existsSync(process.env[envVar]!)) {
+        return process.env[envVar]!;
+    }
+
+    // 2. Check local 'bin' directory in the application root
+    // In production (Electron), this is in resourcesPath
+    const isDesktop = Boolean(process.versions.electron);
+    const appRoot = isDev 
+        ? path.join(__dirname, '..', '..') 
+        : (isDesktop ? (process as any).resourcesPath : process.cwd());
+    const localBinPath = path.join(appRoot, 'bin', nameWithExt);
+
+    if (fs.existsSync(localBinPath)) {
+        return localBinPath;
+    }
+
+    // 3. Check for the binary in the current directory (for portable versions)
+    const portablePath = path.join(process.cwd(), nameWithExt);
+    if (fs.existsSync(portablePath)) {
+        return portablePath;
+    }
+
+    // 4. Fallback to system PATH
+    return binaryName;
+}
+
+/**
+ * Validates if a binary is available and functional.
+ */
+export async function checkBinaryAvailability(binaryName: string): Promise<BinaryInfo> {
+    const binaryPath = resolveBinaryPath(binaryName);
+    try {
+        const cmd = `"${binaryPath}" -version`;
+        const output = execSync(cmd, { stdio: 'pipe' }).toString();
+        const firstLine = output.split('\n')[0];
+        
+        return {
+            path: binaryPath,
+            available: true,
+            version: firstLine
+        };
+    } catch (err) {
+        return {
+            path: binaryPath,
+            available: false
+        };
+    }
+}
+
+/**
+ * Logs a helpful message if a binary is missing.
+ */
+export function warnMissingBinary(binaryName: string, featureName: string) {
+    logger.warn(`${binaryName} not found. ${featureName} will be disabled.`, 'BINARIES');
+    logger.info(`To enable ${featureName}, please install ${binaryName} or place ${binaryName}${process.platform === 'win32' ? '.exe' : ''} in the application folder.`, 'BINARIES');
+}
+</file>
+
 <file path="src/utils/friendly-errors.ts">
 interface ErrorInfo {
     message: string;
@@ -9455,6 +9232,412 @@ export default {
 };
 </file>
 
+<file path="src/utils/limit.ts">
+import pLimit from 'p-limit';
+import { CONFIG } from '../config.js';
+
+/**
+ * Global concurrency controller for all Qobuz API requests.
+ * This ensures we don't exceed the rate limit even when
+ * multiple services (Download, Migration, Search) are active.
+ */
+export const globalApiLimit = pLimit(CONFIG.download.concurrent || 4);
+
+/**
+ * Global concurrency controller for external metadata/lyrics lookups.
+ * Usually more relaxed than the main API.
+ */
+export const globalMetadataLimit = pLimit(10);
+</file>
+
+<file path="src/utils/logger.ts">
+import chalk from 'chalk';
+import fs from 'fs';
+import path from 'path';
+
+export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'system';
+
+class Logger {
+    private static instance: Logger;
+    private logs: any[] = [];
+    private readonly MAX_LOGS = 500;
+    private readonly LOG_DIR = path.resolve('./logs');
+    private readonly CURRENT_LOG_FILE = 'qbz-latest.log';
+    private readonly MAX_LOG_FILES = 5;
+
+    private constructor() {
+        this.initLogDir();
+    }
+
+    static getInstance(): Logger {
+        if (!Logger.instance) {
+            Logger.instance = new Logger();
+        }
+        return Logger.instance;
+    }
+
+    public getLogs() {
+        return this.logs;
+    }
+
+    private broadcastCallback: ((log: any) => void) | null = null;
+
+    public setBroadcastCallback(callback: (log: any) => void) {
+        this.broadcastCallback = callback;
+    }
+
+    private getTimestamp(): string {
+        return new Date().toLocaleTimeString('en-US', { hour12: false });
+    }
+
+    log(message: string, type: LogType = 'info', scope?: string) {
+        const timestampStr = this.getTimestamp();
+        const logEntry = {
+            timestamp: timestampStr,
+            type,
+            scope: scope?.toUpperCase() || 'SYSTEM',
+            message,
+            time: Date.now()
+        };
+
+        this.logs.push(logEntry);
+        this.writeToLogFile(logEntry);
+
+        if (this.logs.length > this.MAX_LOGS) {
+            this.logs.shift();
+        }
+
+        if (this.broadcastCallback) {
+            this.broadcastCallback(this.logs[this.logs.length - 1]);
+        }
+
+        const timestamp = chalk.gray(timestampStr);
+
+        let icon = '';
+        let badge = '';
+        let colorizedMessage = message;
+
+        switch (type) {
+            case 'success':
+                icon = '✅';
+                badge = chalk.green.bold('SUCCESS'.padEnd(7));
+                colorizedMessage = chalk.greenBright(message);
+                break;
+            case 'warn':
+                icon = '⚠️ ';
+                badge = chalk.yellow.bold('WARNING'.padEnd(7));
+                colorizedMessage = chalk.yellowBright(message);
+                break;
+            case 'error':
+                icon = '❌';
+                badge = chalk.red.bold('ERROR  '.padEnd(7));
+                colorizedMessage = chalk.redBright(message);
+                break;
+            case 'debug':
+                icon = '🐛';
+                badge = chalk.magenta.bold('DEBUG  '.padEnd(7));
+                colorizedMessage = chalk.magenta(message);
+                break;
+            case 'system':
+                icon = '💻';
+                badge = chalk.cyan.bold('SYSTEM '.padEnd(7));
+                colorizedMessage = chalk.cyanBright(message);
+                break;
+            default:
+                icon = 'ℹ️ ';
+                badge = chalk.blue.bold('INFO   '.padEnd(7));
+                colorizedMessage = chalk.white(message);
+        }
+
+        const scopeStr = scope ? scope.toUpperCase() : '';
+        const targetWidth = 8;
+        const padding = Math.max(0, targetWidth - scopeStr.length);
+        const padLeft = Math.floor(padding / 2);
+        const padRight = padding - padLeft;
+        const centeredScope = ' '.repeat(padLeft) + scopeStr + ' '.repeat(padRight);
+
+        const scopeLabel = chalk.bold.white(`[${centeredScope}]`);
+        const separator = chalk.gray('│');
+
+        console.log(
+            `${timestamp} ${separator} ${icon} ${badge} ${separator} ${scopeLabel} ${colorizedMessage}`
+        );
+    }
+
+    info(message: string, scope?: string) {
+        this.log(message, 'info', scope);
+    }
+    success(message: string, scope?: string) {
+        this.log(message, 'success', scope);
+    }
+    warn(message: string, scope?: string) {
+        this.log(message, 'warn', scope);
+    }
+    error(message: string, scope?: string) {
+        this.log(message, 'error', scope);
+    }
+    debug(message: string, scope?: string) {
+        this.log(message, 'debug', scope);
+    }
+    system(message: string, scope?: string) {
+        this.log(message, 'system', scope);
+    }
+
+    private initLogDir() {
+        if (!fs.existsSync(this.LOG_DIR)) {
+            fs.mkdirSync(this.LOG_DIR, { recursive: true });
+        }
+    }
+
+    private writeToLogFile(logEntry: any) {
+        try {
+            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
+            const line = `[${logEntry.timestamp}] [${logEntry.type.toUpperCase().padEnd(7)}] [${logEntry.scope}] ${logEntry.message}\n`;
+
+            if (fs.existsSync(logFilePath) && fs.statSync(logFilePath).size > 5 * 1024 * 1024) {
+                this.rotateLogs();
+            }
+
+            fs.appendFileSync(logFilePath, line, 'utf8');
+        } catch {
+        }
+    }
+
+    private rotateLogs() {
+        try {
+            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
+
+            for (let i = this.MAX_LOG_FILES - 1; i >= 1; i--) {
+                const oldPath = path.join(this.LOG_DIR, `qbz-old-${i}.log`);
+                const nextPath = path.join(this.LOG_DIR, `qbz-old-${i + 1}.log`);
+                if (fs.existsSync(oldPath)) {
+                    if (i === this.MAX_LOG_FILES - 1) {
+                        fs.unlinkSync(oldPath);
+                    } else {
+                        fs.renameSync(oldPath, nextPath);
+                    }
+                }
+            }
+
+            if (fs.existsSync(logFilePath)) {
+                fs.renameSync(logFilePath, path.join(this.LOG_DIR, 'qbz-old-1.log'));
+            }
+        } catch {
+        }
+    }
+}
+
+export const logger = Logger.getInstance();
+</file>
+
+<file path="src/utils/validator.ts">
+import { logger } from './logger.js';
+
+export interface UrlValidationResult {
+    valid: boolean;
+    type?: string;
+    id?: string;
+    error?: string;
+}
+
+export interface QueryValidationResult {
+    valid: boolean;
+    sanitized?: string;
+    error?: string;
+}
+
+export interface ValidatorConfig {
+    maxQueryLength: number;
+    maxUrlLength: number;
+    allowedHosts: string[];
+    strictMode: boolean;
+}
+
+const DEFAULT_CONFIG: ValidatorConfig = {
+    maxQueryLength: 200,
+    maxUrlLength: 500,
+    allowedHosts: ['qobuz.com', 'play.qobuz.com', 'open.qobuz.com', 'www.qobuz.com'],
+    strictMode: true
+};
+
+export class InputValidator {
+    private config: ValidatorConfig;
+
+    private readonly URL_PATTERNS = {
+        album: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?album\/|\/album\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
+        track: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?track\/|\/track\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
+        playlist:
+            /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?playlist\/|\/playlist\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
+        artist: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?(?:interpreter|artist)\/|\/(?:interpreter|artist)\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
+        spotify_album: /spotify\.com\/album\/([a-zA-Z0-9]+)/i,
+        spotify_track: /spotify\.com\/track\/([a-zA-Z0-9]+)/i,
+        spotify_playlist: /spotify\.com\/playlist\/([a-zA-Z0-9]+)/i
+    };
+
+    private readonly DANGEROUS_PATTERNS = [
+        /<script/i,
+        /javascript:/i,
+        /data:/i,
+        /vbscript:/i,
+        /on\w+\s*=/i,
+        /&#/,
+        /%3C/i,
+        /%3E/i
+    ];
+
+    constructor(config: Partial<ValidatorConfig> = {}) {
+        this.config = { ...DEFAULT_CONFIG, ...config };
+    }
+
+    validateUrl(url: string): UrlValidationResult {
+        if (!url || typeof url !== 'string') {
+            return { valid: false, error: 'URL is required' };
+        }
+
+        url = url.trim();
+        if (url.length > this.config.maxUrlLength) {
+            return { valid: false, error: 'URL is too long' };
+        }
+
+        for (const pattern of this.DANGEROUS_PATTERNS) {
+            if (pattern.test(url)) {
+                logger.warn(
+                    `Validator: Dangerous pattern detected in URL: ${url.substring(0, 50)}`
+                );
+                return { valid: false, error: 'Invalid URL format' };
+            }
+        }
+
+        const isQobuz = url.includes('qobuz.com');
+        const isSpotify = url.includes('spotify.com');
+
+        if (!isQobuz && !isSpotify) {
+            return { valid: false, error: 'Not a supported URL (Qobuz/Spotify)' };
+        }
+
+        try {
+            const parsedUrl = new URL(url);
+
+            if (this.config.strictMode) {
+                const host = parsedUrl.hostname.toLowerCase();
+                const allowedHosts = [...this.config.allowedHosts, 'open.spotify.com', 'spotify.com'];
+                if (!allowedHosts.some((h) => host.includes(h))) {
+                    return { valid: false, error: 'Invalid domain' };
+                }
+            }
+
+            if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+                return { valid: false, error: 'Invalid protocol' };
+            }
+        } catch {
+            // Some URLs might not parse if they are relative, but we handle them with patterns
+        }
+
+        for (const [type, pattern] of Object.entries(this.URL_PATTERNS)) {
+            const match = url.match(pattern);
+            if (match) {
+                const id = match[1];
+
+                if (!this.isValidId(id)) {
+                    return { valid: false, error: 'Invalid ID format' };
+                }
+
+                return { valid: true, type, id };
+            }
+        }
+
+        return { valid: false, error: 'Could not parse URL' };
+    }
+
+    validateQuery(query: string): QueryValidationResult {
+        if (!query || typeof query !== 'string') {
+            return { valid: false, error: 'Query is required' };
+        }
+
+        query = query.trim();
+
+        if (query.length === 0) {
+            return { valid: false, error: 'Query cannot be empty' };
+        }
+        if (query.length > this.config.maxQueryLength) {
+            return {
+                valid: false,
+                error: `Query too long (max ${this.config.maxQueryLength} chars)`
+            };
+        }
+        if (query.length < 2) {
+            return { valid: false, error: 'Query too short (min 2 chars)' };
+        }
+
+        for (const pattern of this.DANGEROUS_PATTERNS) {
+            if (pattern.test(query)) {
+                logger.warn(`Validator: Dangerous pattern in query: ${query.substring(0, 30)}`);
+                return { valid: false, error: 'Invalid query format' };
+            }
+        }
+
+        const sanitized = query
+            .replace(/[<>'"\\]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (sanitized.length === 0) {
+            return { valid: false, error: 'Query contains only invalid characters' };
+        }
+
+        return { valid: true, sanitized };
+    }
+
+    validateQuality(quality: number | string): boolean {
+        const validQualities = [5, 6, 7, 27];
+
+        if (typeof quality === 'string') {
+            if (quality === 'ask' || quality === 'min' || quality === 'max') {
+                return true;
+            }
+            quality = parseInt(quality, 10);
+        }
+
+        return !isNaN(quality) && validQualities.includes(quality);
+    }
+
+    isValidId(id: string | number): boolean {
+        if (id === undefined || id === null) return false;
+
+        const strId = String(id);
+
+        if (!/^[a-zA-Z0-9]+$/.test(strId)) return false;
+        if (strId.length < 1 || strId.length > 50) return false;
+
+        return true;
+    }
+
+    sanitizeForDisplay(str: string): string {
+        if (!str || typeof str !== 'string') return '';
+
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    }
+
+    isValidUserId(userId: string | number): boolean {
+        if (userId === undefined || userId === null) return false;
+
+        const strId = String(userId);
+
+        if (!/^\d+$/.test(strId)) return false;
+        if (strId.length < 1 || strId.length > 20) return false;
+
+        return true;
+    }
+}
+
+export const inputValidator = new InputValidator();
+</file>
+
 <file path="client/index.html">
 <!doctype html>
 <html lang="en">
@@ -9476,769 +9659,6 @@ export default {
 </body>
 
 </html>
-</file>
-
-<file path="client/src/components/BatchImportView.tsx">
-import React, { useState } from 'react';
-import { smartFetch } from '../utils/api';
-import { useToast } from '../contexts/ToastContext';
-import { Icons } from './Icons';
-import { ConfirmModal } from './Modals';
-import { useLanguage } from '../contexts/LanguageContext';
-
-export const BatchImportView: React.FC = () => {
-    const { t } = useLanguage();
-    const { showToast } = useToast();
-
-    const [directInput, setDirectInput] = useState('');
-    const [quality, setQuality] = useState(27);
-    const [importing, setImporting] = useState(false);
-
-    const [mode, setMode] = useState<'file' | 'm3u8' | 'csv' | 'direct' | 'spotify'>('direct');
-    const [stagedCount, setStagedCount] = useState(0);
-    const [createZip, setCreateZip] = useState(false);
-
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
-    const [selectedFile, setSelectedFile] = useState<{ name: string, count: number } | null>(null);
-    const [parsedUrls, setParsedUrls] = useState<string[]>([]);
-
-    React.useEffect(() => {
-        const staged = localStorage.getItem('batch_staging_urls');
-        if (staged) {
-            const lines = staged.split('\n').filter(l => l.trim());
-            setStagedCount(lines.length);
-
-            if (!directInput && lines.length > 0 && mode === 'direct') {
-                setDirectInput(staged);
-                showToast(`Auto-loaded ${lines.length} items from staging`, 'success');
-            }
-        } else {
-            setStagedCount(0);
-        }
-
-        if (mode !== 'direct') {
-            setSelectedFile(null);
-            setParsedUrls([]);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    }, [mode]);
-
-    const parseFileContent = (content: string, type: 'file' | 'm3u8' | 'csv') => {
-        const lines = content.split(/\r?\n/);
-        let urls: string[] = [];
-
-        if (type === 'csv') {
-            const allText = content;
-            const matches = allText.match(/https?:\/\/(open\.qobuz\.com|www\.qobuz\.com)\/[a-zA-Z0-9\/_-]+/g);
-            if (matches) {
-                urls = Array.from(new Set(matches));
-            }
-        } else {
-            urls = lines
-                .map(l => l.trim())
-                .filter(l => l && !l.startsWith('#') && l.includes('qobuz.com'));
-        }
-
-        return urls;
-    };
-
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target?.result as string;
-            if (content) {
-                const urls = parseFileContent(content, mode as any);
-                setParsedUrls(urls);
-                setSelectedFile({ name: file.name, count: urls.length });
-                if (urls.length === 0) {
-                    showToast('No Qobuz URLs found in file', 'info');
-                } else {
-                    showToast(`Found ${urls.length} URLs`, 'success');
-                }
-            }
-        };
-        reader.readAsText(file);
-    };
-
-    const handleSpotifyMigration = async () => {
-        if (!directInput.trim()) {
-            showToast('Please enter a Spotify URL', 'error');
-            return;
-        }
-
-        setImporting(true);
-        try {
-            const res = await smartFetch('/api/migrate/spotify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: directInput, quality, download: true })
-            });
-
-            if (res && res.ok) {
-                const result = await res.json();
-                showToast(`Migration started: Found ${result.found}/${result.total} tracks. Enqueued ${result.enqueued} tracks for download.`, 'success');
-                setDirectInput('');
-            } else {
-                const data = await res?.json();
-                showToast(data?.error || 'Migration failed', 'error');
-            }
-        } catch (error: any) {
-            showToast(error.message, 'error');
-        } finally {
-            setImporting(false);
-        }
-    };
-
-    const handleImport = async () => {
-        if (mode === 'spotify') {
-            return handleSpotifyMigration();
-        }
-
-        let urlsToImport: string[] = [];
-
-        if (mode === 'direct') {
-            urlsToImport = directInput.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-            if (urlsToImport.length === 0) {
-                showToast('Please enter at least one URL', 'error');
-                return;
-            }
-        } else {
-            if (!selectedFile || parsedUrls.length === 0) {
-                showToast('Please select a valid file with URLs', 'error');
-                return;
-            }
-            urlsToImport = parsedUrls;
-        }
-
-        setImporting(true);
-        try {
-            const res = await smartFetch('/api/batch/import/direct', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ urls: urlsToImport, quality, createZip })
-            });
-
-            if (res && res.ok) {
-                const result = await res.json();
-                if (result.success) {
-                    showToast(`Imported ${result.imported} URLs!`, 'success');
-
-                    if (mode === 'direct') {
-                        setDirectInput('');
-                        if (localStorage.getItem('batch_staging_urls')) {
-                            localStorage.removeItem('batch_staging_urls');
-                            setStagedCount(0);
-                        }
-                    } else {
-                        setSelectedFile(null);
-                        setParsedUrls([]);
-                        if (fileInputRef.current) fileInputRef.current.value = '';
-                    }
-                } else {
-                    showToast(`Partial success: ${result.imported} imported, ${result.failed} failed`, 'info');
-                }
-            } else {
-                const data = await res?.json();
-                showToast(data?.error || 'Import failed', 'error');
-            }
-        } catch (error: any) {
-            showToast(error.message, 'error');
-        } finally {
-            setImporting(false);
-        }
-    };
-
-    const loadFromStaging = () => {
-        const staged = localStorage.getItem('batch_staging_urls');
-        if (staged) {
-            const current = directInput ? directInput + (directInput.endsWith('\n') ? '' : '\n') : '';
-            setDirectInput(current + staged);
-            const lines = staged.split('\n').filter(l => l.trim());
-            showToast(`Loaded ${lines.length} URLs from Staging`, 'success');
-        } else {
-            showToast('No staged URLs found', 'info');
-        }
-    };
-
-
-    const [showConfirmClear, setShowConfirmClear] = useState(false);
-
-    const clearStaging = () => {
-        setShowConfirmClear(true);
-    };
-
-    const executeClearStaging = () => {
-        localStorage.removeItem('batch_staging_urls');
-        setStagedCount(0);
-        setDirectInput('');
-        showToast('Staging and input cleared', 'success');
-        setShowConfirmClear(false);
-    };
-
-    const qualityOptions = [
-        { value: 5, label: 'MP3', detail: '320kbps' },
-        { value: 6, label: 'CD', detail: '16-bit / 44.1kHz' },
-        { value: 7, label: 'Hi-Res', detail: '24-bit / 96kHz' },
-        { value: 27, label: 'Max', detail: 'Up to 24-bit / 192kHz' },
-    ];
-
-    return (
-        <div id="view-batch" className="view-section active">
-            <div className="batch-grid">
-
-                {/* Top: Mode Selection */}
-                <div className="batch-sidebar">
-                    <div className="sidebar-group">
-                        <div className="sidebar-title">{t('label_input_source')}</div>
-                        <div className="modes-grid">
-                            <button className={`mode-card ${mode === 'direct' ? 'active' : ''}`} onClick={() => setMode('direct')}>
-                                <div className="mode-icon"><Icons.Edit width={18} height={18} /></div>
-                                <div className="mode-info">
-                                    <span className="mode-name">{t('label_direct_input')}</span>
-                                </div>
-                            </button>
-                            <button className={`mode-card ${mode === 'file' ? 'active' : ''}`} onClick={() => setMode('file')}>
-                                <div className="mode-icon"><Icons.File width={18} height={18} /></div>
-                                <div className="mode-info">
-                                    <span className="mode-name">{t('label_text_file')}</span>
-                                </div>
-                            </button>
-                            <button className={`mode-card ${mode === 'm3u8' ? 'active' : ''}`} onClick={() => setMode('m3u8')}>
-                                <div className="mode-icon"><Icons.List width={18} height={18} /></div>
-                                <div className="mode-info">
-                                    <span className="mode-name">{t('label_playlist')}</span>
-                                </div>
-                            </button>
-                            <button className={`mode-card ${mode === 'csv' ? 'active' : ''}`} onClick={() => setMode('csv')}>
-                                <div className="mode-icon"><Icons.Grid width={18} height={18} /></div>
-                                <div className="mode-info">
-                                    <span className="mode-name">{t('label_csv_data')}</span>
-                                </div>
-                            </button>
-                            <button className={`mode-card ${mode === 'spotify' ? 'active' : ''}`} onClick={() => setMode('spotify')}>
-                                <div className="mode-icon"><Icons.Music width={18} height={18} /></div>
-                                <div className="mode-info">
-                                    <span className="mode-name">Spotify</span>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Bottom: Configuration & Action */}
-                <div className="batch-main">
-
-                    {/* Quality Selector */}
-                    <div className="config-section">
-                        <label className="section-label">{t('label_target_quality')}</label>
-                        <div className="quality-grid">
-                            {qualityOptions.map(opt => (
-                                <div
-                                    key={opt.value}
-                                    className={`quality-card ${quality === opt.value ? 'active' : ''}`}
-                                    onClick={() => setQuality(opt.value)}
-                                >
-                                    <div className="quality-label">{opt.label}</div>
-                                    <div className="quality-detail">{opt.detail}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Options Section */}
-                    <div className="config-section">
-                        <label className="section-label">Options</label>
-                        <div
-                            className={`option-card ${createZip ? 'active' : ''}`}
-                            onClick={() => setCreateZip(!createZip)}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                padding: '16px',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '12px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                borderColor: createZip ? 'var(--accent)' : 'var(--border)'
-                            }}
-                        >
-                            <div style={{
-                                width: '20px',
-                                height: '20px',
-                                borderRadius: '4px',
-                                border: `2px solid ${createZip ? 'var(--accent)' : 'var(--text-secondary)'}`,
-                                background: createZip ? 'var(--accent)' : 'transparent',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white'
-                            }}>
-                                {createZip && <Icons.Check width={14} height={14} />}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t('label_create_zip')}</span>
-                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('label_zip_desc')}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Input Area */}
-                    <div className="config-section">
-                        <label className="section-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>{mode === 'direct' ? t('label_url_list') : mode === 'spotify' ? 'Spotify URL' : t('label_select_file')}</span>
-                            {mode === 'direct' && (
-                                <div className="action-links">
-                                    <button className="text-btn" onClick={loadFromStaging} disabled={stagedCount === 0}>
-                                        {t('action_load_staged')} {stagedCount > 0 && `(${stagedCount})`}
-                                    </button>
-                                    <button className="text-btn danger" onClick={clearStaging} disabled={stagedCount === 0 && !directInput}>
-                                        {t('action_clear')}
-                                    </button>
-                                </div>
-                            )}
-                        </label>
-
-                        {mode === 'direct' ? (
-                            <div className="input-wrapper">
-                                <textarea
-                                    className="custom-textarea"
-                                    value={directInput}
-                                    onChange={e => setDirectInput(e.target.value)}
-                                    placeholder={mode === 'spotify' ? 'https://open.spotify.com/playlist/...' : `https://open.qobuz.com/track/12345\nhttps://open.qobuz.com/album/67890`}
-                                    spellCheck={false}
-                                />
-                                <div className="input-footer">
-                                    {mode === 'spotify' ? 'Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.' : 'Supports Tracks, Albums, Artists, Playlists. One URL per line.'}
-                                </div>
-                            </div>
-                        ) : mode === 'spotify' ? (
-                            <div className="input-wrapper">
-                                <textarea
-                                    className="custom-textarea"
-                                    value={directInput}
-                                    onChange={e => setDirectInput(e.target.value)}
-                                    placeholder="https://open.spotify.com/playlist/..."
-                                    spellCheck={false}
-                                />
-                                <div className="input-footer">
-                                    Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="input-wrapper file-selector-wrapper">
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={handleFileSelect}
-                                    style={{ display: 'none' }}
-                                    accept={mode === 'csv' ? '.csv' : mode === 'm3u8' ? '.m3u, .m3u8' : '.txt'}
-                                />
-                                <div
-                                    className="file-drop-card"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    onDragOver={(e) => e.preventDefault()}
-                                    onDrop={(e) => {
-                                        e.preventDefault();
-                                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                                            if (fileInputRef.current) {
-                                                const dT = new DataTransfer();
-                                                dT.items.add(e.dataTransfer.files[0]);
-                                                fileInputRef.current.files = dT.files;
-                                                const event = { target: { files: dT.files } } as any;
-                                                handleFileSelect(event);
-                                            }
-                                        }
-                                    }}
-                                >
-                                    <div className="file-icon-large">
-                                        {mode === 'csv' ? <Icons.Grid width={48} height={48} /> :
-                                            mode === 'm3u8' ? <Icons.List width={48} height={48} /> :
-                                                <Icons.File width={48} height={48} />}
-                                    </div>
-                                    <div className="file-info-text">
-                                        {selectedFile ? (
-                                            <>
-                                                <div className="selected-filename">{selectedFile.name}</div>
-                                                <div className="parsed-count">{selectedFile.count} URLs found</div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div className="upload-prompt">Click to Select {mode.toUpperCase()} File</div>
-                                                <div className="upload-sub">or drag and drop here</div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="input-footer">
-                                    File will be processed locally. Only URLs are extracted.
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Submit Button */}
-                    <div className="action-section">
-                        <button
-                            className="start-btn"
-                            onClick={mode === 'spotify' ? handleSpotifyMigration : handleImport}
-                            disabled={importing || (mode === 'direct' || mode === 'spotify' ? !directInput.trim() : parsedUrls.length === 0)}
-                        >
-                            {importing ? (
-                                <>{t('label_processing')} <div className="spinner small white"></div></>
-                            ) : (
-                                <>{t('action_start_import')} <Icons.Download width={20} height={20} /></>
-                            )}
-                        </button>
-                    </div>
-
-                </div>
-            </div>
-
-            <style>{`
-                .batch-grid {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 32px;
-                    max-width: 1100px;
-                    margin: 0 auto;
-                }
-                
-                .batch-sidebar {
-                    width: 100%;
-                }
-
-                .modes-grid {
-                    display: grid;
-                    grid-template-columns: repeat(4, 1fr);
-                    gap: 16px;
-                }
-                
-                .sidebar-title {
-                    font-size: 13px;
-                    text-transform: uppercase;
-                    letter-spacing: 1.5px;
-                    color: var(--text-secondary);
-                    font-weight: 800;
-                    margin-bottom: 16px;
-                    padding-left: 4px;
-                }
-                
-                .mode-card {
-                    display: flex;
-                    flex-direction: row;
-                    align-items: center;
-                    gap: 12px;
-                    width: 100%;
-                    padding: 16px;
-                    background: var(--bg-card);
-                    border: 1px solid var(--border);
-                    border-radius: 12px;
-                    text-align: left;
-                    cursor: pointer;
-                    transition: border-color 0.2s, background-color 0.2s;
-                }
-                
-                .mode-card:hover {
-                    border-color: var(--accent);
-                    background: var(--bg-hover);
-                }
-                
-                .mode-card.active {
-                    background: rgba(99, 102, 241, 0.15);
-                    border-color: var(--accent);
-                }
-                
-                .mode-icon {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 32px;
-                    height: 32px;
-                    background: var(--bg-hover);
-                    border-radius: 8px;
-                    color: var(--text-secondary);
-                }
-
-                .mode-card.active .mode-icon {
-                    background: var(--accent);
-                    color: white;
-                }
-                
-                .mode-info {
-                    display: flex;
-                    flex-direction: column;
-                }
-                
-                .mode-name {
-                    font-weight: 600;
-                    font-size: 14px;
-                    color: var(--text-primary);
-                }
-                
-                .config-section {
-                    margin-bottom: 32px;
-                    animation: slideUp 0.3s ease-out;
-                }
-                
-                .section-label {
-                    display: block;
-                    font-size: 14px;
-                    font-weight: 600;
-                    margin-bottom: 12px;
-                    color: var(--text-primary);
-                }
-                
-                .quality-grid {
-                    display: grid;
-                    grid-template-columns: repeat(4, 1fr);
-                    gap: 12px;
-                }
-                
-                .quality-card {
-                    background: var(--bg-card);
-                    border: 1px solid var(--border);
-                    border-radius: 12px;
-                    padding: 16px;
-                    cursor: pointer;
-                    text-align: center;
-                    transition: all 0.2s ease;
-                }
-                
-                .quality-card:hover {
-                    border-color: var(--accent);
-                    background: var(--bg-hover);
-                }
-                
-                .quality-card.active {
-                    background: var(--bg-card);
-                    border-color: var(--accent);
-                    box-shadow: 0 0 0 2px var(--accent);
-                }
-                
-                .quality-label {
-                    font-weight: 700;
-                    font-size: 16px;
-                    margin-bottom: 4px;
-                    color: var(--text-primary);
-                }
-                
-                .quality-detail {
-                    font-size: 11px;
-                    color: var(--text-secondary);
-                }
-                
-                .custom-textarea {
-                    width: 100%;
-                    height: 350px;
-                    padding: 20px;
-                    background: var(--bg-input);
-                    border: 1px solid var(--border);
-                    border-radius: 12px;
-                    color: var(--text-primary);
-                    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-                    font-size: 13px;
-                    line-height: 1.6;
-                    resize: vertical;
-                    transition: border-color 0.2s;
-                }
-
-                .custom-textarea::placeholder {
-                    color: var(--text-secondary);
-                    opacity: 0.7;
-                }
-                
-                .custom-textarea:focus {
-                    outline: none;
-                    border-color: var(--accent);
-                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-                }
-                
-                .custom-input {
-                    width: 100%;
-                    padding: 16px;
-                    background: var(--bg-input);
-                    border: 1px solid var(--border);
-                    border-radius: 12px;
-                    color: var(--text-primary);
-                    font-size: 14px;
-                }
-
-                .custom-input::placeholder {
-                    color: var(--text-secondary);
-                    opacity: 0.7;
-                }
-                
-                .custom-input:focus {
-                    outline: none;
-                    border-color: var(--accent);
-                }
-                
-                .input-footer {
-                    margin-top: 12px;
-                    font-size: 12px;
-                    color: var(--text-secondary);
-                    text-align: right;
-                }
-                
-                .text-btn {
-                    background: none;
-                    border: none;
-                    color: var(--accent);
-                    font-size: 12px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    transition: background 0.2s;
-                }
-                
-                .text-btn:hover:not(:disabled) {
-                    background: rgba(99, 102, 241, 0.1);
-                }
-                
-                .text-btn.danger {
-                    color: #ef4444;
-                }
-                
-                .text-btn.danger:hover:not(:disabled) {
-                    background: rgba(239, 68, 68, 0.1);
-                }
-                
-                .text-btn:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }
-                
-                .file-selector-wrapper {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                }
-
-                .file-drop-card {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 16px;
-                    padding: 32px;
-                    background: var(--bg-input);
-                    border: 2px dashed var(--border);
-                    border-radius: 12px;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    min-height: 200px;
-                }
-
-                .file-drop-card:hover {
-                    border-color: var(--accent);
-                    background: var(--bg-hover);
-                }
-
-                .file-icon-large {
-                    color: var(--accent);
-                    opacity: 0.8;
-                }
-
-                .file-info-text {
-                    text-align: center;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                }
-
-                .upload-prompt {
-                    font-weight: 600;
-                    color: var(--text-primary);
-                    font-size: 15px;
-                }
-
-                .upload-sub {
-                    color: var(--text-secondary);
-                    font-size: 13px;
-                }
-
-                .selected-filename {
-                    font-weight: 700;
-                    color: var(--accent);
-                    font-size: 15px;
-                    word-break: break-all;
-                }
-
-                .parsed-count {
-                    font-size: 13px;
-                    color: var(--text-primary);
-                    background: var(--bg-card);
-                    padding: 4px 10px;
-                    border-radius: 12px;
-                    margin-top: 4px;
-                    display: inline-block;
-                }
-
-                .start-btn {
-                    width: 100%;
-                    padding: 18px;
-                    background: var(--accent);
-                    color: white;
-                    border: none;
-                    border-radius: 12px;
-                    font-size: 16px;
-                    font-weight: 800;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 12px;
-                }
-                
-                .start-btn:hover:not(:disabled) {
-                    background: var(--accent-hover);
-                }
-                
-                .start-btn:disabled {
-                    opacity: 0.7;
-                    cursor: not-allowed;
-                }
-                
-                @keyframes slideUp {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-
-                @media (max-width: 900px) {
-                    .modes-grid {
-                        grid-template-columns: repeat(2, 1fr);
-                    }
-                }
-                @media (max-width: 600px) {
-                    .modes-grid {
-                        grid-template-columns: 1fr;
-                    }
-                    .quality-grid {
-                        grid-template-columns: repeat(2, 1fr);
-                    }
-                }
-            `}</style>
-
-            <ConfirmModal
-                isOpen={showConfirmClear}
-                title={t('action_clear')}
-                message={t('msg_confirm_clear_staging')}
-                onConfirm={executeClearStaging}
-                onCancel={() => setShowConfirmClear(false)}
-                confirmText={t('action_clear')}
-                cancelText={t('action_cancel')}
-            />
-
-        </div>
-    );
-};
 </file>
 
 <file path="client/src/components/DropZone.tsx">
@@ -14079,186 +13499,6 @@ class SettingsService {
 export const settingsService = new SettingsService();
 </file>
 
-<file path="src/utils/logger.ts">
-import chalk from 'chalk';
-import fs from 'fs';
-import path from 'path';
-
-export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'system';
-
-class Logger {
-    private static instance: Logger;
-    private logs: any[] = [];
-    private readonly MAX_LOGS = 500;
-    private readonly LOG_DIR = path.resolve('./logs');
-    private readonly CURRENT_LOG_FILE = 'qbz-latest.log';
-    private readonly MAX_LOG_FILES = 5;
-
-    private constructor() {
-        this.initLogDir();
-    }
-
-    static getInstance(): Logger {
-        if (!Logger.instance) {
-            Logger.instance = new Logger();
-        }
-        return Logger.instance;
-    }
-
-    public getLogs() {
-        return this.logs;
-    }
-
-    private broadcastCallback: ((log: any) => void) | null = null;
-
-    public setBroadcastCallback(callback: (log: any) => void) {
-        this.broadcastCallback = callback;
-    }
-
-    private getTimestamp(): string {
-        return new Date().toLocaleTimeString('en-US', { hour12: false });
-    }
-
-    log(message: string, type: LogType = 'info', scope?: string) {
-        const timestampStr = this.getTimestamp();
-        const logEntry = {
-            timestamp: timestampStr,
-            type,
-            scope: scope?.toUpperCase() || 'SYSTEM',
-            message,
-            time: Date.now()
-        };
-
-        this.logs.push(logEntry);
-        this.writeToLogFile(logEntry);
-
-        if (this.logs.length > this.MAX_LOGS) {
-            this.logs.shift();
-        }
-
-        if (this.broadcastCallback) {
-            this.broadcastCallback(this.logs[this.logs.length - 1]);
-        }
-
-        const timestamp = chalk.gray(timestampStr);
-
-        let icon = '';
-        let badge = '';
-        let colorizedMessage = message;
-
-        switch (type) {
-            case 'success':
-                icon = '✅';
-                badge = chalk.green.bold('SUCCESS'.padEnd(7));
-                colorizedMessage = chalk.greenBright(message);
-                break;
-            case 'warn':
-                icon = '⚠️ ';
-                badge = chalk.yellow.bold('WARNING'.padEnd(7));
-                colorizedMessage = chalk.yellowBright(message);
-                break;
-            case 'error':
-                icon = '❌';
-                badge = chalk.red.bold('ERROR  '.padEnd(7));
-                colorizedMessage = chalk.redBright(message);
-                break;
-            case 'debug':
-                icon = '🐛';
-                badge = chalk.magenta.bold('DEBUG  '.padEnd(7));
-                colorizedMessage = chalk.magenta(message);
-                break;
-            case 'system':
-                icon = '💻';
-                badge = chalk.cyan.bold('SYSTEM '.padEnd(7));
-                colorizedMessage = chalk.cyanBright(message);
-                break;
-            default:
-                icon = 'ℹ️ ';
-                badge = chalk.blue.bold('INFO   '.padEnd(7));
-                colorizedMessage = chalk.white(message);
-        }
-
-        const scopeStr = scope ? scope.toUpperCase() : '';
-        const targetWidth = 8;
-        const padding = Math.max(0, targetWidth - scopeStr.length);
-        const padLeft = Math.floor(padding / 2);
-        const padRight = padding - padLeft;
-        const centeredScope = ' '.repeat(padLeft) + scopeStr + ' '.repeat(padRight);
-
-        const scopeLabel = chalk.bold.white(`[${centeredScope}]`);
-        const separator = chalk.gray('│');
-
-        console.log(
-            `${timestamp} ${separator} ${icon} ${badge} ${separator} ${scopeLabel} ${colorizedMessage}`
-        );
-    }
-
-    info(message: string, scope?: string) {
-        this.log(message, 'info', scope);
-    }
-    success(message: string, scope?: string) {
-        this.log(message, 'success', scope);
-    }
-    warn(message: string, scope?: string) {
-        this.log(message, 'warn', scope);
-    }
-    error(message: string, scope?: string) {
-        this.log(message, 'error', scope);
-    }
-    debug(message: string, scope?: string) {
-        this.log(message, 'debug', scope);
-    }
-    system(message: string, scope?: string) {
-        this.log(message, 'system', scope);
-    }
-
-    private initLogDir() {
-        if (!fs.existsSync(this.LOG_DIR)) {
-            fs.mkdirSync(this.LOG_DIR, { recursive: true });
-        }
-    }
-
-    private writeToLogFile(logEntry: any) {
-        try {
-            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
-            const line = `[${logEntry.timestamp}] [${logEntry.type.toUpperCase().padEnd(7)}] [${logEntry.scope}] ${logEntry.message}\n`;
-
-            if (fs.existsSync(logFilePath) && fs.statSync(logFilePath).size > 5 * 1024 * 1024) {
-                this.rotateLogs();
-            }
-
-            fs.appendFileSync(logFilePath, line, 'utf8');
-        } catch {
-        }
-    }
-
-    private rotateLogs() {
-        try {
-            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
-
-            for (let i = this.MAX_LOG_FILES - 1; i >= 1; i--) {
-                const oldPath = path.join(this.LOG_DIR, `qbz-old-${i}.log`);
-                const nextPath = path.join(this.LOG_DIR, `qbz-old-${i + 1}.log`);
-                if (fs.existsSync(oldPath)) {
-                    if (i === this.MAX_LOG_FILES - 1) {
-                        fs.unlinkSync(oldPath);
-                    } else {
-                        fs.renameSync(oldPath, nextPath);
-                    }
-                }
-            }
-
-            if (fs.existsSync(logFilePath)) {
-                fs.renameSync(logFilePath, path.join(this.LOG_DIR, 'qbz-old-1.log'));
-            }
-        } catch {
-        }
-    }
-}
-
-export const logger = Logger.getInstance();
-</file>
-
 <file path="src/utils/ui.ts">
 import boxen from 'boxen';
 import chalk from 'chalk';
@@ -14317,6 +13557,769 @@ export const printWarning = (msg: string) => {
 
 export const printInfo = (msg: string) => {
     console.log(chalk.hex(COLORS.primary)(`\n ${SYMBOLS.info} ${msg}`));
+};
+</file>
+
+<file path="client/src/components/BatchImportView.tsx">
+import React, { useState } from 'react';
+import { smartFetch } from '../utils/api';
+import { useToast } from '../contexts/ToastContext';
+import { Icons } from './Icons';
+import { ConfirmModal } from './Modals';
+import { useLanguage } from '../contexts/LanguageContext';
+
+export const BatchImportView: React.FC = () => {
+    const { t } = useLanguage();
+    const { showToast } = useToast();
+
+    const [directInput, setDirectInput] = useState('');
+    const [quality, setQuality] = useState(27);
+    const [importing, setImporting] = useState(false);
+
+    const [mode, setMode] = useState<'file' | 'm3u8' | 'csv' | 'direct' | 'spotify'>('direct');
+    const [stagedCount, setStagedCount] = useState(0);
+    const [createZip, setCreateZip] = useState(false);
+
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [selectedFile, setSelectedFile] = useState<{ name: string, count: number } | null>(null);
+    const [parsedUrls, setParsedUrls] = useState<string[]>([]);
+
+    React.useEffect(() => {
+        const staged = localStorage.getItem('batch_staging_urls');
+        if (staged) {
+            const lines = staged.split('\n').filter(l => l.trim());
+            setStagedCount(lines.length);
+
+            if (!directInput && lines.length > 0 && mode === 'direct') {
+                setDirectInput(staged);
+                showToast(`Auto-loaded ${lines.length} items from staging`, 'success');
+            }
+        } else {
+            setStagedCount(0);
+        }
+
+        if (mode !== 'direct') {
+            setSelectedFile(null);
+            setParsedUrls([]);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    }, [mode]);
+
+    const parseFileContent = (content: string, type: 'file' | 'm3u8' | 'csv') => {
+        const lines = content.split(/\r?\n/);
+        let urls: string[] = [];
+
+        if (type === 'csv') {
+            const allText = content;
+            const matches = allText.match(/https?:\/\/(open\.qobuz\.com|www\.qobuz\.com)\/[a-zA-Z0-9\/_-]+/g);
+            if (matches) {
+                urls = Array.from(new Set(matches));
+            }
+        } else {
+            urls = lines
+                .map(l => l.trim())
+                .filter(l => l && !l.startsWith('#') && l.includes('qobuz.com'));
+        }
+
+        return urls;
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const content = event.target?.result as string;
+            if (content) {
+                const urls = parseFileContent(content, mode as any);
+                setParsedUrls(urls);
+                setSelectedFile({ name: file.name, count: urls.length });
+                if (urls.length === 0) {
+                    showToast('No Qobuz URLs found in file', 'info');
+                } else {
+                    showToast(`Found ${urls.length} URLs`, 'success');
+                }
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const handleSpotifyMigration = async () => {
+        if (!directInput.trim()) {
+            showToast('Please enter a Spotify URL', 'error');
+            return;
+        }
+
+        setImporting(true);
+        try {
+            const res = await smartFetch('/api/migrate/spotify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: directInput, quality, download: true })
+            });
+
+            if (res && res.ok) {
+                const result = await res.json();
+                showToast(`Migration started: Found ${result.found}/${result.total} tracks. Enqueued ${result.enqueued} tracks for download.`, 'success');
+                setDirectInput('');
+            } else {
+                const data = await res?.json();
+                showToast(data?.error || 'Migration failed', 'error');
+            }
+        } catch (error: any) {
+            showToast(error.message, 'error');
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const handleImport = async () => {
+        if (mode === 'spotify') {
+            return handleSpotifyMigration();
+        }
+
+        let urlsToImport: string[] = [];
+
+        if (mode === 'direct') {
+            urlsToImport = directInput.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+            if (urlsToImport.length === 0) {
+                showToast('Please enter at least one URL', 'error');
+                return;
+            }
+        } else {
+            if (!selectedFile || parsedUrls.length === 0) {
+                showToast('Please select a valid file with URLs', 'error');
+                return;
+            }
+            urlsToImport = parsedUrls;
+        }
+
+        setImporting(true);
+        try {
+            const res = await smartFetch('/api/batch/import/direct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urls: urlsToImport, quality, createZip })
+            });
+
+            if (res && res.ok) {
+                const result = await res.json();
+                if (result.success) {
+                    showToast(`Imported ${result.imported} URLs!`, 'success');
+
+                    if (mode === 'direct') {
+                        setDirectInput('');
+                        if (localStorage.getItem('batch_staging_urls')) {
+                            localStorage.removeItem('batch_staging_urls');
+                            setStagedCount(0);
+                        }
+                    } else {
+                        setSelectedFile(null);
+                        setParsedUrls([]);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                    }
+                } else {
+                    showToast(`Partial success: ${result.imported} imported, ${result.failed} failed`, 'info');
+                }
+            } else {
+                const data = await res?.json();
+                showToast(data?.error || 'Import failed', 'error');
+            }
+        } catch (error: any) {
+            showToast(error.message, 'error');
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const loadFromStaging = () => {
+        const staged = localStorage.getItem('batch_staging_urls');
+        if (staged) {
+            const current = directInput ? directInput + (directInput.endsWith('\n') ? '' : '\n') : '';
+            setDirectInput(current + staged);
+            const lines = staged.split('\n').filter(l => l.trim());
+            showToast(`Loaded ${lines.length} URLs from Staging`, 'success');
+        } else {
+            showToast('No staged URLs found', 'info');
+        }
+    };
+
+
+    const [showConfirmClear, setShowConfirmClear] = useState(false);
+
+    const clearStaging = () => {
+        setShowConfirmClear(true);
+    };
+
+    const executeClearStaging = () => {
+        localStorage.removeItem('batch_staging_urls');
+        setStagedCount(0);
+        setDirectInput('');
+        showToast('Staging and input cleared', 'success');
+        setShowConfirmClear(false);
+    };
+
+    const qualityOptions = [
+        { value: 5, label: 'MP3', detail: '320kbps' },
+        { value: 6, label: 'CD', detail: '16-bit / 44.1kHz' },
+        { value: 7, label: 'Hi-Res', detail: '24-bit / 96kHz' },
+        { value: 27, label: 'Max', detail: 'Up to 24-bit / 192kHz' },
+    ];
+
+    return (
+        <div id="view-batch" className="view-section active">
+            <div className="batch-grid">
+
+                {/* Top: Mode Selection */}
+                <div className="batch-sidebar">
+                    <div className="sidebar-group">
+                        <div className="sidebar-title">{t('label_input_source')}</div>
+                        <div className="modes-grid">
+                            <button className={`mode-card ${mode === 'direct' ? 'active' : ''}`} onClick={() => setMode('direct')}>
+                                <div className="mode-icon"><Icons.Edit width={18} height={18} /></div>
+                                <div className="mode-info">
+                                    <span className="mode-name">{t('label_direct_input')}</span>
+                                </div>
+                            </button>
+                            <button className={`mode-card ${mode === 'file' ? 'active' : ''}`} onClick={() => setMode('file')}>
+                                <div className="mode-icon"><Icons.File width={18} height={18} /></div>
+                                <div className="mode-info">
+                                    <span className="mode-name">{t('label_text_file')}</span>
+                                </div>
+                            </button>
+                            <button className={`mode-card ${mode === 'm3u8' ? 'active' : ''}`} onClick={() => setMode('m3u8')}>
+                                <div className="mode-icon"><Icons.List width={18} height={18} /></div>
+                                <div className="mode-info">
+                                    <span className="mode-name">{t('label_playlist')}</span>
+                                </div>
+                            </button>
+                            <button className={`mode-card ${mode === 'csv' ? 'active' : ''}`} onClick={() => setMode('csv')}>
+                                <div className="mode-icon"><Icons.Grid width={18} height={18} /></div>
+                                <div className="mode-info">
+                                    <span className="mode-name">{t('label_csv_data')}</span>
+                                </div>
+                            </button>
+                            <button className={`mode-card ${mode === 'spotify' ? 'active' : ''}`} onClick={() => setMode('spotify')}>
+                                <div className="mode-icon"><Icons.Music width={18} height={18} /></div>
+                                <div className="mode-info">
+                                    <span className="mode-name">Spotify</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom: Configuration & Action */}
+                <div className="batch-main">
+
+                    {/* Quality Selector */}
+                    <div className="config-section">
+                        <label className="section-label">{t('label_target_quality')}</label>
+                        <div className="quality-grid">
+                            {qualityOptions.map(opt => (
+                                <div
+                                    key={opt.value}
+                                    className={`quality-card ${quality === opt.value ? 'active' : ''}`}
+                                    onClick={() => setQuality(opt.value)}
+                                >
+                                    <div className="quality-label">{opt.label}</div>
+                                    <div className="quality-detail">{opt.detail}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Options Section */}
+                    <div className="config-section">
+                        <label className="section-label">Options</label>
+                        <div
+                            className={`option-card ${createZip ? 'active' : ''}`}
+                            onClick={() => setCreateZip(!createZip)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                padding: '16px',
+                                background: 'var(--bg-card)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                borderColor: createZip ? 'var(--accent)' : 'var(--border)'
+                            }}
+                        >
+                            <div style={{
+                                width: '20px',
+                                height: '20px',
+                                borderRadius: '4px',
+                                border: `2px solid ${createZip ? 'var(--accent)' : 'var(--text-secondary)'}`,
+                                background: createZip ? 'var(--accent)' : 'transparent',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white'
+                            }}>
+                                {createZip && <Icons.Check width={14} height={14} />}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t('label_create_zip')}</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('label_zip_desc')}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Input Area */}
+                    <div className="config-section">
+                        <label className="section-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>{mode === 'direct' ? t('label_url_list') : mode === 'spotify' ? 'Spotify URL' : t('label_select_file')}</span>
+                            {mode === 'direct' && (
+                                <div className="action-links">
+                                    <button className="text-btn" onClick={loadFromStaging} disabled={stagedCount === 0}>
+                                        {t('action_load_staged')} {stagedCount > 0 && `(${stagedCount})`}
+                                    </button>
+                                    <button className="text-btn danger" onClick={clearStaging} disabled={stagedCount === 0 && !directInput}>
+                                        {t('action_clear')}
+                                    </button>
+                                </div>
+                            )}
+                        </label>
+
+                        {mode === 'direct' ? (
+                            <div className="input-wrapper">
+                                <textarea
+                                    className="custom-textarea"
+                                    value={directInput}
+                                    onChange={e => setDirectInput(e.target.value)}
+                                    placeholder={mode === 'spotify' ? 'https://open.spotify.com/playlist/...' : `https://open.qobuz.com/track/12345\nhttps://open.qobuz.com/album/67890`}
+                                    spellCheck={false}
+                                />
+                                <div className="input-footer">
+                                    {mode === 'spotify' ? 'Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.' : 'Supports Tracks, Albums, Artists, Playlists. One URL per line.'}
+                                </div>
+                            </div>
+                        ) : mode === 'spotify' ? (
+                            <div className="input-wrapper">
+                                <textarea
+                                    className="custom-textarea"
+                                    value={directInput}
+                                    onChange={e => setDirectInput(e.target.value)}
+                                    placeholder="https://open.spotify.com/playlist/..."
+                                    spellCheck={false}
+                                />
+                                <div className="input-footer">
+                                    Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="input-wrapper file-selector-wrapper">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileSelect}
+                                    style={{ display: 'none' }}
+                                    accept={mode === 'csv' ? '.csv' : mode === 'm3u8' ? '.m3u, .m3u8' : '.txt'}
+                                />
+                                <div
+                                    className="file-drop-card"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                                            if (fileInputRef.current) {
+                                                const dT = new DataTransfer();
+                                                dT.items.add(e.dataTransfer.files[0]);
+                                                fileInputRef.current.files = dT.files;
+                                                const event = { target: { files: dT.files } } as any;
+                                                handleFileSelect(event);
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <div className="file-icon-large">
+                                        {mode === 'csv' ? <Icons.Grid width={48} height={48} /> :
+                                            mode === 'm3u8' ? <Icons.List width={48} height={48} /> :
+                                                <Icons.File width={48} height={48} />}
+                                    </div>
+                                    <div className="file-info-text">
+                                        {selectedFile ? (
+                                            <>
+                                                <div className="selected-filename">{selectedFile.name}</div>
+                                                <div className="parsed-count">{selectedFile.count} URLs found</div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="upload-prompt">Click to Select {mode.toUpperCase()} File</div>
+                                                <div className="upload-sub">or drag and drop here</div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="input-footer">
+                                    File will be processed locally. Only URLs are extracted.
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="action-section">
+                        <button
+                            className="start-btn"
+                            onClick={mode === 'spotify' ? handleSpotifyMigration : handleImport}
+                            disabled={importing || (mode === 'direct' || mode === 'spotify' ? !directInput.trim() : parsedUrls.length === 0)}
+                        >
+                            {importing ? (
+                                <>{t('label_processing')} <div className="spinner small white"></div></>
+                            ) : (
+                                <>{t('action_start_import')} <Icons.Download width={20} height={20} /></>
+                            )}
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+            <style>{`
+                .batch-grid {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 32px;
+                    max-width: 1100px;
+                    margin: 0 auto;
+                }
+                
+                .batch-sidebar {
+                    width: 100%;
+                }
+
+                .modes-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 16px;
+                }
+                
+                .sidebar-title {
+                    font-size: 13px;
+                    text-transform: uppercase;
+                    letter-spacing: 1.5px;
+                    color: var(--text-secondary);
+                    font-weight: 800;
+                    margin-bottom: 16px;
+                    padding-left: 4px;
+                }
+                
+                .mode-card {
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 12px;
+                    width: 100%;
+                    padding: 16px;
+                    background: var(--bg-card);
+                    border: 1px solid var(--border);
+                    border-radius: 12px;
+                    text-align: left;
+                    cursor: pointer;
+                    transition: border-color 0.2s, background-color 0.2s;
+                }
+                
+                .mode-card:hover {
+                    border-color: var(--accent);
+                    background: var(--bg-hover);
+                }
+                
+                .mode-card.active {
+                    background: rgba(99, 102, 241, 0.15);
+                    border-color: var(--accent);
+                }
+                
+                .mode-icon {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 32px;
+                    height: 32px;
+                    background: var(--bg-hover);
+                    border-radius: 8px;
+                    color: var(--text-secondary);
+                }
+
+                .mode-card.active .mode-icon {
+                    background: var(--accent);
+                    color: white;
+                }
+                
+                .mode-info {
+                    display: flex;
+                    flex-direction: column;
+                }
+                
+                .mode-name {
+                    font-weight: 600;
+                    font-size: 14px;
+                    color: var(--text-primary);
+                }
+                
+                .config-section {
+                    margin-bottom: 32px;
+                    animation: slideUp 0.3s ease-out;
+                }
+                
+                .section-label {
+                    display: block;
+                    font-size: 14px;
+                    font-weight: 600;
+                    margin-bottom: 12px;
+                    color: var(--text-primary);
+                }
+                
+                .quality-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 12px;
+                }
+                
+                .quality-card {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border);
+                    border-radius: 12px;
+                    padding: 16px;
+                    cursor: pointer;
+                    text-align: center;
+                    transition: all 0.2s ease;
+                }
+                
+                .quality-card:hover {
+                    border-color: var(--accent);
+                    background: var(--bg-hover);
+                }
+                
+                .quality-card.active {
+                    background: var(--bg-card);
+                    border-color: var(--accent);
+                    box-shadow: 0 0 0 2px var(--accent);
+                }
+                
+                .quality-label {
+                    font-weight: 700;
+                    font-size: 16px;
+                    margin-bottom: 4px;
+                    color: var(--text-primary);
+                }
+                
+                .quality-detail {
+                    font-size: 11px;
+                    color: var(--text-secondary);
+                }
+                
+                .custom-textarea {
+                    width: 100%;
+                    height: 350px;
+                    padding: 20px;
+                    background: var(--bg-input);
+                    border: 1px solid var(--border);
+                    border-radius: 12px;
+                    color: var(--text-primary);
+                    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                    font-size: 13px;
+                    line-height: 1.6;
+                    resize: vertical;
+                    transition: border-color 0.2s;
+                }
+
+                .custom-textarea::placeholder {
+                    color: var(--text-secondary);
+                    opacity: 0.7;
+                }
+                
+                .custom-textarea:focus {
+                    outline: none;
+                    border-color: var(--accent);
+                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+                }
+                
+                .custom-input {
+                    width: 100%;
+                    padding: 16px;
+                    background: var(--bg-input);
+                    border: 1px solid var(--border);
+                    border-radius: 12px;
+                    color: var(--text-primary);
+                    font-size: 14px;
+                }
+
+                .custom-input::placeholder {
+                    color: var(--text-secondary);
+                    opacity: 0.7;
+                }
+                
+                .custom-input:focus {
+                    outline: none;
+                    border-color: var(--accent);
+                }
+                
+                .input-footer {
+                    margin-top: 12px;
+                    font-size: 12px;
+                    color: var(--text-secondary);
+                    text-align: right;
+                }
+                
+                .text-btn {
+                    background: none;
+                    border: none;
+                    color: var(--accent);
+                    font-size: 12px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    transition: background 0.2s;
+                }
+                
+                .text-btn:hover:not(:disabled) {
+                    background: rgba(99, 102, 241, 0.1);
+                }
+                
+                .text-btn.danger {
+                    color: #ef4444;
+                }
+                
+                .text-btn.danger:hover:not(:disabled) {
+                    background: rgba(239, 68, 68, 0.1);
+                }
+                
+                .text-btn:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+                
+                .file-selector-wrapper {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+
+                .file-drop-card {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 16px;
+                    padding: 32px;
+                    background: var(--bg-input);
+                    border: 2px dashed var(--border);
+                    border-radius: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    min-height: 200px;
+                }
+
+                .file-drop-card:hover {
+                    border-color: var(--accent);
+                    background: var(--bg-hover);
+                }
+
+                .file-icon-large {
+                    color: var(--accent);
+                    opacity: 0.8;
+                }
+
+                .file-info-text {
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                .upload-prompt {
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    font-size: 15px;
+                }
+
+                .upload-sub {
+                    color: var(--text-secondary);
+                    font-size: 13px;
+                }
+
+                .selected-filename {
+                    font-weight: 700;
+                    color: var(--accent);
+                    font-size: 15px;
+                    word-break: break-all;
+                }
+
+                .parsed-count {
+                    font-size: 13px;
+                    color: var(--text-primary);
+                    background: var(--bg-card);
+                    padding: 4px 10px;
+                    border-radius: 12px;
+                    margin-top: 4px;
+                    display: inline-block;
+                }
+
+                .start-btn {
+                    width: 100%;
+                    padding: 18px;
+                    background: var(--accent);
+                    color: white;
+                    border: none;
+                    border-radius: 12px;
+                    font-size: 16px;
+                    font-weight: 800;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 12px;
+                }
+                
+                .start-btn:hover:not(:disabled) {
+                    background: var(--accent-hover);
+                }
+                
+                .start-btn:disabled {
+                    opacity: 0.7;
+                    cursor: not-allowed;
+                }
+                
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                @media (max-width: 900px) {
+                    .modes-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+                }
+                @media (max-width: 600px) {
+                    .modes-grid {
+                        grid-template-columns: 1fr;
+                    }
+                    .quality-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+                }
+            `}</style>
+
+            <ConfirmModal
+                isOpen={showConfirmClear}
+                title={t('action_clear')}
+                message={t('msg_confirm_clear_staging')}
+                onConfirm={executeClearStaging}
+                onCancel={() => setShowConfirmClear(false)}
+                confirmText={t('action_clear')}
+                cancelText={t('action_cancel')}
+            />
+
+        </div>
+    );
 };
 </file>
 
@@ -15694,184 +15697,6 @@ router.post('/import/direct', async (req: Request, res: Response) => {
 });
 
 export default router;
-</file>
-
-<file path="src/services/library-scanner/worker.ts">
-import { parentPort } from 'worker_threads';
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
-import { execSync } from 'child_process';
-import { parseFile } from 'music-metadata';
-import type { IAudioMetadata } from 'music-metadata';
-
-import { resolveBinaryPath } from '../../utils/binaries.js';
-
-function getAudioFingerprint(filePath: string): string | undefined {
-    try {
-        const fpcalc = resolveBinaryPath('fpcalc');
-        const stdout = execSync(`"${fpcalc}" -json "${filePath}"`, {
-            encoding: 'utf-8',
-            stdio: ['ignore', 'pipe', 'ignore']
-        });
-        const data = JSON.parse(stdout);
-        return data.fingerprint;
-    } catch {
-        return undefined;
-    }
-}
-
-function hasLyricsMetadata(metadata: IAudioMetadata): boolean {
-    if (
-        metadata.common.lyrics?.some((line: any) =>
-            String(typeof line === 'string' ? line : line?.text || '').trim()
-        )
-    ) {
-        return true;
-    }
-
-    const lyricTagNames = new Set([
-        'lyrics',
-        'syncedlyrics',
-        'unsyncedlyrics',
-        'synchronisedlyrics',
-        'unsynchronisedlyrics',
-        'uslt',
-        'sylt'
-    ]);
-
-    return Object.values(metadata.native || {}).some((tags) =>
-        tags.some((tag) => {
-            const id = tag.id.toLowerCase();
-            if (!lyricTagNames.has(id)) return false;
-            const value = Array.isArray(tag.value) ? tag.value.join('\n') : tag.value;
-            return String(value || '').trim().length > 0;
-        })
-    );
-}
-
-parentPort?.on('message', async (filePath: string) => {
-    try {
-        const stats = await fs.promises.stat(filePath);
-        const ext = path.extname(filePath).toLowerCase();
-
-        const filename = path.basename(filePath, ext);
-        const parentDir = path.basename(path.dirname(filePath));
-        const artistDir = path.basename(path.dirname(path.dirname(filePath)));
-
-        let title = filename;
-        let artist = artistDir || 'Unknown';
-        let albumArtist = artistDir || 'Unknown';
-        let album = parentDir || 'Unknown';
-        let quality = 6;
-        let bitDepth = 16;
-        let sampleRate = 44100;
-        let duration = 0;
-        const missingTags: string[] = [];
-
-        try {
-            const metadata = await parseFile(filePath);
-
-            if (metadata.format) {
-                duration = metadata.format.duration || 0;
-                sampleRate = metadata.format.sampleRate || 44100;
-                bitDepth = metadata.format.bitsPerSample || 16;
-
-                if (metadata.format.lossless || ['.flac', '.wav', '.aiff'].includes(ext)) {
-                    if (bitDepth >= 24 && sampleRate >= 192000) quality = 27;
-                    else if (bitDepth >= 24 && sampleRate >= 96000) quality = 7;
-                    else if (bitDepth >= 24) quality = 7;
-                    else quality = 6;
-                } else if (metadata.format.bitrate && metadata.format.bitrate >= 320000) {
-                    quality = 5;
-                } else {
-                    quality = 5;
-                }
-            }
-
-            if (metadata.common) {
-                if (metadata.common.title) title = metadata.common.title;
-                else missingTags.push('Title');
-
-                if (metadata.common.artist) artist = metadata.common.artist;
-                else missingTags.push('Artist');
-
-                if (metadata.common.albumartist) albumArtist = metadata.common.albumartist;
-
-                if (metadata.common.album) album = metadata.common.album;
-                else missingTags.push('Album');
-
-                if (!metadata.common.picture || metadata.common.picture.length === 0)
-                    missingTags.push('Cover Art');
-                if (!hasLyricsMetadata(metadata)) missingTags.push('Lyrics');
-                if (!metadata.common.genre || metadata.common.genre.length === 0)
-                    missingTags.push('Genre');
-                if (!metadata.common.year && !metadata.common.date) missingTags.push('Year');
-            } else {
-                missingTags.push('All Metadata');
-            }
-        } catch {
-            missingTags.push('Unreadable');
-            if (ext === '.flac') {
-                const mbPerMinute = stats.size / (1024 * 1024) / (duration / 60 || 4);
-                if (mbPerMinute > 20) {
-                    quality = 27;
-                    bitDepth = 24;
-                    sampleRate = 192000;
-                } else if (mbPerMinute > 10) {
-                    quality = 7;
-                    bitDepth = 24;
-                    sampleRate = 96000;
-                }
-            }
-        }
-
-        const fingerprint = getAudioFingerprint(filePath);
-        
-        const checksum = await new Promise<string>((resolve) => {
-            const hash = crypto.createHash('md5');
-            const stream = fs.createReadStream(filePath);
-            stream.on('data', (data) => hash.update(data));
-            stream.on('end', () => resolve(hash.digest('hex')));
-            stream.on('error', () => resolve(''));
-        });
-
-        const essentialMissing = missingTags.filter((tag) =>
-            [
-                'Title',
-                'Artist',
-                'Album',
-                'Genre',
-                'Year',
-                'Cover Art',
-                'Lyrics',
-                'All Metadata',
-                'Unreadable'
-            ].includes(tag)
-        );
-
-        parentPort?.postMessage({
-            filePath,
-            title,
-            artist,
-            albumArtist: albumArtist || artistDir,
-            album,
-            duration: duration || 0,
-            quality,
-            fileSize: stats.size,
-            format: ext.slice(1).toUpperCase(),
-            bitDepth,
-            sampleRate,
-            needsUpgrade: quality < 7,
-            audioFingerprint: fingerprint,
-            checksum,
-            missingInternalTags: essentialMissing.length > 0,
-            missingTags
-        });
-    } catch (error) {
-        parentPort?.postMessage({ filePath, error: (error as Error).message });
-    }
-});
 </file>
 
 <file path="src/services/LibraryHealerService.ts">
@@ -18301,175 +18126,6 @@ export const RecommendationsView: React.FC = () => {
 }
 </file>
 
-<file path="client/src/locales/hi.json">
-{
-    "menu_queue": "कतार",
-    "menu_search": "खोज",
-    "menu_batch": "बैच आयात",
-    "menu_analytics": "एनालिटिक्स",
-    "menu_library": "लाइब्रेरी",
-    "menu_playlists": "प्लेलिस्ट",
-    "menu_history": "इतिहास",
-    "menu_settings": "सेटिंग्स",
-    "menu_recommendations": "सिफारिशें",
-    "title_queue": "डाउनलोड कतार",
-    "title_search": "लाइब्रेरी खोज",
-    "title_batch": "बैच आयात",
-    "title_analytics": "एनालिटिक्स डैशबोर्ड",
-    "title_library": "संगीत लाइब्रेरी",
-    "title_playlists": "देखी गई प्लेलिस्ट",
-    "title_history": "डाउनलोड इतिहास",
-    "title_settings": "सेटिंग्स",
-    "title_recommendations": "सिफारिशें",
-    "title_album": "एल्बम दृश्य",
-    "title_artist": "कलाकार विवरण",
-    "title_dashboard": "डैशबोर्ड",
-    "action_add_url": "URL जोड़ें",
-    "action_scan": "लाइब्रेरी स्कैन करें",
-    "action_stop": "रोकें",
-    "action_pause": "रोकें",
-    "action_resume": "फिर से शुरू करें",
-    "action_clear": "सभी साफ करें",
-    "action_download": "डाउनलोड",
-    "action_delete": "हटाएं",
-    "action_play": "चलाएं",
-    "action_view_tracks": "ट्रैक देखें",
-    "action_upgrade": "अपग्रेड",
-    "action_resolve": "जादू समाधान",
-    "action_export_json": "JSON निर्यात करें",
-    "action_export_csv": "CSV निर्यात करें",
-    "action_delete_history": "सभी इतिहास हटाएं",
-    "msg_confirm_delete": "क्या आप वाकई इस आइटम को हटाना चाहते हैं?",
-    "msg_confirm_clear_history": "सभी इतिहास साफ़ करें? इसे पूर्ववत नहीं किया जा सकता।",
-    "msg_no_results": "कोई परिणाम नहीं",
-    "msg_start_searching": "खोज शुरू करें",
-    "msg_enter_keywords": "खozने के लिए कीवर्ड दर्ज करें",
-    "msg_try_keywords": "अलग-अलग कीवर्ड आज़माएं",
-    "msg_scanning": "स्कैनिंग...",
-    "msg_not_scanning": "स्कैन नहीं कर रहा",
-    "msg_queue_empty": "कतार खाली है",
-    "msg_add_urls": "डाउनलोड शुरू करने के लिए URL जोड़ें",
-    "msg_no_history": "कोई इतिहास नहीं",
-    "msg_history_empty": "पूर्ण डाउनलोड यहां दिखाई देंगे",
-    "msg_added_to_queue": "डाउनलोड कतार में जोड़ा गया",
-    "label_total_files": "कुल फ़ाइलें",
-    "label_duplicates": "डुप्लिकेट",
-    "label_hires": "Hi-Res",
-    "label_total_size": "कुल आकार",
-    "label_daily_avg": "दैनिक औसत",
-    "tab_duplicates": "डुप्लिकेट",
-    "tab_upgradeable": "Hi-Res उपलब्ध",
-    "common_loading": "लोड हो रहा है...",
-    "common_search_placeholder": "एल्बम, ट्रैक या कलाकार खोजें...",
-    "sec_danger": "खतरा क्षेत्र",
-    "desc_danger": "अपरivर्तनीय क्रियाएं जो आपके डेटा को प्रभावित करती हैं।",
-    "action_reset_full": "सभी डेटा साफ़ करें (रिसेट DB)",
-    "sec_creds": "क्रेडेंशियल स्थिति",
-    "action_validate": "क्रेडेंशियल सत्यापित करें",
-    "sec_update_creds": "क्रेडेंशियल अपडेट करें",
-    "desc_update_creds": "वर्तमान मान रखने के लिए खाली छोड़ दें।",
-    "action_update_creds": "अपडेट करें",
-    "sec_config": "वर्तमान कॉन्फ़िगरेशन",
-    "desc_config": "Settings disimpan di database lokal aplikasi.",
-    "sec_appearance": "दिखावट",
-    "label_theme": "थीम",
-    "default_theme": "डिफ़ॉल्ट थीम",
-    "common_toggle_theme": "थीम टॉगल करें",
-    "label_language": "भाषा",
-    "label_dl_path": "डाउनलोड पथ",
-    "label_folder_tmpl": "फ़ोल्डर टेम्प्लेट",
-    "label_file_tmpl": "फ़ाइल टेम्प्लेट",
-    "label_concurrency": "अधिकतम समवर्ती",
-    "label_default_quality": "डिफ़ॉल्ट गुणवत्ता",
-    "label_streaming_quality": "स्ट्रीमिंग गुणवत्ता",
-    "label_retry_attempts": "पुनः प्रयास प्रयास",
-    "label_retry_delay": "पुनः प्रयास विलंब",
-    "label_cover_size": "कवर आकार",
-    "label_lyrics_type": "गीत प्रकार",
-    "label_dashboard_port": "डैशबोर्ड पोर्ट",
-    "label_dashboard_password": "डैशबोर्ड पासवर्ड",
-    "label_embed_cover": "कवर आर्ट एम्बेड करें",
-    "label_save_cover": "कवर फ़ाइल सहेजें",
-    "label_download_lyrics": "गीत डाउनलोड करें",
-    "label_embed_lyrics": "गीत एम्बेड करें",
-    "label_save_lrc": "LRC फ़ाइल सहेजें",
-    "action_save_settings": "सेटिंग्स सहेजें",
-    "label_total": "कुल",
-    "label_downloading": "डाउनलोड हो रहा है",
-    "label_completed": "पूरा हुआ",
-    "label_failed": "विफल",
-    "label_title": "शीर्षक",
-    "label_type": "प्रकार",
-    "label_quality": "गुणवत्ता",
-    "label_status": "स्थिति",
-    "label_progress": "प्रगति",
-    "label_action": "कार्रवाई",
-    "action_cancel": "रद्द करें",
-    "label_date": "तारीख",
-    "label_artist": "कलाकार",
-    "label_filename": "फ़ाइल नाम",
-    "label_hires_only": "केवल हाई-रेज",
-    "label_artists": "कलाकार",
-    "label_albums": "एल्बम",
-    "label_tracks": "ट्रैक",
-    "action_view": "देखें",
-    "label_page": "पृष्ठ",
-    "label_of": "का",
-    "label_prev": "पिछला",
-    "label_next": "अगला",
-    "label_already_downloaded": "पहले ही डाउनलोड किया गया",
-    "label_input_source": "इनपुट स्रोत",
-    "label_direct_input": "सीधा इनपुट",
-    "label_text_file": "पाठ फ़ाइल",
-    "label_playlist": "प्लेलिस्ट",
-    "label_csv_data": "CSV डेटा",
-    "label_target_quality": "लक्ष्य गुणवत्ता",
-    "label_create_zip": "ZIP आर्काइव बनाएं",
-    "label_zip_desc": "डाउनलोड के बाद स्वचालित रूप से सभी फ़ाइलों को एक एकल ZIP आर्काइव में बंडल करें",
-    "label_url_list": "URL सूची",
-    "label_select_file": "फ़ाइल चुनें",
-    "action_load_staged": "स्टेज्ड लोड करें",
-    "action_start_import": "आयात प्रारंभ करें",
-    "msg_confirm_clear_staging": "यह सभी चरणबद्ध यूआरएल और वर्तमान इनपुट को साफ़ कर देगा। इस कार्रवाई को पूर्ववत नहीं किया जा सकता है।",
-    "sec_ai_metadata": "AI मेटाडेटा सुधार",
-    "desc_ai_metadata": "लापता या गलत मेटाडेटा को स्वचालित रूप से सुधारने के लिए AI सेवाओं को कॉन्फ़िगर करें।",
-    "label_ai_enabled": "AI मेटाडेटा सुधार सक्षम करें",
-    "label_ai_provider": "AI प्रदाता",
-    "label_ai_api_key": "API कुंजी",
-    "label_ai_model": "AI मॉडल",
-    "sec_media_server": "मीडिया सर्वर एकीकरण",
-    "desc_media_server": "नई सामग्री डाउनलोड होने पर अपने मीडिया सर्वर को स्वचालित रूप से सूचित करें।",
-    "label_ms_enabled": "मीडिया सर्वर एकीकरण सक्षम करें",
-    "label_ms_type": "सर्वर प्रकार",
-    "label_ms_url": "सर्वर URL",
-    "label_ms_token": "API टोकन / कुंजी",
-    "label_ms_library": "लाइब्रेरी / सेक्शन आईडी (वैकल्पिक)",
-    "sec_spotify": "Spotify Migration",
-    "desc_spotify": "Spotify क्रेडेंशियल कॉन्फ़िगर करें ताकि आप अपने Spotify खाते से प्लेलिस्ट सीधे आयात कर सकें।",
-    "label_spotify_client_id": "Spotify Client ID",
-    "label_spotify_client_secret": "Spotify Client Secret",
-    "sec_export": "प्रारूप परिवर्तक और निर्यात",
-    "desc_export": "ffmpeg का उपयोग करके डाउनलोड की गई FLAC फ़ाइलों को स्वचालित रूप से अन्य फॉर्मेट में बदलें।",
-    "label_export_enabled": "फॉर्मेट रूपांतरण सक्षम करें",
-    "label_export_format": "लक्ष्य फॉर्मेट",
-    "label_export_bitrate": "बिटरेट",
-    "label_export_keep": "मूल FLAC रखें",
-    "label_export_path": "एक्सपोर्ट पथ (वैकल्पिक)",
-    "msg_ffmpeg_missing": "ffmpeg इंस्टॉल नहीं है या PATH में नहीं है। रूपांतरण काम नहीं करेगा।",
-    "msg_ffmpeg_found": "ffmpeg पाया गया और तैयार है।",
-    "label_bandwidth_limit": "बैंडविड्थ सीमा (KB/s)",
-    "desc_bandwidth_limit": "असीमित गति के लिए 0 पर सेट करें। मान प्रति-स्ट्रीम है।",
-    "title_notifications": "सूचनाएं",
-    "action_mark_all_read": "सभी को पढ़ा हुआ मानें",
-    "msg_no_notifications": "अभी तक कोई सूचना नहीं है",
-    "label_new": "नया",
-    "action_refresh": "रीफ्रेश",
-    "desc_recommendations": "आपके सुनने के इतिहास और स्थानीय लाइब्रेरी के आधार पर",
-    "msg_not_enough_data": "अभी पर्याप्त डेटा नहीं है",
-    "msg_not_enough_data_desc": "व्यक्तिगत अनुशंसाएँ प्राप्त करने के लिए कुछ संगीत सुनना शुरू करें या अपनी लाइब्रेरी स्कैन करें।"
-}
-</file>
-
 <file path="client/src/locales/ja.json">
 {
     "menu_queue": "キュー",
@@ -19202,8 +18858,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { dashboardService } from './services/dashboard/index.js';
 import { downloadQueue } from './services/queue/queue.js';
-import { queueProcessor, downloadService } from './services/queue-processor.js';
-export { downloadService };
+import { queueProcessor } from './services/queue-processor.js';
 import { historyService } from './services/history.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
 import { logger } from './utils/logger.js';
@@ -19631,6 +19286,184 @@ router.get('/quality-stats', (req: Request, res: Response) => {
 });
 
 export default router;
+</file>
+
+<file path="src/services/library-scanner/worker.ts">
+import { parentPort } from 'worker_threads';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { execSync } from 'child_process';
+import { parseFile } from 'music-metadata';
+import type { IAudioMetadata } from 'music-metadata';
+
+import { resolveBinaryPath } from '../../utils/binaries.js';
+
+function getAudioFingerprint(filePath: string): string | undefined {
+    try {
+        const fpcalc = resolveBinaryPath('fpcalc');
+        const stdout = execSync(`"${fpcalc}" -json "${filePath}"`, {
+            encoding: 'utf-8',
+            stdio: ['ignore', 'pipe', 'ignore']
+        });
+        const data = JSON.parse(stdout);
+        return data.fingerprint;
+    } catch {
+        return undefined;
+    }
+}
+
+function hasLyricsMetadata(metadata: IAudioMetadata): boolean {
+    if (
+        metadata.common.lyrics?.some((line: any) =>
+            String(typeof line === 'string' ? line : line?.text || '').trim()
+        )
+    ) {
+        return true;
+    }
+
+    const lyricTagNames = new Set([
+        'lyrics',
+        'syncedlyrics',
+        'unsyncedlyrics',
+        'synchronisedlyrics',
+        'unsynchronisedlyrics',
+        'uslt',
+        'sylt'
+    ]);
+
+    return Object.values(metadata.native || {}).some((tags) =>
+        tags.some((tag) => {
+            const id = tag.id.toLowerCase();
+            if (!lyricTagNames.has(id)) return false;
+            const value = Array.isArray(tag.value) ? tag.value.join('\n') : tag.value;
+            return String(value || '').trim().length > 0;
+        })
+    );
+}
+
+parentPort?.on('message', async (filePath: string) => {
+    try {
+        const stats = await fs.promises.stat(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+
+        const filename = path.basename(filePath, ext);
+        const parentDir = path.basename(path.dirname(filePath));
+        const artistDir = path.basename(path.dirname(path.dirname(filePath)));
+
+        let title = filename;
+        let artist = artistDir || 'Unknown';
+        let albumArtist = artistDir || 'Unknown';
+        let album = parentDir || 'Unknown';
+        let quality = 6;
+        let bitDepth = 16;
+        let sampleRate = 44100;
+        let duration = 0;
+        const missingTags: string[] = [];
+
+        try {
+            const metadata = await parseFile(filePath);
+
+            if (metadata.format) {
+                duration = metadata.format.duration || 0;
+                sampleRate = metadata.format.sampleRate || 44100;
+                bitDepth = metadata.format.bitsPerSample || 16;
+
+                if (metadata.format.lossless || ['.flac', '.wav', '.aiff'].includes(ext)) {
+                    if (bitDepth >= 24 && sampleRate >= 192000) quality = 27;
+                    else if (bitDepth >= 24 && sampleRate >= 96000) quality = 7;
+                    else if (bitDepth >= 24) quality = 7;
+                    else quality = 6;
+                } else if (metadata.format.bitrate && metadata.format.bitrate >= 320000) {
+                    quality = 5;
+                } else {
+                    quality = 5;
+                }
+            }
+
+            if (metadata.common) {
+                if (metadata.common.title) title = metadata.common.title;
+                else missingTags.push('Title');
+
+                if (metadata.common.artist) artist = metadata.common.artist;
+                else missingTags.push('Artist');
+
+                if (metadata.common.albumartist) albumArtist = metadata.common.albumartist;
+
+                if (metadata.common.album) album = metadata.common.album;
+                else missingTags.push('Album');
+
+                if (!metadata.common.picture || metadata.common.picture.length === 0)
+                    missingTags.push('Cover Art');
+                if (!hasLyricsMetadata(metadata)) missingTags.push('Lyrics');
+                if (!metadata.common.genre || metadata.common.genre.length === 0)
+                    missingTags.push('Genre');
+                if (!metadata.common.year && !metadata.common.date) missingTags.push('Year');
+            } else {
+                missingTags.push('All Metadata');
+            }
+        } catch {
+            missingTags.push('Unreadable');
+            if (ext === '.flac') {
+                const mbPerMinute = stats.size / (1024 * 1024) / (duration / 60 || 4);
+                if (mbPerMinute > 20) {
+                    quality = 27;
+                    bitDepth = 24;
+                    sampleRate = 192000;
+                } else if (mbPerMinute > 10) {
+                    quality = 7;
+                    bitDepth = 24;
+                    sampleRate = 96000;
+                }
+            }
+        }
+
+        const fingerprint = getAudioFingerprint(filePath);
+        
+        const checksum = await new Promise<string>((resolve) => {
+            const hash = crypto.createHash('md5');
+            const stream = fs.createReadStream(filePath);
+            stream.on('data', (data) => hash.update(data));
+            stream.on('end', () => resolve(hash.digest('hex')));
+            stream.on('error', () => resolve(''));
+        });
+
+        const essentialMissing = missingTags.filter((tag) =>
+            [
+                'Title',
+                'Artist',
+                'Album',
+                'Genre',
+                'Year',
+                'Cover Art',
+                'Lyrics',
+                'All Metadata',
+                'Unreadable'
+            ].includes(tag)
+        );
+
+        parentPort?.postMessage({
+            filePath,
+            title,
+            artist,
+            albumArtist: albumArtist || artistDir,
+            album,
+            duration: duration || 0,
+            quality,
+            fileSize: stats.size,
+            format: ext.slice(1).toUpperCase(),
+            bitDepth,
+            sampleRate,
+            needsUpgrade: quality < 7,
+            audioFingerprint: fingerprint,
+            checksum,
+            missingInternalTags: essentialMissing.length > 0,
+            missingTags
+        });
+    } catch (error) {
+        parentPort?.postMessage({ filePath, error: (error as Error).message });
+    }
+});
 </file>
 
 <file path="src/services/MediaServerService.ts">
@@ -23563,6 +23396,175 @@ body.sidebar-collapsed .nav-item:hover::after {
 }
 </file>
 
+<file path="client/src/locales/hi.json">
+{
+    "menu_queue": "कतार",
+    "menu_search": "खोज",
+    "menu_batch": "बैच आयात",
+    "menu_analytics": "एनालिटिक्स",
+    "menu_library": "लाइब्रेरी",
+    "menu_playlists": "प्लेलिस्ट",
+    "menu_history": "इतिहास",
+    "menu_settings": "सेटिंग्स",
+    "menu_recommendations": "सिफारिशें",
+    "title_queue": "डाउनलोड कतार",
+    "title_search": "लाइब्रेरी खोज",
+    "title_batch": "बैच आयात",
+    "title_analytics": "एनालिटिक्स डैशबोर्ड",
+    "title_library": "संगीत लाइब्रेरी",
+    "title_playlists": "देखी गई प्लेलिस्ट",
+    "title_history": "डाउनलोड इतिहास",
+    "title_settings": "सेटिंग्स",
+    "title_recommendations": "सिफारिशें",
+    "title_album": "एल्बम दृश्य",
+    "title_artist": "कलाकार विवरण",
+    "title_dashboard": "डैशबोर्ड",
+    "action_add_url": "URL जोड़ें",
+    "action_scan": "लाइब्रेरी स्कैन करें",
+    "action_stop": "रोकें",
+    "action_pause": "रोकें",
+    "action_resume": "फिर से शुरू करें",
+    "action_clear": "सभी साफ करें",
+    "action_download": "डाउनलोड",
+    "action_delete": "हटाएं",
+    "action_play": "चलाएं",
+    "action_view_tracks": "ट्रैक देखें",
+    "action_upgrade": "अपग्रेड",
+    "action_resolve": "जादू समाधान",
+    "action_export_json": "JSON निर्यात करें",
+    "action_export_csv": "CSV निर्यात करें",
+    "action_delete_history": "सभी इतिहास हटाएं",
+    "msg_confirm_delete": "क्या आप वाकई इस आइटम को हटाना चाहते हैं?",
+    "msg_confirm_clear_history": "सभी इतिहास साफ़ करें? इसे पूर्ववत नहीं किया जा सकता।",
+    "msg_no_results": "कोई परिणाम नहीं",
+    "msg_start_searching": "खोज शुरू करें",
+    "msg_enter_keywords": "खozने के लिए कीवर्ड दर्ज करें",
+    "msg_try_keywords": "अलग-अलग कीवर्ड आज़माएं",
+    "msg_scanning": "स्कैनिंग...",
+    "msg_not_scanning": "स्कैन नहीं कर रहा",
+    "msg_queue_empty": "कतार खाली है",
+    "msg_add_urls": "डाउनलोड शुरू करने के लिए URL जोड़ें",
+    "msg_no_history": "कोई इतिहास नहीं",
+    "msg_history_empty": "पूर्ण डाउनलोड यहां दिखाई देंगे",
+    "msg_added_to_queue": "डाउनलोड कतार में जोड़ा गया",
+    "label_total_files": "कुल फ़ाइलें",
+    "label_duplicates": "डुप्लिकेट",
+    "label_hires": "Hi-Res",
+    "label_total_size": "कुल आकार",
+    "label_daily_avg": "दैनिक औसत",
+    "tab_duplicates": "डुप्लिकेट",
+    "tab_upgradeable": "Hi-Res उपलब्ध",
+    "common_loading": "लोड हो रहा है...",
+    "common_search_placeholder": "एल्बम, ट्रैक या कलाकार खोजें...",
+    "sec_danger": "खतरा क्षेत्र",
+    "desc_danger": "अपरivर्तनीय क्रियाएं जो आपके डेटा को प्रभावित करती हैं।",
+    "action_reset_full": "सभी डेटा साफ़ करें (रिसेट DB)",
+    "sec_creds": "क्रेडेंशियल स्थिति",
+    "action_validate": "क्रेडेंशियल सत्यापित करें",
+    "sec_update_creds": "क्रेडेंशियल अपडेट करें",
+    "desc_update_creds": "वर्तमान मान रखने के लिए खाली छोड़ दें।",
+    "action_update_creds": "अपडेट करें",
+    "sec_config": "वर्तमान कॉन्फ़िगरेशन",
+    "desc_config": "Settings disimpan di database lokal aplikasi.",
+    "sec_appearance": "दिखावट",
+    "label_theme": "थीम",
+    "default_theme": "डिफ़ॉल्ट थीम",
+    "common_toggle_theme": "थीम टॉगल करें",
+    "label_language": "भाषा",
+    "label_dl_path": "डाउनलोड पथ",
+    "label_folder_tmpl": "फ़ोल्डर टेम्प्लेट",
+    "label_file_tmpl": "फ़ाइल टेम्प्लेट",
+    "label_concurrency": "अधिकतम समवर्ती",
+    "label_default_quality": "डिफ़ॉल्ट गुणवत्ता",
+    "label_streaming_quality": "स्ट्रीमिंग गुणवत्ता",
+    "label_retry_attempts": "पुनः प्रयास प्रयास",
+    "label_retry_delay": "पुनः प्रयास विलंब",
+    "label_cover_size": "कवर आकार",
+    "label_lyrics_type": "गीत प्रकार",
+    "label_dashboard_port": "डैशबोर्ड पोर्ट",
+    "label_dashboard_password": "डैशबोर्ड पासवर्ड",
+    "label_embed_cover": "कवर आर्ट एम्बेड करें",
+    "label_save_cover": "कवर फ़ाइल सहेजें",
+    "label_download_lyrics": "गीत डाउनलोड करें",
+    "label_embed_lyrics": "गीत एम्बेड करें",
+    "label_save_lrc": "LRC फ़ाइल सहेजें",
+    "action_save_settings": "सेटिंग्स सहेजें",
+    "label_total": "कुल",
+    "label_downloading": "डाउनलोड हो रहा है",
+    "label_completed": "पूरा हुआ",
+    "label_failed": "विफल",
+    "label_title": "शीर्षक",
+    "label_type": "प्रकार",
+    "label_quality": "गुणवत्ता",
+    "label_status": "स्थिति",
+    "label_progress": "प्रगति",
+    "label_action": "कार्रवाई",
+    "action_cancel": "रद्द करें",
+    "label_date": "तारीख",
+    "label_artist": "कलाकार",
+    "label_filename": "फ़ाइल नाम",
+    "label_hires_only": "केवल हाई-रेज",
+    "label_artists": "कलाकार",
+    "label_albums": "एल्बम",
+    "label_tracks": "ट्रैक",
+    "action_view": "देखें",
+    "label_page": "पृष्ठ",
+    "label_of": "का",
+    "label_prev": "पिछला",
+    "label_next": "अगला",
+    "label_already_downloaded": "पहले ही डाउनलोड किया गया",
+    "label_input_source": "इनपुट स्रोत",
+    "label_direct_input": "सीधा इनपुट",
+    "label_text_file": "पाठ फ़ाइल",
+    "label_playlist": "प्लेलिस्ट",
+    "label_csv_data": "CSV डेटा",
+    "label_target_quality": "लक्ष्य गुणवत्ता",
+    "label_create_zip": "ZIP आर्काइव बनाएं",
+    "label_zip_desc": "डाउनलोड के बाद स्वचालित रूप से सभी फ़ाइलों को एक एकल ZIP आर्काइव में बंडल करें",
+    "label_url_list": "URL सूची",
+    "label_select_file": "फ़ाइल चुनें",
+    "action_load_staged": "स्टेज्ड लोड करें",
+    "action_start_import": "आयात प्रारंभ करें",
+    "msg_confirm_clear_staging": "यह सभी चरणबद्ध यूआरएल और वर्तमान इनपुट को साफ़ कर देगा। इस कार्रवाई को पूर्ववत नहीं किया जा सकता है।",
+    "sec_ai_metadata": "AI मेटाडेटा सुधार",
+    "desc_ai_metadata": "लापता या गलत मेटाडेटा को स्वचालित रूप से सुधारने के लिए AI सेवाओं को कॉन्फ़िगर करें।",
+    "label_ai_enabled": "AI मेटाडेटा सुधार सक्षम करें",
+    "label_ai_provider": "AI प्रदाता",
+    "label_ai_api_key": "API कुंजी",
+    "label_ai_model": "AI मॉडल",
+    "sec_media_server": "मीडिया सर्वर एकीकरण",
+    "desc_media_server": "नई सामग्री डाउनलोड होने पर अपने मीडिया सर्वर को स्वचालित रूप से सूचित करें।",
+    "label_ms_enabled": "मीडिया सर्वर एकीकरण सक्षम करें",
+    "label_ms_type": "सर्वर प्रकार",
+    "label_ms_url": "सर्वर URL",
+    "label_ms_token": "API टोकन / कुंजी",
+    "label_ms_library": "लाइब्रेरी / सेक्शन आईडी (वैकल्पिक)",
+    "sec_spotify": "Spotify Migration",
+    "desc_spotify": "Spotify क्रेडेंशियल कॉन्फ़िगर करें ताकि आप अपने Spotify खाते से प्लेलिस्ट सीधे आयात कर सकें।",
+    "label_spotify_client_id": "Spotify Client ID",
+    "label_spotify_client_secret": "Spotify Client Secret",
+    "sec_export": "प्रारूप परिवर्तक और निर्यात",
+    "desc_export": "ffmpeg का उपयोग करके डाउनलोड की गई FLAC फ़ाइलों को स्वचालित रूप से अन्य फॉर्मेट में बदलें।",
+    "label_export_enabled": "फॉर्मेट रूपांतरण सक्षम करें",
+    "label_export_format": "लक्ष्य फॉर्मेट",
+    "label_export_bitrate": "बिटरेट",
+    "label_export_keep": "मूल FLAC रखें",
+    "label_export_path": "एक्सपोर्ट पथ (वैकल्पिक)",
+    "msg_ffmpeg_missing": "ffmpeg इंस्टॉल नहीं है या PATH में नहीं है। रूपांतरण काम नहीं करेगा।",
+    "msg_ffmpeg_found": "ffmpeg पाया गया और तैयार है।",
+    "label_bandwidth_limit": "बैंडविड्थ सीमा (KB/s)",
+    "desc_bandwidth_limit": "असीमित गति के लिए 0 पर सेट करें। मान प्रति-स्ट्रीम है।",
+    "title_notifications": "सूचनाएं",
+    "action_mark_all_read": "सभी को पढ़ा हुआ मानें",
+    "msg_no_notifications": "अभी तक कोई सूचना नहीं है",
+    "label_new": "नया",
+    "action_refresh": "रीफ्रेश",
+    "desc_recommendations": "आपके सुनने के इतिहास और स्थानीय लाइब्रेरी के आधार पर",
+    "msg_not_enough_data": "अभी पर्याप्त डेटा नहीं है",
+    "msg_not_enough_data_desc": "व्यक्तिगत अनुशंसाएँ प्राप्त करने के लिए कुछ संगीत सुनना शुरू करें या अपनी लाइब्रेरी स्कैन करें।"
+}
+</file>
+
 <file path="package.json">
 {
   "name": "qbz-downloader",
@@ -23651,6 +23653,9 @@ body.sidebar-collapsed .nav-item:hover::after {
     "asarUnpack": [
       "**/*.node",
       "node_modules/better-sqlite3/**/*"
+    ],
+    "extraResources": [
+      "bin/**/*"
     ],
     "win": {
       "target": [
@@ -24518,7 +24523,14 @@ export class DownloadEngine {
                         end: downloaded - 1,
                         highWaterMark: 1024 * 1024 // 1MB buffer for faster reading
                     });
-                    existingData.on('data', (chunk) => md5Hash.update(chunk));
+                    existingData.on('data', (chunk) => {
+                        if (isCancelled && isCancelled()) {
+                            existingData.destroy();
+                            reject(new Error('Cancelled by user during re-hashing'));
+                            return;
+                        }
+                        md5Hash.update(chunk);
+                    });
                     existingData.on('end', resolve);
                     existingData.on('error', reject);
                 });
@@ -24584,6 +24596,323 @@ export class DownloadEngine {
             md5: md5Hash.digest('hex')
         };
     }
+}
+</file>
+
+<file path="src/services/PlaylistWatcherService.ts">
+import QobuzAPI from '../api/qobuz.js';
+import { databaseService } from './database/index.js';
+import { downloadQueue } from './queue/queue.js';
+import { logger } from '../utils/logger.js';
+import { historyService } from './history.js';
+import { notificationService } from './notifications.js';
+import { normalizeDownloadQuality } from '../config.js';
+
+export class PlaylistWatcherService {
+    private api: QobuzAPI;
+    private timer: NodeJS.Timeout | null = null;
+    private isScanning = false;
+
+    constructor(api: QobuzAPI) {
+        this.api = api;
+    }
+
+    start(checkIntervalMinutes = 60) {
+        if (this.timer) return;
+
+        this.timer = setInterval(() => {
+            this.scanAllPlaylists();
+        }, checkIntervalMinutes * 60 * 1000);
+
+        this.scanAllPlaylists();
+        logger.info(`PlaylistWatcher: Started (checking every ${checkIntervalMinutes} mins)`, 'WATCHER');
+    }
+
+    stop() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+    }
+
+    async scanAllPlaylists() {
+        if (this.isScanning) return;
+        this.isScanning = true;
+
+        try {
+            const watched = databaseService.getWatchedPlaylists();
+            logger.debug(`PlaylistWatcher: Scanning ${watched.length} playlists`, 'WATCHER');
+
+            for (const playlist of watched) {
+                await this.scanPlaylist(playlist);
+            }
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`PlaylistWatcher Scan Error: ${message}`, 'WATCHER');
+        } finally {
+            this.isScanning = false;
+        }
+    }
+
+    private async scanPlaylist(p: { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }) {
+        const lastSync = p.last_synced_at ? new Date(p.last_synced_at) : new Date(0);
+        const nextSync = new Date(lastSync.getTime() + p.interval_hours * 60 * 60 * 1000);
+
+        if (nextSync > new Date()) {
+            return;
+        }
+
+        logger.info(`PlaylistWatcher: Checking "${p.title}" for new tracks...`, 'WATCHER');
+
+        try {
+            const res = await this.api.getPlaylist(p.playlist_id);
+            if (!res.success || !res.data) {
+                logger.warn(`PlaylistWatcher: Could not fetch playlist ${p.playlist_id}`, 'WATCHER');
+                return;
+            }
+
+            const tracks = res.data.tracks.items;
+            let newTracksCount = 0;
+
+            for (const track of tracks) {
+                const trackId = track.id.toString();
+                const inHistory = historyService.has(trackId);
+                const inDb = databaseService.hasTrack(trackId);
+                const inQueue = downloadQueue.hasContent('track', trackId);
+
+                if (!inHistory && !inDb && !inQueue) {
+                    downloadQueue.add('track', trackId, normalizeDownloadQuality(p.quality, 27), {
+                        title: track.title,
+                        metadata: { source: 'playlist-watcher', playlistTitle: p.title }
+                    });
+                    newTracksCount++;
+                }
+            }
+
+            if (newTracksCount > 0) {
+                logger.success(`PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`, 'WATCHER');
+                notificationService.info(
+                    'Playlist Watcher',
+                    `Added ${newTracksCount} new tracks from "${p.title}" to queue.`
+                );
+            }
+
+            databaseService.updatePlaylistSyncTime(p.id.toString());
+
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${message}`, 'WATCHER');
+        }
+    }
+}
+
+export const playlistWatcherService = new PlaylistWatcherService(new QobuzAPI());
+</file>
+
+<file path="client/src/components/AudioVisualizer.tsx">
+import React, { useEffect, useRef } from 'react';
+
+interface AudioVisualizerProps {
+    audioElement: HTMLAudioElement | null;
+    isPlaying: boolean;
+    color?: string;
+    barCount?: number;
+}
+
+export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ 
+    audioElement, 
+    isPlaying, 
+    color = '#6366f1',
+    barCount = 64
+}) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
+    const [hasError, setHasError] = React.useState(false);
+    const [errorMsg, setErrorMsg] = React.useState('');
+
+    // Static map to keep track of sources across instances to avoid "already connected" error
+    const sourceMap = React.useMemo(() => {
+        if (!(window as any).__audio_sources) {
+            (window as any).__audio_sources = new WeakMap();
+        }
+        return (window as any).__audio_sources as WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>;
+    }, []);
+
+    // Keep track of which element we're connected to
+    const connectedElementRef = useRef<HTMLAudioElement | null>(null);
+
+    useEffect(() => {
+        if (!audioElement || !isPlaying) {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+            return;
+        }
+
+        // Initialize AudioContext and Analyser only once
+        if (!audioContextRef.current) {
+            try {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+                analyserRef.current = audioContextRef.current.createAnalyser();
+                analyserRef.current.fftSize = 256;
+            } catch (e: any) {
+                console.error('AudioVisualizer: Failed to create AudioContext', e);
+                setHasError(true);
+                setErrorMsg('Web Audio API failed');
+                return;
+            }
+        }
+
+        if (audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+
+        // Handle reconnection if the audio element changed
+        if (connectedElementRef.current !== audioElement) {
+            try {
+                // Check if we already have a source for this element
+                let source = sourceMap.get(audioElement);
+                
+                if (!source) {
+                    source = audioContextRef.current.createMediaElementSource(audioElement);
+                    sourceMap.set(audioElement, source);
+                }
+
+                source.connect(analyserRef.current!);
+                analyserRef.current!.connect(audioContextRef.current.destination);
+                connectedElementRef.current = audioElement;
+                setHasError(false);
+            } catch (e: any) {
+                console.warn('AudioVisualizer: Source already connected or failed', e);
+                setHasError(true);
+                setErrorMsg(e.name === 'InvalidStateError' ? 'Audio already connected' : 'Visualizer error');
+                connectedElementRef.current = audioElement;
+            }
+        }
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const analyser = analyserRef.current;
+        if (!analyser) return;
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const draw = () => {
+            animationFrameRef.current = requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / barCount);
+            let x = 0;
+
+            // Resolve color if it's a CSS variable
+            let resolvedColor = color;
+            if (color.startsWith('var(')) {
+                resolvedColor = getComputedStyle(document.documentElement).getPropertyValue(color.slice(4, -1)).trim();
+                if (!resolvedColor) resolvedColor = '#6366f1'; // fallback
+            }
+
+            for (let i = 0; i < barCount; i++) {
+                const barHeight = (dataArray[i] / 255) * canvas.height;
+                
+                try {
+                    const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+                    gradient.addColorStop(0, resolvedColor);
+                    
+                    // Only append alpha if it looks like a hex color
+                    if (resolvedColor.startsWith('#') && resolvedColor.length <= 7) {
+                        gradient.addColorStop(1, `${resolvedColor}99`);
+                    } else {
+                        gradient.addColorStop(1, resolvedColor);
+                    }
+
+                    ctx.fillStyle = gradient;
+                    
+                    // Draw rounded bars
+                    const radius = barWidth / 2;
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(x, canvas.height - barHeight, barWidth - 2, barHeight, [radius, radius, 0, 0]);
+                    } else {
+                        ctx.rect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+                    }
+                    ctx.fill();
+                } catch (e) {
+                    // Fallback to simple fill if gradient fails
+                    ctx.fillStyle = resolvedColor;
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+                }
+
+                x += barWidth;
+            }
+        };
+
+        draw();
+
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, [audioElement, isPlaying, color, barCount]);
+
+    if (hasError) {
+        return (
+            <div style={{ 
+                width: '100%', 
+                height: '40px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontSize: '0.75em',
+                color: 'var(--text-secondary)',
+                opacity: 0.6,
+                border: '1px dashed var(--border)',
+                borderRadius: '4px'
+            }}>
+                {errorMsg}
+            </div>
+        );
+    }
+
+    return (
+        <canvas 
+            ref={canvasRef} 
+            width={300} 
+            height={40} 
+            style={{ width: '100%', height: '100%', opacity: 0.6 }}
+        />
+    );
+};
+</file>
+
+<file path="src/services/dashboard/routes.ts">
+import { Express } from 'express';
+import systemRouter from './routers/system.routes.js';
+import catalogRouter from './routers/catalog.routes.js';
+import downloadRouter from './routers/download.routes.js';
+import libraryRouter from './routers/library.routes.js';
+import analyticsRouter from './routers/analytics.routes.js';
+import notificationsRouter from './routers/notifications.routes.js';
+import toolsRouter from './routers/tools.routes.js';
+import batchRouter from './routers/batch.routes.js';
+
+export function registerRoutes(app: Express) {
+    app.use('/api', systemRouter);
+    app.use('/api', catalogRouter);
+    app.use('/api', downloadRouter);
+    app.use('/api', analyticsRouter);
+    app.use('/api/library', libraryRouter);
+    app.use('/api/notifications', notificationsRouter);
+    app.use('/api/tools', toolsRouter);
+    app.use('/api/batch', batchRouter);
 }
 </file>
 
@@ -25508,116 +25837,6 @@ export const libraryScannerService = new LibraryScannerService();
 export default libraryScannerService;
 </file>
 
-<file path="src/services/PlaylistWatcherService.ts">
-import QobuzAPI from '../api/qobuz.js';
-import { databaseService } from './database/index.js';
-import { downloadQueue } from './queue/queue.js';
-import { logger } from '../utils/logger.js';
-import { historyService } from './history.js';
-import { notificationService } from './notifications.js';
-import { normalizeDownloadQuality } from '../config.js';
-
-export class PlaylistWatcherService {
-    private api: QobuzAPI;
-    private timer: NodeJS.Timeout | null = null;
-    private isScanning = false;
-
-    constructor(api: QobuzAPI) {
-        this.api = api;
-    }
-
-    start(checkIntervalMinutes = 60) {
-        if (this.timer) return;
-
-        this.timer = setInterval(() => {
-            this.scanAllPlaylists();
-        }, checkIntervalMinutes * 60 * 1000);
-
-        this.scanAllPlaylists();
-        logger.info(`PlaylistWatcher: Started (checking every ${checkIntervalMinutes} mins)`, 'WATCHER');
-    }
-
-    stop() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
-
-    async scanAllPlaylists() {
-        if (this.isScanning) return;
-        this.isScanning = true;
-
-        try {
-            const watched = databaseService.getWatchedPlaylists();
-            logger.debug(`PlaylistWatcher: Scanning ${watched.length} playlists`, 'WATCHER');
-
-            for (const playlist of watched) {
-                await this.scanPlaylist(playlist);
-            }
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`PlaylistWatcher Scan Error: ${message}`, 'WATCHER');
-        } finally {
-            this.isScanning = false;
-        }
-    }
-
-    private async scanPlaylist(p: { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }) {
-        const lastSync = p.last_synced_at ? new Date(p.last_synced_at) : new Date(0);
-        const nextSync = new Date(lastSync.getTime() + p.interval_hours * 60 * 60 * 1000);
-
-        if (nextSync > new Date()) {
-            return;
-        }
-
-        logger.info(`PlaylistWatcher: Checking "${p.title}" for new tracks...`, 'WATCHER');
-
-        try {
-            const res = await this.api.getPlaylist(p.playlist_id);
-            if (!res.success || !res.data) {
-                logger.warn(`PlaylistWatcher: Could not fetch playlist ${p.playlist_id}`, 'WATCHER');
-                return;
-            }
-
-            const tracks = res.data.tracks.items;
-            let newTracksCount = 0;
-
-            for (const track of tracks) {
-                const trackId = track.id.toString();
-                const inHistory = historyService.has(trackId);
-                const inDb = databaseService.hasTrack(trackId);
-                const inQueue = downloadQueue.hasContent('track', trackId);
-
-                if (!inHistory && !inDb && !inQueue) {
-                    downloadQueue.add('track', trackId, normalizeDownloadQuality(p.quality, 27), {
-                        title: track.title,
-                        metadata: { source: 'playlist-watcher', playlistTitle: p.title }
-                    });
-                    newTracksCount++;
-                }
-            }
-
-            if (newTracksCount > 0) {
-                logger.success(`PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`, 'WATCHER');
-                notificationService.info(
-                    'Playlist Watcher',
-                    `Added ${newTracksCount} new tracks from "${p.title}" to queue.`
-                );
-            }
-
-            databaseService.updatePlaylistSyncTime(p.id.toString());
-
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${message}`, 'WATCHER');
-        }
-    }
-}
-
-export const playlistWatcherService = new PlaylistWatcherService(new QobuzAPI());
-</file>
-
 <file path="src/services/QualityScannerService.ts">
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -25754,213 +25973,6 @@ export class QualityScannerService {
 }
 
 export const qualityScannerService = new QualityScannerService();
-</file>
-
-<file path="client/src/components/AudioVisualizer.tsx">
-import React, { useEffect, useRef } from 'react';
-
-interface AudioVisualizerProps {
-    audioElement: HTMLAudioElement | null;
-    isPlaying: boolean;
-    color?: string;
-    barCount?: number;
-}
-
-export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ 
-    audioElement, 
-    isPlaying, 
-    color = '#6366f1',
-    barCount = 64
-}) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const analyserRef = useRef<AnalyserNode | null>(null);
-    const animationFrameRef = useRef<number | null>(null);
-    const [hasError, setHasError] = React.useState(false);
-    const [errorMsg, setErrorMsg] = React.useState('');
-
-    // Static map to keep track of sources across instances to avoid "already connected" error
-    const sourceMap = React.useMemo(() => {
-        if (!(window as any).__audio_sources) {
-            (window as any).__audio_sources = new WeakMap();
-        }
-        return (window as any).__audio_sources as WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>;
-    }, []);
-
-    // Keep track of which element we're connected to
-    const connectedElementRef = useRef<HTMLAudioElement | null>(null);
-
-    useEffect(() => {
-        if (!audioElement || !isPlaying) {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-            return;
-        }
-
-        // Initialize AudioContext and Analyser only once
-        if (!audioContextRef.current) {
-            try {
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-                analyserRef.current = audioContextRef.current.createAnalyser();
-                analyserRef.current.fftSize = 256;
-            } catch (e: any) {
-                console.error('AudioVisualizer: Failed to create AudioContext', e);
-                setHasError(true);
-                setErrorMsg('Web Audio API failed');
-                return;
-            }
-        }
-
-        if (audioContextRef.current.state === 'suspended') {
-            audioContextRef.current.resume();
-        }
-
-        // Handle reconnection if the audio element changed
-        if (connectedElementRef.current !== audioElement) {
-            try {
-                // Check if we already have a source for this element
-                let source = sourceMap.get(audioElement);
-                
-                if (!source) {
-                    source = audioContextRef.current.createMediaElementSource(audioElement);
-                    sourceMap.set(audioElement, source);
-                }
-
-                source.connect(analyserRef.current!);
-                analyserRef.current!.connect(audioContextRef.current.destination);
-                connectedElementRef.current = audioElement;
-                setHasError(false);
-            } catch (e: any) {
-                console.warn('AudioVisualizer: Source already connected or failed', e);
-                setHasError(true);
-                setErrorMsg(e.name === 'InvalidStateError' ? 'Audio already connected' : 'Visualizer error');
-                connectedElementRef.current = audioElement;
-            }
-        }
-
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const analyser = analyserRef.current;
-        if (!analyser) return;
-
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
-        const draw = () => {
-            animationFrameRef.current = requestAnimationFrame(draw);
-            analyser.getByteFrequencyData(dataArray);
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const barWidth = (canvas.width / barCount);
-            let x = 0;
-
-            // Resolve color if it's a CSS variable
-            let resolvedColor = color;
-            if (color.startsWith('var(')) {
-                resolvedColor = getComputedStyle(document.documentElement).getPropertyValue(color.slice(4, -1)).trim();
-                if (!resolvedColor) resolvedColor = '#6366f1'; // fallback
-            }
-
-            for (let i = 0; i < barCount; i++) {
-                const barHeight = (dataArray[i] / 255) * canvas.height;
-                
-                try {
-                    const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-                    gradient.addColorStop(0, resolvedColor);
-                    
-                    // Only append alpha if it looks like a hex color
-                    if (resolvedColor.startsWith('#') && resolvedColor.length <= 7) {
-                        gradient.addColorStop(1, `${resolvedColor}99`);
-                    } else {
-                        gradient.addColorStop(1, resolvedColor);
-                    }
-
-                    ctx.fillStyle = gradient;
-                    
-                    // Draw rounded bars
-                    const radius = barWidth / 2;
-                    ctx.beginPath();
-                    if (ctx.roundRect) {
-                        ctx.roundRect(x, canvas.height - barHeight, barWidth - 2, barHeight, [radius, radius, 0, 0]);
-                    } else {
-                        ctx.rect(x, canvas.height - barHeight, barWidth - 2, barHeight);
-                    }
-                    ctx.fill();
-                } catch (e) {
-                    // Fallback to simple fill if gradient fails
-                    ctx.fillStyle = resolvedColor;
-                    ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
-                }
-
-                x += barWidth;
-            }
-        };
-
-        draw();
-
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-        };
-    }, [audioElement, isPlaying, color, barCount]);
-
-    if (hasError) {
-        return (
-            <div style={{ 
-                width: '100%', 
-                height: '40px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                fontSize: '0.75em',
-                color: 'var(--text-secondary)',
-                opacity: 0.6,
-                border: '1px dashed var(--border)',
-                borderRadius: '4px'
-            }}>
-                {errorMsg}
-            </div>
-        );
-    }
-
-    return (
-        <canvas 
-            ref={canvasRef} 
-            width={300} 
-            height={40} 
-            style={{ width: '100%', height: '100%', opacity: 0.6 }}
-        />
-    );
-};
-</file>
-
-<file path="src/services/dashboard/routes.ts">
-import { Express } from 'express';
-import systemRouter from './routers/system.routes.js';
-import catalogRouter from './routers/catalog.routes.js';
-import downloadRouter from './routers/download.routes.js';
-import libraryRouter from './routers/library.routes.js';
-import analyticsRouter from './routers/analytics.routes.js';
-import notificationsRouter from './routers/notifications.routes.js';
-import toolsRouter from './routers/tools.routes.js';
-import batchRouter from './routers/batch.routes.js';
-
-export function registerRoutes(app: Express) {
-    app.use('/api', systemRouter);
-    app.use('/api', catalogRouter);
-    app.use('/api', downloadRouter);
-    app.use('/api', analyticsRouter);
-    app.use('/api/library', libraryRouter);
-    app.use('/api/notifications', notificationsRouter);
-    app.use('/api/tools', toolsRouter);
-    app.use('/api/batch', batchRouter);
-}
 </file>
 
 <file path="src/services/queue-processor.ts">
@@ -26448,7 +26460,7 @@ router.post('/download/artist', async (req: Request, res: Response) => {
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
 
-    const { downloadService } = await import('../../../index.js');
+    const { downloadService } = await import('../../queue-processor.js');
     const result = await downloadService.downloadArtist(id, q);
 
     if (result.success) {
@@ -26536,7 +26548,7 @@ router.get('/preview/:id', async (req: Request, res: Response) => {
 
 router.get('/lyrics/:id', async (req: Request, res: Response) => {
     try {
-        const { downloadService } = await import('../../../index.js');
+        const { downloadService } = await import('../../queue-processor.js');
         const id = getParam(req.params.id);
 
         const historyItem = historyService.get(id);
@@ -26601,7 +26613,7 @@ router.post('/lyrics/download', async (req: Request, res: Response) => {
         const { trackId } = req.body;
         if (!trackId) return res.status(400).json({ error: 'trackId is required' });
 
-        const { downloadService } = await import('../../../index.js');
+            const { downloadService } = await import('../../queue-processor.js');
         const trackRes = await api.getTrack(trackId);
         if (!trackRes.success || !trackRes.data) return res.status(404).json({ error: 'Track not found' });
 
@@ -26641,7 +26653,7 @@ router.post('/lyrics/download-album-zip', async (req: Request, res: Response) =>
         const tracks = album.tracks?.items || [];
         if (tracks.length === 0) return res.status(404).json({ error: 'No tracks found for this album' });
 
-        const { downloadService } = await import('../../../index.js');
+            const { downloadService } = await import('../../queue-processor.js');
         const { existsSync, mkdirSync, createWriteStream } = await import('fs');
         const { default: archiver } = await import('archiver');
         const path = await import('path');
@@ -29083,20 +29095,28 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
 
     useEffect(() => {
         if (track && audioRef.current) {
-
             audioRef.current.src = `/api/stream/${track.id}`;
-            audioRef.current.play().catch(e => console.error(e));
+            audioRef.current.play().catch(e => {
+                console.error('Playback failed:', e);
+                showToast('Playback failed. The track may be restricted or missing.', 'error');
+                setPlaying(false);
+            });
         }
-    }, [track]);
-
-
+    }, [track, showToast]);
 
     useEffect(() => {
         if (audioRef.current) {
-            if (playing) audioRef.current.play().catch(() => { });
-            else audioRef.current.pause();
+            if (playing) {
+                audioRef.current.play().catch(e => {
+                    console.error('Resume failed:', e);
+                    showToast('Failed to resume playback.', 'error');
+                    setPlaying(false);
+                });
+            } else {
+                audioRef.current.pause();
+            }
         }
-    }, [playing]);
+    }, [playing, showToast]);
 
     const togglePlay = React.useCallback(() => setPlaying(prev => !prev), []);
 
@@ -29394,12 +29414,21 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                         setDuration(e.currentTarget.duration || 0);
                     }}
                     onLoadedMetadata={(e) => {
-
                         setDuration(e.currentTarget.duration);
-                        if (playing) e.currentTarget.play().catch(console.error);
+                        if (playing) {
+                            e.currentTarget.play().catch(e => {
+                                console.error('Play on load failed:', e);
+                                showToast('Playback failed after loading metadata.', 'error');
+                                setPlaying(false);
+                            });
+                        }
                     }}
                     onEnded={handleNext}
-                    onError={(e) => console.error('Audio Error', e)}
+                    onError={(e) => {
+                        console.error('Audio Element Error', e);
+                        showToast('Audio stream error. The track may be unavailable.', 'error');
+                        setPlaying(false);
+                    }}
                 />
 
                 <div className="player-left">
@@ -29536,6 +29565,7 @@ import { registerRoutes } from './routes.js';
 import { CONFIG } from '../../config.js';
 import { libraryScannerService } from '../library-scanner/index.js';
 import { notificationService } from '../notifications.js';
+import { tokenManager } from '../../utils/token.js';
 import { printBox } from '../../utils/ui.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29761,6 +29791,15 @@ export class DashboardService {
 
         notificationService.on('notifications:cleared', () => {
             this.io.emit('notifications:unreadCount', 0);
+        });
+        
+        tokenManager.on('token:invalid', () => {
+            this.io.emit('auth:token-invalid');
+            notificationService.error(
+                'Authentication Failed',
+                'Your Qobuz token is invalid or expired. Please update it in Settings.',
+                { source: 'QOBUZ' }
+            );
         });
     }
 

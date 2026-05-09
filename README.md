@@ -27,8 +27,11 @@ A comprehensive desktop-first music downloading and library management applicati
 
 </div>
 
+<br/>
+
 > [!IMPORTANT]
-> **This application uses the Qobuz API but is not certified by, endorsed by, or affiliated with Qobuz.**
+> **🚀 v5.0.0 Release is here!**
+> This major update introduces the **Spotify Migration Service**, **Library Healer AI**, **Advanced Analytics**, and a **Complete UI Overhaul**. Check the [Changelog](CHANGELOG.md) for full details.
 
 ---
 
