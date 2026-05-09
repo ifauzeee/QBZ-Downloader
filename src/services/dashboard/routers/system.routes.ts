@@ -119,7 +119,7 @@ router.get('/settings', async (req: Request, res: Response) => {
         DASHBOARD_PORT: CONFIG.dashboard.port,
         DASHBOARD_PASSWORD_CONFIGURED: !!CONFIG.dashboard.password,
         SPOTIFY_CLIENT_ID: CONFIG.spotify.clientId,
-        SPOTIFY_CLIENT_SECRET: CONFIG.spotify.clientSecret ? '****' : '',
+        SPOTIFY_CLIENT_SECRET_CONFIGURED: !!CONFIG.spotify.clientSecret,
         AI_REPAIR_ENABLED: CONFIG.ai.enabled,
         AI_PROVIDER: CONFIG.ai.provider,
         AI_API_KEY_CONFIGURED: !!CONFIG.ai.apiKey,
