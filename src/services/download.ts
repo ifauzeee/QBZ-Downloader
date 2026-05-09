@@ -423,6 +423,32 @@ export default class DownloadService {
 
     private concurrencyLimit = globalApiLimit;
 
+    private writeErrorLog(folderPath: string, failedItems: { res: DownloadResult; track: any }[]) {
+        try {
+            if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true });
+            const logPath = path.join(folderPath, 'missing_tracks.txt');
+            const timestamp = new Date().toLocaleString();
+            let content = `QBZ-Downloader - Missing Tracks Log\n`;
+            content += `Generated: ${timestamp}\n`;
+            content += `${'='.repeat(50)}\n\n`;
+
+            failedItems.forEach((item, index) => {
+                const track = item.track;
+                const title = track?.title || 'Unknown Title';
+                const artist = track?.performer?.name || track?.artist?.name || 'Unknown Artist';
+                const error = item.res.error || 'Unknown Error';
+                content += `${index + 1}. ${artist} - ${title}\n`;
+                content += `   Track ID: ${track?.id}\n`;
+                content += `   Error: ${error}\n\n`;
+            });
+
+            writeFileSync(logPath, content, 'utf8');
+            logger.warn(`Created missing tracks log at: ${logPath}`, 'DOWNLOAD');
+        } catch (e: any) {
+            logger.error(`Failed to write missing tracks log: ${e.message}`, 'DOWNLOAD');
+        }
+    }
+
     async downloadAlbum(albumId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const albumInfo = await this.api.getAlbum(albumId);
@@ -446,8 +472,38 @@ export default class DownloadService {
         })));
  
         const results = await Promise.all(promises);
-        const completed = results.filter(r => r.success).length;
- 
+        const completed = results.filter((r) => r.success).length;
+
+        const failedItems = results
+            .map((res, index) => ({ res, track: tracks[index] }))
+            .filter((item) => !item.res.success);
+
+        if (failedItems.length > 0) {
+            let albumFolderPath = '';
+            const firstSuccess = results.find((r) => r.success && r.filePath);
+            if (firstSuccess && firstSuccess.filePath) {
+                albumFolderPath = path.dirname(firstSuccess.filePath);
+            } else {
+                try {
+                    const tempMetadata = await this.metadataService.extractMetadata(tracks[0], album!, {});
+                    const outputDir = this.getOutputDir();
+                    const rawFolderPath = this.processor.buildFolderPath(tempMetadata, requestedQuality);
+                    const { folder: safeFolder } = this.processor.ensurePathSafety(
+                        outputDir,
+                        rawFolderPath,
+                        'dummy.txt'
+                    );
+                    albumFolderPath = path.join(outputDir, safeFolder);
+                } catch (e) {
+                    logger.error('Could not determine album folder for error logging', 'DOWNLOAD');
+                }
+            }
+
+            if (albumFolderPath) {
+                this.writeErrorLog(albumFolderPath, failedItems);
+            }
+        }
+
         if (completed > 0 && album) {
             mediaServerService.notifyNewContent({
                 title: album.title,
@@ -456,8 +512,13 @@ export default class DownloadService {
                 type: 'album'
             });
         }
- 
-        return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
+
+        return {
+            success: completed > 0,
+            completedTracks: completed,
+            totalTracks: results.length,
+            failedTracks: failedItems.length
+        };
     }
  
     async downloadPlaylist(playlistId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
@@ -482,8 +543,45 @@ export default class DownloadService {
         })));
  
         const results = await Promise.all(promises);
-        const completed = results.filter(r => r.success).length;
- 
+        const completed = results.filter((r) => r.success).length;
+
+        const failedItems = results
+            .map((res, index) => ({ res, track: tracks[index] }))
+            .filter((item) => !item.res.success);
+
+        if (failedItems.length > 0) {
+            const foldersMap = new Map<string, { res: DownloadResult; track: any }[]>();
+            for (const item of failedItems) {
+                let folder = '';
+                try {
+                    const tempMetadata = await this.metadataService.extractMetadata(
+                        item.track,
+                        item.track.album || {},
+                        {}
+                    );
+                    const outputDir = this.getOutputDir();
+                    const rawFolderPath = this.processor.buildFolderPath(tempMetadata, requestedQuality);
+                    const { folder: safeFolder } = this.processor.ensurePathSafety(
+                        outputDir,
+                        rawFolderPath,
+                        'dummy.txt'
+                    );
+                    folder = path.join(outputDir, safeFolder);
+                } catch (e) {
+                    logger.debug(`Could not determine folder for playlist failure: ${item.track.id}`);
+                }
+
+                if (folder) {
+                    if (!foldersMap.has(folder)) foldersMap.set(folder, []);
+                    foldersMap.get(folder)!.push(item);
+                }
+            }
+
+            for (const [folder, items] of foldersMap.entries()) {
+                this.writeErrorLog(folder, items);
+            }
+        }
+
         if (completed > 0) {
             mediaServerService.notifyNewContent({
                 title: playlist.name,
@@ -492,8 +590,13 @@ export default class DownloadService {
                 type: 'playlist'
             });
         }
- 
-        return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
+
+        return {
+            success: completed > 0,
+            completedTracks: completed,
+            totalTracks: results.length,
+            failedTracks: failedItems.length
+        };
     }
  
     async downloadArtist(artistId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
@@ -512,7 +615,16 @@ export default class DownloadService {
             results.push(res);
         }
  
-        const completed = results.filter(r => r.success).length;
-        return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
+        const completed = results.filter((r) => r.success).length;
+        const totalCompleted = results.reduce((acc, r) => acc + (r.completedTracks || 0), 0);
+        const totalFailed = results.reduce((acc, r) => acc + (r.failedTracks || 0), 0);
+        const totalTracks = results.reduce((acc, r) => acc + (r.totalTracks || 0), 0);
+
+        return {
+            success: completed > 0,
+            completedTracks: totalCompleted,
+            totalTracks: totalTracks,
+            failedTracks: totalFailed
+        };
     }
 }
