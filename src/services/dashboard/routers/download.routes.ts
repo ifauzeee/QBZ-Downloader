@@ -264,7 +264,8 @@ router.post('/lyrics/download-album-zip', async (req: Request, res: Response) =>
         if (!albumRes.success || !albumRes.data) return res.status(404).json({ error: 'Album not found' });
 
         const album = albumRes.data;
-        const tracks = album.tracks.items;
+        const tracks = album.tracks?.items || [];
+        if (tracks.length === 0) return res.status(404).json({ error: 'No tracks found for this album' });
 
         const { downloadService } = await import('../../../index.js');
         const { existsSync, mkdirSync, createWriteStream } = await import('fs');
