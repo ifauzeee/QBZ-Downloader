@@ -40,7 +40,7 @@ describe('MetadataService', () => {
             const tags = metadataService.buildId3Tags(mockMetadata, null, mockLyricsSynced);
             expect(tags.synchronisedLyrics).toBeDefined();
             expect(tags.unsynchronisedLyrics).toBeDefined();
-            expect(tags.unsynchronisedLyrics.text).toBe(mockLyricsSynced.plainLyrics);
+            expect(tags.unsynchronisedLyrics.text).toBe(mockLyricsSynced.syncedLyrics);
         });
 
         it('should not include lyrics when none available', () => {
@@ -63,7 +63,7 @@ describe('MetadataService', () => {
             const tagObj = Object.fromEntries(tags);
 
             expect(tagObj['SYNCEDLYRICS']).toBeDefined();
-            expect(tagObj['LYRICS']).toBe(mockLyricsSynced.plainLyrics);
+            expect(tagObj['LYRICS']).toBe(mockLyricsSynced.syncedLyrics);
             expect(tagObj['UNSYNCEDLYRICS']).toBe(mockLyricsSynced.plainLyrics);
         });
 

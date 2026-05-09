@@ -603,11 +603,17 @@ class MetadataService {
         }
 
         if (lyrics) {
-            const plainToUse = lyrics.plainLyrics || lyrics.syncedLyrics;
-            if (plainToUse) {
+            const synced = lyrics.syncedLyrics;
+            const plain = lyrics.plainLyrics || lyrics.syncedLyrics;
+            
+            // Priority for unsynchronisedLyrics: synced (LRC format) then plain
+            // Many modern players (BlackPlayer, Musicolet, etc.) look for LRC in USLT
+            const mainLyrics = synced || plain;
+
+            if (mainLyrics) {
                 tags.unsynchronisedLyrics = {
                     language: 'eng',
-                    text: plainToUse
+                    text: mainLyrics
                 };
             }
 
@@ -672,15 +678,22 @@ class MetadataService {
         ];
 
         if (lyrics) {
-            if (lyrics.syncedLyrics) {
-                comments.push(['SYNCEDLYRICS', lyrics.syncedLyrics]);
+            const synced = lyrics.syncedLyrics;
+            const plain = lyrics.plainLyrics || lyrics.syncedLyrics;
+
+            if (synced) {
+                comments.push(['SYNCEDLYRICS', synced]);
+                // Many players expect LRC format in the LYRICS tag for synced display
+                comments.push(['LYRICS', synced]);
             }
-            
-            const plainToUse = lyrics.plainLyrics || lyrics.syncedLyrics;
-            if (plainToUse) {
-                comments.push(['UNSYNCEDLYRICS', plainToUse]);
-                comments.push(['UNSYNCED LYRICS', plainToUse]);
-                comments.push(['LYRICS', plainToUse]);
+
+            if (plain) {
+                comments.push(['UNSYNCEDLYRICS', plain]);
+                comments.push(['UNSYNCED LYRICS', plain]);
+                // If no synced lyrics, use plain for the main tag
+                if (!synced) {
+                    comments.push(['LYRICS', plain]);
+                }
             }
 
             if (lyrics.source) {

@@ -28,7 +28,7 @@ export const RecommendationsView: React.FC = () => {
         else setLoading(true);
         
         try {
-            const res = await smartFetch('/api/library/recommendations?limit=24');
+            const res = await smartFetch('/api/recommendations?limit=24');
             if (res && res.ok) {
                 const data = await res.json();
                 setRecommendations(data);

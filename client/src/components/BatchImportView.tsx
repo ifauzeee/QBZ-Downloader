@@ -238,7 +238,7 @@ export const BatchImportView: React.FC = () => {
                                 </div>
                             </button>
                             <button className={`mode-card ${mode === 'spotify' ? 'active' : ''}`} onClick={() => setMode('spotify')}>
-                                <div className="mode-icon"><Icons.Music width={18} height={18} /></div>
+                                <div className="mode-icon"><Icons.Sparkles width={18} height={18} /></div>
                                 <div className="mode-info">
                                     <span className="mode-name">Spotify</span>
                                 </div>
@@ -328,11 +328,11 @@ export const BatchImportView: React.FC = () => {
                                     className="custom-textarea"
                                     value={directInput}
                                     onChange={e => setDirectInput(e.target.value)}
-                                    placeholder={mode === 'spotify' ? 'https://open.spotify.com/playlist/...' : `https://open.qobuz.com/track/12345\nhttps://open.qobuz.com/album/67890`}
+                                    placeholder={`https://open.qobuz.com/track/12345\nhttps://open.qobuz.com/album/67890`}
                                     spellCheck={false}
                                 />
                                 <div className="input-footer">
-                                    {mode === 'spotify' ? 'Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.' : 'Supports Tracks, Albums, Artists, Playlists. One URL per line.'}
+                                    Supports Tracks, Albums, Artists, Playlists. One URL per line.
                                 </div>
                             </div>
                         ) : mode === 'spotify' ? (
