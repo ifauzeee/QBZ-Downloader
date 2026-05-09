@@ -12,6 +12,7 @@ interface LibraryStats {
     totalSize: number;
     processedFiles?: number;
     missingMetadata?: number;
+    FFMPEG_AVAILABLE?: boolean;
 }
 
 interface DuplicateGroup {
@@ -75,6 +76,9 @@ export const LibraryView: React.FC = () => {
                 const data = await res.json();
                 setStats(data.stats || data);
                 setScanning(Boolean(data.scanning));
+                if (data.FFMPEG_AVAILABLE !== undefined) {
+                    setStats(prev => ({ ...prev!, FFMPEG_AVAILABLE: data.FFMPEG_AVAILABLE }));
+                }
             }
         } catch (e) { console.error(e); }
     }, []);
@@ -323,6 +327,27 @@ export const LibraryView: React.FC = () => {
                     <span id="scan-percentage">{progress}%</span>
                 </div>
             </div>
+
+            {stats && stats.FFMPEG_AVAILABLE === false && (
+                <div style={{
+                    padding: '12px 16px',
+                    background: 'rgba(255, 193, 7, 0.1)',
+                    border: '1px solid #ffc107',
+                    borderRadius: '8px',
+                    color: '#ffc107',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    fontSize: '0.9em'
+                }}>
+                    <span style={{ fontSize: '1.2em' }}>⚠️</span>
+                    <div>
+                        <strong>FFmpeg Not Found:</strong> Quality scanning is disabled. Results will show as "skipped" or 0% confidence.
+                        Please install FFmpeg to enable accurate lossless verification.
+                    </div>
+                </div>
+            )}
 
             <div className="library-stats-grid">
                 <div className="stat-card">

@@ -277,7 +277,7 @@ export const CONFIG: Config = {
             enabled: getBool('AI_REPAIR_ENABLED', false),
             provider: getStr('AI_PROVIDER', 'none') as any,
             apiKey: getStr('AI_API_KEY', ''),
-            model: getStr('AI_MODEL', 'gemini-1.5-flash')
+            model: getStr('AI_MODEL', 'gemini-2.0-flash')
         };
     }
 };

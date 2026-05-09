@@ -18,6 +18,16 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     const analyserRef = useRef<AnalyserNode | null>(null);
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
     const animationFrameRef = useRef<number | null>(null);
+    const [hasError, setHasError] = React.useState(false);
+    const [errorMsg, setErrorMsg] = React.useState('');
+
+    // Static map to keep track of sources across instances to avoid "already connected" error
+    const sourceMap = React.useMemo(() => {
+        if (!(window as any).__audio_sources) {
+            (window as any).__audio_sources = new WeakMap();
+        }
+        return (window as any).__audio_sources as WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>;
+    }, []);
 
     // Keep track of which element we're connected to
     const connectedElementRef = useRef<HTMLAudioElement | null>(null);
@@ -36,8 +46,10 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
                 analyserRef.current = audioContextRef.current.createAnalyser();
                 analyserRef.current.fftSize = 256;
-            } catch (e) {
+            } catch (e: any) {
                 console.error('AudioVisualizer: Failed to create AudioContext', e);
+                setHasError(true);
+                setErrorMsg('Web Audio API failed');
                 return;
             }
         }
@@ -49,16 +61,22 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
         // Handle reconnection if the audio element changed
         if (connectedElementRef.current !== audioElement) {
             try {
-                // We can't easily disconnect a MediaElementSourceNode, but we can create a new one
-                // for the new element. Note: if the same element is reused, createMediaElementSource will throw.
-                sourceRef.current = audioContextRef.current.createMediaElementSource(audioElement);
-                sourceRef.current.connect(analyserRef.current!);
+                // Check if we already have a source for this element
+                let source = sourceMap.get(audioElement);
+                
+                if (!source) {
+                    source = audioContextRef.current.createMediaElementSource(audioElement);
+                    sourceMap.set(audioElement, source);
+                }
+
+                source.connect(analyserRef.current!);
                 analyserRef.current!.connect(audioContextRef.current.destination);
                 connectedElementRef.current = audioElement;
-            } catch (e) {
+                setHasError(false);
+            } catch (e: any) {
                 console.warn('AudioVisualizer: Source already connected or failed', e);
-                // If it failed, it might be because it's already connected (e.g. from a previous mount)
-                // We'll assume it's okay to proceed if we have an analyser.
+                setHasError(true);
+                setErrorMsg(e.name === 'InvalidStateError' ? 'Audio already connected' : 'Visualizer error');
                 connectedElementRef.current = audioElement;
             }
         }
@@ -133,6 +151,25 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
             }
         };
     }, [audioElement, isPlaying, color, barCount]);
+
+    if (hasError) {
+        return (
+            <div style={{ 
+                width: '100%', 
+                height: '40px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontSize: '0.75em',
+                color: 'var(--text-secondary)',
+                opacity: 0.6,
+                border: '1px dashed var(--border)',
+                borderRadius: '4px'
+            }}>
+                {errorMsg}
+            </div>
+        );
+    }
 
     return (
         <canvas 

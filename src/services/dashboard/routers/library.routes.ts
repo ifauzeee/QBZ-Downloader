@@ -7,17 +7,19 @@ import QobuzAPI from '../../../api/qobuz.js';
 import { libraryHealerService } from '../../LibraryHealerService.js';
 import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
 import { CONFIG } from '../../../config.js';
+import { formatConverterService } from '../../FormatConverterService.js';
 
 const router = Router();
 
 const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
 
-router.get('/scan/status', (req: Request, res: Response) => {
+router.get('/scan/status', async (req: Request, res: Response) => {
     const stats = libraryScannerService.getScanStats();
     res.json({
         ...stats,
         stats,
-        scanning: libraryScannerService.isScanInProgress()
+        scanning: libraryScannerService.isScanInProgress(),
+        FFMPEG_AVAILABLE: await formatConverterService.isAvailable()
     });
 });
 

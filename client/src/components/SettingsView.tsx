@@ -43,6 +43,8 @@ interface AppSettings {
     EXPORT_KEEP_ORIGINAL: boolean;
     EXPORT_PATH: string;
     BANDWIDTH_LIMIT: number;
+    SPOTIFY_CLIENT_ID: string;
+    SPOTIFY_CLIENT_SECRET_CONFIGURED: boolean;
     FFMPEG_AVAILABLE: boolean;
 }
 
@@ -88,7 +90,9 @@ export const SettingsView: React.FC = () => {
         aiRepairEnabled: false,
         aiProvider: 'none',
         aiApiKey: '',
-        aiModel: 'gemini-1.5-flash',
+        aiModel: 'gemini-2.0-flash',
+        spotifyClientId: '',
+        spotifyClientSecret: '',
         mediaServerEnabled: false,
         mediaServerType: 'none',
         mediaServerUrl: '',
@@ -170,7 +174,9 @@ export const SettingsView: React.FC = () => {
                     exportBitrate: data.EXPORT_BITRATE || '320k',
                     exportKeepOriginal: data.EXPORT_KEEP_ORIGINAL !== undefined ? Boolean(data.EXPORT_KEEP_ORIGINAL) : true,
                     exportPath: data.EXPORT_PATH || '',
-                    bandwidthLimit: Number(data.BANDWIDTH_LIMIT || 0)
+                    bandwidthLimit: Number(data.BANDWIDTH_LIMIT || 0),
+                    spotifyClientId: data.SPOTIFY_CLIENT_ID || '',
+                    spotifyClientSecret: ''
                 });
             }
             if (cRes && cRes.ok) setCreds(await cRes.json());
@@ -241,7 +247,9 @@ export const SettingsView: React.FC = () => {
                 export_bitrate: settingsForm.exportBitrate,
                 export_keep_original: settingsForm.exportKeepOriginal,
                 export_path: settingsForm.exportPath,
-                bandwidth_limit: settingsForm.bandwidthLimit
+                bandwidth_limit: settingsForm.bandwidthLimit,
+                spotify_client_id: settingsForm.spotifyClientId,
+                spotify_client_secret: settingsForm.spotifyClientSecret
             };
 
             if (settingsForm.dashboardPassword.trim()) {
@@ -765,6 +773,41 @@ export const SettingsView: React.FC = () => {
 
             <div className="settings-section">
                 <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="icon">🎵</span> {t('sec_spotify')}
+                </h3>
+                <p className="section-desc">{t('desc_spotify')}</p>
+                <div className="update-cred-grid">
+                    <div className="form-group">
+                        <label>{t('label_spotify_client_id')}</label>
+                        <input
+                            type="text"
+                            placeholder="Enter Spotify Client ID..."
+                            value={settingsForm.spotifyClientId}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, spotifyClientId: e.target.value }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>{t('label_spotify_client_secret')}</label>
+                        <input
+                            type="text"
+                            placeholder={
+                                settings?.SPOTIFY_CLIENT_SECRET_CONFIGURED
+                                    ? 'Configured (leave blank to keep current secret)'
+                                    : 'Enter Spotify Client Secret...'
+                            }
+                            value={settingsForm.spotifyClientSecret}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, spotifyClientSecret: e.target.value }))
+                            }
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="settings-section">
+                <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="icon">🤖</span> {t('sec_ai_metadata')}
                 </h3>
                 <p className="section-desc">{t('desc_ai_metadata')}</p>
@@ -987,7 +1030,11 @@ export const SettingsView: React.FC = () => {
                         />
                     </div>
                     <div className="settings-checkbox-group" style={{ gridColumn: 'span 2' }}>
-                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, exportEnabled: !prev.exportEnabled }))}>
+                        <div className="settings-checkbox-item" onClick={() => {
+                            if (settings?.FFMPEG_AVAILABLE) {
+                                setSettingsForm(prev => ({ ...prev, exportEnabled: !prev.exportEnabled }));
+                            }
+                        }}>
                             <input
                                 type="checkbox"
                                 checked={settingsForm.exportEnabled}
@@ -996,6 +1043,11 @@ export const SettingsView: React.FC = () => {
                             />
                             <label style={{ opacity: settings?.FFMPEG_AVAILABLE ? 1 : 0.5 }}>{t('label_export_enabled')}</label>
                         </div>
+                        {!settings?.FFMPEG_AVAILABLE && (
+                            <div style={{ fontSize: '0.85em', color: 'var(--danger)', marginTop: '4px', marginLeft: '28px' }}>
+                                ⚠️ {t('msg_ffmpeg_missing') || 'ffmpeg is required for this feature.'}
+                            </div>
+                        )}
                         <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, exportKeepOriginal: !prev.exportKeepOriginal }))}>
                             <input
                                 type="checkbox"
