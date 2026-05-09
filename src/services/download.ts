@@ -192,12 +192,13 @@ export default class DownloadService {
 
         const track = trackInfo.data!;
         let album = options.album || track.album;
+        const currentAlbum = album;
 
-        if (!options.album && album && album.id) {
+        if (!options.album && currentAlbum && currentAlbum.id) {
             try {
                 const fullAlbumInfo = await retryOperation(
                     async () => {
-                        const res = await this.api.getAlbum(album.id!);
+                        const res = await this.api.getAlbum(currentAlbum.id!);
                         if (!res.success) throw new Error(res.error || 'Failed to fetch album info');
                         return res;
                     },

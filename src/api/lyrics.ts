@@ -34,6 +34,7 @@ interface ProcessedLyrics {
     success: boolean;
     source?: string;
     syncedLyrics?: string | null;
+    synced?: string | null;
     plainLyrics?: string | null;
     parsedLyrics?: ParsedLyric[] | null;
     syltFormat?: SyltLine[] | null;
@@ -337,6 +338,7 @@ class LyricsProvider {
             success: true,
             source: result.source,
             syncedLyrics: result.data?.syncedLyrics,
+            synced: result.data?.syncedLyrics,
             plainLyrics: result.data?.plainLyrics,
             parsedLyrics: this.parseLrc(result.data?.syncedLyrics),
             syltFormat: this.toSylt(result.data?.syncedLyrics),
