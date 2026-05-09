@@ -331,6 +331,11 @@ class QobuzAPI {
                 return await this.getFileUrl(trackId, 7);
             } else if (formatId === 7) {
                 return await this.getFileUrl(trackId, 6);
+            } else if (formatId === 6) {
+                return await this.getFileUrl(trackId, 5);
+            } else if (formatId === 5) {
+                // Last resort: format 1 is often used for 30s preview
+                return await this.getFileUrl(trackId, 1);
             }
             this.handleApiError(error);
             return { success: false, error: 'API Error' };

@@ -15,6 +15,7 @@ export interface PreviewInfo {
     qualityLabel: string;
     coverUrl: string;
     waveform?: number[];
+    isSample: boolean;
     expiresAt: number;
 }
 
@@ -79,6 +80,8 @@ class AudioPreviewService extends EventEmitter {
                 quality,
                 qualityLabel: QUALITY_LABELS[quality] || `Quality ${quality}`,
                 coverUrl: this.getCoverUrl(track.album?.image || {}),
+                waveform: this.generateWaveform(track.duration || 180),
+                isSample: !!(streamData.sample || (streamData.duration && streamData.duration <= 30)),
                 expiresAt: Date.now() + this.cacheExpiry
             };
 
@@ -120,9 +123,10 @@ class AudioPreviewService extends EventEmitter {
                                     QUALITY_LABELS[data.format_id || preferredQuality] ||
                                     `Quality ${data.format_id}`,
                                 coverUrl: this.getCoverUrl(track.album?.image || {}),
+                                isSample: !!(data.sample || (data.duration && data.duration <= 30)),
                                 expiresAt: Date.now() + this.cacheExpiry
                             };
-                            this.previewCache.set(trackId, meta);
+                            this.previewCache.set(trackId, meta as PreviewInfo);
                         }
                     } catch {}
                 }

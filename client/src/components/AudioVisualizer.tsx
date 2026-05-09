@@ -42,6 +42,10 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
             }
         }
 
+        if (audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+
         // Handle reconnection if the audio element changed
         if (connectedElementRef.current !== audioElement) {
             try {

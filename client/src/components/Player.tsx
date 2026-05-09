@@ -52,6 +52,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
     const [quality, setQuality] = useState<string | null>(null);
+    const [isSample, setIsSample] = useState(false);
 
 
 
@@ -68,14 +69,16 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
     useEffect(() => {
         if (!track) {
             setQuality(null);
+            setIsSample(false);
             return;
         }
 
         smartFetch(`/api/preview/${track.id}`)
             .then(res => res ? res.json() : null)
             .then(data => {
-                if (data && data.qualityLabel) {
-                    setQuality(data.qualityLabel);
+                if (data) {
+                    if (data.qualityLabel) setQuality(data.qualityLabel);
+                    setIsSample(!!data.isSample);
                 }
             })
             .catch(() => { });
@@ -552,6 +555,18 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                                     }}
                                 >
                                     {quality.replace('FLAC ', '').replace('kbps', '')}
+                                </div>
+                            )}
+                            {isSample && (
+                                <div 
+                                    className="quality-badge-mini" 
+                                    style={{ 
+                                        borderColor: 'var(--warning)', 
+                                        color: 'var(--warning)',
+                                        boxShadow: '0 0 4px rgba(255, 193, 7, 0.2)'
+                                    }}
+                                >
+                                    30s Preview
                                 </div>
                             )}
                         </div>

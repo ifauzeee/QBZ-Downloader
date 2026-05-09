@@ -184,6 +184,22 @@ router.get('/search/suggestions', async (req: Request, res: Response) => {
     }
 });
 
+router.get('/preview/:id', async (req: Request, res: Response) => {
+    try {
+        const { audioPreviewService } = await import('../../audio-preview/index.js');
+        const trackId = getParam(req.params.id);
+        const info = await audioPreviewService.getPreviewInfo(trackId);
+
+        if (info) {
+            res.json(info);
+        } else {
+            res.status(404).json({ error: 'Preview info not found' });
+        }
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/stream/:id', async (req: Request, res: Response) => {
     try {
         const { audioPreviewService } = await import('../../audio-preview/index.js');
