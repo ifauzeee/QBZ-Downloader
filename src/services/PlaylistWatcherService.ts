@@ -95,7 +95,7 @@ export class PlaylistWatcherService {
                 );
             }
 
-            databaseService.updatePlaylistSyncTime(p.id);
+            databaseService.updatePlaylistSyncTime(p.id.toString());
 
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);

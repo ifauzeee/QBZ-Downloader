@@ -55,7 +55,7 @@ export class LibraryStatisticsService {
         return 'Other';
     }
 
-    private calculateActivity(tracks: { created_at?: string }[]): { date: string; count: number }[] {
+    private calculateActivity(tracks: { downloaded_at?: string }[]): { date: string; count: number }[] {
         const activityMap = new Map<string, number>();
         const now = new Date();
         
@@ -66,8 +66,8 @@ export class LibraryStatisticsService {
         }
 
         for (const track of tracks) {
-            if (track.created_at) {
-                const date = track.created_at.split(' ')[0];
+            if (track.downloaded_at) {
+                const date = track.downloaded_at.split(' ')[0];
                 if (activityMap.has(date)) {
                     activityMap.set(date, (activityMap.get(date) || 0) + 1);
                 }
