@@ -154,5 +154,9 @@
     "title_notifications": "通知",
     "action_mark_all_read": "すべて既読にする",
     "msg_no_notifications": "通知はまだありません",
-    "label_new": "新着"
+    "label_new": "新着",
+    "action_refresh": "更新",
+    "desc_recommendations": "リスニング履歴とローカルライブラリに基づいています",
+    "msg_not_enough_data": "データがまだ不十分です",
+    "msg_not_enough_data_desc": "音楽を聴き始めるか、ライブラリをスキャンして、パーソナライズされたおすすめを取得してください。"
 }

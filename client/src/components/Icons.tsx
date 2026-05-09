@@ -153,7 +153,11 @@ export const Icons = {
     FlagZH: (props: IconProps) => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" {...props}>
             <rect x="2" y="4" width="20" height="16" rx="2" fill="#DE2910" />
-            <path d="M7 8l-1 3h3.5L8 12.5 9 15 7 13.5 5 15l1-2.5L4.5 11H8z" fill="#FFDE00" />
+            <path d="M6 7.5l.6 1.8h1.9l-1.5 1.1.6 1.8-1.6-1.1-1.6 1.1.6-1.8-1.5-1.1h1.9z" fill="#FFDE00" />
+            <path d="M9.5 6l.2.6h.6l-.5.4.2.6-.5-.4-.5.4.2-.6-.5-.4h.6z" fill="#FFDE00" />
+            <path d="M10.5 8l.2.6h.6l-.5.4.2.6-.5-.4-.5.4.2-.6-.5-.4h.6z" fill="#FFDE00" />
+            <path d="M10.5 10.5l.2.6h.6l-.5.4.2.6-.5-.4-.5.4.2-.6-.5-.4h.6z" fill="#FFDE00" />
+            <path d="M9.5 12.5l.2.6h.6l-.5.4.2.6-.5-.4-.5.4.2-.6-.5-.4h.6z" fill="#FFDE00" />
             <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.2" />
         </svg>
     ),

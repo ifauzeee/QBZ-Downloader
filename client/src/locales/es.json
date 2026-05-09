@@ -154,5 +154,9 @@
     "title_notifications": "Notificaciones",
     "action_mark_all_read": "Marcar todo como leído",
     "msg_no_notifications": "Aún no hay notificaciones",
-    "label_new": "nuevo"
+    "label_new": "nuevo",
+    "action_refresh": "Refrescar",
+    "desc_recommendations": "Basado en su historial de escucha y biblioteca local",
+    "msg_not_enough_data": "Aún no hay suficientes datos",
+    "msg_not_enough_data_desc": "Comience a escuchar música o escanee su biblioteca para obtener recomendaciones personalizadas."
 }

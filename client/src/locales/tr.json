@@ -154,5 +154,9 @@
     "title_notifications": "Bildirimler",
     "action_mark_all_read": "Tümünü okundu işaretle",
     "msg_no_notifications": "Henüz bildirim yok",
-    "label_new": "yeni"
+    "label_new": "yeni",
+    "action_refresh": "Yenile",
+    "desc_recommendations": "Dinleme geçmişinize ve yerel kütüphanenize dayanmaktadır",
+    "msg_not_enough_data": "Henüz yeterli veri yok",
+    "msg_not_enough_data_desc": "Kişiselleştirilmiş öneriler almak için biraz müzik dinlemeye başlayın veya kütüphanenizi tarayın."
 }

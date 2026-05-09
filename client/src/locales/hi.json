@@ -154,5 +154,9 @@
     "title_notifications": "सूचनाएं",
     "action_mark_all_read": "सभी को पढ़ा हुआ मानें",
     "msg_no_notifications": "अभी तक कोई सूचना नहीं है",
-    "label_new": "नया"
+    "label_new": "नया",
+    "action_refresh": "रीफ्रेश",
+    "desc_recommendations": "आपके सुनने के इतिहास और स्थानीय लाइब्रेरी के आधार पर",
+    "msg_not_enough_data": "अभी पर्याप्त डेटा नहीं है",
+    "msg_not_enough_data_desc": "व्यक्तिगत अनुशंसाएँ प्राप्त करने के लिए कुछ संगीत सुनना शुरू करें या अपनी लाइब्रेरी स्कैन करें।"
 }

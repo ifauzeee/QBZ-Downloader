@@ -28,13 +28,14 @@ export const RecommendationsView: React.FC = () => {
         else setLoading(true);
         
         try {
-            const res = await smartFetch('/api/library/recommendations?limit=12');
+            const res = await smartFetch('/api/library/recommendations?limit=24');
             if (res && res.ok) {
                 const data = await res.json();
                 setRecommendations(data);
             }
         } catch (error) {
             console.error('Failed to fetch recommendations:', error);
+            showToast('Failed to load recommendations', 'error');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -63,13 +64,13 @@ export const RecommendationsView: React.FC = () => {
     if (loading) {
         return (
             <div className="view-section">
-                <div className="recommendations-header" style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div className="skeleton" style={{ width: '250px', height: '36px', borderRadius: '8px' }}></div>
-                    <div className="skeleton" style={{ width: '100px', height: '40px', borderRadius: '20px' }}></div>
+                <div className="recommendations-header-premium skeleton-container">
+                    <div className="skeleton" style={{ width: '300px', height: '48px', borderRadius: '12px' }}></div>
+                    <div className="skeleton" style={{ width: '120px', height: '44px', borderRadius: '22px' }}></div>
                 </div>
                 <div className="results-grid">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className="skeleton" style={{ height: '280px', borderRadius: '12px' }}></div>
+                    {Array.from({ length: 12 }).map((_, i) => (
+                        <div key={i} className="skeleton premium-card-skeleton" style={{ height: '320px', borderRadius: '20px' }}></div>
                     ))}
                 </div>
             </div>
@@ -78,124 +79,89 @@ export const RecommendationsView: React.FC = () => {
 
     return (
         <div className="view-section animate-in">
-            <div className="recommendations-header" style={{ 
-                marginBottom: '40px', 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%)',
-                padding: '24px',
-                borderRadius: '16px',
-                border: '1px solid rgba(99, 102, 241, 0.2)',
-                backdropFilter: 'blur(10px)'
-            }}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ color: 'var(--accent)' }}>✨</span> {t('title_recommendations') || 'Recommended for You'}
+            <div className="recommendations-header-premium">
+                <div className="header-content">
+                    <div className="header-badge">
+                        <span className="badge-pulse"></span>
+                        {t('label_new') || 'NEW'}
+                    </div>
+                    <h2 className="premium-title">
+                        <span className="title-gradient">{t('title_recommendations') || 'Recommended'}</span>
                     </h2>
-                    <p style={{ margin: '8px 0 0 0', opacity: 0.7, fontSize: '0.95rem' }}>
-                        Based on your listening history and local library
+                    <p className="premium-subtitle">
+                        {t('desc_recommendations') || 'Tailored to your musical taste'}
                     </p>
                 </div>
                 <button 
-                    className={`btn secondary ${refreshing ? 'loading' : ''}`} 
+                    className={`refresh-btn-premium ${refreshing ? 'loading' : ''}`} 
                     onClick={() => fetchRecommendations(true)}
-                    style={{ 
-                        borderRadius: '24px', 
-                        padding: '10px 24px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '8px',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }}
+                    disabled={refreshing}
                 >
-                    <Icons.Refresh className={refreshing ? 'spin' : ''} width={18} height={18} />
+                    <Icons.Refresh className={refreshing ? 'spin' : ''} width={20} height={20} />
                     <span>{t('action_refresh') || 'Refresh'}</span>
                 </button>
             </div>
 
             {recommendations.length === 0 ? (
-                <div className="empty-state" style={{ padding: '80px 0' }}>
-                    <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🔮</div>
-                    <h3>Not enough data yet</h3>
-                    <p>Start listening to some music or scan your library to get personalized recommendations.</p>
+                <div className="empty-state-premium">
+                    <div className="empty-icon-glow">🔮</div>
+                    <h3>{t('msg_not_enough_data') || 'Not enough data'}</h3>
+                    <p>{t('msg_not_enough_data_desc') || 'Start exploring to get recommendations.'}</p>
+                    <button className="btn primary" onClick={() => navigate('search')}>
+                        {t('menu_search')}
+                    </button>
                 </div>
             ) : (
                 <div className="results-grid">
                     {recommendations.map((album, idx) => (
                         <div 
                             key={album.id} 
-                            className="grid-item recommend-card"
-                            style={{ 
-                                animationDelay: `${idx * 0.05}s`,
-                                position: 'relative',
-                                overflow: 'hidden',
-                                transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                            }}
+                            className="recommend-card-premium"
+                            style={{ animationDelay: `${idx * 0.03}s` }}
                             onClick={() => navigate('album', { id: album.id })}
                         >
-                            <div className="grid-cover-container" style={{ position: 'relative' }}>
+                            <div className="card-image-container">
                                 <img 
                                     src={album.image?.large || album.image?.medium} 
-                                    className="grid-cover" 
+                                    className="card-image" 
                                     alt={album.title} 
                                     loading="lazy"
                                 />
-                                <div className="grid-cover-overlay" style={{
-                                    background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'flex-end',
-                                    padding: '16px',
-                                    gap: '10px'
-                                }}>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                <div className="card-overlay-premium">
+                                    <div className="overlay-actions">
                                         <button 
-                                            className="grid-play-btn" 
-                                            style={{ width: '40px', height: '40px' }}
+                                            className="action-pill play"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                // Recommendations are albums, so we might want to play the first track or view it
                                                 navigate('album', { id: album.id });
                                             }}
                                         >
-                                            <Icons.Play width={20} height={20} />
+                                            <Icons.Play width={18} height={18} />
+                                            <span>{t('action_play')}</span>
                                         </button>
                                         <button 
-                                            className="grid-play-btn" 
-                                            style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.1)' }}
+                                            className="action-pill queue"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 addToQueue(album.id);
                                             }}
-                                            title="Add to Queue"
                                         >
                                             <Icons.Download width={18} height={18} />
                                         </button>
                                     </div>
                                 </div>
                                 {album.hires && (
-                                    <div className="grid-badge-quality hires" style={{
-                                        position: 'absolute',
-                                        top: '12px',
-                                        right: '12px',
-                                        background: 'var(--hires)',
-                                        padding: '4px 8px',
-                                        borderRadius: '6px',
-                                        fontSize: '10px',
-                                        fontWeight: 'bold',
-                                        color: '#000',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                                    }}>
-                                        HI-RES
+                                    <div className="hires-badge-premium">
+                                        <span className="hires-text">HI-RES</span>
+                                        {album.maximum_sampling_rate && (
+                                            <span className="hires-specs">{album.maximum_sampling_rate}kHz</span>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                            <div className="grid-info" style={{ padding: '16px' }}>
-                                <div className="grid-title" style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '4px' }}>{album.title}</div>
-                                <div className="grid-artist" style={{ opacity: 0.6, fontSize: '0.9rem' }}>{album.artist?.name}</div>
+                            <div className="card-meta">
+                                <div className="album-title-premium" title={album.title}>{album.title}</div>
+                                <div className="artist-name-premium">{album.artist?.name}</div>
                             </div>
                         </div>
                     ))}
@@ -203,26 +169,250 @@ export const RecommendationsView: React.FC = () => {
             )}
 
             <style dangerouslySetInnerHTML={{ __html: `
-                .recommend-card:hover {
-                    transform: translateY(-8px) scale(1.02);
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+                .recommendations-header-premium {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-end;
+                    margin-bottom: 40px;
+                    padding: 40px;
+                    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.1) 50%, transparent 100%);
+                    border-radius: 32px;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    position: relative;
+                    overflow: hidden;
+                    backdrop-filter: blur(20px);
                 }
-                .recommend-card:hover .grid-cover {
-                    transform: scale(1.1);
+                .recommendations-header-premium::before {
+                    content: '';
+                    position: absolute;
+                    top: -50%;
+                    left: -20%;
+                    width: 140%;
+                    height: 140%;
+                    background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+                    z-index: -1;
+                    pointer-events: none;
                 }
-                .animate-in {
-                    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                .header-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 6px 14px;
+                    background: rgba(99, 102, 241, 0.2);
+                    border-radius: 100px;
+                    font-size: 0.75rem;
+                    font-weight: 800;
+                    color: #818cf8;
+                    margin-bottom: 16px;
+                    letter-spacing: 0.1em;
+                    border: 1px solid rgba(99, 102, 241, 0.3);
                 }
-                @keyframes slideUp {
-                    from { opacity: 0; transform: translateY(20px); }
+                .badge-pulse {
+                    width: 6px;
+                    height: 6px;
+                    background: #818cf8;
+                    border-radius: 50%;
+                    box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.7);
+                    animation: pulse 2s infinite;
+                }
+                @keyframes pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.7); }
+                    70% { box-shadow: 0 0 0 10px rgba(129, 140, 248, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0); }
+                }
+                .premium-title {
+                    margin: 0;
+                    font-size: 3.5rem;
+                    font-weight: 900;
+                    letter-spacing: -0.04em;
+                    line-height: 1;
+                }
+                .title-gradient {
+                    background: linear-gradient(to right, #fff, #a5b4fc);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                }
+                .premium-subtitle {
+                    margin: 16px 0 0 0;
+                    font-size: 1.1rem;
+                    color: var(--text-secondary);
+                    font-weight: 500;
+                    opacity: 0.8;
+                }
+                .refresh-btn-premium {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: white;
+                    padding: 12px 28px;
+                    border-radius: 100px;
+                    font-weight: 700;
+                    font-size: 0.95rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    cursor: pointer;
+                    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+                    backdrop-filter: blur(10px);
+                }
+                .refresh-btn-premium:hover {
+                    background: rgba(255, 255, 255, 0.1);
+                    transform: scale(1.05);
+                    border-color: rgba(255, 255, 255, 0.3);
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                }
+                .refresh-btn-premium:active {
+                    transform: scale(0.98);
+                }
+                .recommend-card-premium {
+                    background: rgba(255, 255, 255, 0.02);
+                    border-radius: 24px;
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    overflow: hidden;
+                    cursor: pointer;
+                    transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+                    opacity: 0;
+                    transform: translateY(30px);
+                    animation: cardFadeIn 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+                }
+                @keyframes cardFadeIn {
                     to { opacity: 1; transform: translateY(0); }
                 }
-                .spin {
-                    animation: spin 1s linear infinite;
+                .recommend-card-premium:hover {
+                    background: rgba(255, 255, 255, 0.04);
+                    transform: translateY(-12px);
+                    border-color: rgba(99, 102, 241, 0.3);
+                    box-shadow: 0 25px 60px -15px rgba(0,0,0,0.6);
                 }
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
+                .card-image-container {
+                    position: relative;
+                    aspect-ratio: 1;
+                    overflow: hidden;
+                    margin: 12px;
+                    border-radius: 18px;
+                    background: #1a1a1a;
+                }
+                .card-image {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    transition: transform 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+                }
+                .recommend-card-premium:hover .card-image {
+                    transform: scale(1.1) rotate(1deg);
+                }
+                .card-overlay-premium {
+                    position: absolute;
+                    inset: 0;
+                    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 60%);
+                    display: flex;
+                    align-items: flex-end;
+                    justify-content: center;
+                    padding: 24px;
+                    opacity: 0;
+                    transition: all 0.4s ease;
+                    transform: translateY(20px);
+                }
+                .recommend-card-premium:hover .card-overlay-premium {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+                .overlay-actions {
+                    display: flex;
+                    gap: 10px;
+                    width: 100%;
+                }
+                .action-pill {
+                    padding: 10px 16px;
+                    border-radius: 12px;
+                    border: none;
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    transition: all 0.3s;
+                }
+                .action-pill.play {
+                    flex: 1;
+                    background: white;
+                    color: black;
+                }
+                .action-pill.play:hover {
+                    background: #e2e2e2;
+                    transform: scale(1.05);
+                }
+                .action-pill.queue {
+                    background: rgba(255, 255, 255, 0.15);
+                    color: white;
+                    width: 44px;
+                    backdrop-filter: blur(10px);
+                }
+                .action-pill.queue:hover {
+                    background: rgba(255, 255, 255, 0.25);
+                    transform: scale(1.1);
+                }
+                .hires-badge-premium {
+                    position: absolute;
+                    top: 16px;
+                    left: 16px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 2px;
+                    background: rgba(253, 186, 116, 0.95);
+                    color: black;
+                    padding: 4px 10px;
+                    border-radius: 8px;
+                    backdrop-filter: blur(5px);
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+                }
+                .hires-text { font-size: 0.7rem; font-weight: 900; letter-spacing: 0.05em; }
+                .hires-specs { font-size: 0.6rem; font-weight: 700; opacity: 0.8; }
+                
+                .card-meta {
+                    padding: 4px 16px 20px 16px;
+                }
+                .album-title-premium {
+                    font-weight: 700;
+                    font-size: 1.05rem;
+                    color: white;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    margin-bottom: 4px;
+                }
+                .artist-name-premium {
+                    font-size: 0.9rem;
+                    color: var(--text-secondary);
+                    opacity: 0.7;
+                    font-weight: 500;
+                }
+                
+                .empty-state-premium {
+                    text-align: center;
+                    padding: 100px 40px;
+                    background: rgba(255, 255, 255, 0.02);
+                    border-radius: 40px;
+                    border: 1px dashed rgba(255, 255, 255, 0.1);
+                }
+                .empty-icon-glow {
+                    font-size: 5rem;
+                    margin-bottom: 24px;
+                    filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.4));
+                }
+                .empty-state-premium h3 { font-size: 1.8rem; margin-bottom: 12px; }
+                .empty-state-premium p { max-width: 500px; margin: 0 auto 32px auto; opacity: 0.6; line-height: 1.6; }
+                
+                .spin { animation: spin 1s linear infinite; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                
+                .animate-in {
+                    animation: sectionIn 1s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+                }
+                @keyframes sectionIn {
+                    from { opacity: 0; transform: translateY(40px); filter: blur(10px); }
+                    to { opacity: 1; transform: translateY(0); filter: blur(0); }
                 }
             `}} />
         </div>

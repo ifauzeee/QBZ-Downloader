@@ -154,5 +154,9 @@
     "title_notifications": "Benachrichtigungen",
     "action_mark_all_read": "Alle als gelesen markieren",
     "msg_no_notifications": "Noch keine Benachrichtigungen",
-    "label_new": "neu"
+    "label_new": "neu",
+    "action_refresh": "Aktualisieren",
+    "desc_recommendations": "Basierend auf Ihrem Hörverlauf und Ihrer lokalen Bibliothek",
+    "msg_not_enough_data": "Noch nicht genügend Daten",
+    "msg_not_enough_data_desc": "Hören Sie etwas Musik oder scannen Sie Ihre Bibliothek, um personalisierte Empfehlungen zu erhalten."
 }

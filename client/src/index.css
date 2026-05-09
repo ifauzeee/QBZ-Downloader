@@ -187,6 +187,11 @@ body.desktop-mode {
     to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fadeInScale {
+    from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .desktop-onboarding-shell {
     width: min(1220px, 100%);
     margin: 0 auto;
@@ -943,8 +948,11 @@ body.desktop-mode {
     align-items: center;
     padding: 0 32px;
     border-bottom: 1px solid var(--border);
-    background: rgba(8, 13, 21, 0.78);
-    backdrop-filter: blur(10px);
+    background: rgba(8, 13, 21, 0.85);
+    backdrop-filter: blur(20px);
+    position: relative;
+    z-index: 1000;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
 }
 
 .top-bar h2 {

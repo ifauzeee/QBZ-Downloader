@@ -154,5 +154,9 @@
     "title_notifications": "Notifikasi",
     "action_mark_all_read": "Tandai semua dibaca",
     "msg_no_notifications": "Belum ada notifikasi",
-    "label_new": "baru"
+    "label_new": "baru",
+    "action_refresh": "Perbarui",
+    "desc_recommendations": "Berdasarkan riwayat mendengarkan dan pustaka lokal Anda",
+    "msg_not_enough_data": "Data belum cukup",
+    "msg_not_enough_data_desc": "Mulai dengarkan musik atau pindai pustaka Anda untuk mendapatkan rekomendasi pribadi."
 }

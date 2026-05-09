@@ -438,18 +438,20 @@ function AppContent() {
                           className="dropdown-menu"
                           style={{
                             position: 'absolute',
-                            top: 'calc(100% + 8px)',
+                            top: 'calc(100% + 12px)',
                             right: 0,
-                            background: 'var(--bg-card)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '12px',
-                            padding: '6px',
+                            background: 'rgba(17, 26, 38, 0.95)',
+                            border: '1px solid var(--border-light)',
+                            borderRadius: '16px',
+                            padding: '8px',
                             zIndex: 2000,
-                            minWidth: '160px',
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                            minWidth: '200px',
+                            boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '2px'
+                            gap: '4px',
+                            backdropFilter: 'blur(24px)',
+                            animation: 'fadeInScale 0.2s cubic-bezier(0.23, 1, 0.32, 1)'
                           }}
                         >
                           {Object.entries(flags).map(([code, config]) => {

@@ -154,5 +154,9 @@
     "title_notifications": "通知",
     "action_mark_all_read": "全部标记为已读",
     "msg_no_notifications": "暂无通知",
-    "label_new": "新"
+    "label_new": "新",
+    "action_refresh": "刷新",
+    "desc_recommendations": "基于您的收听历史记录和本地库",
+    "msg_not_enough_data": "数据还不够",
+    "msg_not_enough_data_desc": "开始听音乐或扫描您的库以获得个性化推荐。"
 }
