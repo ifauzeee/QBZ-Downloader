@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { smartFetch } from '../utils/api';
 import { Icons } from './Icons';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface HealthData {
     totalTracks: number;
@@ -61,7 +61,7 @@ export const LibraryHealthView: React.FC = () => {
         return 'var(--danger)';
     };
 
-    const containerVariants = {
+    const containerVariants: any = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
@@ -71,7 +71,7 @@ export const LibraryHealthView: React.FC = () => {
         }
     };
 
-    const itemVariants = {
+    const itemVariants: any = {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.19, 1, 0.22, 1] } }
     };
@@ -372,7 +372,7 @@ const InsightCard: React.FC<InsightCardProps> = ({ icon, label, count, subtext, 
     <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+        transition={{ delay, duration: 0.4, ease: [0.23, 1, 0.32, 1] as any }}
         whileHover={{ y: -5, background: 'rgba(255,255,255,0.03)' }}
         className="insight-card" 
         style={{ 
