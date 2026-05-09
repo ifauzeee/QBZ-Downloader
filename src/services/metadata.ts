@@ -1,6 +1,8 @@
 import NodeID3 from 'node-id3';
 import flac from 'flac-metadata';
 import fs from 'fs';
+import path from 'path';
+import { logger } from '../utils/logger.js';
 
 export type RawData = Record<string, any>;
 
@@ -169,6 +171,12 @@ class MetadataService {
         const names = Array.from(allArtistNames);
         const mainArtist = this.joinWithAnd(names);
 
+        const composerName = this.joinWithAnd(
+            performers.composers.length > 0
+                ? performers.composers.map((p: any) => p.name)
+                : [trackData.composer?.name || composer.name].filter(Boolean)
+        );
+
         const metadata: Metadata = {
             title: trackData.title || '',
             artist: mainArtist,
@@ -296,11 +304,7 @@ class MetadataService {
             })(),
 
             albumArtist: album.artist?.name || artist.name || '',
-            composer: this.joinWithAnd(
-                performers.composers.length > 0
-                    ? performers.composers.map((p: any) => p.name)
-                    : [trackData.composer?.name || composer.name].filter(Boolean)
-            ),
+            composer: composerName,
             conductor: performers.conductor || '',
             producer: (
                 performers.producers.map((p: any) => p.name).join('; ') ||
@@ -313,10 +317,22 @@ class MetadataService {
                 ''
             ).trim(),
             remixer: credits.remixer || '',
-            lyricist: credits.lyricist || '',
+            lyricist:
+                credits.lyricist ||
+                performers.writers
+                    .filter(
+                        (p: any) =>
+                            p.role.toLowerCase().includes('lyricist') ||
+                            p.role.toLowerCase().includes('author')
+                    )
+                    .map((p: any) => p.name)
+                    .join('; ') ||
+                composerName ||
+                '',
             writer: (
                 performers.writers.map((p: any) => p.name).join('; ') ||
                 credits.writer ||
+                composerName ||
                 ''
             ).trim(),
             arranger: credits.arranger || '',
@@ -587,15 +603,11 @@ class MetadataService {
         }
 
         if (lyrics) {
-            if (lyrics.syncedLyrics) {
+            const plainToUse = lyrics.plainLyrics || lyrics.syncedLyrics;
+            if (plainToUse) {
                 tags.unsynchronisedLyrics = {
                     language: 'eng',
-                    text: lyrics.syncedLyrics
-                };
-            } else if (lyrics.plainLyrics) {
-                tags.unsynchronisedLyrics = {
-                    language: 'eng',
-                    text: lyrics.plainLyrics
+                    text: plainToUse
                 };
             }
 
@@ -608,7 +620,7 @@ class MetadataService {
                         shortText: 'Lyrics',
                         synchronisedText: lyrics.syltFormat.map((l: any) => ({
                             text: l.text,
-                            timeStamp: l.timeStamp
+                            timeStamp: l.time
                         }))
                     }
                 ];
@@ -662,9 +674,13 @@ class MetadataService {
         if (lyrics) {
             if (lyrics.syncedLyrics) {
                 comments.push(['SYNCEDLYRICS', lyrics.syncedLyrics]);
-                comments.push(['LYRICS', lyrics.syncedLyrics]);
-            } else if (lyrics.plainLyrics) {
-                comments.push(['LYRICS', lyrics.plainLyrics]);
+            }
+            
+            const plainToUse = lyrics.plainLyrics || lyrics.syncedLyrics;
+            if (plainToUse) {
+                comments.push(['UNSYNCEDLYRICS', plainToUse]);
+                comments.push(['UNSYNCED LYRICS', plainToUse]);
+                comments.push(['LYRICS', plainToUse]);
             }
 
             if (lyrics.source) {
@@ -734,7 +750,7 @@ class MetadataService {
 
             const processor = new flac.Processor({ parseMetaDataBlocks: true });
             const comments = tags.map(([key, val]) => `${key}=${val}`);
-            const vendor = 'QBZ-Downloader v3.0.0';
+            const vendor = 'QBZ-Downloader v5.0.0';
 
             let metadataInserted = false;
 
@@ -830,6 +846,7 @@ class MetadataService {
     ) {
         const operation = async () => {
             try {
+                logger.debug(`Writing metadata to ${path.basename(filePath)} (Lyrics: ${lyrics ? 'Yes' : 'No'})`, 'META');
                 if (filePath.endsWith('.flac')) {
                     const tags = this.buildFlacTags(metadata, lyrics);
                     await this.writeFlacTags(filePath, tags, coverBuffer);

@@ -68,6 +68,7 @@ class LyricsProvider {
         duration = 0
     ): Promise<LyricsSearchResult> {
         try {
+            logger.debug(`LRCLIB /get: ${title} - ${artist} (${Math.round(duration)}s)`, 'LYRICS');
             const response = await this.client.get('https://lrclib.net/api/get', {
                 params: {
                     track_name: title,
@@ -98,6 +99,7 @@ class LyricsProvider {
 
     async searchLrclibBest(title: string, artist: string): Promise<LyricsSearchResult> {
         try {
+            logger.debug(`LRCLIB /search: ${title} ${artist}`, 'LYRICS');
             const response = await this.client.get('https://lrclib.net/api/search', {
                 params: {
                     q: `${title} ${artist}`
@@ -223,15 +225,28 @@ class LyricsProvider {
         duration = 0,
         albumArtist = ''
     ): Promise<ProcessedLyrics> {
+        title = title.trim();
+        artist = artist.trim();
+        album = album.trim();
+        albumArtist = albumArtist.trim();
+
+        logger.info(`Acquiring lyrics for: "${title}" by "${artist}"`, 'LYRICS');
+
         let result = await this.searchLrclib(title, artist, album, duration);
-        if (result.success) return this.formatResult(result);
+        if (result.success && (result.data?.syncedLyrics || result.data?.plainLyrics)) {
+            return this.formatResult(result);
+        }
 
         result = await this.searchLrclibBest(title, artist);
-        if (result.success) return this.formatResult(result);
+        if (result.success && (result.data?.syncedLyrics || result.data?.plainLyrics)) {
+            return this.formatResult(result);
+        }
 
         if (albumArtist && albumArtist !== artist) {
             result = await this.searchLrclibBest(title, albumArtist);
-            if (result.success) return this.formatResult(result);
+            if (result.success && (result.data?.syncedLyrics || result.data?.plainLyrics)) {
+                return this.formatResult(result);
+            }
         }
 
         const cleanTitle = this.cleanTitle(title);
@@ -243,7 +258,9 @@ class LyricsProvider {
                 `Retrying lyrics with cleaned metadata: "${cleanTitle}" by "${cleanArtist}"`
             );
             result = await this.searchLrclibBest(cleanTitle, cleanArtist);
-            if (result.success) return this.formatResult(result);
+            if (result.success && (result.data?.syncedLyrics || result.data?.plainLyrics)) {
+                return this.formatResult(result);
+            }
         }
 
         if (albumArtist && cleanAlbumArtist !== albumArtist && cleanAlbumArtist !== cleanArtist) {
@@ -251,15 +268,34 @@ class LyricsProvider {
                 `Retrying lyrics with cleaned album artist: "${cleanTitle}" by "${cleanAlbumArtist}"`
             );
             result = await this.searchLrclibBest(cleanTitle, cleanAlbumArtist);
-            if (result.success) return this.formatResult(result);
+            if (result.success && (result.data?.syncedLyrics || result.data?.plainLyrics)) {
+                return this.formatResult(result);
+            }
         }
 
         result = await this.searchGenius(title, artist);
-        if (result.success) return this.formatResult(result);
+        if (result.success && result.data?.plainLyrics) {
+            return this.formatResult(result);
+        }
 
         if (cleanTitle !== title || cleanArtist !== artist) {
             result = await this.searchGenius(cleanTitle, cleanArtist);
-            if (result.success) return this.formatResult(result);
+            if (result.success && result.data?.plainLyrics) {
+                return this.formatResult(result);
+            }
+        }
+
+        // Final desperate attempt: Search title only on LRCLIB (risky but better than nothing)
+        if (title.length > 5) {
+            result = await this.searchLrclibBest(cleanTitle, '');
+            if (result.success && (result.data?.syncedLyrics || result.data?.plainLyrics)) {
+                // Verify duration if possible to avoid wrong song
+                if (duration > 0 && result.data?.duration && Math.abs(result.data.duration - duration) > 15) {
+                    logger.debug(`Lyrics duration mismatch for "${title}": found ${result.data.duration}s, expected ${duration}s. Skipping.`, 'LYRICS');
+                } else {
+                    return this.formatResult(result);
+                }
+            }
         }
 
         return { success: false, error: 'No lyrics found from any source' };
@@ -279,6 +315,19 @@ class LyricsProvider {
             .replace(/\s*\(radio edit\)/gi, '')
             .replace(/\s*- radio edit/gi, '')
             .replace(/\s*- remastered/gi, '')
+            .replace(/\s*\(instrumental.*?\)/gi, '')
+            .replace(/\s*\[instrumental.*?\]/gi, '')
+            .replace(/\s*\(orchestral.*?\)/gi, '')
+            .replace(/\s*\[orchestral.*?\]/gi, '')
+            .replace(/\s*\(acoustic.*?\)/gi, '')
+            .replace(/\s*\[acoustic.*?\]/gi, '')
+            .replace(/\s*\(explicit.*?\)/gi, '')
+            .replace(/\s*\[explicit.*?\]/gi, '')
+            .replace(/\s*\(clean.*?\)/gi, '')
+            .replace(/\s*\[clean.*?\]/gi, '')
+            .replace(/\s*\(version.*?\)/gi, '')
+            .replace(/\s*\[version.*?\]/gi, '')
+            .replace(/\s*- version/gi, '')
             .replace(/\s+/g, ' ')
             .trim();
     }

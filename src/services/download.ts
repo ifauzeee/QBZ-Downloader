@@ -170,6 +170,8 @@ export default class DownloadService {
         options: DownloadOptions = {}
     ): Promise<DownloadResult> {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
+        logger.debug(`Download track ${trackId} (Quality: ${requestedQuality}, Lyrics: ${CONFIG.metadata.downloadLyrics}, Embed: ${CONFIG.metadata.embedLyrics})`, 'DOWNLOAD');
+        
         let trackInfo;
         try {
             trackInfo = await retryOperation(
@@ -277,30 +279,37 @@ export default class DownloadService {
 
             let lyricsResult = null;
             if (CONFIG.metadata.downloadLyrics) {
+                logger.debug(`Starting lyrics acquisition for: ${metadata.title}`, 'LYRICS');
                 if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
                 try {
                     const qobuzLyrics = this.buildQobuzLyrics(track);
-                    const res =
-                        qobuzLyrics ||
-                        (await this.lyricsProvider.getLyrics(
+                    if (qobuzLyrics) {
+                        logger.success(`Lyrics found in Qobuz metadata: ${metadata.title}`, 'LYRICS');
+                        lyricsResult = qobuzLyrics;
+                    } else {
+                        logger.debug(`Searching external providers for: ${metadata.title}`, 'LYRICS');
+                        const res = await this.lyricsProvider.getLyrics(
                             metadata.title,
                             metadata.artist,
                             metadata.album,
                             metadata.duration,
                             metadata.albumArtist
-                        ));
-                    if (res.success) {
-                        lyricsResult = res;
-                        logger.success(`Lyrics found for: ${metadata.title} (Source: ${res.source})`, 'LYRICS');
-                        if (CONFIG.metadata.saveLrcFile) {
-                            const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
-                            writeFileSync(lrcPath, res.syncedLyrics || res.plainLyrics || '', 'utf8');
+                        );
+                        if (res.success) {
+                            lyricsResult = res;
+                            logger.success(`Lyrics found via ${res.source}: ${metadata.title}`, 'LYRICS');
+                            logger.debug(`Lyrics content: ${res.plainLyrics ? 'Plain(Yes)' : 'Plain(No)'}, ${res.syncedLyrics ? 'Synced(Yes)' : 'Synced(No)'}`, 'LYRICS');
+                        } else {
+                            logger.warn(`No lyrics found for: ${metadata.title}`, 'LYRICS');
                         }
-                    } else {
-                        logger.warn(`No lyrics found for: ${metadata.title}`, 'LYRICS');
+                    }
+
+                    if (lyricsResult && CONFIG.metadata.saveLrcFile) {
+                        const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
+                        writeFileSync(lrcPath, lyricsResult.syncedLyrics || lyricsResult.plainLyrics || '', 'utf8');
                     }
                 } catch (e: any) {
-                    logger.error(`Lyrics error: ${e.message}`, 'LYRICS');
+                    logger.error(`Lyrics acquisition error: ${e.message}`, 'LYRICS');
                 }
             }
 
