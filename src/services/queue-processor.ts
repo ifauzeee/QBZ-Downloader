@@ -279,6 +279,10 @@ export class QueueProcessor {
                     progress.phase === 'tagging' ? 'processing' : 'downloading'
                 );
             },
+            isCancelled: () => {
+                const currentItem = downloadQueue.get(item.id);
+                return !currentItem;
+            },
             onMetadata: (meta) => {
                 downloadQueue.updateMetadata(item.id, {
                     title: meta.title,
@@ -327,6 +331,10 @@ export class QueueProcessor {
             },
             onQuality: (quality: number) => {
                 downloadQueue.updateQuality(item.id, quality);
+            },
+            isCancelled: () => {
+                const currentItem = downloadQueue.get(item.id);
+                return !currentItem;
             }
         };
 

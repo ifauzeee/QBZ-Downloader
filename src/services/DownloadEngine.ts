@@ -22,7 +22,8 @@ export class DownloadEngine {
         metadata: Metadata,
         totalLength: number,
         actualQuality: number,
-        onProgress?: (progress: DownloadProgress) => void
+        onProgress?: (progress: DownloadProgress) => void,
+        isCancelled?: () => boolean
     ): Promise<{ size: number; md5: string }> {
         let downloaded = 0;
         const headers: Record<string, string> = {};
@@ -73,7 +74,13 @@ export class DownloadEngine {
 
         let lastProgressEmit = 0;
         await new Promise<void>((resolve, reject) => {
-            response.data.on('data', (chunk: Buffer) => {
+            const onData = (chunk: Buffer) => {
+                if (isCancelled && isCancelled()) {
+                    response.data.destroy();
+                    writer.destroy();
+                    reject(new Error('Cancelled by user'));
+                    return;
+                }
                 downloaded += chunk.length;
                 md5Hash.update(chunk);
 
@@ -93,7 +100,9 @@ export class DownloadEngine {
                         resumeService.updateProgress(trackId, downloaded);
                     }
                 }
-            });
+            };
+
+            response.data.on('data', onData);
 
             if (CONFIG.download.bandwidthLimit > 0) {
                 const throttle = new ThrottleStream(CONFIG.download.bandwidthLimit);

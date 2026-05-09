@@ -24,6 +24,7 @@ export { DownloadProgress };
 interface DownloadOptions {
     outputDir?: string;
     onProgress?: (progress: DownloadProgress) => void;
+    isCancelled?: () => boolean;
     onMetadata?: (metadata: Metadata) => void;
     onQuality?: (quality: number) => void;
     trackIndices?: number[];
@@ -54,6 +55,7 @@ export interface AlbumDownloadOptions {
     skipExisting?: boolean;
     onMetadata?: (metadata: { title?: string; artist?: string; album?: string }) => void;
     onQuality?: (quality: number) => void;
+    isCancelled?: () => boolean;
 }
 
 interface DownloadResult {
@@ -212,7 +214,8 @@ export default class DownloadService {
                 metadata,
                 0,
                 actualQuality,
-                options.onProgress
+                options.onProgress,
+                options.isCancelled
             );
 
             let lyricsResult = null;
@@ -348,6 +351,7 @@ export default class DownloadService {
 
         const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, quality, {
             album,
+            isCancelled: options.isCancelled,
             onProgress: (p) => {
                 if (options.onProgress) options.onProgress(track.id.toString(), {
                     status: 'downloading',
@@ -383,6 +387,7 @@ export default class DownloadService {
         const limit = pLimit(CONFIG.download.concurrent);
 
         const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, quality, {
+            isCancelled: options.isCancelled,
             onProgress: (p) => {
                 if (options.onProgress) options.onProgress(track.id.toString(), {
                     status: 'downloading',
