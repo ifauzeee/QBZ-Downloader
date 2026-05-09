@@ -277,6 +277,7 @@ class LibraryScannerService extends EventEmitter {
             this.currentProgress = finalProgress;
             this.emit('scan:progress', finalProgress);
 
+            this.emit('scan:complete', result);
             logger.success(
                 `Library scan complete: ${result.scannedFiles} files, ${result.duplicates} duplicates, ${result.upgradeableFiles} upgradeable, ${result.missingMetadata} missing metadata`,
                 'SCANNER'
