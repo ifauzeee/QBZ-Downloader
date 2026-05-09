@@ -35,7 +35,10 @@ export class InputValidator {
         track: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?track\/|\/track\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
         playlist:
             /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?playlist\/|\/playlist\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
-        artist: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?(?:interpreter|artist)\/|\/(?:interpreter|artist)\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i
+        artist: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?(?:interpreter|artist)\/|\/(?:interpreter|artist)\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
+        spotify_album: /spotify\.com\/album\/([a-zA-Z0-9]+)/i,
+        spotify_track: /spotify\.com\/track\/([a-zA-Z0-9]+)/i,
+        spotify_playlist: /spotify\.com\/playlist\/([a-zA-Z0-9]+)/i
     };
 
     private readonly DANGEROUS_PATTERNS = [
@@ -72,8 +75,11 @@ export class InputValidator {
             }
         }
 
-        if (!url.includes('qobuz.com')) {
-            return { valid: false, error: 'Not a Qobuz URL' };
+        const isQobuz = url.includes('qobuz.com');
+        const isSpotify = url.includes('spotify.com');
+
+        if (!isQobuz && !isSpotify) {
+            return { valid: false, error: 'Not a supported URL (Qobuz/Spotify)' };
         }
 
         try {
@@ -81,15 +87,18 @@ export class InputValidator {
 
             if (this.config.strictMode) {
                 const host = parsedUrl.hostname.toLowerCase();
-                if (!this.config.allowedHosts.includes(host)) {
-                    return { valid: false, error: 'Invalid Qobuz domain' };
+                const allowedHosts = [...this.config.allowedHosts, 'open.spotify.com', 'spotify.com'];
+                if (!allowedHosts.some((h) => host.includes(h))) {
+                    return { valid: false, error: 'Invalid domain' };
                 }
             }
 
             if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
                 return { valid: false, error: 'Invalid protocol' };
             }
-        } catch {}
+        } catch {
+            // Some URLs might not parse if they are relative, but we handle them with patterns
+        }
 
         for (const [type, pattern] of Object.entries(this.URL_PATTERNS)) {
             const match = url.match(pattern);
@@ -104,7 +113,7 @@ export class InputValidator {
             }
         }
 
-        return { valid: false, error: 'Could not parse Qobuz URL' };
+        return { valid: false, error: 'Could not parse URL' };
     }
 
     validateQuery(query: string): QueryValidationResult {

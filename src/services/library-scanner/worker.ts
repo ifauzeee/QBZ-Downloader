@@ -6,9 +6,12 @@ import { execSync } from 'child_process';
 import { parseFile } from 'music-metadata';
 import type { IAudioMetadata } from 'music-metadata';
 
+import { resolveBinaryPath } from '../../utils/binaries.js';
+
 function getAudioFingerprint(filePath: string): string | undefined {
     try {
-        const stdout = execSync(`fpcalc -json "${filePath}"`, {
+        const fpcalc = resolveBinaryPath('fpcalc');
+        const stdout = execSync(`"${fpcalc}" -json "${filePath}"`, {
             encoding: 'utf-8',
             stdio: ['ignore', 'pipe', 'ignore']
         });

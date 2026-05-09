@@ -59,6 +59,8 @@ export interface ScanProgress {
     status: 'scanning' | 'analyzing' | 'checking_upgrades' | 'complete' | 'error';
 }
 
+import { checkBinaryAvailability, resolveBinaryPath } from '../../utils/binaries.js';
+
 class LibraryScannerService extends EventEmitter {
     private isScanning = false;
     private scanAborted = false;
@@ -74,19 +76,20 @@ class LibraryScannerService extends EventEmitter {
 
     private async checkFpcalc(): Promise<boolean> {
         if (LibraryScannerService.fpcalcAvailable !== null) return LibraryScannerService.fpcalcAvailable;
-        try {
-            const { execSync } = await import('child_process');
-            execSync('fpcalc -version', { stdio: 'ignore' });
-            LibraryScannerService.fpcalcAvailable = true;
-            return true;
-        } catch {
-            LibraryScannerService.fpcalcAvailable = false;
+        
+        const info = await checkBinaryAvailability('fpcalc');
+        LibraryScannerService.fpcalcAvailable = info.available;
+
+        if (!info.available) {
             logger.warn(
                 'fpcalc (Chromaprint) not found. Audio fingerprinting will be disabled. Duplicates will rely on metadata only.',
                 'SCANNER'
             );
-            return false;
+        } else {
+            logger.debug(`fpcalc detected at: ${info.path}`, 'SCANNER');
         }
+
+        return info.available;
     }
 
     async scanLibrary(

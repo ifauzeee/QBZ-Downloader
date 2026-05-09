@@ -4,6 +4,8 @@ import { logger } from '../utils/logger.js';
 import path from 'path';
 import fs from 'fs';
 
+import { resolveBinaryPath, checkBinaryAvailability } from '../utils/binaries.js';
+
 const execPromise = promisify(exec);
 
 export interface QualityReport {
@@ -14,19 +16,23 @@ export interface QualityReport {
 }
 
 export class QualityScannerService {
+    private static ffmpegPath: string | null = null;
     private static ffmpegAvailable: boolean | null = null;
 
     private async checkFFmpeg(): Promise<boolean> {
         if (QualityScannerService.ffmpegAvailable !== null) return QualityScannerService.ffmpegAvailable;
-        try {
-            await execPromise('ffmpeg -version');
-            QualityScannerService.ffmpegAvailable = true;
-            return true;
-        } catch {
-            QualityScannerService.ffmpegAvailable = false;
-            logger.warn('FFmpeg not found. Quality scanning will be disabled. Please install FFmpeg and add it to your PATH.', 'SCANNER');
-            return false;
+        
+        const info = await checkBinaryAvailability('ffmpeg');
+        QualityScannerService.ffmpegAvailable = info.available;
+        QualityScannerService.ffmpegPath = info.path;
+
+        if (!info.available) {
+            logger.warn('FFmpeg not found. Quality scanning will be disabled. Please install FFmpeg or place it in the app directory.', 'SCANNER');
+        } else {
+            logger.debug(`FFmpeg detected at: ${info.path}`, 'SCANNER');
         }
+
+        return info.available;
     }
 
     /**
@@ -48,10 +54,9 @@ export class QualityScannerService {
                 throw new Error('File not found');
             }
 
-            // Using -v error to reduce noise and specifically target mean_volume
-            // Use quotes and ensure we handle potential UTF-8 issues by using a more robust way to call ffmpeg if needed
-            const cmd16 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
-            const cmd20 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
+            const ffmpeg = resolveBinaryPath('ffmpeg');
+            const cmd16 = `"${ffmpeg}" -v error -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
+            const cmd20 = `"${ffmpeg}" -v error -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
 
             const [result16, result20] = await Promise.all([
                 execPromise(cmd16).catch(e => {

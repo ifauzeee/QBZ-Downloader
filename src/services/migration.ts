@@ -2,6 +2,7 @@ import { spotifyApi, SpotifyTrack } from '../api/spotify.js';
 import QobuzAPI from '../api/qobuz.js';
 import { logger } from '../utils/logger.js';
 import { downloadQueue } from './queue/queue.js';
+import { globalApiLimit } from '../utils/limit.js';
 
 export interface MigrationResult {
     spotifyTrack: SpotifyTrack;
@@ -40,17 +41,20 @@ class MigrationService {
 
         logger.info(`Migration: Found ${spotifyTracks.length} tracks on Spotify. Searching on Qobuz...`, 'MIGRATION');
 
-        const results: MigrationResult[] = [];
-        for (const sTrack of spotifyTracks) {
-            const match = await this.findOnQobuz(sTrack);
-            results.push({
-                spotifyTrack: sTrack,
-                qobuzTrackId: match?.id,
-                found: !!match,
-                quality: match?.quality,
-                matchScore: match?.score || 0
-            });
-        }
+        const promises = spotifyTracks.map(sTrack => 
+            globalApiLimit(async () => {
+                const match = await this.findOnQobuz(sTrack);
+                return {
+                    spotifyTrack: sTrack,
+                    qobuzTrackId: match?.id,
+                    found: !!match,
+                    quality: match?.quality,
+                    matchScore: match?.score || 0
+                } as MigrationResult;
+            })
+        );
+ 
+        const results = await Promise.all(promises);
 
         const foundCount = results.filter(r => r.found).length;
         logger.info(`Migration complete: ${foundCount}/${results.length} tracks matched.`, 'MIGRATION');

@@ -126,6 +126,38 @@ router.post('/history/clear', (req: Request, res: Response) => {
     res.json({ success: true });
 });
 
+router.get('/history/export', (req: Request, res: Response) => {
+    const format = req.query.format as string;
+    const history = historyService.getSorted();
+
+    if (format === 'csv') {
+        const headers = ['ID', 'Downloaded At', 'Title', 'Artist', 'Album', 'Quality', 'Filename'];
+        const rows = history.map((item) => [
+            item.id,
+            item.downloadedAt,
+            item.title,
+            item.artist || '',
+            item.album || '',
+            item.quality,
+            item.filename
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=qbz_history.csv');
+        return res.send(csvContent);
+    }
+
+    // Default to JSON
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename=qbz_history.json');
+    res.json(history);
+});
+
 router.delete('/history', (req: Request, res: Response) => {
     historyService.clearAll();
     res.json({ success: true });

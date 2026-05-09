@@ -5,6 +5,8 @@ import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { CONFIG } from '../config.js';
 import { logger } from '../utils/logger.js';
 
+import { resolveBinaryPath, checkBinaryAvailability } from '../utils/binaries.js';
+
 const execAsync = promisify(exec);
 
 export class FormatConverterService {
@@ -45,7 +47,8 @@ export class FormatConverterService {
             if (format === 'aac') codec = 'aac';
             if (format === 'opus') codec = 'libopus';
 
-            const cmd = `ffmpeg -i "${inputPath}" -codec:a ${codec} -b:a ${bitrate} -map_metadata 0 "${outputPath}"`;
+            const ffmpeg = resolveBinaryPath('ffmpeg');
+            const cmd = `"${ffmpeg}" -i "${inputPath}" -codec:a ${codec} -b:a ${bitrate} -map_metadata 0 "${outputPath}"`;
             await execAsync(cmd);
 
             logger.success(`Converter: Export complete: ${path.basename(outputPath)}`, 'CONVERTER');
@@ -69,12 +72,8 @@ export class FormatConverterService {
     }
 
     async isAvailable(): Promise<boolean> {
-        try {
-            await execAsync('ffmpeg -version');
-            return true;
-        } catch {
-            return false;
-        }
+        const info = await checkBinaryAvailability('ffmpeg');
+        return info.available;
     }
 }
 

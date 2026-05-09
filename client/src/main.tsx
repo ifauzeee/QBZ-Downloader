@@ -4,13 +4,14 @@ import './index.css'
 import App from './App.tsx'
 
 const isDesktop = typeof window !== 'undefined' && Boolean(window.qbzDesktop?.isDesktop);
+const isWebMode = typeof window !== 'undefined' && window.location.search.includes('mode=web');
 const root = document.getElementById('root');
 
 if (!root) {
   throw new Error('Root element not found');
 }
 
-if (!isDesktop) {
+if (!isDesktop && !isWebMode) {
   createRoot(root).render(
     <StrictMode>
       <div

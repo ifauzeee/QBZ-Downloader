@@ -13,7 +13,7 @@ export const BatchImportView: React.FC = () => {
     const [quality, setQuality] = useState(27);
     const [importing, setImporting] = useState(false);
 
-    const [mode, setMode] = useState<'file' | 'm3u8' | 'csv' | 'direct'>('direct');
+    const [mode, setMode] = useState<'file' | 'm3u8' | 'csv' | 'direct' | 'spotify'>('direct');
     const [stagedCount, setStagedCount] = useState(0);
     const [createZip, setCreateZip] = useState(false);
 
@@ -82,7 +82,40 @@ export const BatchImportView: React.FC = () => {
         reader.readAsText(file);
     };
 
+    const handleSpotifyMigration = async () => {
+        if (!directInput.trim()) {
+            showToast('Please enter a Spotify URL', 'error');
+            return;
+        }
+
+        setImporting(true);
+        try {
+            const res = await smartFetch('/api/migrate/spotify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: directInput, quality, download: true })
+            });
+
+            if (res && res.ok) {
+                const result = await res.json();
+                showToast(`Migration started: Found ${result.found}/${result.total} tracks. Enqueued ${result.enqueued} tracks for download.`, 'success');
+                setDirectInput('');
+            } else {
+                const data = await res?.json();
+                showToast(data?.error || 'Migration failed', 'error');
+            }
+        } catch (error: any) {
+            showToast(error.message, 'error');
+        } finally {
+            setImporting(false);
+        }
+    };
+
     const handleImport = async () => {
+        if (mode === 'spotify') {
+            return handleSpotifyMigration();
+        }
+
         let urlsToImport: string[] = [];
 
         if (mode === 'direct') {
@@ -204,6 +237,12 @@ export const BatchImportView: React.FC = () => {
                                     <span className="mode-name">{t('label_csv_data')}</span>
                                 </div>
                             </button>
+                            <button className={`mode-card ${mode === 'spotify' ? 'active' : ''}`} onClick={() => setMode('spotify')}>
+                                <div className="mode-icon"><Icons.Music width={18} height={18} /></div>
+                                <div className="mode-info">
+                                    <span className="mode-name">Spotify</span>
+                                </div>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -270,7 +309,7 @@ export const BatchImportView: React.FC = () => {
                     {/* Input Area */}
                     <div className="config-section">
                         <label className="section-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>{mode === 'direct' ? t('label_url_list') : t('label_select_file')}</span>
+                            <span>{mode === 'direct' ? t('label_url_list') : mode === 'spotify' ? 'Spotify URL' : t('label_select_file')}</span>
                             {mode === 'direct' && (
                                 <div className="action-links">
                                     <button className="text-btn" onClick={loadFromStaging} disabled={stagedCount === 0}>
@@ -289,11 +328,24 @@ export const BatchImportView: React.FC = () => {
                                     className="custom-textarea"
                                     value={directInput}
                                     onChange={e => setDirectInput(e.target.value)}
-                                    placeholder={`https://open.qobuz.com/track/12345\nhttps://open.qobuz.com/album/67890`}
+                                    placeholder={mode === 'spotify' ? 'https://open.spotify.com/playlist/...' : `https://open.qobuz.com/track/12345\nhttps://open.qobuz.com/album/67890`}
                                     spellCheck={false}
                                 />
                                 <div className="input-footer">
-                                    Supports Tracks, Albums, Artists, Playlists. One URL per line.
+                                    {mode === 'spotify' ? 'Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.' : 'Supports Tracks, Albums, Artists, Playlists. One URL per line.'}
+                                </div>
+                            </div>
+                        ) : mode === 'spotify' ? (
+                            <div className="input-wrapper">
+                                <textarea
+                                    className="custom-textarea"
+                                    value={directInput}
+                                    onChange={e => setDirectInput(e.target.value)}
+                                    placeholder="https://open.spotify.com/playlist/..."
+                                    spellCheck={false}
+                                />
+                                <div className="input-footer">
+                                    Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.
                                 </div>
                             </div>
                         ) : (
@@ -352,8 +404,8 @@ export const BatchImportView: React.FC = () => {
                     <div className="action-section">
                         <button
                             className="start-btn"
-                            onClick={handleImport}
-                            disabled={importing || (mode === 'direct' ? !directInput.trim() : parsedUrls.length === 0)}
+                            onClick={mode === 'spotify' ? handleSpotifyMigration : handleImport}
+                            disabled={importing || (mode === 'direct' || mode === 'spotify' ? !directInput.trim() : parsedUrls.length === 0)}
                         >
                             {importing ? (
                                 <>{t('label_processing')} <div className="spinner small white"></div></>

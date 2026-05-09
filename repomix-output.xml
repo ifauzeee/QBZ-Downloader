@@ -187,9 +187,9 @@ src/services/RecommendationService.ts
 src/services/settings.ts
 src/services/ThemeService.ts
 src/types/flac-metadata.d.ts
-src/types/modules.d.ts
 src/types/qobuz.ts
 src/utils/async.ts
+src/utils/binaries.ts
 src/utils/cache.ts
 src/utils/crypto.ts
 src/utils/encryption.ts
@@ -198,6 +198,7 @@ src/utils/errors.ts
 src/utils/events.ts
 src/utils/friendly-errors.ts
 src/utils/input.ts
+src/utils/limit.ts
 src/utils/logger.ts
 src/utils/network.ts
 src/utils/theme.ts
@@ -2378,13 +2379,14 @@ import './index.css'
 import App from './App.tsx'
 
 const isDesktop = typeof window !== 'undefined' && Boolean(window.qbzDesktop?.isDesktop);
+const isWebMode = typeof window !== 'undefined' && window.location.search.includes('mode=web');
 const root = document.getElementById('root');
 
 if (!root) {
   throw new Error('Root element not found');
 }
 
-if (!isDesktop) {
+if (!isDesktop && !isWebMode) {
   createRoot(root).render(
     <StrictMode>
       <div
@@ -4616,18 +4618,6 @@ declare module 'flac-metadata' {
 }
 </file>
 
-<file path="src/types/modules.d.ts">
-declare module 'ink-progress-bar' {
-    import { FC } from 'react';
-    interface Props {
-        percent: number;
-        color?: string;
-    }
-    const ProgressBar: FC<Props>;
-    export default ProgressBar;
-}
-</file>
-
 <file path="src/utils/async.ts">
 import { logger } from './logger.js';
 
@@ -4662,6 +4652,87 @@ export async function retryOperation<T>(
         }
     }
     throw lastError;
+}
+</file>
+
+<file path="src/utils/binaries.ts">
+import { execSync } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { logger } from './logger.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isDev = process.env.NODE_ENV === 'development';
+
+export interface BinaryInfo {
+    path: string;
+    available: boolean;
+    version?: string;
+}
+
+/**
+ * Resolves the path to a binary (ffmpeg, fpcalc, etc)
+ * prioritizing local versions in the application directory.
+ */
+export function resolveBinaryPath(binaryName: string): string {
+    const ext = process.platform === 'win32' ? '.exe' : '';
+    const nameWithExt = `${binaryName}${ext}`;
+
+    // 1. Check environment variable override
+    const envVar = `QBZ_${binaryName.toUpperCase()}_PATH`;
+    if (process.env[envVar] && fs.existsSync(process.env[envVar]!)) {
+        return process.env[envVar]!;
+    }
+
+    // 2. Check local 'bin' directory in the application root
+    // In production (Electron), this might be in resourcesPath or similar
+    const appRoot = isDev ? path.join(__dirname, '..', '..') : process.cwd();
+    const localBinPath = path.join(appRoot, 'bin', nameWithExt);
+
+    if (fs.existsSync(localBinPath)) {
+        return localBinPath;
+    }
+
+    // 3. Check for the binary in the current directory (for portable versions)
+    const portablePath = path.join(process.cwd(), nameWithExt);
+    if (fs.existsSync(portablePath)) {
+        return portablePath;
+    }
+
+    // 4. Fallback to system PATH
+    return binaryName;
+}
+
+/**
+ * Validates if a binary is available and functional.
+ */
+export async function checkBinaryAvailability(binaryName: string): Promise<BinaryInfo> {
+    const binaryPath = resolveBinaryPath(binaryName);
+    try {
+        const cmd = `"${binaryPath}" -version`;
+        const output = execSync(cmd, { stdio: 'pipe' }).toString();
+        const firstLine = output.split('\n')[0];
+        
+        return {
+            path: binaryPath,
+            available: true,
+            version: firstLine
+        };
+    } catch (err) {
+        return {
+            path: binaryPath,
+            available: false
+        };
+    }
+}
+
+/**
+ * Logs a helpful message if a binary is missing.
+ */
+export function warnMissingBinary(binaryName: string, featureName: string) {
+    logger.warn(`${binaryName} not found. ${featureName} will be disabled.`, 'BINARIES');
+    logger.info(`To enable ${featureName}, please install ${binaryName} or place ${binaryName}${process.platform === 'win32' ? '.exe' : ''} in the application folder.`, 'BINARIES');
 }
 </file>
 
@@ -5010,183 +5081,6 @@ export const EVENTS = {
 } as const;
 </file>
 
-<file path="src/utils/friendly-errors.ts">
-interface ErrorInfo {
-    message: string;
-    suggestion: string;
-    emoji: string;
-}
-
-const ERROR_PATTERNS: Record<string, ErrorInfo> = {
-    ENOTFOUND: {
-        message: 'Tidak ada koneksi internet',
-        suggestion: 'Periksa koneksi internet Anda dan coba lagi.',
-        emoji: '🌐'
-    },
-    ECONNREFUSED: {
-        message: 'Server tidak dapat dijangkau',
-        suggestion: 'Server mungkin sedang down. Coba lagi nanti.',
-        emoji: '🔌'
-    },
-    ETIMEDOUT: {
-        message: 'Koneksi timeout',
-        suggestion: 'Koneksi terlalu lambat. Periksa internet Anda.',
-        emoji: '⏱️'
-    },
-    ECONNRESET: {
-        message: 'Koneksi terputus',
-        suggestion: 'Coba ulangi permintaan Anda.',
-        emoji: '🔄'
-    },
-
-    '401': {
-        message: 'Autentikasi gagal',
-        suggestion:
-            'Token Anda mungkin expired. Perbarui QOBUZ_USER_AUTH_TOKEN dari halaman Settings di dashboard.',
-        emoji: '🔐'
-    },
-    invalid_credentials: {
-        message: 'Credentials tidak valid',
-        suggestion: 'Periksa App ID, Secret, dan Token Anda di Settings.',
-        emoji: '🔑'
-    },
-
-    '403': {
-        message: 'Akses ditolak',
-        suggestion: 'Fitur ini mungkin memerlukan langganan Qobuz premium.',
-        emoji: '⚠️'
-    },
-    subscription_required: {
-        message: 'Langganan premium diperlukan',
-        suggestion: 'Kualitas Hi-Res memerlukan langganan Qobuz Studio atau Studio Premier.',
-        emoji: '💎'
-    },
-
-    ENOSPC: {
-        message: 'Disk penuh',
-        suggestion: 'Hapus beberapa file untuk membuat ruang.',
-        emoji: '💾'
-    },
-    EACCES: {
-        message: 'Tidak punya izin',
-        suggestion: 'Periksa izin folder download atau jalankan sebagai administrator.',
-        emoji: '🚫'
-    },
-    ENOENT: {
-        message: 'File atau folder tidak ditemukan',
-        suggestion: 'Pastikan path yang Anda masukkan benar.',
-        emoji: '📁'
-    },
-
-    '404': {
-        message: 'Konten tidak ditemukan',
-        suggestion: 'Track, album, atau playlist mungkin tidak tersedia lagi.',
-        emoji: '🔍'
-    },
-    '429': {
-        message: 'Terlalu banyak permintaan',
-        suggestion: 'Tunggu beberapa saat sebelum mencoba lagi.',
-        emoji: '⏳'
-    },
-    '500': {
-        message: 'Server Qobuz bermasalah',
-        suggestion: 'Ini masalah dari Qobuz. Coba lagi nanti.',
-        emoji: '🔧'
-    },
-
-    track_restricted: {
-        message: 'Track tidak tersedia di wilayah Anda',
-        suggestion: 'Beberapa konten dibatasi berdasarkan lokasi geografis.',
-        emoji: '🌍'
-    },
-    no_streamable: {
-        message: 'Track tidak dapat di-stream',
-        suggestion: 'Track ini mungkin tidak tersedia untuk download.',
-        emoji: '🚫'
-    }
-};
-
-export function humanizeError(error: Error | string | unknown): ErrorInfo {
-    const errorString = error instanceof Error ? error.message : String(error);
-
-    for (const [pattern, info] of Object.entries(ERROR_PATTERNS)) {
-        if (
-            errorString.includes(pattern) ||
-            errorString.toLowerCase().includes(pattern.toLowerCase())
-        ) {
-            return info;
-        }
-    }
-
-    return {
-        message: 'Terjadi kesalahan',
-        suggestion: `Detail: ${errorString.slice(0, 100)}`,
-        emoji: '❌'
-    };
-}
-
-export function formatErrorForCLI(error: Error | string | unknown): string {
-    const info = humanizeError(error);
-    return `${info.emoji} ${info.message}\n   💡 ${info.suggestion}`;
-}
-
-export function formatErrorForAPI(error: Error | string | unknown): {
-    error: string;
-    suggestion: string;
-    code: string;
-} {
-    const info = humanizeError(error);
-    const errorString = error instanceof Error ? error.message : String(error);
-
-    return {
-        error: info.message,
-        suggestion: info.suggestion,
-        code: extractErrorCode(errorString)
-    };
-}
-
-function extractErrorCode(errorString: string): string {
-    const httpMatch = errorString.match(/\b(4\d{2}|5\d{2})\b/);
-    if (httpMatch) return httpMatch[1];
-
-    const nodeMatch = errorString.match(/\b(E[A-Z]+)\b/);
-    if (nodeMatch) return nodeMatch[1];
-
-    return 'UNKNOWN';
-}
-
-export const errorChecks = {
-    isNetworkError: (error: unknown): boolean => {
-        const msg = String(error);
-        return ['ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET'].some((code) =>
-            msg.includes(code)
-        );
-    },
-
-    isAuthError: (error: unknown): boolean => {
-        const msg = String(error);
-        return msg.includes('401') || msg.includes('invalid_credentials');
-    },
-
-    isSubscriptionError: (error: unknown): boolean => {
-        const msg = String(error);
-        return msg.includes('403') || msg.includes('subscription');
-    },
-
-    isRateLimitError: (error: unknown): boolean => {
-        const msg = String(error);
-        return msg.includes('429') || msg.includes('rate limit');
-    }
-};
-
-export default {
-    humanizeError,
-    formatErrorForCLI,
-    formatErrorForAPI,
-    errorChecks
-};
-</file>
-
 <file path="src/utils/input.ts">
 export function parseSelection(input: string, max: number): number[] {
     const indices = new Set<number>();
@@ -5244,6 +5138,24 @@ export function validateSelection(input: string, max: number): string | boolean 
 
     return true;
 }
+</file>
+
+<file path="src/utils/limit.ts">
+import pLimit from 'p-limit';
+import { CONFIG } from '../config.js';
+
+/**
+ * Global concurrency controller for all Qobuz API requests.
+ * This ensures we don't exceed the rate limit even when
+ * multiple services (Download, Migration, Search) are active.
+ */
+export const globalApiLimit = pLimit(CONFIG.download.concurrent || 4);
+
+/**
+ * Global concurrency controller for external metadata/lyrics lookups.
+ * Usually more relaxed than the main API.
+ */
+export const globalMetadataLimit = pLimit(10);
 </file>
 
 <file path="src/utils/network.ts">
@@ -5504,7 +5416,10 @@ export class InputValidator {
         track: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?track\/|\/track\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
         playlist:
             /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?playlist\/|\/playlist\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
-        artist: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?(?:interpreter|artist)\/|\/(?:interpreter|artist)\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i
+        artist: /(?:qobuz\.com\/(?:[a-z]{2}-[a-z]{2}\/)?(?:interpreter|artist)\/|\/(?:interpreter|artist)\/)(?:[^/]+\/)?([a-zA-Z0-9]+)/i,
+        spotify_album: /spotify\.com\/album\/([a-zA-Z0-9]+)/i,
+        spotify_track: /spotify\.com\/track\/([a-zA-Z0-9]+)/i,
+        spotify_playlist: /spotify\.com\/playlist\/([a-zA-Z0-9]+)/i
     };
 
     private readonly DANGEROUS_PATTERNS = [
@@ -5541,8 +5456,11 @@ export class InputValidator {
             }
         }
 
-        if (!url.includes('qobuz.com')) {
-            return { valid: false, error: 'Not a Qobuz URL' };
+        const isQobuz = url.includes('qobuz.com');
+        const isSpotify = url.includes('spotify.com');
+
+        if (!isQobuz && !isSpotify) {
+            return { valid: false, error: 'Not a supported URL (Qobuz/Spotify)' };
         }
 
         try {
@@ -5550,15 +5468,18 @@ export class InputValidator {
 
             if (this.config.strictMode) {
                 const host = parsedUrl.hostname.toLowerCase();
-                if (!this.config.allowedHosts.includes(host)) {
-                    return { valid: false, error: 'Invalid Qobuz domain' };
+                const allowedHosts = [...this.config.allowedHosts, 'open.spotify.com', 'spotify.com'];
+                if (!allowedHosts.some((h) => host.includes(h))) {
+                    return { valid: false, error: 'Invalid domain' };
                 }
             }
 
             if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
                 return { valid: false, error: 'Invalid protocol' };
             }
-        } catch {}
+        } catch {
+            // Some URLs might not parse if they are relative, but we handle them with patterns
+        }
 
         for (const [type, pattern] of Object.entries(this.URL_PATTERNS)) {
             const match = url.match(pattern);
@@ -5573,7 +5494,7 @@ export class InputValidator {
             }
         }
 
-        return { valid: false, error: 'Could not parse Qobuz URL' };
+        return { valid: false, error: 'Could not parse URL' };
     }
 
     validateQuery(query: string): QueryValidationResult {
@@ -9363,6 +9284,177 @@ export interface FileUrlData {
 }
 </file>
 
+<file path="src/utils/friendly-errors.ts">
+interface ErrorInfo {
+    message: string;
+    suggestion: string;
+    emoji: string;
+}
+
+const ERROR_PATTERNS: Record<string, ErrorInfo> = {
+    ENOTFOUND: {
+        message: 'Tidak ada koneksi internet',
+        suggestion: 'Periksa koneksi internet Anda dan coba lagi.',
+        emoji: '🌐'
+    },
+    ECONNREFUSED: {
+        message: 'Server tidak dapat dijangkau',
+        suggestion: 'Server mungkin sedang down. Coba lagi nanti.',
+        emoji: '🔌'
+    },
+    ETIMEDOUT: {
+        message: 'Koneksi timeout',
+        suggestion: 'Koneksi terlalu lambat. Periksa internet Anda.',
+        emoji: '⏱️'
+    },
+    ECONNRESET: {
+        message: 'Koneksi terputus',
+        suggestion: 'Coba ulangi permintaan Anda.',
+        emoji: '🔄'
+    },
+
+    '401': {
+        message: 'Autentikasi gagal',
+        suggestion:
+            'Token Anda mungkin expired. Perbarui QOBUZ_USER_AUTH_TOKEN dari halaman Settings di dashboard.',
+        emoji: '🔐'
+    },
+    invalid_credentials: {
+        message: 'Credentials tidak valid',
+        suggestion: 'Periksa App ID, Secret, dan Token Anda di Settings.',
+        emoji: '🔑'
+    },
+
+    '403': {
+        message: 'Akses ditolak',
+        suggestion: 'Fitur ini mungkin memerlukan langganan Qobuz premium.',
+        emoji: '⚠️'
+    },
+    subscription_required: {
+        message: 'Langganan premium diperlukan',
+        suggestion: 'Kualitas Hi-Res memerlukan langganan Qobuz Studio atau Studio Premier.',
+        emoji: '💎'
+    },
+
+    ENOSPC: {
+        message: 'Disk penuh',
+        suggestion: 'Hapus beberapa file untuk membuat ruang.',
+        emoji: '💾'
+    },
+    EACCES: {
+        message: 'Tidak punya izin',
+        suggestion: 'Periksa izin folder download atau jalankan sebagai administrator.',
+        emoji: '🚫'
+    },
+    ENOENT: {
+        message: 'File atau folder tidak ditemukan',
+        suggestion: 'Pastikan path yang Anda masukkan benar.',
+        emoji: '📁'
+    },
+
+    '404': {
+        message: 'Konten tidak ditemukan',
+        suggestion: 'Track, album, atau playlist mungkin tidak tersedia lagi.',
+        emoji: '🔍'
+    },
+    '429': {
+        message: 'Terlalu banyak permintaan',
+        suggestion: 'Tunggu beberapa saat sebelum mencoba lagi.',
+        emoji: '⏳'
+    },
+    '500': {
+        message: 'Server Qobuz bermasalah',
+        suggestion: 'Ini masalah dari Qobuz. Coba lagi nanti.',
+        emoji: '🔧'
+    },
+
+    track_restricted: {
+        message: 'Track tidak tersedia di wilayah Anda',
+        suggestion: 'Beberapa konten dibatasi berdasarkan lokasi geografis.',
+        emoji: '🌍'
+    },
+    no_streamable: {
+        message: 'Track tidak dapat di-stream',
+        suggestion: 'Track ini mungkin tidak tersedia untuk download.',
+        emoji: '🚫'
+    }
+};
+
+export function humanizeError(error: Error | string | unknown): ErrorInfo {
+    const errorString = error instanceof Error ? error.message : String(error);
+
+    for (const [pattern, info] of Object.entries(ERROR_PATTERNS)) {
+        if (
+            errorString.includes(pattern) ||
+            errorString.toLowerCase().includes(pattern.toLowerCase())
+        ) {
+            return info;
+        }
+    }
+
+    return {
+        message: 'Terjadi kesalahan',
+        suggestion: `Detail: ${errorString.slice(0, 100)}`,
+        emoji: '❌'
+    };
+}
+
+export function formatErrorForAPI(error: Error | string | unknown): {
+    error: string;
+    suggestion: string;
+    code: string;
+} {
+    const info = humanizeError(error);
+    const errorString = error instanceof Error ? error.message : String(error);
+
+    return {
+        error: info.message,
+        suggestion: info.suggestion,
+        code: extractErrorCode(errorString)
+    };
+}
+
+function extractErrorCode(errorString: string): string {
+    const httpMatch = errorString.match(/\b(4\d{2}|5\d{2})\b/);
+    if (httpMatch) return httpMatch[1];
+
+    const nodeMatch = errorString.match(/\b(E[A-Z]+)\b/);
+    if (nodeMatch) return nodeMatch[1];
+
+    return 'UNKNOWN';
+}
+
+export const errorChecks = {
+    isNetworkError: (error: unknown): boolean => {
+        const msg = String(error);
+        return ['ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET'].some((code) =>
+            msg.includes(code)
+        );
+    },
+
+    isAuthError: (error: unknown): boolean => {
+        const msg = String(error);
+        return msg.includes('401') || msg.includes('invalid_credentials');
+    },
+
+    isSubscriptionError: (error: unknown): boolean => {
+        const msg = String(error);
+        return msg.includes('403') || msg.includes('subscription');
+    },
+
+    isRateLimitError: (error: unknown): boolean => {
+        const msg = String(error);
+        return msg.includes('429') || msg.includes('rate limit');
+    }
+};
+
+export default {
+    humanizeError,
+    formatErrorForAPI,
+    errorChecks
+};
+</file>
+
 <file path="client/index.html">
 <!doctype html>
 <html lang="en">
@@ -9402,7 +9494,7 @@ export const BatchImportView: React.FC = () => {
     const [quality, setQuality] = useState(27);
     const [importing, setImporting] = useState(false);
 
-    const [mode, setMode] = useState<'file' | 'm3u8' | 'csv' | 'direct'>('direct');
+    const [mode, setMode] = useState<'file' | 'm3u8' | 'csv' | 'direct' | 'spotify'>('direct');
     const [stagedCount, setStagedCount] = useState(0);
     const [createZip, setCreateZip] = useState(false);
 
@@ -9471,7 +9563,40 @@ export const BatchImportView: React.FC = () => {
         reader.readAsText(file);
     };
 
+    const handleSpotifyMigration = async () => {
+        if (!directInput.trim()) {
+            showToast('Please enter a Spotify URL', 'error');
+            return;
+        }
+
+        setImporting(true);
+        try {
+            const res = await smartFetch('/api/migrate/spotify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: directInput, quality, download: true })
+            });
+
+            if (res && res.ok) {
+                const result = await res.json();
+                showToast(`Migration started: Found ${result.found}/${result.total} tracks. Enqueued ${result.enqueued} tracks for download.`, 'success');
+                setDirectInput('');
+            } else {
+                const data = await res?.json();
+                showToast(data?.error || 'Migration failed', 'error');
+            }
+        } catch (error: any) {
+            showToast(error.message, 'error');
+        } finally {
+            setImporting(false);
+        }
+    };
+
     const handleImport = async () => {
+        if (mode === 'spotify') {
+            return handleSpotifyMigration();
+        }
+
         let urlsToImport: string[] = [];
 
         if (mode === 'direct') {
@@ -9593,6 +9718,12 @@ export const BatchImportView: React.FC = () => {
                                     <span className="mode-name">{t('label_csv_data')}</span>
                                 </div>
                             </button>
+                            <button className={`mode-card ${mode === 'spotify' ? 'active' : ''}`} onClick={() => setMode('spotify')}>
+                                <div className="mode-icon"><Icons.Music width={18} height={18} /></div>
+                                <div className="mode-info">
+                                    <span className="mode-name">Spotify</span>
+                                </div>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -9659,7 +9790,7 @@ export const BatchImportView: React.FC = () => {
                     {/* Input Area */}
                     <div className="config-section">
                         <label className="section-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>{mode === 'direct' ? t('label_url_list') : t('label_select_file')}</span>
+                            <span>{mode === 'direct' ? t('label_url_list') : mode === 'spotify' ? 'Spotify URL' : t('label_select_file')}</span>
                             {mode === 'direct' && (
                                 <div className="action-links">
                                     <button className="text-btn" onClick={loadFromStaging} disabled={stagedCount === 0}>
@@ -9678,11 +9809,24 @@ export const BatchImportView: React.FC = () => {
                                     className="custom-textarea"
                                     value={directInput}
                                     onChange={e => setDirectInput(e.target.value)}
-                                    placeholder={`https://open.qobuz.com/track/12345\nhttps://open.qobuz.com/album/67890`}
+                                    placeholder={mode === 'spotify' ? 'https://open.spotify.com/playlist/...' : `https://open.qobuz.com/track/12345\nhttps://open.qobuz.com/album/67890`}
                                     spellCheck={false}
                                 />
                                 <div className="input-footer">
-                                    Supports Tracks, Albums, Artists, Playlists. One URL per line.
+                                    {mode === 'spotify' ? 'Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.' : 'Supports Tracks, Albums, Artists, Playlists. One URL per line.'}
+                                </div>
+                            </div>
+                        ) : mode === 'spotify' ? (
+                            <div className="input-wrapper">
+                                <textarea
+                                    className="custom-textarea"
+                                    value={directInput}
+                                    onChange={e => setDirectInput(e.target.value)}
+                                    placeholder="https://open.spotify.com/playlist/..."
+                                    spellCheck={false}
+                                />
+                                <div className="input-footer">
+                                    Enter a Spotify Album, Playlist, or Track URL to migrate to Qobuz.
                                 </div>
                             </div>
                         ) : (
@@ -9741,8 +9885,8 @@ export const BatchImportView: React.FC = () => {
                     <div className="action-section">
                         <button
                             className="start-btn"
-                            onClick={handleImport}
-                            disabled={importing || (mode === 'direct' ? !directInput.trim() : parsedUrls.length === 0)}
+                            onClick={mode === 'spotify' ? handleSpotifyMigration : handleImport}
+                            disabled={importing || (mode === 'direct' || mode === 'spotify' ? !directInput.trim() : parsedUrls.length === 0)}
                         >
                             {importing ? (
                                 <>{t('label_processing')} <div className="spinner small white"></div></>
@@ -15552,273 +15696,6 @@ router.post('/import/direct', async (req: Request, res: Response) => {
 export default router;
 </file>
 
-<file path="src/services/dashboard/routers/catalog.routes.ts">
-import { Router, Request, Response } from 'express';
-import QobuzAPI from '../../../api/qobuz.js';
-import { databaseService } from '../../database/index.js';
-import { normalizeDownloadQuality } from '../../../config.js';
-
-const router = Router();
-const api = new QobuzAPI();
-
-const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
-
-router.get('/search', async (req: Request, res: Response) => {
-    const query = getParam(req.query.query || req.query.q);
-    const type = getParam(req.query.type) || 'albums';
-    const limit = parseInt(getParam(req.query.limit)) || 20;
-    const offset = parseInt(getParam(req.query.offset)) || 0;
-
-    if (!query) {
-        res.status(400).json({ error: 'Query is required' });
-        return;
-    }
-
-    const result = await api.search(query, type, limit, offset);
-
-    if (result.success) {
-        if (type === 'artists' && result.data?.artists?.items) {
-            const updates = result.data.artists.items.map(async (item: any) => {
-                if (!item.image && !item.picture) {
-                    try {
-                        const detail = await api.getArtist(item.id, 0, 1);
-                        if (
-                            detail.success &&
-                            detail.data &&
-                            (detail.data as any).albums?.items?.length > 0
-                        ) {
-                            const latestAlbum = (detail.data as any).albums.items[0];
-                            item.image = latestAlbum.image;
-                            item.picture = latestAlbum.image;
-                        }
-                    } catch { }
-                }
-                return item;
-            });
-            await Promise.all(updates);
-        }
-
-        if (result.data) {
-            const data = result.data as any;
-            if (data.tracks?.items) {
-                data.tracks.items.forEach((item: any) => {
-                    item.already_downloaded = databaseService.hasTrack(String(item.id));
-                });
-            }
-            if (data.albums?.items) {
-                data.albums.items.forEach((item: any) => {
-                    const dbAlbum = databaseService.getAlbum(String(item.id));
-                    item.already_downloaded = !!dbAlbum;
-                });
-            }
-        }
-        res.json(result.data);
-    } else {
-        res.status(500).json({ error: result.error });
-    }
-});
-
-router.get('/album/:id', async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const result = await api.getAlbum(id);
-
-    if (result.success) {
-        const data = result.data as any;
-        const dbAlbum = databaseService.getAlbum(String(data.id));
-        data.already_downloaded = !!dbAlbum;
-
-        if (data.tracks?.items) {
-            data.tracks.items.forEach((item: any) => {
-                item.already_downloaded = databaseService.hasTrack(String(item.id));
-            });
-        }
-        res.json(data);
-    } else {
-        res.status(500).json({ error: result.error });
-    }
-});
-
-router.get('/artist/:id', async (req: Request, res: Response) => {
-    const id = getParam(req.params.id);
-    const offset = getParam(req.query.offset);
-    const limit = getParam(req.query.limit);
-    const type = getParam(req.query.type);
-
-    const off = parseInt(offset) || 0;
-    const lim = parseInt(limit) || 20;
-
-    if (type === 'albums') {
-        const result = await api.getArtistAlbums(id, lim, off);
-        if (result.success) {
-            const data = result.data as any;
-            if (data.items) {
-                data.items.forEach((item: any) => {
-                    const dbAlbum = databaseService.getAlbum(String(item.id));
-                    item.already_downloaded = !!dbAlbum;
-                });
-            }
-            res.json(data);
-        } else {
-            res.status(500).json({ error: result.error });
-        }
-    } else {
-        const result = await api.getArtist(id, off, lim);
-        if (result.success) {
-            const data = result.data as any;
-            if (data.tracks?.items) {
-                data.tracks.items.forEach((item: any) => {
-                    item.already_downloaded = databaseService.hasTrack(String(item.id));
-                });
-            }
-            if (data.albums?.items) {
-                data.albums.items.forEach((item: any) => {
-                    const dbAlbum = databaseService.getAlbum(String(item.id));
-                    item.already_downloaded = !!dbAlbum;
-                });
-            }
-            res.json(data);
-        } else {
-            res.status(500).json({ error: result.error });
-        }
-    }
-});
-
-router.get('/playlist/:id', async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const result = await api.getPlaylist(id);
-
-    if (result.success) {
-        res.json(result.data);
-    } else {
-        res.status(500).json({ error: result.error });
-    }
-});
-
-router.get('/track/:id', async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const result = await api.getTrack(id);
-
-    if (result.success) {
-        res.json(result.data);
-    } else {
-        res.status(500).json({ error: result.error });
-    }
-});
-
-router.get('/genres', async (req: Request, res: Response) => {
-    const result = await api.getGenres();
-    if (result.success) {
-        res.json(result.data);
-    } else {
-        res.status(500).json({ error: result.error });
-    }
-});
-
-router.get('/search/suggestions', async (req: Request, res: Response) => {
-    const { query } = req.query;
-    if (!query || typeof query !== 'string') {
-        res.json({ artists: [], albums: [], tracks: [] });
-        return;
-    }
-
-    try {
-        const [artists, albums, tracks] = await Promise.all([
-            api.search(query, 'artists', 3),
-            api.search(query, 'albums', 3),
-            api.search(query, 'tracks', 3)
-        ]);
-
-        res.json({
-            artists: artists.success
-                ? (artists.data as any)?.artists?.items.slice(0, 3) || []
-                : [],
-            albums: albums.success ? (albums.data as any)?.albums?.items.slice(0, 3) || [] : [],
-            tracks: tracks.success ? (tracks.data as any)?.tracks?.items.slice(0, 3) || [] : []
-        });
-    } catch {
-        res.json({ artists: [], albums: [], tracks: [] });
-    }
-});
-
-router.get('/preview/:id', async (req: Request, res: Response) => {
-    try {
-        const { audioPreviewService } = await import('../../audio-preview/index.js');
-        const trackId = getParam(req.params.id);
-        const info = await audioPreviewService.getPreviewInfo(trackId);
-
-        if (info) {
-            res.json(info);
-        } else {
-            res.status(404).json({ error: 'Preview info not found' });
-        }
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/stream/:id', async (req: Request, res: Response) => {
-    try {
-        const { audioPreviewService } = await import('../../audio-preview/index.js');
-        const trackId = getParam(req.params.id);
-        const url = await audioPreviewService.getStreamUrl(trackId);
-
-        if (url) {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.redirect(url);
-        } else {
-            res.status(404).json({ error: 'Stream URL not found' });
-        }
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/playlists/watched', async (req: Request, res: Response) => {
-    try {
-        res.json(databaseService.getWatchedPlaylists());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.post('/playlists/watch', async (req: Request, res: Response) => {
-    try {
-        const { playlistId, quality, intervalHours } = req.body;
-
-        if (!playlistId) return res.status(400).json({ error: 'playlistId is required' });
-
-        const result = await api.getPlaylist(playlistId);
-        if (!result.success || !result.data) {
-            return res.status(404).json({ error: 'Playlist not found on Qobuz' });
-        }
-
-        const playlist = result.data as any;
-        databaseService.addWatchedPlaylist({
-            id: playlistId,
-            playlistId,
-            title: playlist.title,
-            quality: normalizeDownloadQuality(quality, 27),
-            intervalHours: intervalHours || 24
-        });
-
-        res.json({ success: true, message: 'Playlist added to watch list' });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.delete('/playlists/watch/:id', async (req: Request, res: Response) => {
-    try {
-        databaseService.removeWatchedPlaylist(getParam(req.params.id));
-        res.json({ success: true });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-export default router;
-</file>
-
 <file path="src/services/library-scanner/worker.ts">
 import { parentPort } from 'worker_threads';
 import fs from 'fs';
@@ -15828,9 +15705,12 @@ import { execSync } from 'child_process';
 import { parseFile } from 'music-metadata';
 import type { IAudioMetadata } from 'music-metadata';
 
+import { resolveBinaryPath } from '../../utils/binaries.js';
+
 function getAudioFingerprint(filePath: string): string | undefined {
     try {
-        const stdout = execSync(`fpcalc -json "${filePath}"`, {
+        const fpcalc = resolveBinaryPath('fpcalc');
+        const stdout = execSync(`"${fpcalc}" -json "${filePath}"`, {
             encoding: 'utf-8',
             stdio: ['ignore', 'pipe', 'ignore']
         });
@@ -16192,6 +16072,7 @@ import { spotifyApi, SpotifyTrack } from '../api/spotify.js';
 import QobuzAPI from '../api/qobuz.js';
 import { logger } from '../utils/logger.js';
 import { downloadQueue } from './queue/queue.js';
+import { globalApiLimit } from '../utils/limit.js';
 
 export interface MigrationResult {
     spotifyTrack: SpotifyTrack;
@@ -16230,17 +16111,20 @@ class MigrationService {
 
         logger.info(`Migration: Found ${spotifyTracks.length} tracks on Spotify. Searching on Qobuz...`, 'MIGRATION');
 
-        const results: MigrationResult[] = [];
-        for (const sTrack of spotifyTracks) {
-            const match = await this.findOnQobuz(sTrack);
-            results.push({
-                spotifyTrack: sTrack,
-                qobuzTrackId: match?.id,
-                found: !!match,
-                quality: match?.quality,
-                matchScore: match?.score || 0
-            });
-        }
+        const promises = spotifyTracks.map(sTrack => 
+            globalApiLimit(async () => {
+                const match = await this.findOnQobuz(sTrack);
+                return {
+                    spotifyTrack: sTrack,
+                    qobuzTrackId: match?.id,
+                    found: !!match,
+                    quality: match?.quality,
+                    matchScore: match?.score || 0
+                } as MigrationResult;
+            })
+        );
+ 
+        const results = await Promise.all(promises);
 
         const foundCount = results.filter(r => r.found).length;
         logger.info(`Migration complete: ${foundCount}/${results.length} tracks matched.`, 'MIGRATION');
@@ -18448,7 +18332,7 @@ export const RecommendationsView: React.FC = () => {
     "action_clear": "सभी साफ करें",
     "action_download": "डाउनलोड",
     "action_delete": "हटाएं",
-    "action_play": "çalar",
+    "action_play": "चलाएं",
     "action_view_tracks": "ट्रैक देखें",
     "action_upgrade": "अपग्रेड",
     "action_resolve": "जादू समाधान",
@@ -19436,806 +19320,317 @@ async function main() {
 main();
 </file>
 
-<file path="src/services/library-scanner/index.ts">
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import { Worker } from 'worker_threads';
-import { fileURLToPath } from 'url';
-import { EventEmitter } from 'events';
-import { databaseService } from '../database/index.js';
-import { historyService } from '../history.js';
-import { logger } from '../../utils/logger.js';
-import { CONFIG } from '../../config.js';
-import QobuzAPI from '../../api/qobuz.js';
+<file path="src/services/dashboard/routers/catalog.routes.ts">
+import { Router, Request, Response } from 'express';
+import QobuzAPI from '../../../api/qobuz.js';
+import { databaseService } from '../../database/index.js';
+import { normalizeDownloadQuality } from '../../../config.js';
+import { RecommendationService } from '../../RecommendationService.js';
+import { historyService } from '../../history.js';
 
-export interface LibraryFile {
-    filePath: string;
-    trackId?: string;
-    title: string;
-    artist: string;
-    album: string;
-    duration: number;
-    quality: number;
-    availableQuality?: number;
-    fileSize: number;
-    format: string;
-    bitDepth: number;
-    sampleRate: number;
-    needsUpgrade: boolean;
-    missingTags?: string[];
-}
+const router = Router();
+const api = new QobuzAPI();
 
-export interface DuplicateGroup {
-    id: number;
-    files: {
-        path: string;
-        size: number;
-        quality: number;
-    }[];
-    matchType: 'exact' | 'similar' | 'remaster';
-    recommendation: string;
-}
+const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
 
-export interface ScanResult {
-    totalFiles: number;
-    scannedFiles: number;
-    errors: number;
-    duplicates: number;
-    upgradeableFiles: number;
-    missingMetadata: number;
-    totalSize: number;
-    scanDuration: number;
-    byFormat: Record<string, number>;
-    byQuality: Record<number, number>;
-}
+router.get('/search', async (req: Request, res: Response) => {
+    const query = getParam(req.query.query || req.query.q);
+    const type = getParam(req.query.type) || 'albums';
+    const limit = parseInt(getParam(req.query.limit)) || 20;
+    const offset = parseInt(getParam(req.query.offset)) || 0;
 
-export interface ScanProgress {
-    current: number;
-    total: number;
-    percentage: number;
-    currentFile: string;
-    status: 'scanning' | 'analyzing' | 'checking_upgrades' | 'complete' | 'error';
-}
-
-class LibraryScannerService extends EventEmitter {
-    private isScanning = false;
-    private scanAborted = false;
-    private supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
-    private api: QobuzAPI;
-    private currentProgress: ScanProgress | null = null;
-
-    constructor() {
-        super();
-        this.api = new QobuzAPI();
+    if (!query) {
+        res.status(400).json({ error: 'Query is required' });
+        return;
     }
 
-    async scanLibrary(
-        directory?: string,
-        options: {
-            detectDuplicates?: boolean;
-            checkUpgrades?: boolean;
-            deep?: boolean;
-        } = {}
-    ): Promise<ScanResult> {
-        if (this.isScanning) {
-            throw new Error('Scan already in progress');
-        }
+    const result = await api.search(query, type, limit, offset);
 
-        const scanDir = directory || CONFIG.download.outputDir;
-        const startTime = Date.now();
-
-        this.isScanning = true;
-        this.scanAborted = false;
-        this.currentProgress = {
-            current: 0,
-            total: 0,
-            percentage: 0,
-            currentFile: 'Starting scan...',
-            status: 'scanning'
-        };
-
-        const result: ScanResult = {
-            totalFiles: 0,
-            scannedFiles: 0,
-            errors: 0,
-            duplicates: 0,
-            upgradeableFiles: 0,
-            missingMetadata: 0,
-            totalSize: 0,
-            scanDuration: 0,
-            byFormat: {},
-            byQuality: {}
-        };
-
-        try {
-            databaseService.clearLibraryScan();
-
-            const allFiles = await this.collectAudioFiles(scanDir);
-            result.totalFiles = allFiles.length;
-
-            if (result.totalFiles === 0) {
-                this.isScanning = false;
-                return result;
-            }
-
-            this.currentProgress.total = result.totalFiles;
-
-            this.emit('scan:started', { totalFiles: result.totalFiles, directory: scanDir });
-            logger.info(
-                `Starting multi-threaded library scan: ${result.totalFiles} files in ${scanDir}`,
-                'SCANNER'
-            );
-
-            const numWorkers = Math.min(allFiles.length, os.cpus().length || 4);
-            const __dirname = path.dirname(fileURLToPath(import.meta.url));
-            const workerPathJs = path.join(__dirname, 'worker.js');
-            const workerPathTs = path.join(__dirname, 'worker.ts');
-
-            const resolvedWorkerPath = fs.existsSync(workerPathJs) ? workerPathJs : workerPathTs;
-
-            const filesToProcess = [...allFiles];
-            let processedCount = 0;
-
-            const processResult = (fileInfo: any) => {
-                if (fileInfo.error) {
-                    result.errors++;
-                    logger.debug(
-                        `Error scanning ${fileInfo.filePath}: ${fileInfo.error}`,
-                        'SCANNER'
-                    );
-                } else if (fileInfo) {
-                    result.scannedFiles++;
-                    result.totalSize += fileInfo.fileSize;
-                    result.byFormat[fileInfo.format] = (result.byFormat[fileInfo.format] || 0) + 1;
-                    result.byQuality[fileInfo.quality] =
-                        (result.byQuality[fileInfo.quality] || 0) + 1;
-
-                    if (fileInfo.needsUpgrade) result.upgradeableFiles++;
-                    if (fileInfo.missingInternalTags) result.missingMetadata++;
-
-                    databaseService.addLibraryFile({
-                        file_path: fileInfo.filePath,
-                        title: fileInfo.title,
-                        artist: fileInfo.artist,
-                        album_artist: fileInfo.albumArtist,
-                        album: fileInfo.album,
-                        duration: fileInfo.duration,
-                        quality: fileInfo.quality,
-                        file_size: fileInfo.fileSize,
-                        format: fileInfo.format,
-                        bit_depth: fileInfo.bitDepth,
-                        sample_rate: fileInfo.sampleRate,
-                        needs_upgrade: fileInfo.needsUpgrade,
-                        audio_fingerprint: fileInfo.audioFingerprint,
-                        missing_metadata: fileInfo.missingInternalTags,
-                        missing_tags: fileInfo.missingTags,
-                        checksum: fileInfo.checksum,
-                        verification_status: fileInfo.checksum ? 'verified' : 'pending'
-                    });
-                }
-
-                processedCount++;
-                const progress: ScanProgress = {
-                    current: processedCount,
-                    total: result.totalFiles,
-                    percentage: Math.round((processedCount / result.totalFiles) * 100),
-                    currentFile: path.basename(fileInfo.filePath || ''),
-                    status: 'scanning'
-                };
-                this.currentProgress = progress;
-                this.emit('scan:progress', progress);
-            };
-
-            await new Promise<void>((resolve) => {
-                let workersFinished = 0;
-
-                const spawnWorker = () => {
-                    if (filesToProcess.length === 0 || this.scanAborted) {
-                        workersFinished++;
-                        if (workersFinished >= numWorkers) resolve();
-                        return;
-                    }
-
-                    const worker = new Worker(resolvedWorkerPath, {
-                        execArgv: resolvedWorkerPath.endsWith('.ts')
-                            ? ['--loader', 'ts-node/esm']
-                            : []
-                    });
-
-                    worker.on('message', (msg) => {
-                        processResult(msg);
-                        if (filesToProcess.length > 0 && !this.scanAborted) {
-                            worker.postMessage(filesToProcess.pop());
-                        } else {
-                            worker.terminate();
-                            workersFinished++;
-                            if (workersFinished >= numWorkers) resolve();
+    if (result.success) {
+        if (type === 'artists' && result.data?.artists?.items) {
+            const updates = result.data.artists.items.map(async (item: any) => {
+                if (!item.image && !item.picture) {
+                    try {
+                        const detail = await api.getArtist(item.id, 0, 1);
+                        if (
+                            detail.success &&
+                            detail.data &&
+                            (detail.data as any).albums?.items?.length > 0
+                        ) {
+                            const latestAlbum = (detail.data as any).albums.items[0];
+                            item.image = latestAlbum.image;
+                            item.picture = latestAlbum.image;
                         }
-                    });
-
-                    worker.on('error', (err) => {
-                        result.errors++;
-                        logger.error(`Worker error: ${err.message}`, 'SCANNER');
-                        worker.terminate();
-                        workersFinished++;
-                        if (workersFinished >= numWorkers) resolve();
-                    });
-
-                    worker.postMessage(filesToProcess.pop());
-                };
-
-                for (let i = 0; i < numWorkers; i++) {
-                    spawnWorker();
+                    } catch { }
                 }
+                return item;
             });
-
-            if (this.scanAborted) {
-                logger.warn('Scan aborted by user', 'SCANNER');
-            }
-
-            if (options.detectDuplicates !== false) {
-                const progress: ScanProgress = {
-                    current: result.totalFiles,
-                    total: result.totalFiles,
-                    percentage: 100,
-                    currentFile: 'Analyzing duplicates...',
-                    status: 'analyzing'
-                };
-                this.currentProgress = progress;
-                this.emit('scan:progress', progress);
-                result.duplicates = await this.detectDuplicates();
-            }
-
-            if (options.checkUpgrades !== false) {
-                const progress: ScanProgress = {
-                    current: 0,
-                    total: result.scannedFiles,
-                    percentage: 0,
-                    currentFile: 'Checking available upgrades from Qobuz...',
-                    status: 'checking_upgrades'
-                };
-                this.currentProgress = progress;
-                this.emit('scan:progress', progress);
-
-                const upgradeCount = await this.checkQobuzUpgrades();
-                result.upgradeableFiles = upgradeCount;
-                logger.info(`Found ${upgradeCount} tracks with available upgrades`, 'SCANNER');
-            }
-
-            result.scanDuration = Date.now() - startTime;
-            historyService.cleanup();
-
-            const finalProgress: ScanProgress = {
-                current: result.totalFiles,
-                total: result.totalFiles,
-                percentage: 100,
-                currentFile: 'Scan complete',
-                status: 'complete'
-            };
-            this.currentProgress = finalProgress;
-            this.emit('scan:progress', finalProgress);
-
-            this.emit('scan:complete', result);
-            logger.success(
-                `Library scan complete: ${result.scannedFiles} files, ${result.duplicates} duplicates, ${result.upgradeableFiles} upgradeable, ${result.missingMetadata} missing metadata`,
-                'SCANNER'
-            );
-
-            return result;
-        } finally {
-            this.isScanning = false;
-            this.currentProgress = null;
+            await Promise.all(updates);
         }
-    }
 
-    private async collectAudioFiles(directory: string): Promise<string[]> {
-        const files: string[] = [];
-        const scan = async (dir: string): Promise<void> => {
-            if (!fs.existsSync(dir)) return;
-            try {
-                const entries = fs.readdirSync(dir, { withFileTypes: true });
-                for (const entry of entries) {
-                    const fullPath = path.join(dir, entry.name);
-                    if (entry.isDirectory()) {
-                        await scan(fullPath);
-                    } else if (entry.isFile()) {
-                        const ext = path.extname(entry.name).toLowerCase();
-                        if (this.supportedFormats.includes(ext)) {
-                            files.push(fullPath);
-                        }
-                    }
-                }
-            } catch (err) {
-                logger.debug(`Failed to scan directory ${dir}: ${err}`);
-            }
-        };
-        await scan(directory);
-        return files;
-    }
-
-    private async checkQobuzUpgrades(): Promise<number> {
-        const db = databaseService.getDb();
-        const files = databaseService.getLibraryFiles(10000, 0);
-        let upgradeCount = 0;
-        let processed = 0;
-
-        for (const file of files) {
-            if (this.scanAborted) break;
-
-            if (file.track_id && file.available_quality !== null) {
-                if (file.available_quality > file.quality) upgradeCount++;
-                processed++;
-                continue;
-            }
-
-            if (file.quality >= 27) {
-                processed++;
-                continue;
-            }
-
-            try {
-                const searchQuery = `${file.artist} ${file.title}`.trim();
-                if (!searchQuery || searchQuery === 'Unknown Unknown') {
-                    processed++;
-                    continue;
-                }
-
-                const searchResult = await this.api.search(searchQuery, 'tracks', 10);
-                if (!searchResult.success || !searchResult.data?.tracks?.items?.length) {
-                    processed++;
-                    continue;
-                }
-
-                const matches = this.findAllMatches(
-                    file.title || '',
-                    file.artist || '',
-                    file.album || '',
-                    searchResult.data.tracks.items
-                );
-
-                if (matches.length === 0) {
-                    processed++;
-                    continue;
-                }
-
-                let maxQualityFound = 0;
-                let bestTrackId = null;
-
-                for (const track of matches.slice(0, 5)) {
-                    const quality = await this.getHighestAvailableQuality(track.id);
-                    if (quality !== null && quality > maxQualityFound) {
-                        maxQualityFound = quality;
-                        bestTrackId = track.id;
-                        if (maxQualityFound >= 27) break;
-                    }
-                }
-
-                if (bestTrackId && maxQualityFound > file.quality) {
-                    db.prepare(
-                        'UPDATE library_files SET track_id = ?, available_quality = ?, needs_upgrade = 1 WHERE file_path = ?'
-                    ).run(String(bestTrackId), maxQualityFound, file.file_path);
-                    upgradeCount++;
-                    logger.debug(
-                        `Upgrade available: ${file.artist} - ${file.title} (${this.getQualityLabel(file.quality)} → ${this.getQualityLabel(maxQualityFound)})`,
-                        'SCANNER'
-                    );
-                } else if (bestTrackId) {
-                    db.prepare(
-                        'UPDATE library_files SET track_id = ?, available_quality = ?, needs_upgrade = 0 WHERE file_path = ?'
-                    ).run(String(bestTrackId), maxQualityFound || file.quality, file.file_path);
-                } else {
-                    db.prepare(
-                        'UPDATE library_files SET needs_upgrade = 0 WHERE file_path = ?'
-                    ).run(file.file_path);
-                }
-
-                processed++;
-                const progress: ScanProgress = {
-                    current: processed,
-                    total: files.length,
-                    percentage: Math.round((processed / files.length) * 100),
-                    currentFile: `Checking: ${file.artist} - ${file.title}`,
-                    status: 'checking_upgrades'
-                };
-                this.currentProgress = progress;
-                this.emit('scan:progress', progress);
-                await this.delay(process.env.NODE_ENV === 'test' ? 0 : 50);
-            } catch (error: any) {
-                logger.debug(
-                    `Error checking upgrade for ${file.file_path}: ${error.message}`,
-                    'SCANNER'
-                );
-                processed++;
-            }
-        }
-        return upgradeCount;
-    }
-
-    private findAllMatches(title: string, artist: string, album: string, tracks: any[]): any[] {
-        const normalizedTitle = this.normalizeString(title);
-        const normalizedArtist = this.normalizeString(artist);
-        const normalizedAlbum = this.normalizeString(album);
-        const matches: any[] = [];
-
-        for (const track of tracks) {
-            const trackTitle = this.normalizeString(track.title || '');
-            const trackArtist = this.normalizeString(
-                track.performer?.name || track.album?.artist?.name || ''
-            );
-            const trackAlbum = this.normalizeString(track.album?.title || '');
-
-            const titleScore = this.similarity(normalizedTitle, trackTitle);
-            const artistScore = this.similarity(normalizedArtist, trackArtist);
-            const albumScore = this.similarity(normalizedAlbum, trackAlbum);
-
-            if (titleScore > 0.8 && artistScore > 0.6) {
-                if (normalizedAlbum && albumScore < 0.5) {
-                    continue;
-                }
-                matches.push(track);
-            }
-        }
-        return matches;
-    }
-
-    private async getHighestAvailableQuality(trackId: number): Promise<number | null> {
-        const qualities = [27, 7, 6, 5];
-        for (const quality of qualities) {
-            try {
-                const result = await this.api.getFileUrl(trackId, quality);
-                if (result.success && result.data) {
-                    return (result.data as any).format_id || quality;
-                }
-            } catch {}
-        }
-        return null;
-    }
-
-    private similarity(str1: string, str2: string): number {
-        if (!str1 || !str2) return 0;
-        if (str1 === str2) return 1;
-        const longer = str1.length > str2.length ? str1 : str2;
-        const shorter = str1.length > str2.length ? str2 : str1;
-        if (longer.length === 0) return 1;
-        if (longer.includes(shorter) || shorter.includes(longer)) return 0.9;
-        const editDistance = this.levenshteinDistance(str1, str2);
-        return (longer.length - editDistance) / longer.length;
-    }
-
-    private levenshteinDistance(str1: string, str2: string): number {
-        const matrix: number[][] = [];
-        for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
-        for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
-        for (let i = 1; i <= str2.length; i++) {
-            for (let j = 1; j <= str1.length; j++) {
-                if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1,
-                        matrix[i][j - 1] + 1,
-                        matrix[i - 1][j] + 1
-                    );
-                }
-            }
-        }
-        return matrix[str2.length][str1.length];
-    }
-
-    private getQualityLabel(quality: number): string {
-        const labels: Record<number, string> = {
-            5: 'MP3 320',
-            6: 'FLAC 16/44',
-            7: 'FLAC 24/96',
-            27: 'FLAC 24/192'
-        };
-        return labels[quality] || `Q${quality}`;
-    }
-
-    private delay(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    private async detectDuplicates(): Promise<number> {
-        const files = databaseService.getLibraryFiles(100000, 0);
-        logger.debug(
-            `[DUPLICATE_CHECK] Analyzing ${files.length} items for duplicates...`,
-            'SCANNER'
-        );
-
-        const fingerprintGroups = new Map<string, string[]>();
-        const titleGroups = new Map<string, { filePath: string; artist: string }[]>();
-
-        for (const file of files) {
-            if (file.audio_fingerprint) {
-                const key = file.audio_fingerprint;
-                if (!fingerprintGroups.has(key)) fingerprintGroups.set(key, []);
-                fingerprintGroups.get(key)!.push(file.file_path);
-            }
-
-            if (file.title) {
-                const normTitle = this.normalizeString(file.title);
-                if (!normTitle || normTitle.length < 2) continue;
-
-                if (!titleGroups.has(normTitle)) titleGroups.set(normTitle, []);
-
-                titleGroups.get(normTitle)!.push({
-                    filePath: file.file_path,
-                    artist: file.artist || ''
+        if (result.data) {
+            const data = result.data as any;
+            if (data.tracks?.items) {
+                data.tracks.items.forEach((item: any) => {
+                    item.already_downloaded = databaseService.hasTrack(String(item.id));
                 });
-
-                if (normTitle.includes('stereo love')) {
-                    logger.debug(
-                        `[DUPLICATE_CHECK] Added to title group '${normTitle}': ${path.basename(file.file_path)} (Artist: ${file.artist})`,
-                        'SCANNER'
-                    );
-                }
             }
-        }
-
-        let duplicateCount = 0;
-        const processedPairs = new Set<string>();
-
-        const registerDuplicate = (
-            path1: string,
-            path2: string,
-            type: 'exact' | 'similar',
-            confidence: number
-        ) => {
-            const paths = [path1, path2].sort();
-            const pairKey = paths.join('|');
-
-            if (!processedPairs.has(pairKey)) {
-                processedPairs.add(pairKey);
-                databaseService.addDuplicate(path1, path2, type, confidence);
-                duplicateCount++;
-                logger.debug(
-                    `[DUPLICATE_CHECK] Found duplicate (${type}): ${path.basename(path1)} = ${path.basename(path2)}`,
-                    'SCANNER'
-                );
-            }
-        };
-
-        for (const paths of fingerprintGroups.values()) {
-            if (paths.length > 1) {
-                for (let i = 0; i < paths.length; i++) {
-                    for (let j = i + 1; j < paths.length; j++) {
-                        registerDuplicate(paths[i], paths[j], 'exact', 1.0);
-                    }
-                }
-            }
-        }
-
-        for (const [_, items] of titleGroups) {
-            if (items.length < 2) continue;
-
-            for (let i = 0; i < items.length; i++) {
-                for (let j = i + 1; j < items.length; j++) {
-                    const item1 = items[i];
-                    const item2 = items[j];
-
-                    if (item1.filePath === item2.filePath) continue;
-
-                    const paths = [item1.filePath, item2.filePath].sort();
-                    if (processedPairs.has(paths.join('|'))) continue;
-
-                    const artist1 = this.normalizeString(item1.artist);
-                    const artist2 = this.normalizeString(item2.artist);
-
-                    if (artist1 === artist2) {
-                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.95);
-                        continue;
-                    }
-
-                    if (artist1.includes(artist2) || artist2.includes(artist1)) {
-                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.9);
-                        continue;
-                    }
-
-                    const score = this.similarity(artist1, artist2);
-                    if (score > 0.8) {
-                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.85);
-                    }
-                }
-            }
-        }
-
-        return duplicateCount;
-    }
-
-    private normalizeString(str: string): string {
-        return str
-            .toLowerCase()
-            .replace(/[^\w\s]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-
-    getDuplicates(): DuplicateGroup[] {
-        const rawDuplicates = databaseService.getDuplicates();
-        const groups: Map<string, DuplicateGroup> = new Map();
-        for (const dup of rawDuplicates) {
-            const key = dup.file_path_1;
-
-            if (!groups.has(key)) {
-                groups.set(key, {
-                    id: dup.id,
-                    files: [
-                        { path: dup.file_path_1, size: 0, quality: 0 },
-                        { path: dup.file_path_2, size: 0, quality: 0 }
-                    ],
-                    matchType: dup.match_type as any,
-                    recommendation: 'Keep the higher quality version'
+            if (data.albums?.items) {
+                data.albums.items.forEach((item: any) => {
+                    const dbAlbum = databaseService.getAlbum(String(item.id));
+                    item.already_downloaded = !!dbAlbum;
                 });
-            } else {
-                const existing = groups.get(key)!.files.find((f) => f.path === dup.file_path_2);
-                if (!existing) {
-                    groups.get(key)!.files.push({ path: dup.file_path_2, size: 0, quality: 0 });
-                }
             }
         }
-        return Array.from(groups.values());
+        res.json(result.data);
+    } else {
+        res.status(500).json({ error: result.error });
     }
+});
 
-    getUpgradeableFiles(): LibraryFile[] {
-        const files = databaseService.getUpgradeableFiles();
-        return files.map((f) => ({
-            filePath: f.file_path,
-            trackId: f.track_id || undefined,
-            title: f.title || '',
-            artist: f.artist || '',
-            album: f.album || '',
-            duration: f.duration || 0,
-            quality: f.quality || 0,
-            availableQuality: f.available_quality || undefined,
-            fileSize: f.file_size || 0,
-            format: f.format || '',
-            bitDepth: f.bit_depth || 0,
-            sampleRate: f.sample_rate || 0,
-            needsUpgrade: true
-        }));
-    }
+router.get('/album/:id', async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const result = await api.getAlbum(id);
 
-    getMissingMetadataFiles(): LibraryFile[] {
-        const files = databaseService.getMissingMetadataFiles();
-        return files.map((f) => ({
-            filePath: f.file_path,
-            trackId: f.track_id || undefined,
-            title: f.title || '',
-            artist: f.artist || '',
-            album: f.album || '',
-            duration: f.duration || 0,
-            quality: f.quality || 0,
-            availableQuality: f.available_quality || undefined,
-            fileSize: f.file_size || 0,
-            format: f.format || '',
-            bitDepth: f.bit_depth || 0,
-            sampleRate: f.sample_rate || 0,
-            needsUpgrade: false,
-            missingTags: f.missing_tags ? JSON.parse(f.missing_tags) : []
-        }));
-    }
+    if (result.success) {
+        const data = result.data as any;
+        const dbAlbum = databaseService.getAlbum(String(data.id));
+        data.already_downloaded = !!dbAlbum;
 
-    async resolveDuplicate(id: number): Promise<void> {
-        const db = databaseService.getDb();
-        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as any;
-        if (!duplicate) return;
-        const file1 = db
-            .prepare('SELECT * FROM library_files WHERE file_path = ?')
-            .get(duplicate.file_path_1) as any;
-        const file2 = db
-            .prepare('SELECT * FROM library_files WHERE file_path = ?')
-            .get(duplicate.file_path_2) as any;
-        if (!file1 || !file2) {
-            databaseService.resolveDuplicate(id);
-            return;
+        if (data.tracks?.items) {
+            data.tracks.items.forEach((item: any) => {
+                item.already_downloaded = databaseService.hasTrack(String(item.id));
+            });
         }
-        let fileToDelete: string;
-        let fileToKeep: string;
-        if ((file1.quality || 0) > (file2.quality || 0)) {
-            fileToDelete = file2.file_path;
-            fileToKeep = file1.file_path;
-        } else if ((file2.quality || 0) > (file1.quality || 0)) {
-            fileToDelete = file1.file_path;
-            fileToKeep = file2.file_path;
+        res.json(data);
+    } else {
+        res.status(500).json({ error: result.error });
+    }
+});
+
+router.get('/artist/:id', async (req: Request, res: Response) => {
+    const id = getParam(req.params.id);
+    const offset = getParam(req.query.offset);
+    const limit = getParam(req.query.limit);
+    const type = getParam(req.query.type);
+
+    const off = parseInt(offset) || 0;
+    const lim = parseInt(limit) || 20;
+
+    if (type === 'albums') {
+        const result = await api.getArtistAlbums(id, lim, off);
+        if (result.success) {
+            const data = result.data as any;
+            if (data.items) {
+                data.items.forEach((item: any) => {
+                    const dbAlbum = databaseService.getAlbum(String(item.id));
+                    item.already_downloaded = !!dbAlbum;
+                });
+            }
+            res.json(data);
         } else {
-            if ((file1.file_size || 0) >= (file2.file_size || 0)) {
-                fileToDelete = file2.file_path;
-                fileToKeep = file1.file_path;
-            } else {
-                fileToDelete = file1.file_path;
-                fileToKeep = file2.file_path;
+            res.status(500).json({ error: result.error });
+        }
+    } else {
+        const result = await api.getArtist(id, off, lim);
+        if (result.success) {
+            const data = result.data as any;
+            if (data.tracks?.items) {
+                data.tracks.items.forEach((item: any) => {
+                    item.already_downloaded = databaseService.hasTrack(String(item.id));
+                });
             }
-        }
-        try {
-            if (fs.existsSync(fileToDelete)) {
-                fs.unlinkSync(fileToDelete);
-                databaseService.deleteTrackByPath(fileToDelete);
-                historyService.cleanup();
-                logger.info(
-                    `Resolved duplicate by deleting: ${path.basename(fileToDelete)} (kept ${path.basename(fileToKeep)})`,
-                    'SCANNER'
-                );
+            if (data.albums?.items) {
+                data.albums.items.forEach((item: any) => {
+                    const dbAlbum = databaseService.getAlbum(String(item.id));
+                    item.already_downloaded = !!dbAlbum;
+                });
             }
-        } catch (err: any) {
-            logger.error(
-                `Failed to delete duplicate file ${fileToDelete}: ${err.message}`,
-                'SCANNER'
-            );
-        }
-        db.prepare('DELETE FROM library_files WHERE file_path = ?').run(fileToDelete);
-        db.prepare(
-            'UPDATE duplicates SET resolved = 1 WHERE file_path_1 = ? OR file_path_2 = ?'
-        ).run(fileToDelete, fileToDelete);
-        databaseService.resolveDuplicate(id);
-    }
-
-    async deleteFile(filePath: string): Promise<boolean> {
-        try {
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            return true;
-        } catch (error: any) {
-            logger.error(`Failed to delete file: ${error.message}`, 'SCANNER');
-            return false;
+            res.json(data);
+        } else {
+            res.status(500).json({ error: result.error });
         }
     }
+});
 
-    abortScan(): void {
-        if (this.isScanning) this.scanAborted = true;
+router.get('/playlist/:id', async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const result = await api.getPlaylist(id);
+
+    if (result.success) {
+        res.json(result.data);
+    } else {
+        res.status(500).json({ error: result.error });
+    }
+});
+
+router.get('/track/:id', async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const result = await api.getTrack(id);
+
+    if (result.success) {
+        res.json(result.data);
+    } else {
+        res.status(500).json({ error: result.error });
+    }
+});
+
+router.get('/genres', async (req: Request, res: Response) => {
+    const result = await api.getGenres();
+    if (result.success) {
+        res.json(result.data);
+    } else {
+        res.status(500).json({ error: result.error });
+    }
+});
+
+router.get('/search/suggestions', async (req: Request, res: Response) => {
+    const { query } = req.query;
+    if (!query || typeof query !== 'string') {
+        res.json({ artists: [], albums: [], tracks: [] });
+        return;
     }
 
-    isScanInProgress(): boolean {
-        return this.isScanning;
+    try {
+        const [artists, albums, tracks] = await Promise.all([
+            api.search(query, 'artists', 3),
+            api.search(query, 'albums', 3),
+            api.search(query, 'tracks', 3)
+        ]);
+
+        res.json({
+            artists: artists.success
+                ? (artists.data as any)?.artists?.items.slice(0, 3) || []
+                : [],
+            albums: albums.success ? (albums.data as any)?.albums?.items.slice(0, 3) || [] : [],
+            tracks: tracks.success ? (tracks.data as any)?.tracks?.items.slice(0, 3) || [] : []
+        });
+    } catch {
+        res.json({ artists: [], albums: [], tracks: [] });
     }
+});
 
-    getScanStats(): {
-        totalFiles: number;
-        duplicates: number;
-        upgradeable: number;
-        missingMetadata: number;
-        totalSize: number;
-        processedFiles?: number;
-        currentFile?: string;
-    } {
-        const upgradeable = databaseService.getUpgradeableFiles();
-        const duplicates = databaseService.getDuplicates();
-        const db = databaseService.getDb();
-        const totalRow = db
-            .prepare('SELECT COUNT(*) as count, SUM(file_size) as size FROM library_files')
-            .get() as any;
-        const missingRow = db
-            .prepare('SELECT COUNT(*) as count FROM library_files WHERE missing_metadata = 1')
-            .get() as any;
+router.get('/preview/:id', async (req: Request, res: Response) => {
+    try {
+        const { audioPreviewService } = await import('../../audio-preview/index.js');
+        const trackId = getParam(req.params.id);
+        const info = await audioPreviewService.getPreviewInfo(trackId);
 
+        if (info) {
+            res.json(info);
+        } else {
+            res.status(404).json({ error: 'Preview info not found' });
+        }
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/stream/:id', async (req: Request, res: Response) => {
+    try {
+        const { audioPreviewService } = await import('../../audio-preview/index.js');
+        const trackId = getParam(req.params.id);
+        const url = await audioPreviewService.getStreamUrl(trackId);
+
+        if (url) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.redirect(url);
+        } else {
+            res.status(404).json({ error: 'Stream URL not found' });
+        }
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/playlists/watched', async (req: Request, res: Response) => {
+    try {
+        res.json(databaseService.getWatchedPlaylists());
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/playlists/watch', async (req: Request, res: Response) => {
+    try {
+        const { playlistId, quality, intervalHours } = req.body;
+
+        if (!playlistId) return res.status(400).json({ error: 'playlistId is required' });
+
+        const result = await api.getPlaylist(playlistId);
+        if (!result.success || !result.data) {
+            return res.status(404).json({ error: 'Playlist not found on Qobuz' });
+        }
+
+        const playlist = result.data as any;
+        databaseService.addWatchedPlaylist({
+            id: playlistId,
+            playlistId,
+            title: playlist.title,
+            quality: normalizeDownloadQuality(quality, 27),
+            intervalHours: intervalHours || 24
+        });
+
+        res.json({ success: true, message: 'Playlist added to watch list' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/playlists/watch/:id', async (req: Request, res: Response) => {
+    try {
+        databaseService.removeWatchedPlaylist(getParam(req.params.id));
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/recommendations', async (req: Request, res: Response) => {
+    try {
+        const limit = parseInt(getParam(req.query.limit)) || 10;
+        const recommendationService = new RecommendationService(api);
+        const albums = await recommendationService.getRecommendations(limit);
+        res.json(albums);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/quality-stats', (req: Request, res: Response) => {
+    try {
+        const history = historyService.getAll();
         const stats = {
-            totalFiles: totalRow?.count || 0,
-            duplicates: duplicates.length,
-            upgradeable: upgradeable.length,
-            missingMetadata: missingRow?.count || 0,
-            totalSize: totalRow?.size || 0
+            totalScanned: 0,
+            trueLossless: 0,
+            fakeLossless: 0,
+            issues: [] as any[]
         };
 
-        if (this.isScanning && this.currentProgress) {
-            return {
-                ...stats,
-                totalFiles:
-                    this.currentProgress.total > 0 ? this.currentProgress.total : stats.totalFiles,
-                processedFiles: this.currentProgress.current,
-                currentFile: this.currentProgress.currentFile
-            };
-        }
+        Object.values(history).forEach((entry: any) => {
+            if (entry.qualityScan) {
+                stats.totalScanned++;
+                if (entry.qualityScan.isTrueLossless) {
+                    stats.trueLossless++;
+                } else {
+                    stats.fakeLossless++;
+                    stats.issues.push({
+                        title: entry.title,
+                        artist: entry.artist,
+                        details: entry.qualityScan.details,
+                        confidence: entry.qualityScan.confidence
+                    });
+                }
+            }
+        });
 
-        return stats;
+        res.json(stats);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
     }
+});
 
-    async findMissingTracks(): Promise<any[]> {
-        return [];
-    }
-}
-
-export const libraryScannerService = new LibraryScannerService();
-export default libraryScannerService;
+export default router;
 </file>
 
 <file path="src/services/MediaServerService.ts">
@@ -24655,645 +24050,6 @@ export const normalizeDownloadQuality = (
 export default CONFIG;
 </file>
 
-<file path="src/services/DownloadEngine.ts">
-import crypto from 'crypto';
-import { createWriteStream, createReadStream } from 'fs';
-import { downloadFile } from '../utils/network.js';
-import { logger } from '../utils/logger.js';
-import { ThrottleStream } from '../utils/throttle.js';
-import { CONFIG } from '../config.js';
-import { resumeService } from './batch.js';
-import { Metadata } from './metadata.js';
-
-export interface DownloadProgress {
-    phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging' | 'verifying';
-    loaded: number;
-    total?: number;
-    speed?: number;
-}
-
-export class DownloadEngine {
-    async download(
-        url: string,
-        filePath: string,
-        trackId: string,
-        metadata: Metadata,
-        totalLength: number,
-        actualQuality: number,
-        onProgress?: (progress: DownloadProgress) => void,
-        isCancelled?: () => boolean
-    ): Promise<{ size: number; md5: string }> {
-        let downloaded = 0;
-        const headers: Record<string, string> = {};
-        let isResuming = false;
-
-        if (resumeService.canResume(trackId)) {
-            downloaded = resumeService.getResumePosition(trackId);
-            headers['Range'] = `bytes=${downloaded}-`;
-            isResuming = true;
-            logger.info(`Resuming download for ${metadata.title} from ${downloaded} bytes`, 'DOWNLOAD');
-        }
-
-        const response = await downloadFile(url, { headers });
-        
-        const isPartial = response.status === 206;
-        if (isResuming && !isPartial) {
-            logger.warn('Server did not honor Range request, restarting download from scratch', 'DOWNLOAD');
-            downloaded = 0;
-            isResuming = false;
-        }
-
-        const startTime = Date.now();
-        const md5Hash = crypto.createHash('md5');
-
-        if (isResuming && downloaded > 0) {
-            logger.info(`Re-hashing ${downloaded} bytes of existing data...`, 'DOWNLOAD');
-            try {
-                await new Promise<void>((resolve, reject) => {
-                    const existingData = createReadStream(filePath, {
-                        end: downloaded - 1,
-                        highWaterMark: 1024 * 1024 // 1MB buffer for faster reading
-                    });
-                    existingData.on('data', (chunk) => md5Hash.update(chunk));
-                    existingData.on('end', resolve);
-                    existingData.on('error', reject);
-                });
-            } catch (hashErr: unknown) {
-                const message = hashErr instanceof Error ? hashErr.message : String(hashErr);
-                logger.error(`Critical failure re-hashing existing part: ${message}`, 'DOWNLOAD');
-                throw new Error(`Integrity check failed: Could not re-hash existing file part for resume. ${message}`);
-            }
-        }
-
-        const writer = createWriteStream(filePath, { flags: isResuming ? 'a' : 'w' });
-        
-        if (!isResuming) {
-            resumeService.startDownload(trackId, filePath, totalLength, actualQuality);
-        }
-
-        let lastProgressEmit = 0;
-        await new Promise<void>((resolve, reject) => {
-            const onData = (chunk: Buffer) => {
-                if (isCancelled && isCancelled()) {
-                    response.data.destroy();
-                    writer.destroy();
-                    reject(new Error('Cancelled by user'));
-                    return;
-                }
-                downloaded += chunk.length;
-                md5Hash.update(chunk);
-
-                if (onProgress) {
-                    const currentTime = Date.now();
-                    if (currentTime - lastProgressEmit >= 100 || downloaded === totalLength) {
-                        const elapsed = (currentTime - startTime) / 1000;
-                        const speed = elapsed > 0 ? (downloaded - (isResuming ? resumeService.getResumePosition(trackId) : 0)) / elapsed : 0;
-
-                        onProgress({
-                            phase: 'download',
-                            loaded: downloaded,
-                            total: totalLength,
-                            speed
-                        });
-                        lastProgressEmit = currentTime;
-                        resumeService.updateProgress(trackId, downloaded);
-                    }
-                }
-            };
-
-            response.data.on('data', onData);
-
-            if (CONFIG.download.bandwidthLimit > 0) {
-                const throttle = new ThrottleStream(CONFIG.download.bandwidthLimit);
-                response.data.pipe(throttle).pipe(writer);
-            } else {
-                response.data.pipe(writer);
-            }
-
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-            response.data.on('error', reject);
-        });
-
-        return {
-            size: downloaded,
-            md5: md5Hash.digest('hex')
-        };
-    }
-}
-</file>
-
-<file path="src/services/FormatConverterService.ts">
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import { existsSync, mkdirSync, unlinkSync } from 'fs';
-import { CONFIG } from '../config.js';
-import { logger } from '../utils/logger.js';
-
-const execAsync = promisify(exec);
-
-export class FormatConverterService {
-    async convert(inputPath: string): Promise<string | null> {
-        const { enabled, format, bitrate, outputDir, keepOriginal } = CONFIG.export;
-
-        if (!enabled || !inputPath.endsWith('.flac')) {
-            return null;
-        }
-
-        if (!(await this.isAvailable())) {
-            logger.error(
-                'Converter: ffmpeg is not installed or not in PATH. Conversion disabled.',
-                'CONVERTER'
-            );
-            return null;
-        }
-
-        const baseName = path.basename(inputPath, '.flac');
-        const dirName = path.dirname(inputPath);
-        const finalOutputDir = outputDir || dirName;
-
-        if (!existsSync(finalOutputDir)) {
-            mkdirSync(finalOutputDir, { recursive: true });
-        }
-
-        const outputPath = path.join(finalOutputDir, `${baseName}.${format}`);
-        
-        if (existsSync(outputPath)) {
-            logger.debug(`Converter: Output file already exists, skipping: ${outputPath}`, 'CONVERTER');
-            return outputPath;
-        }
-
-        logger.info(`Converter: Exporting ${baseName} to ${format.toUpperCase()} (${bitrate})...`, 'CONVERTER');
-
-        try {
-            let codec = 'libmp3lame';
-            if (format === 'aac') codec = 'aac';
-            if (format === 'opus') codec = 'libopus';
-
-            const cmd = `ffmpeg -i "${inputPath}" -codec:a ${codec} -b:a ${bitrate} -map_metadata 0 "${outputPath}"`;
-            await execAsync(cmd);
-
-            logger.success(`Converter: Export complete: ${path.basename(outputPath)}`, 'CONVERTER');
-
-            if (!keepOriginal) {
-                try {
-                    unlinkSync(inputPath);
-                    logger.debug(`Converter: Original file removed: ${path.basename(inputPath)}`, 'CONVERTER');
-                } catch (e: unknown) {
-                    const message = e instanceof Error ? e.message : String(e);
-                    logger.warn(`Converter: Failed to remove original file: ${message}`, 'CONVERTER');
-                }
-            }
-
-            return outputPath;
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`Converter: Conversion failed: ${message}`, 'CONVERTER');
-            return null;
-        }
-    }
-
-    async isAvailable(): Promise<boolean> {
-        try {
-            await execAsync('ffmpeg -version');
-            return true;
-        } catch {
-            return false;
-        }
-    }
-}
-
-export const formatConverterService = new FormatConverterService();
-</file>
-
-<file path="src/services/PlaylistWatcherService.ts">
-import QobuzAPI from '../api/qobuz.js';
-import { databaseService } from './database/index.js';
-import { downloadQueue } from './queue/queue.js';
-import { logger } from '../utils/logger.js';
-import { historyService } from './history.js';
-import { notificationService } from './notifications.js';
-import { normalizeDownloadQuality } from '../config.js';
-
-export class PlaylistWatcherService {
-    private api: QobuzAPI;
-    private timer: NodeJS.Timeout | null = null;
-    private isScanning = false;
-
-    constructor(api: QobuzAPI) {
-        this.api = api;
-    }
-
-    start(checkIntervalMinutes = 60) {
-        if (this.timer) return;
-
-        this.timer = setInterval(() => {
-            this.scanAllPlaylists();
-        }, checkIntervalMinutes * 60 * 1000);
-
-        this.scanAllPlaylists();
-        logger.info(`PlaylistWatcher: Started (checking every ${checkIntervalMinutes} mins)`, 'WATCHER');
-    }
-
-    stop() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
-
-    async scanAllPlaylists() {
-        if (this.isScanning) return;
-        this.isScanning = true;
-
-        try {
-            const watched = databaseService.getWatchedPlaylists();
-            logger.debug(`PlaylistWatcher: Scanning ${watched.length} playlists`, 'WATCHER');
-
-            for (const playlist of watched) {
-                await this.scanPlaylist(playlist);
-            }
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`PlaylistWatcher Scan Error: ${message}`, 'WATCHER');
-        } finally {
-            this.isScanning = false;
-        }
-    }
-
-    private async scanPlaylist(p: { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }) {
-        const lastSync = p.last_synced_at ? new Date(p.last_synced_at) : new Date(0);
-        const nextSync = new Date(lastSync.getTime() + p.interval_hours * 60 * 60 * 1000);
-
-        if (nextSync > new Date()) {
-            return;
-        }
-
-        logger.info(`PlaylistWatcher: Checking "${p.title}" for new tracks...`, 'WATCHER');
-
-        try {
-            const res = await this.api.getPlaylist(p.playlist_id);
-            if (!res.success || !res.data) {
-                logger.warn(`PlaylistWatcher: Could not fetch playlist ${p.playlist_id}`, 'WATCHER');
-                return;
-            }
-
-            const tracks = res.data.tracks.items;
-            let newTracksCount = 0;
-
-            for (const track of tracks) {
-                const trackId = track.id.toString();
-                const inHistory = historyService.has(trackId);
-                const inDb = databaseService.hasTrack(trackId);
-                const inQueue = downloadQueue.hasContent('track', trackId);
-
-                if (!inHistory && !inDb && !inQueue) {
-                    downloadQueue.add('track', trackId, normalizeDownloadQuality(p.quality, 27), {
-                        title: track.title,
-                        metadata: { source: 'playlist-watcher', playlistTitle: p.title }
-                    });
-                    newTracksCount++;
-                }
-            }
-
-            if (newTracksCount > 0) {
-                logger.success(`PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`, 'WATCHER');
-                notificationService.info(
-                    'Playlist Watcher',
-                    `Added ${newTracksCount} new tracks from "${p.title}" to queue.`
-                );
-            }
-
-            databaseService.updatePlaylistSyncTime(p.id.toString());
-
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${message}`, 'WATCHER');
-        }
-    }
-}
-
-export const playlistWatcherService = new PlaylistWatcherService(new QobuzAPI());
-</file>
-
-<file path="src/services/QualityScannerService.ts">
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { logger } from '../utils/logger.js';
-import path from 'path';
-import fs from 'fs';
-
-const execPromise = promisify(exec);
-
-export interface QualityReport {
-    isTrueLossless: boolean;
-    confidence: number;
-    cutoffFrequency?: number;
-    details: string;
-}
-
-export class QualityScannerService {
-    private static ffmpegAvailable: boolean | null = null;
-
-    private async checkFFmpeg(): Promise<boolean> {
-        if (QualityScannerService.ffmpegAvailable !== null) return QualityScannerService.ffmpegAvailable;
-        try {
-            await execPromise('ffmpeg -version');
-            QualityScannerService.ffmpegAvailable = true;
-            return true;
-        } catch {
-            QualityScannerService.ffmpegAvailable = false;
-            logger.warn('FFmpeg not found. Quality scanning will be disabled. Please install FFmpeg and add it to your PATH.', 'SCANNER');
-            return false;
-        }
-    }
-
-    /**
-     * Scans an audio file to detect if it's true lossless or upsampled.
-     * Uses ffmpeg to analyze the frequency spectrum.
-     */
-    async scanFile(filePath: string): Promise<QualityReport> {
-        try {
-            const hasFFmpeg = await this.checkFFmpeg();
-            if (!hasFFmpeg) {
-                return {
-                    isTrueLossless: true,
-                    confidence: 0,
-                    details: 'Quality scan skipped: FFmpeg not installed.'
-                };
-            }
-
-            if (!fs.existsSync(filePath)) {
-                throw new Error('File not found');
-            }
-
-            // Using -v error to reduce noise and specifically target mean_volume
-            // Use quotes and ensure we handle potential UTF-8 issues by using a more robust way to call ffmpeg if needed
-            const cmd16 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
-            const cmd20 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
-
-            const [result16, result20] = await Promise.all([
-                execPromise(cmd16).catch(e => {
-                    logger.debug(`FFmpeg 16k error: ${e.message}`);
-                    return { stderr: e.stderr || '' };
-                }),
-                execPromise(cmd20).catch(e => {
-                    logger.debug(`FFmpeg 20k error: ${e.message}`);
-                    return { stderr: e.stderr || '' };
-                })
-            ]);
-
-            const stderr16 = result16.stderr || '';
-            const stderr20 = result20.stderr || '';
-
-            const mean16 = this.parseMeanVolume(stderr16);
-            const mean20 = this.parseMeanVolume(stderr20);
-
-            // Log detailed stats for debugging
-            logger.debug(`QualityScan Details: ${path.basename(filePath)} | >16kHz: ${mean16}dB | >20kHz: ${mean20}dB`);
-
-            let isTrueLossless = true;
-            let confidence = 100;
-            let details = 'Crystal clear high frequencies detected.';
-
-            // Slightly more relaxed thresholds to avoid false positives on acoustic/lo-fi tracks
-            // Also check if we actually got a reading (not -100 default)
-            if (mean16 !== -100 && mean16 < -80) {
-                isTrueLossless = false;
-                confidence = 95;
-                details = 'Fake Lossless: Sharp cutoff at 16kHz detected (Likely transcoded from low-bitrate source).';
-            } else if (mean20 !== -100 && mean20 < -85) {
-                // Many real lossless tracks have a natural roll-off at 20kHz, so we are even more relaxed here
-                isTrueLossless = false;
-                confidence = 75;
-                details = 'Likely Upsampled: High frequency roll-off at 20kHz detected (Common for 320kbps MP3 or older recordings).';
-            }
-
-            // If we got -100 for both, something might be wrong with the scan, but we don't want to flag it as fake
-            if (mean16 === -100 && mean20 === -100) {
-                return {
-                    isTrueLossless: true,
-                    confidence: 50,
-                    details: 'Quality scan inconclusive (Frequency analysis failed or no high frequency content found).'
-                };
-            }
-
-            return {
-                isTrueLossless,
-                confidence,
-                cutoffFrequency: !isTrueLossless ? (mean16 < -80 ? 16000 : 20000) : undefined,
-                details
-            };
-
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`QualityScanner: Failed to scan ${filePath}: ${message}`);
-            return {
-                isTrueLossless: true,
-                confidence: 0,
-                details: `Scan failed: ${message}`
-            };
-        }
-    }
-
-    private parseMeanVolume(output: string): number {
-        const match = output.match(/mean_volume: ([-\d.]+) dB/);
-        if (match) return parseFloat(match[1]);
-        
-        // If no match, check if there's any output at all. 
-        // If ffmpeg failed, we return -100 as "no signal"
-        return -100;
-    }
-}
-
-export const qualityScannerService = new QualityScannerService();
-</file>
-
-<file path="client/src/components/AudioVisualizer.tsx">
-import React, { useEffect, useRef } from 'react';
-
-interface AudioVisualizerProps {
-    audioElement: HTMLAudioElement | null;
-    isPlaying: boolean;
-    color?: string;
-    barCount?: number;
-}
-
-export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ 
-    audioElement, 
-    isPlaying, 
-    color = '#6366f1',
-    barCount = 64
-}) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const analyserRef = useRef<AnalyserNode | null>(null);
-    const animationFrameRef = useRef<number | null>(null);
-    const [hasError, setHasError] = React.useState(false);
-    const [errorMsg, setErrorMsg] = React.useState('');
-
-    // Static map to keep track of sources across instances to avoid "already connected" error
-    const sourceMap = React.useMemo(() => {
-        if (!(window as any).__audio_sources) {
-            (window as any).__audio_sources = new WeakMap();
-        }
-        return (window as any).__audio_sources as WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>;
-    }, []);
-
-    // Keep track of which element we're connected to
-    const connectedElementRef = useRef<HTMLAudioElement | null>(null);
-
-    useEffect(() => {
-        if (!audioElement || !isPlaying) {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-            return;
-        }
-
-        // Initialize AudioContext and Analyser only once
-        if (!audioContextRef.current) {
-            try {
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-                analyserRef.current = audioContextRef.current.createAnalyser();
-                analyserRef.current.fftSize = 256;
-            } catch (e: any) {
-                console.error('AudioVisualizer: Failed to create AudioContext', e);
-                setHasError(true);
-                setErrorMsg('Web Audio API failed');
-                return;
-            }
-        }
-
-        if (audioContextRef.current.state === 'suspended') {
-            audioContextRef.current.resume();
-        }
-
-        // Handle reconnection if the audio element changed
-        if (connectedElementRef.current !== audioElement) {
-            try {
-                // Check if we already have a source for this element
-                let source = sourceMap.get(audioElement);
-                
-                if (!source) {
-                    source = audioContextRef.current.createMediaElementSource(audioElement);
-                    sourceMap.set(audioElement, source);
-                }
-
-                source.connect(analyserRef.current!);
-                analyserRef.current!.connect(audioContextRef.current.destination);
-                connectedElementRef.current = audioElement;
-                setHasError(false);
-            } catch (e: any) {
-                console.warn('AudioVisualizer: Source already connected or failed', e);
-                setHasError(true);
-                setErrorMsg(e.name === 'InvalidStateError' ? 'Audio already connected' : 'Visualizer error');
-                connectedElementRef.current = audioElement;
-            }
-        }
-
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const analyser = analyserRef.current;
-        if (!analyser) return;
-
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
-        const draw = () => {
-            animationFrameRef.current = requestAnimationFrame(draw);
-            analyser.getByteFrequencyData(dataArray);
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const barWidth = (canvas.width / barCount);
-            let x = 0;
-
-            // Resolve color if it's a CSS variable
-            let resolvedColor = color;
-            if (color.startsWith('var(')) {
-                resolvedColor = getComputedStyle(document.documentElement).getPropertyValue(color.slice(4, -1)).trim();
-                if (!resolvedColor) resolvedColor = '#6366f1'; // fallback
-            }
-
-            for (let i = 0; i < barCount; i++) {
-                const barHeight = (dataArray[i] / 255) * canvas.height;
-                
-                try {
-                    const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-                    gradient.addColorStop(0, resolvedColor);
-                    
-                    // Only append alpha if it looks like a hex color
-                    if (resolvedColor.startsWith('#') && resolvedColor.length <= 7) {
-                        gradient.addColorStop(1, `${resolvedColor}99`);
-                    } else {
-                        gradient.addColorStop(1, resolvedColor);
-                    }
-
-                    ctx.fillStyle = gradient;
-                    
-                    // Draw rounded bars
-                    const radius = barWidth / 2;
-                    ctx.beginPath();
-                    if (ctx.roundRect) {
-                        ctx.roundRect(x, canvas.height - barHeight, barWidth - 2, barHeight, [radius, radius, 0, 0]);
-                    } else {
-                        ctx.rect(x, canvas.height - barHeight, barWidth - 2, barHeight);
-                    }
-                    ctx.fill();
-                } catch (e) {
-                    // Fallback to simple fill if gradient fails
-                    ctx.fillStyle = resolvedColor;
-                    ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
-                }
-
-                x += barWidth;
-            }
-        };
-
-        draw();
-
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-        };
-    }, [audioElement, isPlaying, color, barCount]);
-
-    if (hasError) {
-        return (
-            <div style={{ 
-                width: '100%', 
-                height: '40px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                fontSize: '0.75em',
-                color: 'var(--text-secondary)',
-                opacity: 0.6,
-                border: '1px dashed var(--border)',
-                borderRadius: '4px'
-            }}>
-                {errorMsg}
-            </div>
-        );
-    }
-
-    return (
-        <canvas 
-            ref={canvasRef} 
-            width={300} 
-            height={40} 
-            style={{ width: '100%', height: '100%', opacity: 0.6 }}
-        />
-    );
-};
-</file>
-
 <file path="src/services/dashboard/routes.test.ts">
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import express, { Express } from 'express';
@@ -25701,6 +24457,1487 @@ describe('Dashboard API Routes', () => {
         });
     });
 });
+</file>
+
+<file path="src/services/DownloadEngine.ts">
+import crypto from 'crypto';
+import { createWriteStream, createReadStream } from 'fs';
+import { downloadFile } from '../utils/network.js';
+import { logger } from '../utils/logger.js';
+import { ThrottleStream } from '../utils/throttle.js';
+import { CONFIG } from '../config.js';
+import { resumeService } from './batch.js';
+import { Metadata } from './metadata.js';
+
+export interface DownloadProgress {
+    phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging' | 'verifying';
+    loaded: number;
+    total?: number;
+    speed?: number;
+}
+
+export class DownloadEngine {
+    async download(
+        url: string,
+        filePath: string,
+        trackId: string,
+        metadata: Metadata,
+        totalLength: number,
+        actualQuality: number,
+        onProgress?: (progress: DownloadProgress) => void,
+        isCancelled?: () => boolean
+    ): Promise<{ size: number; md5: string }> {
+        let downloaded = 0;
+        const headers: Record<string, string> = {};
+        let isResuming = false;
+
+        if (resumeService.canResume(trackId)) {
+            downloaded = resumeService.getResumePosition(trackId);
+            headers['Range'] = `bytes=${downloaded}-`;
+            isResuming = true;
+            logger.info(`Resuming download for ${metadata.title} from ${downloaded} bytes`, 'DOWNLOAD');
+        }
+
+        const response = await downloadFile(url, { headers });
+        
+        const isPartial = response.status === 206;
+        if (isResuming && !isPartial) {
+            logger.warn('Server did not honor Range request, restarting download from scratch', 'DOWNLOAD');
+            downloaded = 0;
+            isResuming = false;
+        }
+
+        const startTime = Date.now();
+        const md5Hash = crypto.createHash('md5');
+
+        if (isResuming && downloaded > 0) {
+            logger.info(`Re-hashing ${downloaded} bytes of existing data...`, 'DOWNLOAD');
+            try {
+                await new Promise<void>((resolve, reject) => {
+                    const existingData = createReadStream(filePath, {
+                        end: downloaded - 1,
+                        highWaterMark: 1024 * 1024 // 1MB buffer for faster reading
+                    });
+                    existingData.on('data', (chunk) => md5Hash.update(chunk));
+                    existingData.on('end', resolve);
+                    existingData.on('error', reject);
+                });
+            } catch (hashErr: unknown) {
+                const message = hashErr instanceof Error ? hashErr.message : String(hashErr);
+                logger.error(`Critical failure re-hashing existing part: ${message}`, 'DOWNLOAD');
+                throw new Error(`Integrity check failed: Could not re-hash existing file part for resume. ${message}`);
+            }
+        }
+
+        const writer = createWriteStream(filePath, { flags: isResuming ? 'a' : 'w' });
+        
+        if (!isResuming) {
+            resumeService.startDownload(trackId, filePath, totalLength, actualQuality);
+        }
+
+        let lastProgressEmit = 0;
+        await new Promise<void>((resolve, reject) => {
+            const onData = (chunk: Buffer) => {
+                if (isCancelled && isCancelled()) {
+                    response.data.destroy();
+                    writer.destroy();
+                    reject(new Error('Cancelled by user'));
+                    return;
+                }
+                downloaded += chunk.length;
+                md5Hash.update(chunk);
+
+                if (onProgress) {
+                    const currentTime = Date.now();
+                    if (currentTime - lastProgressEmit >= 100 || downloaded === totalLength) {
+                        const elapsed = (currentTime - startTime) / 1000;
+                        const speed = elapsed > 0 ? (downloaded - (isResuming ? resumeService.getResumePosition(trackId) : 0)) / elapsed : 0;
+
+                        onProgress({
+                            phase: 'download',
+                            loaded: downloaded,
+                            total: totalLength,
+                            speed
+                        });
+                        lastProgressEmit = currentTime;
+                        resumeService.updateProgress(trackId, downloaded);
+                    }
+                }
+            };
+
+            response.data.on('data', onData);
+
+            if (CONFIG.download.bandwidthLimit > 0) {
+                const throttle = new ThrottleStream(CONFIG.download.bandwidthLimit);
+                response.data.pipe(throttle).pipe(writer);
+            } else {
+                response.data.pipe(writer);
+            }
+
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+            response.data.on('error', reject);
+        });
+
+        return {
+            size: downloaded,
+            md5: md5Hash.digest('hex')
+        };
+    }
+}
+</file>
+
+<file path="src/services/FormatConverterService.ts">
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import path from 'path';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
+import { CONFIG } from '../config.js';
+import { logger } from '../utils/logger.js';
+
+import { resolveBinaryPath, checkBinaryAvailability } from '../utils/binaries.js';
+
+const execAsync = promisify(exec);
+
+export class FormatConverterService {
+    async convert(inputPath: string): Promise<string | null> {
+        const { enabled, format, bitrate, outputDir, keepOriginal } = CONFIG.export;
+
+        if (!enabled || !inputPath.endsWith('.flac')) {
+            return null;
+        }
+
+        if (!(await this.isAvailable())) {
+            logger.error(
+                'Converter: ffmpeg is not installed or not in PATH. Conversion disabled.',
+                'CONVERTER'
+            );
+            return null;
+        }
+
+        const baseName = path.basename(inputPath, '.flac');
+        const dirName = path.dirname(inputPath);
+        const finalOutputDir = outputDir || dirName;
+
+        if (!existsSync(finalOutputDir)) {
+            mkdirSync(finalOutputDir, { recursive: true });
+        }
+
+        const outputPath = path.join(finalOutputDir, `${baseName}.${format}`);
+        
+        if (existsSync(outputPath)) {
+            logger.debug(`Converter: Output file already exists, skipping: ${outputPath}`, 'CONVERTER');
+            return outputPath;
+        }
+
+        logger.info(`Converter: Exporting ${baseName} to ${format.toUpperCase()} (${bitrate})...`, 'CONVERTER');
+
+        try {
+            let codec = 'libmp3lame';
+            if (format === 'aac') codec = 'aac';
+            if (format === 'opus') codec = 'libopus';
+
+            const ffmpeg = resolveBinaryPath('ffmpeg');
+            const cmd = `"${ffmpeg}" -i "${inputPath}" -codec:a ${codec} -b:a ${bitrate} -map_metadata 0 "${outputPath}"`;
+            await execAsync(cmd);
+
+            logger.success(`Converter: Export complete: ${path.basename(outputPath)}`, 'CONVERTER');
+
+            if (!keepOriginal) {
+                try {
+                    unlinkSync(inputPath);
+                    logger.debug(`Converter: Original file removed: ${path.basename(inputPath)}`, 'CONVERTER');
+                } catch (e: unknown) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    logger.warn(`Converter: Failed to remove original file: ${message}`, 'CONVERTER');
+                }
+            }
+
+            return outputPath;
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`Converter: Conversion failed: ${message}`, 'CONVERTER');
+            return null;
+        }
+    }
+
+    async isAvailable(): Promise<boolean> {
+        const info = await checkBinaryAvailability('ffmpeg');
+        return info.available;
+    }
+}
+
+export const formatConverterService = new FormatConverterService();
+</file>
+
+<file path="src/services/library-scanner/index.ts">
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { Worker } from 'worker_threads';
+import { fileURLToPath } from 'url';
+import { EventEmitter } from 'events';
+import { databaseService } from '../database/index.js';
+import { historyService } from '../history.js';
+import { logger } from '../../utils/logger.js';
+import { CONFIG } from '../../config.js';
+import QobuzAPI from '../../api/qobuz.js';
+
+export interface LibraryFile {
+    filePath: string;
+    trackId?: string;
+    title: string;
+    artist: string;
+    album: string;
+    duration: number;
+    quality: number;
+    availableQuality?: number;
+    fileSize: number;
+    format: string;
+    bitDepth: number;
+    sampleRate: number;
+    needsUpgrade: boolean;
+    missingTags?: string[];
+}
+
+export interface DuplicateGroup {
+    id: number;
+    files: {
+        path: string;
+        size: number;
+        quality: number;
+    }[];
+    matchType: 'exact' | 'similar' | 'remaster';
+    recommendation: string;
+}
+
+export interface ScanResult {
+    totalFiles: number;
+    scannedFiles: number;
+    errors: number;
+    duplicates: number;
+    upgradeableFiles: number;
+    missingMetadata: number;
+    totalSize: number;
+    scanDuration: number;
+    byFormat: Record<string, number>;
+    byQuality: Record<number, number>;
+}
+
+export interface ScanProgress {
+    current: number;
+    total: number;
+    percentage: number;
+    currentFile: string;
+    status: 'scanning' | 'analyzing' | 'checking_upgrades' | 'complete' | 'error';
+}
+
+import { checkBinaryAvailability, resolveBinaryPath } from '../../utils/binaries.js';
+
+class LibraryScannerService extends EventEmitter {
+    private isScanning = false;
+    private scanAborted = false;
+    private supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
+    private api: QobuzAPI;
+    private static fpcalcAvailable: boolean | null = null;
+    private currentProgress: ScanProgress | null = null;
+
+    constructor() {
+        super();
+        this.api = new QobuzAPI();
+    }
+
+    private async checkFpcalc(): Promise<boolean> {
+        if (LibraryScannerService.fpcalcAvailable !== null) return LibraryScannerService.fpcalcAvailable;
+        
+        const info = await checkBinaryAvailability('fpcalc');
+        LibraryScannerService.fpcalcAvailable = info.available;
+
+        if (!info.available) {
+            logger.warn(
+                'fpcalc (Chromaprint) not found. Audio fingerprinting will be disabled. Duplicates will rely on metadata only.',
+                'SCANNER'
+            );
+        } else {
+            logger.debug(`fpcalc detected at: ${info.path}`, 'SCANNER');
+        }
+
+        return info.available;
+    }
+
+    async scanLibrary(
+        directory?: string,
+        options: {
+            detectDuplicates?: boolean;
+            checkUpgrades?: boolean;
+            deep?: boolean;
+        } = {}
+    ): Promise<ScanResult> {
+        if (this.isScanning) {
+            throw new Error('Scan already in progress');
+        }
+
+        const scanDir = directory || CONFIG.download.outputDir;
+        const startTime = Date.now();
+
+        this.isScanning = true;
+        this.scanAborted = false;
+        this.currentProgress = {
+            current: 0,
+            total: 0,
+            percentage: 0,
+            currentFile: 'Starting scan...',
+            status: 'scanning'
+        };
+
+        const result: ScanResult = {
+            totalFiles: 0,
+            scannedFiles: 0,
+            errors: 0,
+            duplicates: 0,
+            upgradeableFiles: 0,
+            missingMetadata: 0,
+            totalSize: 0,
+            scanDuration: 0,
+            byFormat: {},
+            byQuality: {}
+        };
+
+        try {
+            databaseService.clearLibraryScan();
+
+            await this.checkFpcalc();
+            const allFiles = await this.collectAudioFiles(scanDir);
+            result.totalFiles = allFiles.length;
+
+            if (result.totalFiles === 0) {
+                this.isScanning = false;
+                return result;
+            }
+
+            this.currentProgress.total = result.totalFiles;
+
+            this.emit('scan:started', { totalFiles: result.totalFiles, directory: scanDir });
+            logger.info(
+                `Starting multi-threaded library scan: ${result.totalFiles} files in ${scanDir}`,
+                'SCANNER'
+            );
+
+            const numWorkers = Math.min(allFiles.length, os.cpus().length || 4);
+            const __dirname = path.dirname(fileURLToPath(import.meta.url));
+            const workerPathJs = path.join(__dirname, 'worker.js');
+            const workerPathTs = path.join(__dirname, 'worker.ts');
+
+            const resolvedWorkerPath = fs.existsSync(workerPathJs) ? workerPathJs : workerPathTs;
+
+            const filesToProcess = [...allFiles];
+            let processedCount = 0;
+
+            const processResult = (fileInfo: any) => {
+                if (fileInfo.error) {
+                    result.errors++;
+                    logger.debug(
+                        `Error scanning ${fileInfo.filePath}: ${fileInfo.error}`,
+                        'SCANNER'
+                    );
+                } else if (fileInfo) {
+                    result.scannedFiles++;
+                    result.totalSize += fileInfo.fileSize;
+                    result.byFormat[fileInfo.format] = (result.byFormat[fileInfo.format] || 0) + 1;
+                    result.byQuality[fileInfo.quality] =
+                        (result.byQuality[fileInfo.quality] || 0) + 1;
+
+                    if (fileInfo.needsUpgrade) result.upgradeableFiles++;
+                    if (fileInfo.missingInternalTags) result.missingMetadata++;
+
+                    databaseService.addLibraryFile({
+                        file_path: fileInfo.filePath,
+                        title: fileInfo.title,
+                        artist: fileInfo.artist,
+                        album_artist: fileInfo.albumArtist,
+                        album: fileInfo.album,
+                        duration: fileInfo.duration,
+                        quality: fileInfo.quality,
+                        file_size: fileInfo.fileSize,
+                        format: fileInfo.format,
+                        bit_depth: fileInfo.bitDepth,
+                        sample_rate: fileInfo.sampleRate,
+                        needs_upgrade: fileInfo.needsUpgrade,
+                        audio_fingerprint: fileInfo.audioFingerprint,
+                        missing_metadata: fileInfo.missingInternalTags,
+                        missing_tags: fileInfo.missingTags,
+                        checksum: fileInfo.checksum,
+                        verification_status: fileInfo.checksum ? 'verified' : 'pending'
+                    });
+                }
+
+                processedCount++;
+                const progress: ScanProgress = {
+                    current: processedCount,
+                    total: result.totalFiles,
+                    percentage: Math.round((processedCount / result.totalFiles) * 100),
+                    currentFile: path.basename(fileInfo.filePath || ''),
+                    status: 'scanning'
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
+            };
+
+            await new Promise<void>((resolve) => {
+                let workersFinished = 0;
+
+                const spawnWorker = () => {
+                    if (filesToProcess.length === 0 || this.scanAborted) {
+                        workersFinished++;
+                        if (workersFinished >= numWorkers) resolve();
+                        return;
+                    }
+
+                    const worker = new Worker(resolvedWorkerPath, {
+                        execArgv: resolvedWorkerPath.endsWith('.ts')
+                            ? ['--loader', 'ts-node/esm']
+                            : []
+                    });
+
+                    worker.on('message', (msg) => {
+                        processResult(msg);
+                        if (filesToProcess.length > 0 && !this.scanAborted) {
+                            worker.postMessage(filesToProcess.pop());
+                        } else {
+                            worker.terminate();
+                            workersFinished++;
+                            if (workersFinished >= numWorkers) resolve();
+                        }
+                    });
+
+                    worker.on('error', (err) => {
+                        result.errors++;
+                        logger.error(`Worker error: ${err.message}`, 'SCANNER');
+                        worker.terminate();
+                        workersFinished++;
+                        if (workersFinished >= numWorkers) resolve();
+                    });
+
+                    worker.postMessage(filesToProcess.pop());
+                };
+
+                for (let i = 0; i < numWorkers; i++) {
+                    spawnWorker();
+                }
+            });
+
+            if (this.scanAborted) {
+                logger.warn('Scan aborted by user', 'SCANNER');
+            }
+
+            if (options.detectDuplicates !== false) {
+                const progress: ScanProgress = {
+                    current: result.totalFiles,
+                    total: result.totalFiles,
+                    percentage: 100,
+                    currentFile: 'Analyzing duplicates...',
+                    status: 'analyzing'
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
+                result.duplicates = await this.detectDuplicates();
+            }
+
+            if (options.checkUpgrades !== false) {
+                const progress: ScanProgress = {
+                    current: 0,
+                    total: result.scannedFiles,
+                    percentage: 0,
+                    currentFile: 'Checking available upgrades from Qobuz...',
+                    status: 'checking_upgrades'
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
+
+                const upgradeCount = await this.checkQobuzUpgrades();
+                result.upgradeableFiles = upgradeCount;
+                logger.info(`Found ${upgradeCount} tracks with available upgrades`, 'SCANNER');
+            }
+
+            result.scanDuration = Date.now() - startTime;
+            historyService.cleanup();
+
+            const finalProgress: ScanProgress = {
+                current: result.totalFiles,
+                total: result.totalFiles,
+                percentage: 100,
+                currentFile: 'Scan complete',
+                status: 'complete'
+            };
+            this.currentProgress = finalProgress;
+            this.emit('scan:progress', finalProgress);
+
+            this.emit('scan:complete', result);
+            logger.success(
+                `Library scan complete: ${result.scannedFiles} files, ${result.duplicates} duplicates, ${result.upgradeableFiles} upgradeable, ${result.missingMetadata} missing metadata`,
+                'SCANNER'
+            );
+
+            return result;
+        } finally {
+            this.isScanning = false;
+            this.currentProgress = null;
+        }
+    }
+
+    private async collectAudioFiles(directory: string): Promise<string[]> {
+        const files: string[] = [];
+        const scan = async (dir: string): Promise<void> => {
+            if (!fs.existsSync(dir)) return;
+            try {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        await scan(fullPath);
+                    } else if (entry.isFile()) {
+                        const ext = path.extname(entry.name).toLowerCase();
+                        if (this.supportedFormats.includes(ext)) {
+                            files.push(fullPath);
+                        }
+                    }
+                }
+            } catch (err) {
+                logger.debug(`Failed to scan directory ${dir}: ${err}`);
+            }
+        };
+        await scan(directory);
+        return files;
+    }
+
+    private async checkQobuzUpgrades(): Promise<number> {
+        const db = databaseService.getDb();
+        const files = databaseService.getLibraryFiles(10000, 0);
+        let upgradeCount = 0;
+        let processed = 0;
+
+        for (const file of files) {
+            if (this.scanAborted) break;
+
+            if (file.track_id && file.available_quality !== null) {
+                if (file.available_quality > file.quality) upgradeCount++;
+                processed++;
+                continue;
+            }
+
+            if (file.quality >= 27) {
+                processed++;
+                continue;
+            }
+
+            try {
+                const searchQuery = `${file.artist} ${file.title}`.trim();
+                if (!searchQuery || searchQuery === 'Unknown Unknown') {
+                    processed++;
+                    continue;
+                }
+
+                const searchResult = await this.api.search(searchQuery, 'tracks', 10);
+                if (!searchResult.success || !searchResult.data?.tracks?.items?.length) {
+                    processed++;
+                    continue;
+                }
+
+                const matches = this.findAllMatches(
+                    file.title || '',
+                    file.artist || '',
+                    file.album || '',
+                    searchResult.data.tracks.items
+                );
+
+                if (matches.length === 0) {
+                    processed++;
+                    continue;
+                }
+
+                let maxQualityFound = 0;
+                let bestTrackId = null;
+
+                for (const track of matches.slice(0, 5)) {
+                    const quality = await this.getHighestAvailableQuality(track.id);
+                    if (quality !== null && quality > maxQualityFound) {
+                        maxQualityFound = quality;
+                        bestTrackId = track.id;
+                        if (maxQualityFound >= 27) break;
+                    }
+                }
+
+                if (bestTrackId && maxQualityFound > file.quality) {
+                    db.prepare(
+                        'UPDATE library_files SET track_id = ?, available_quality = ?, needs_upgrade = 1 WHERE file_path = ?'
+                    ).run(String(bestTrackId), maxQualityFound, file.file_path);
+                    upgradeCount++;
+                    logger.debug(
+                        `Upgrade available: ${file.artist} - ${file.title} (${this.getQualityLabel(file.quality)} → ${this.getQualityLabel(maxQualityFound)})`,
+                        'SCANNER'
+                    );
+                } else if (bestTrackId) {
+                    db.prepare(
+                        'UPDATE library_files SET track_id = ?, available_quality = ?, needs_upgrade = 0 WHERE file_path = ?'
+                    ).run(String(bestTrackId), maxQualityFound || file.quality, file.file_path);
+                } else {
+                    db.prepare(
+                        'UPDATE library_files SET needs_upgrade = 0 WHERE file_path = ?'
+                    ).run(file.file_path);
+                }
+
+                processed++;
+                const progress: ScanProgress = {
+                    current: processed,
+                    total: files.length,
+                    percentage: Math.round((processed / files.length) * 100),
+                    currentFile: `Checking: ${file.artist} - ${file.title}`,
+                    status: 'checking_upgrades'
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
+                await this.delay(process.env.NODE_ENV === 'test' ? 0 : 50);
+            } catch (error: any) {
+                logger.debug(
+                    `Error checking upgrade for ${file.file_path}: ${error.message}`,
+                    'SCANNER'
+                );
+                processed++;
+            }
+        }
+        return upgradeCount;
+    }
+
+    private findAllMatches(title: string, artist: string, album: string, tracks: any[]): any[] {
+        const normalizedTitle = this.normalizeString(title);
+        const normalizedArtist = this.normalizeString(artist);
+        const normalizedAlbum = this.normalizeString(album);
+        const matches: any[] = [];
+
+        for (const track of tracks) {
+            const trackTitle = this.normalizeString(track.title || '');
+            const trackArtist = this.normalizeString(
+                track.performer?.name || track.album?.artist?.name || ''
+            );
+            const trackAlbum = this.normalizeString(track.album?.title || '');
+
+            const titleScore = this.similarity(normalizedTitle, trackTitle);
+            const artistScore = this.similarity(normalizedArtist, trackArtist);
+            const albumScore = this.similarity(normalizedAlbum, trackAlbum);
+
+            if (titleScore > 0.8 && artistScore > 0.6) {
+                if (normalizedAlbum && albumScore < 0.5) {
+                    continue;
+                }
+                matches.push(track);
+            }
+        }
+        return matches;
+    }
+
+    private async getHighestAvailableQuality(trackId: number): Promise<number | null> {
+        const qualities = [27, 7, 6, 5];
+        for (const quality of qualities) {
+            try {
+                const result = await this.api.getFileUrl(trackId, quality);
+                if (result.success && result.data) {
+                    return (result.data as any).format_id || quality;
+                }
+            } catch {}
+        }
+        return null;
+    }
+
+    private similarity(str1: string, str2: string): number {
+        if (!str1 || !str2) return 0;
+        if (str1 === str2) return 1;
+        const longer = str1.length > str2.length ? str1 : str2;
+        const shorter = str1.length > str2.length ? str2 : str1;
+        if (longer.length === 0) return 1;
+        if (longer.includes(shorter) || shorter.includes(longer)) return 0.9;
+        const editDistance = this.levenshteinDistance(str1, str2);
+        return (longer.length - editDistance) / longer.length;
+    }
+
+    private levenshteinDistance(str1: string, str2: string): number {
+        const matrix: number[][] = [];
+        for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
+        for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
+        for (let i = 1; i <= str2.length; i++) {
+            for (let j = 1; j <= str1.length; j++) {
+                if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j] + 1
+                    );
+                }
+            }
+        }
+        return matrix[str2.length][str1.length];
+    }
+
+    private getQualityLabel(quality: number): string {
+        const labels: Record<number, string> = {
+            5: 'MP3 320',
+            6: 'FLAC 16/44',
+            7: 'FLAC 24/96',
+            27: 'FLAC 24/192'
+        };
+        return labels[quality] || `Q${quality}`;
+    }
+
+    private delay(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    private async detectDuplicates(): Promise<number> {
+        const files = databaseService.getLibraryFiles(100000, 0);
+        logger.debug(
+            `[DUPLICATE_CHECK] Analyzing ${files.length} items for duplicates...`,
+            'SCANNER'
+        );
+
+        const fingerprintGroups = new Map<string, string[]>();
+        const titleGroups = new Map<string, { filePath: string; artist: string }[]>();
+
+        for (const file of files) {
+            if (file.audio_fingerprint) {
+                const key = file.audio_fingerprint;
+                if (!fingerprintGroups.has(key)) fingerprintGroups.set(key, []);
+                fingerprintGroups.get(key)!.push(file.file_path);
+            }
+
+            if (file.title) {
+                const normTitle = this.normalizeString(file.title);
+                if (!normTitle || normTitle.length < 2) continue;
+
+                if (!titleGroups.has(normTitle)) titleGroups.set(normTitle, []);
+
+                titleGroups.get(normTitle)!.push({
+                    filePath: file.file_path,
+                    artist: file.artist || ''
+                });
+
+                if (normTitle.includes('stereo love')) {
+                    logger.debug(
+                        `[DUPLICATE_CHECK] Added to title group '${normTitle}': ${path.basename(file.file_path)} (Artist: ${file.artist})`,
+                        'SCANNER'
+                    );
+                }
+            }
+        }
+
+        let duplicateCount = 0;
+        const processedPairs = new Set<string>();
+
+        const registerDuplicate = (
+            path1: string,
+            path2: string,
+            type: 'exact' | 'similar',
+            confidence: number
+        ) => {
+            const paths = [path1, path2].sort();
+            const pairKey = paths.join('|');
+
+            if (!processedPairs.has(pairKey)) {
+                processedPairs.add(pairKey);
+                databaseService.addDuplicate(path1, path2, type, confidence);
+                duplicateCount++;
+                logger.debug(
+                    `[DUPLICATE_CHECK] Found duplicate (${type}): ${path.basename(path1)} = ${path.basename(path2)}`,
+                    'SCANNER'
+                );
+            }
+        };
+
+        for (const paths of fingerprintGroups.values()) {
+            if (paths.length > 1) {
+                for (let i = 0; i < paths.length; i++) {
+                    for (let j = i + 1; j < paths.length; j++) {
+                        registerDuplicate(paths[i], paths[j], 'exact', 1.0);
+                    }
+                }
+            }
+        }
+
+        for (const [_, items] of titleGroups) {
+            if (items.length < 2) continue;
+
+            for (let i = 0; i < items.length; i++) {
+                for (let j = i + 1; j < items.length; j++) {
+                    const item1 = items[i];
+                    const item2 = items[j];
+
+                    if (item1.filePath === item2.filePath) continue;
+
+                    const paths = [item1.filePath, item2.filePath].sort();
+                    if (processedPairs.has(paths.join('|'))) continue;
+
+                    const artist1 = this.normalizeString(item1.artist);
+                    const artist2 = this.normalizeString(item2.artist);
+
+                    if (artist1 === artist2) {
+                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.95);
+                        continue;
+                    }
+
+                    if (artist1.includes(artist2) || artist2.includes(artist1)) {
+                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.9);
+                        continue;
+                    }
+
+                    const score = this.similarity(artist1, artist2);
+                    if (score > 0.8) {
+                        registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.85);
+                    }
+                }
+            }
+        }
+
+        return duplicateCount;
+    }
+
+    private normalizeString(str: string): string {
+        return str
+            .toLowerCase()
+            .replace(/[^\w\s]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    getDuplicates(): DuplicateGroup[] {
+        const rawDuplicates = databaseService.getDuplicates();
+        const groups: Map<string, DuplicateGroup> = new Map();
+        for (const dup of rawDuplicates) {
+            const key = dup.file_path_1;
+
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    id: dup.id,
+                    files: [
+                        { path: dup.file_path_1, size: 0, quality: 0 },
+                        { path: dup.file_path_2, size: 0, quality: 0 }
+                    ],
+                    matchType: dup.match_type as any,
+                    recommendation: 'Keep the higher quality version'
+                });
+            } else {
+                const existing = groups.get(key)!.files.find((f) => f.path === dup.file_path_2);
+                if (!existing) {
+                    groups.get(key)!.files.push({ path: dup.file_path_2, size: 0, quality: 0 });
+                }
+            }
+        }
+        return Array.from(groups.values());
+    }
+
+    getUpgradeableFiles(): LibraryFile[] {
+        const files = databaseService.getUpgradeableFiles();
+        return files.map((f) => ({
+            filePath: f.file_path,
+            trackId: f.track_id || undefined,
+            title: f.title || '',
+            artist: f.artist || '',
+            album: f.album || '',
+            duration: f.duration || 0,
+            quality: f.quality || 0,
+            availableQuality: f.available_quality || undefined,
+            fileSize: f.file_size || 0,
+            format: f.format || '',
+            bitDepth: f.bit_depth || 0,
+            sampleRate: f.sample_rate || 0,
+            needsUpgrade: true
+        }));
+    }
+
+    getMissingMetadataFiles(): LibraryFile[] {
+        const files = databaseService.getMissingMetadataFiles();
+        return files.map((f) => ({
+            filePath: f.file_path,
+            trackId: f.track_id || undefined,
+            title: f.title || '',
+            artist: f.artist || '',
+            album: f.album || '',
+            duration: f.duration || 0,
+            quality: f.quality || 0,
+            availableQuality: f.available_quality || undefined,
+            fileSize: f.file_size || 0,
+            format: f.format || '',
+            bitDepth: f.bit_depth || 0,
+            sampleRate: f.sample_rate || 0,
+            needsUpgrade: false,
+            missingTags: f.missing_tags ? JSON.parse(f.missing_tags) : []
+        }));
+    }
+
+    async resolveDuplicate(id: number): Promise<void> {
+        const db = databaseService.getDb();
+        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as any;
+        if (!duplicate) return;
+        const file1 = db
+            .prepare('SELECT * FROM library_files WHERE file_path = ?')
+            .get(duplicate.file_path_1) as any;
+        const file2 = db
+            .prepare('SELECT * FROM library_files WHERE file_path = ?')
+            .get(duplicate.file_path_2) as any;
+        if (!file1 || !file2) {
+            databaseService.resolveDuplicate(id);
+            return;
+        }
+        let fileToDelete: string;
+        let fileToKeep: string;
+        if ((file1.quality || 0) > (file2.quality || 0)) {
+            fileToDelete = file2.file_path;
+            fileToKeep = file1.file_path;
+        } else if ((file2.quality || 0) > (file1.quality || 0)) {
+            fileToDelete = file1.file_path;
+            fileToKeep = file2.file_path;
+        } else {
+            if ((file1.file_size || 0) >= (file2.file_size || 0)) {
+                fileToDelete = file2.file_path;
+                fileToKeep = file1.file_path;
+            } else {
+                fileToDelete = file1.file_path;
+                fileToKeep = file2.file_path;
+            }
+        }
+        try {
+            if (fs.existsSync(fileToDelete)) {
+                fs.unlinkSync(fileToDelete);
+                databaseService.deleteTrackByPath(fileToDelete);
+                historyService.cleanup();
+                logger.info(
+                    `Resolved duplicate by deleting: ${path.basename(fileToDelete)} (kept ${path.basename(fileToKeep)})`,
+                    'SCANNER'
+                );
+            }
+        } catch (err: any) {
+            logger.error(
+                `Failed to delete duplicate file ${fileToDelete}: ${err.message}`,
+                'SCANNER'
+            );
+        }
+        db.prepare('DELETE FROM library_files WHERE file_path = ?').run(fileToDelete);
+        db.prepare(
+            'UPDATE duplicates SET resolved = 1 WHERE file_path_1 = ? OR file_path_2 = ?'
+        ).run(fileToDelete, fileToDelete);
+        databaseService.resolveDuplicate(id);
+    }
+
+    async deleteFile(filePath: string): Promise<boolean> {
+        try {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            return true;
+        } catch (error: any) {
+            logger.error(`Failed to delete file: ${error.message}`, 'SCANNER');
+            return false;
+        }
+    }
+
+    abortScan(): void {
+        if (this.isScanning) this.scanAborted = true;
+    }
+
+    isScanInProgress(): boolean {
+        return this.isScanning;
+    }
+
+    getScanStats(): {
+        totalFiles: number;
+        duplicates: number;
+        upgradeable: number;
+        missingMetadata: number;
+        totalSize: number;
+        processedFiles?: number;
+        currentFile?: string;
+        FPCALC_AVAILABLE: boolean;
+    } {
+        const upgradeable = databaseService.getUpgradeableFiles();
+        const duplicates = databaseService.getDuplicates();
+        const db = databaseService.getDb();
+        const totalRow = db
+            .prepare('SELECT COUNT(*) as count, SUM(file_size) as size FROM library_files')
+            .get() as any;
+        const missingRow = db
+            .prepare('SELECT COUNT(*) as count FROM library_files WHERE missing_metadata = 1')
+            .get() as any;
+
+        const stats = {
+            totalFiles: totalRow?.count || 0,
+            duplicates: duplicates.length,
+            upgradeable: upgradeable.length,
+            missingMetadata: missingRow?.count || 0,
+            totalSize: totalRow?.size || 0,
+            FPCALC_AVAILABLE: LibraryScannerService.fpcalcAvailable === true
+        };
+
+        if (this.isScanning && this.currentProgress) {
+            return {
+                ...stats,
+                totalFiles:
+                    this.currentProgress.total > 0 ? this.currentProgress.total : stats.totalFiles,
+                processedFiles: this.currentProgress.current,
+                currentFile: this.currentProgress.currentFile
+            };
+        }
+
+        return stats;
+    }
+
+    async findMissingTracks(): Promise<any[]> {
+        const files = databaseService.getLibraryFiles(100000, 0);
+        const missing: any[] = [];
+        for (const file of files) {
+            if (!fs.existsSync(file.file_path)) {
+                missing.push({
+                    filePath: file.file_path,
+                    title: file.title,
+                    artist: file.artist,
+                    album: file.album
+                });
+            }
+        }
+        return missing;
+    }
+}
+
+export const libraryScannerService = new LibraryScannerService();
+export default libraryScannerService;
+</file>
+
+<file path="src/services/PlaylistWatcherService.ts">
+import QobuzAPI from '../api/qobuz.js';
+import { databaseService } from './database/index.js';
+import { downloadQueue } from './queue/queue.js';
+import { logger } from '../utils/logger.js';
+import { historyService } from './history.js';
+import { notificationService } from './notifications.js';
+import { normalizeDownloadQuality } from '../config.js';
+
+export class PlaylistWatcherService {
+    private api: QobuzAPI;
+    private timer: NodeJS.Timeout | null = null;
+    private isScanning = false;
+
+    constructor(api: QobuzAPI) {
+        this.api = api;
+    }
+
+    start(checkIntervalMinutes = 60) {
+        if (this.timer) return;
+
+        this.timer = setInterval(() => {
+            this.scanAllPlaylists();
+        }, checkIntervalMinutes * 60 * 1000);
+
+        this.scanAllPlaylists();
+        logger.info(`PlaylistWatcher: Started (checking every ${checkIntervalMinutes} mins)`, 'WATCHER');
+    }
+
+    stop() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+    }
+
+    async scanAllPlaylists() {
+        if (this.isScanning) return;
+        this.isScanning = true;
+
+        try {
+            const watched = databaseService.getWatchedPlaylists();
+            logger.debug(`PlaylistWatcher: Scanning ${watched.length} playlists`, 'WATCHER');
+
+            for (const playlist of watched) {
+                await this.scanPlaylist(playlist);
+            }
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`PlaylistWatcher Scan Error: ${message}`, 'WATCHER');
+        } finally {
+            this.isScanning = false;
+        }
+    }
+
+    private async scanPlaylist(p: { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }) {
+        const lastSync = p.last_synced_at ? new Date(p.last_synced_at) : new Date(0);
+        const nextSync = new Date(lastSync.getTime() + p.interval_hours * 60 * 60 * 1000);
+
+        if (nextSync > new Date()) {
+            return;
+        }
+
+        logger.info(`PlaylistWatcher: Checking "${p.title}" for new tracks...`, 'WATCHER');
+
+        try {
+            const res = await this.api.getPlaylist(p.playlist_id);
+            if (!res.success || !res.data) {
+                logger.warn(`PlaylistWatcher: Could not fetch playlist ${p.playlist_id}`, 'WATCHER');
+                return;
+            }
+
+            const tracks = res.data.tracks.items;
+            let newTracksCount = 0;
+
+            for (const track of tracks) {
+                const trackId = track.id.toString();
+                const inHistory = historyService.has(trackId);
+                const inDb = databaseService.hasTrack(trackId);
+                const inQueue = downloadQueue.hasContent('track', trackId);
+
+                if (!inHistory && !inDb && !inQueue) {
+                    downloadQueue.add('track', trackId, normalizeDownloadQuality(p.quality, 27), {
+                        title: track.title,
+                        metadata: { source: 'playlist-watcher', playlistTitle: p.title }
+                    });
+                    newTracksCount++;
+                }
+            }
+
+            if (newTracksCount > 0) {
+                logger.success(`PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`, 'WATCHER');
+                notificationService.info(
+                    'Playlist Watcher',
+                    `Added ${newTracksCount} new tracks from "${p.title}" to queue.`
+                );
+            }
+
+            databaseService.updatePlaylistSyncTime(p.id.toString());
+
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${message}`, 'WATCHER');
+        }
+    }
+}
+
+export const playlistWatcherService = new PlaylistWatcherService(new QobuzAPI());
+</file>
+
+<file path="src/services/QualityScannerService.ts">
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { logger } from '../utils/logger.js';
+import path from 'path';
+import fs from 'fs';
+
+import { resolveBinaryPath, checkBinaryAvailability } from '../utils/binaries.js';
+
+const execPromise = promisify(exec);
+
+export interface QualityReport {
+    isTrueLossless: boolean;
+    confidence: number;
+    cutoffFrequency?: number;
+    details: string;
+}
+
+export class QualityScannerService {
+    private static ffmpegPath: string | null = null;
+    private static ffmpegAvailable: boolean | null = null;
+
+    private async checkFFmpeg(): Promise<boolean> {
+        if (QualityScannerService.ffmpegAvailable !== null) return QualityScannerService.ffmpegAvailable;
+        
+        const info = await checkBinaryAvailability('ffmpeg');
+        QualityScannerService.ffmpegAvailable = info.available;
+        QualityScannerService.ffmpegPath = info.path;
+
+        if (!info.available) {
+            logger.warn('FFmpeg not found. Quality scanning will be disabled. Please install FFmpeg or place it in the app directory.', 'SCANNER');
+        } else {
+            logger.debug(`FFmpeg detected at: ${info.path}`, 'SCANNER');
+        }
+
+        return info.available;
+    }
+
+    /**
+     * Scans an audio file to detect if it's true lossless or upsampled.
+     * Uses ffmpeg to analyze the frequency spectrum.
+     */
+    async scanFile(filePath: string): Promise<QualityReport> {
+        try {
+            const hasFFmpeg = await this.checkFFmpeg();
+            if (!hasFFmpeg) {
+                return {
+                    isTrueLossless: true,
+                    confidence: 0,
+                    details: 'Quality scan skipped: FFmpeg not installed.'
+                };
+            }
+
+            if (!fs.existsSync(filePath)) {
+                throw new Error('File not found');
+            }
+
+            const ffmpeg = resolveBinaryPath('ffmpeg');
+            const cmd16 = `"${ffmpeg}" -v error -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
+            const cmd20 = `"${ffmpeg}" -v error -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
+
+            const [result16, result20] = await Promise.all([
+                execPromise(cmd16).catch(e => {
+                    logger.debug(`FFmpeg 16k error: ${e.message}`);
+                    return { stderr: e.stderr || '' };
+                }),
+                execPromise(cmd20).catch(e => {
+                    logger.debug(`FFmpeg 20k error: ${e.message}`);
+                    return { stderr: e.stderr || '' };
+                })
+            ]);
+
+            const stderr16 = result16.stderr || '';
+            const stderr20 = result20.stderr || '';
+
+            const mean16 = this.parseMeanVolume(stderr16);
+            const mean20 = this.parseMeanVolume(stderr20);
+
+            // Log detailed stats for debugging
+            logger.debug(`QualityScan Details: ${path.basename(filePath)} | >16kHz: ${mean16}dB | >20kHz: ${mean20}dB`);
+
+            let isTrueLossless = true;
+            let confidence = 100;
+            let details = 'Crystal clear high frequencies detected.';
+
+            // Slightly more relaxed thresholds to avoid false positives on acoustic/lo-fi tracks
+            // Also check if we actually got a reading (not -100 default)
+            if (mean16 !== -100 && mean16 < -80) {
+                isTrueLossless = false;
+                confidence = 95;
+                details = 'Fake Lossless: Sharp cutoff at 16kHz detected (Likely transcoded from low-bitrate source).';
+            } else if (mean20 !== -100 && mean20 < -85) {
+                // Many real lossless tracks have a natural roll-off at 20kHz, so we are even more relaxed here
+                isTrueLossless = false;
+                confidence = 75;
+                details = 'Likely Upsampled: High frequency roll-off at 20kHz detected (Common for 320kbps MP3 or older recordings).';
+            }
+
+            // If we got -100 for both, something might be wrong with the scan, but we don't want to flag it as fake
+            if (mean16 === -100 && mean20 === -100) {
+                return {
+                    isTrueLossless: true,
+                    confidence: 50,
+                    details: 'Quality scan inconclusive (Frequency analysis failed or no high frequency content found).'
+                };
+            }
+
+            return {
+                isTrueLossless,
+                confidence,
+                cutoffFrequency: !isTrueLossless ? (mean16 < -80 ? 16000 : 20000) : undefined,
+                details
+            };
+
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`QualityScanner: Failed to scan ${filePath}: ${message}`);
+            return {
+                isTrueLossless: true,
+                confidence: 0,
+                details: `Scan failed: ${message}`
+            };
+        }
+    }
+
+    private parseMeanVolume(output: string): number {
+        const match = output.match(/mean_volume: ([-\d.]+) dB/);
+        if (match) return parseFloat(match[1]);
+        
+        // If no match, check if there's any output at all. 
+        // If ffmpeg failed, we return -100 as "no signal"
+        return -100;
+    }
+}
+
+export const qualityScannerService = new QualityScannerService();
+</file>
+
+<file path="client/src/components/AudioVisualizer.tsx">
+import React, { useEffect, useRef } from 'react';
+
+interface AudioVisualizerProps {
+    audioElement: HTMLAudioElement | null;
+    isPlaying: boolean;
+    color?: string;
+    barCount?: number;
+}
+
+export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ 
+    audioElement, 
+    isPlaying, 
+    color = '#6366f1',
+    barCount = 64
+}) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
+    const [hasError, setHasError] = React.useState(false);
+    const [errorMsg, setErrorMsg] = React.useState('');
+
+    // Static map to keep track of sources across instances to avoid "already connected" error
+    const sourceMap = React.useMemo(() => {
+        if (!(window as any).__audio_sources) {
+            (window as any).__audio_sources = new WeakMap();
+        }
+        return (window as any).__audio_sources as WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>;
+    }, []);
+
+    // Keep track of which element we're connected to
+    const connectedElementRef = useRef<HTMLAudioElement | null>(null);
+
+    useEffect(() => {
+        if (!audioElement || !isPlaying) {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+            return;
+        }
+
+        // Initialize AudioContext and Analyser only once
+        if (!audioContextRef.current) {
+            try {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+                analyserRef.current = audioContextRef.current.createAnalyser();
+                analyserRef.current.fftSize = 256;
+            } catch (e: any) {
+                console.error('AudioVisualizer: Failed to create AudioContext', e);
+                setHasError(true);
+                setErrorMsg('Web Audio API failed');
+                return;
+            }
+        }
+
+        if (audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+
+        // Handle reconnection if the audio element changed
+        if (connectedElementRef.current !== audioElement) {
+            try {
+                // Check if we already have a source for this element
+                let source = sourceMap.get(audioElement);
+                
+                if (!source) {
+                    source = audioContextRef.current.createMediaElementSource(audioElement);
+                    sourceMap.set(audioElement, source);
+                }
+
+                source.connect(analyserRef.current!);
+                analyserRef.current!.connect(audioContextRef.current.destination);
+                connectedElementRef.current = audioElement;
+                setHasError(false);
+            } catch (e: any) {
+                console.warn('AudioVisualizer: Source already connected or failed', e);
+                setHasError(true);
+                setErrorMsg(e.name === 'InvalidStateError' ? 'Audio already connected' : 'Visualizer error');
+                connectedElementRef.current = audioElement;
+            }
+        }
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const analyser = analyserRef.current;
+        if (!analyser) return;
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const draw = () => {
+            animationFrameRef.current = requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / barCount);
+            let x = 0;
+
+            // Resolve color if it's a CSS variable
+            let resolvedColor = color;
+            if (color.startsWith('var(')) {
+                resolvedColor = getComputedStyle(document.documentElement).getPropertyValue(color.slice(4, -1)).trim();
+                if (!resolvedColor) resolvedColor = '#6366f1'; // fallback
+            }
+
+            for (let i = 0; i < barCount; i++) {
+                const barHeight = (dataArray[i] / 255) * canvas.height;
+                
+                try {
+                    const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+                    gradient.addColorStop(0, resolvedColor);
+                    
+                    // Only append alpha if it looks like a hex color
+                    if (resolvedColor.startsWith('#') && resolvedColor.length <= 7) {
+                        gradient.addColorStop(1, `${resolvedColor}99`);
+                    } else {
+                        gradient.addColorStop(1, resolvedColor);
+                    }
+
+                    ctx.fillStyle = gradient;
+                    
+                    // Draw rounded bars
+                    const radius = barWidth / 2;
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(x, canvas.height - barHeight, barWidth - 2, barHeight, [radius, radius, 0, 0]);
+                    } else {
+                        ctx.rect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+                    }
+                    ctx.fill();
+                } catch (e) {
+                    // Fallback to simple fill if gradient fails
+                    ctx.fillStyle = resolvedColor;
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+                }
+
+                x += barWidth;
+            }
+        };
+
+        draw();
+
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, [audioElement, isPlaying, color, barCount]);
+
+    if (hasError) {
+        return (
+            <div style={{ 
+                width: '100%', 
+                height: '40px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontSize: '0.75em',
+                color: 'var(--text-secondary)',
+                opacity: 0.6,
+                border: '1px dashed var(--border)',
+                borderRadius: '4px'
+            }}>
+                {errorMsg}
+            </div>
+        );
+    }
+
+    return (
+        <canvas 
+            ref={canvasRef} 
+            width={300} 
+            height={40} 
+            style={{ width: '100%', height: '100%', opacity: 0.6 }}
+        />
+    );
+};
 </file>
 
 <file path="src/services/dashboard/routes.ts">
@@ -26229,6 +26466,38 @@ router.get('/history', (req: Request, res: Response) => {
 router.post('/history/clear', (req: Request, res: Response) => {
     historyService.clearAll();
     res.json({ success: true });
+});
+
+router.get('/history/export', (req: Request, res: Response) => {
+    const format = req.query.format as string;
+    const history = historyService.getSorted();
+
+    if (format === 'csv') {
+        const headers = ['ID', 'Downloaded At', 'Title', 'Artist', 'Album', 'Quality', 'Filename'];
+        const rows = history.map((item) => [
+            item.id,
+            item.downloadedAt,
+            item.title,
+            item.artist || '',
+            item.album || '',
+            item.quality,
+            item.filename
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=qbz_history.csv');
+        return res.send(csvContent);
+    }
+
+    // Default to JSON
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename=qbz_history.json');
+    res.json(history);
 });
 
 router.delete('/history', (req: Request, res: Response) => {
@@ -29539,312 +29808,6 @@ Mode:    ${CONFIG.dashboard.password ? chalk.red('Protected') : chalk.yellow('Pu
 export const dashboardService = new DashboardService();
 </file>
 
-<file path="src/services/dashboard/routers/library.routes.ts">
-import { Router, Request, Response } from 'express';
-import { databaseService } from '../../database/index.js';
-import { libraryScannerService } from '../../library-scanner/index.js';
-import { RecommendationService } from '../../RecommendationService.js';
-import { historyService } from '../../history.js';
-import QobuzAPI from '../../../api/qobuz.js';
-import { libraryHealerService } from '../../LibraryHealerService.js';
-import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
-import { CONFIG } from '../../../config.js';
-import { formatConverterService } from '../../FormatConverterService.js';
-
-const router = Router();
-
-const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
-
-router.get('/scan/status', async (req: Request, res: Response) => {
-    const stats = libraryScannerService.getScanStats();
-    res.json({
-        ...stats,
-        stats,
-        scanning: libraryScannerService.isScanInProgress(),
-        FFMPEG_AVAILABLE: await formatConverterService.isAvailable()
-    });
-});
-
-router.post('/scan', (req: Request, res: Response) => {
-    const { path } = req.body;
-    libraryScannerService.scanLibrary(path);
-    res.json({ success: true });
-});
-
-router.post('/scan/abort', (req: Request, res: Response) => {
-    libraryScannerService.abortScan();
-    res.json({ success: true });
-});
-
-router.post('/heal', async (req: Request, res: Response) => {
-    try {
-        const report = await libraryHealerService.performFullHeal();
-        res.json(report);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/statistics', async (req: Request, res: Response) => {
-    try {
-        const stats = await libraryStatisticsService.getLibraryStats();
-        res.json(stats);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/files', (req: Request, res: Response) => {
-    try {
-        const limit = parseInt(getParam(req.query.limit)) || 100;
-        const offset = parseInt(getParam(req.query.offset)) || 0;
-        const files = databaseService.getLibraryFiles(limit, offset);
-        res.json(files);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/upgradeable', (req: Request, res: Response) => {
-    try {
-        res.json(libraryScannerService.getUpgradeableFiles());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/missing-metadata', (req: Request, res: Response) => {
-    try {
-        res.json(libraryScannerService.getMissingMetadataFiles());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/duplicates', (req: Request, res: Response) => {
-    try {
-        const duplicates = databaseService.getDuplicates();
-        res.json(duplicates);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/integrity', (req: Request, res: Response) => {
-    try {
-        const issues = databaseService.getDuplicates();
-        res.json(issues);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.post('/metadata/edit', async (req: Request, res: Response) => {
-    try {
-        const { filePath, metadata } = req.body;
-        if (!filePath || !metadata) {
-            res.status(400).json({ error: 'filePath and metadata are required' });
-            return;
-        }
-
-        const { default: MetadataService } = await import('../../metadata.js');
-        const metadataService = new MetadataService();
-
-        const targetMeta: any = {
-            title: metadata.title,
-            artist: metadata.artist,
-            album: metadata.album,
-            trackNumber: metadata.trackNumber || 0,
-            totalTracks: metadata.totalTracks || 0,
-            discNumber: metadata.discNumber || 1,
-            totalDiscs: metadata.totalDiscs || 1,
-            year: metadata.year || '',
-            genre: metadata.genre || '',
-            albumArtist: metadata.albumArtist || metadata.artist,
-            label: metadata.label || '',
-            copyright: metadata.copyright || '',
-            releaseDate: metadata.releaseDate || '',
-            originalReleaseDate: metadata.originalReleaseDate || '',
-
-            composer: metadata.composer || '',
-            conductor: metadata.conductor || '',
-            producer: metadata.producer || '',
-            mixer: metadata.mixer || '',
-            remixer: metadata.remixer || '',
-            lyricist: metadata.lyricist || '',
-            writer: metadata.writer || '',
-            arranger: metadata.arranger || '',
-            engineer: metadata.engineer || '',
-
-            isrc: metadata.isrc || '',
-            upc: metadata.upc || '',
-            barcode: metadata.barcode || metadata.upc || '',
-            catalogNumber: metadata.catalogNumber || '',
-            releaseType: metadata.releaseType || 'album',
-            version: metadata.version || '',
-            comment:
-                metadata.comment ||
-                'downloader by qbz-dl https://github.com/ifauzeee/QBZ-Downloader'
-        };
-
-        let coverBuffer: Buffer | null = null;
-        const imageUrl = metadata.image || metadata.coverUrl;
-        const coverCandidates = metadataService.getCoverUrlCandidates(
-            metadata.album?.image || metadata.image || {},
-            CONFIG.metadata.coverSize,
-            typeof imageUrl === 'string' ? imageUrl : metadata.coverUrl
-        );
-        if (coverCandidates.length > 0) {
-            const axios = (await import('axios')).default;
-            const { logger } = await import('../../../utils/logger.js');
-            for (const candidate of coverCandidates) {
-                try {
-                    const response = await axios.get(candidate, {
-                        responseType: 'arraybuffer',
-                        timeout: 15000
-                    });
-                    coverBuffer = Buffer.from(response.data);
-                    break;
-                } catch (e: any) {
-                    logger.debug(`Cover candidate failed (${candidate}): ${e.message}`, 'METADATA');
-                }
-            }
-
-            if (!coverBuffer) {
-                logger.warn('Failed to download cover art from all candidates', 'METADATA');
-            }
-        }
-
-        const lyrics = metadata.lyrics || null;
-
-        await metadataService.writeMetadata(filePath, targetMeta, 0, lyrics, coverBuffer);
-        res.json({ success: true });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.delete('/file', async (req: Request, res: Response) => {
-    try {
-        const { filePath } = req.body;
-
-        if (!filePath) {
-            res.status(400).json({ error: 'filePath is required' });
-            return;
-        }
-
-        const success = await libraryScannerService.deleteFile(filePath);
-        res.json({ success });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/health', async (req: Request, res: Response) => {
-    try {
-        res.json(databaseService.getLibraryHealth());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/database/stats', async (req: Request, res: Response) => {
-    try {
-        res.json(databaseService.getOverallStats());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/database/tracks', async (req: Request, res: Response) => {
-    try {
-        const limit = parseInt(req.query.limit as string) || 100;
-        const offset = parseInt(req.query.offset as string) || 0;
-        res.json(databaseService.getAllTracks(limit, offset));
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/database/albums', async (req: Request, res: Response) => {
-    try {
-        const limit = parseInt(req.query.limit as string) || 50;
-        const offset = parseInt(req.query.offset as string) || 0;
-        res.json(databaseService.getAllAlbums(limit, offset));
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/database/search', async (req: Request, res: Response) => {
-    try {
-        const query = req.query.q as string;
-
-        if (!query) {
-            res.status(400).json({ error: 'Query parameter "q" is required' });
-            return;
-        }
-
-        res.json(databaseService.searchTracks(query));
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Moved to catalog.routes.ts for path consistency
-
-
-router.get('/recommendations', async (req: Request, res: Response) => {
-    try {
-        const limit = parseInt(req.query.limit as string) || 10;
-        const api = new QobuzAPI();
-        const recommendationService = new RecommendationService(api);
-        const albums = await recommendationService.getRecommendations(limit);
-        res.json(albums);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.get('/quality-stats', (req: Request, res: Response) => {
-    try {
-        const history = historyService.getAll();
-        const stats = {
-            totalScanned: 0,
-            trueLossless: 0,
-            fakeLossless: 0,
-            issues: [] as any[]
-        };
-
-        Object.values(history).forEach(entry => {
-            if (entry.qualityScan) {
-                stats.totalScanned++;
-                if (entry.qualityScan.isTrueLossless) {
-                    stats.trueLossless++;
-                } else {
-                    stats.fakeLossless++;
-                    stats.issues.push({
-                        title: entry.title,
-                        artist: entry.artist,
-                        details: entry.qualityScan.details,
-                        confidence: entry.qualityScan.confidence
-                    });
-                }
-            }
-        });
-
-        res.json(stats);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Moved to catalog.routes.ts for path consistency
-
-
-export default router;
-</file>
-
 <file path="client/src/App.tsx">
 import { useState, useEffect, useCallback } from 'react';
 import { SocketProvider, useSocket } from './contexts/SocketContext';
@@ -31722,6 +31685,266 @@ export const SettingsView: React.FC = () => {
 };
 </file>
 
+<file path="src/services/dashboard/routers/library.routes.ts">
+import { Router, Request, Response } from 'express';
+import { databaseService } from '../../database/index.js';
+import { libraryScannerService } from '../../library-scanner/index.js';
+import { RecommendationService } from '../../RecommendationService.js';
+import { historyService } from '../../history.js';
+import QobuzAPI from '../../../api/qobuz.js';
+import { libraryHealerService } from '../../LibraryHealerService.js';
+import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
+import { CONFIG } from '../../../config.js';
+import { formatConverterService } from '../../FormatConverterService.js';
+
+const router = Router();
+
+const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
+
+router.get('/scan/status', async (req: Request, res: Response) => {
+    const stats = libraryScannerService.getScanStats();
+    res.json({
+        ...stats,
+        stats,
+        scanning: libraryScannerService.isScanInProgress(),
+        FFMPEG_AVAILABLE: await formatConverterService.isAvailable()
+    });
+});
+
+router.post('/scan', (req: Request, res: Response) => {
+    const { path } = req.body;
+    libraryScannerService.scanLibrary(path);
+    res.json({ success: true });
+});
+
+router.post('/scan/abort', (req: Request, res: Response) => {
+    libraryScannerService.abortScan();
+    res.json({ success: true });
+});
+
+router.post('/heal', async (req: Request, res: Response) => {
+    try {
+        const report = await libraryHealerService.performFullHeal();
+        res.json(report);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/statistics', async (req: Request, res: Response) => {
+    try {
+        const stats = await libraryStatisticsService.getLibraryStats();
+        res.json(stats);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/files', (req: Request, res: Response) => {
+    try {
+        const limit = parseInt(getParam(req.query.limit)) || 100;
+        const offset = parseInt(getParam(req.query.offset)) || 0;
+        const files = databaseService.getLibraryFiles(limit, offset);
+        res.json(files);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/upgradeable', (req: Request, res: Response) => {
+    try {
+        res.json(libraryScannerService.getUpgradeableFiles());
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/missing-metadata', (req: Request, res: Response) => {
+    try {
+        res.json(libraryScannerService.getMissingMetadataFiles());
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/duplicates', (req: Request, res: Response) => {
+    try {
+        const duplicates = databaseService.getDuplicates();
+        res.json(duplicates);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/integrity', (req: Request, res: Response) => {
+    try {
+        const issues = databaseService.getDuplicates();
+        res.json(issues);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/metadata/edit', async (req: Request, res: Response) => {
+    try {
+        const { filePath, metadata } = req.body;
+        if (!filePath || !metadata) {
+            res.status(400).json({ error: 'filePath and metadata are required' });
+            return;
+        }
+
+        const { default: MetadataService } = await import('../../metadata.js');
+        const metadataService = new MetadataService();
+
+        const targetMeta: any = {
+            title: metadata.title,
+            artist: metadata.artist,
+            album: metadata.album,
+            trackNumber: metadata.trackNumber || 0,
+            totalTracks: metadata.totalTracks || 0,
+            discNumber: metadata.discNumber || 1,
+            totalDiscs: metadata.totalDiscs || 1,
+            year: metadata.year || '',
+            genre: metadata.genre || '',
+            albumArtist: metadata.albumArtist || metadata.artist,
+            label: metadata.label || '',
+            copyright: metadata.copyright || '',
+            releaseDate: metadata.releaseDate || '',
+            originalReleaseDate: metadata.originalReleaseDate || '',
+
+            composer: metadata.composer || '',
+            conductor: metadata.conductor || '',
+            producer: metadata.producer || '',
+            mixer: metadata.mixer || '',
+            remixer: metadata.remixer || '',
+            lyricist: metadata.lyricist || '',
+            writer: metadata.writer || '',
+            arranger: metadata.arranger || '',
+            engineer: metadata.engineer || '',
+
+            isrc: metadata.isrc || '',
+            upc: metadata.upc || '',
+            barcode: metadata.barcode || metadata.upc || '',
+            catalogNumber: metadata.catalogNumber || '',
+            releaseType: metadata.releaseType || 'album',
+            version: metadata.version || '',
+            comment:
+                metadata.comment ||
+                'downloader by qbz-dl https://github.com/ifauzeee/QBZ-Downloader'
+        };
+
+        let coverBuffer: Buffer | null = null;
+        const imageUrl = metadata.image || metadata.coverUrl;
+        const coverCandidates = metadataService.getCoverUrlCandidates(
+            metadata.album?.image || metadata.image || {},
+            CONFIG.metadata.coverSize,
+            typeof imageUrl === 'string' ? imageUrl : metadata.coverUrl
+        );
+        if (coverCandidates.length > 0) {
+            const axios = (await import('axios')).default;
+            const { logger } = await import('../../../utils/logger.js');
+            for (const candidate of coverCandidates) {
+                try {
+                    const response = await axios.get(candidate, {
+                        responseType: 'arraybuffer',
+                        timeout: 15000
+                    });
+                    coverBuffer = Buffer.from(response.data);
+                    break;
+                } catch (e: any) {
+                    logger.debug(`Cover candidate failed (${candidate}): ${e.message}`, 'METADATA');
+                }
+            }
+
+            if (!coverBuffer) {
+                logger.warn('Failed to download cover art from all candidates', 'METADATA');
+            }
+        }
+
+        const lyrics = metadata.lyrics || null;
+
+        await metadataService.writeMetadata(filePath, targetMeta, 0, lyrics, coverBuffer);
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/file', async (req: Request, res: Response) => {
+    try {
+        const { filePath } = req.body;
+
+        if (!filePath) {
+            res.status(400).json({ error: 'filePath is required' });
+            return;
+        }
+
+        const success = await libraryScannerService.deleteFile(filePath);
+        res.json({ success });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/health', async (req: Request, res: Response) => {
+    try {
+        res.json(databaseService.getLibraryHealth());
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/database/stats', async (req: Request, res: Response) => {
+    try {
+        res.json(databaseService.getOverallStats());
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/database/tracks', async (req: Request, res: Response) => {
+    try {
+        const limit = parseInt(req.query.limit as string) || 100;
+        const offset = parseInt(req.query.offset as string) || 0;
+        res.json(databaseService.getAllTracks(limit, offset));
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/database/albums', async (req: Request, res: Response) => {
+    try {
+        const limit = parseInt(req.query.limit as string) || 50;
+        const offset = parseInt(req.query.offset as string) || 0;
+        res.json(databaseService.getAllAlbums(limit, offset));
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/database/search', async (req: Request, res: Response) => {
+    try {
+        const query = req.query.q as string;
+
+        if (!query) {
+            res.status(400).json({ error: 'Query parameter "q" is required' });
+            return;
+        }
+
+        res.json(databaseService.searchTracks(query));
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Migrated to catalog.routes.ts for path consistency
+
+// Moved to catalog.routes.ts for path consistency
+
+
+export default router;
+</file>
+
 <file path="electron/main.cjs">
 const { app, BrowserWindow, ipcMain, shell, Notification, nativeTheme } = require('electron');
 const path = require('path');
@@ -31736,11 +31959,25 @@ try {
 }
 
 const initialCwd = process.cwd();
-const DESKTOP_PORT = Number.parseInt(
-  process.env.DESKTOP_DASHBOARD_PORT || process.env.DASHBOARD_PORT || '3210',
-  10
-);
-const DASHBOARD_URL = `http://127.0.0.1:${DESKTOP_PORT}`;
+const net = require('net');
+
+async function findAvailablePort(startPort) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', () => {
+      resolve(findAvailablePort(startPort + 1));
+    });
+    server.listen(startPort, () => {
+      server.close(() => {
+        resolve(startPort);
+      });
+    });
+  });
+}
+
+let DESKTOP_PORT = 3210;
+let DASHBOARD_URL = `http://127.0.0.1:${DESKTOP_PORT}`;
 
 const baseAppPath = app.isPackaged ? app.getAppPath() : path.join(__dirname, '..');
 let runtimeDir = initialCwd;
@@ -32166,7 +32403,7 @@ function setupSecurityHeaders() {
   
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     // Only apply to our dashboard
-    if (details.url.startsWith(DASHBOARD_URL) || details.url.startsWith('data:')) {
+    if (details.url.startsWith(`http://127.0.0.1:${DESKTOP_PORT}`) || details.url.startsWith('data:')) {
       const existingCsp = details.responseHeaders['content-security-policy'] || details.responseHeaders['Content-Security-Policy'];
       
       // If we already have a CSP (from Express), we might want to ensure media-src is there
@@ -32398,8 +32635,15 @@ function registerIpc() {
 }
 
 async function bootstrap() {
+  const startPort = Number.parseInt(
+    process.env.DESKTOP_DASHBOARD_PORT || process.env.DASHBOARD_PORT || '3210',
+    10
+  );
+  DESKTOP_PORT = await findAvailablePort(startPort);
+  DASHBOARD_URL = `http://127.0.0.1:${DESKTOP_PORT}`;
+
   mainWindow = createWindow();
-  await loadInlinePage(mainWindow, 'Starting local backend and loading dashboard...');
+  await loadInlinePage(mainWindow, `Starting local backend on port ${DESKTOP_PORT} and loading dashboard...`);
 
   try {
     await startBackend();
@@ -32499,6 +32743,7 @@ import { qualityScannerService, QualityReport } from './QualityScannerService.js
 import { mediaServerService } from './MediaServerService.js';
 import { formatConverterService } from './FormatConverterService.js';
 import { aiMetadataService } from './AIMetadataService.js';
+import { globalApiLimit } from '../utils/limit.js';
 
 export { DownloadProgress };
 
@@ -32901,16 +33146,17 @@ export default class DownloadService {
         }
     }
 
+    private concurrencyLimit = globalApiLimit;
+
     async downloadAlbum(albumId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const albumInfo = await this.api.getAlbum(albumId);
         if (!albumInfo.success) return { success: false, error: albumInfo.error };
         const album = albumInfo.data;
-
+ 
         const tracks = album?.tracks?.items || [];
-        const limit = pLimit(CONFIG.download.concurrent);
-
-        const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, requestedQuality, {
+ 
+        const promises = tracks.map((track: any) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
             album,
             isCancelled: options.isCancelled,
             onProgress: (p) => {
@@ -32923,10 +33169,10 @@ export default class DownloadService {
                 });
             }
         })));
-
+ 
         const results = await Promise.all(promises);
         const completed = results.filter(r => r.success).length;
-
+ 
         if (completed > 0 && album) {
             mediaServerService.notifyNewContent({
                 title: album.title,
@@ -32935,20 +33181,19 @@ export default class DownloadService {
                 type: 'album'
             });
         }
-
+ 
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
-
+ 
     async downloadPlaylist(playlistId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const playlistInfo = await this.api.getPlaylist(playlistId);
         if (!playlistInfo.success) return { success: false, error: playlistInfo.error };
         const playlist = playlistInfo.data!;
-
+ 
         const tracks = playlist.tracks.items;
-        const limit = pLimit(CONFIG.download.concurrent);
-
-        const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, requestedQuality, {
+ 
+        const promises = tracks.map((track: any) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
             isCancelled: options.isCancelled,
             onProgress: (p) => {
                 if (options.onProgress) options.onProgress(track.id.toString(), {
@@ -32960,10 +33205,10 @@ export default class DownloadService {
                 });
             }
         })));
-
+ 
         const results = await Promise.all(promises);
         const completed = results.filter(r => r.success).length;
-
+ 
         if (completed > 0) {
             mediaServerService.notifyNewContent({
                 title: playlist.name,
@@ -32972,10 +33217,10 @@ export default class DownloadService {
                 type: 'playlist'
             });
         }
-
+ 
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
-
+ 
     async downloadArtist(artistId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const artistInfo = await this.api.getArtist(artistId);
@@ -32983,16 +33228,15 @@ export default class DownloadService {
         
         const albumsRes = await this.api.getArtistAlbums(artistId, 50);
         if (!albumsRes.success) return { success: false, error: albumsRes.error };
-
+ 
         const albums = (albumsRes.data as any)?.items || [];
-        const limit = pLimit(CONFIG.download.concurrent);
         
         const results = [];
         for (const album of albums) {
-            const res = await limit(() => this.downloadAlbum(album.id, requestedQuality, options));
+            const res = await this.concurrencyLimit(() => this.downloadAlbum(album.id, requestedQuality, options));
             results.push(res);
         }
-
+ 
         const completed = results.filter(r => r.success).length;
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }

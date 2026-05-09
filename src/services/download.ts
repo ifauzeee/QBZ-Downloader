@@ -18,6 +18,7 @@ import { qualityScannerService, QualityReport } from './QualityScannerService.js
 import { mediaServerService } from './MediaServerService.js';
 import { formatConverterService } from './FormatConverterService.js';
 import { aiMetadataService } from './AIMetadataService.js';
+import { globalApiLimit } from '../utils/limit.js';
 
 export { DownloadProgress };
 
@@ -420,16 +421,17 @@ export default class DownloadService {
         }
     }
 
+    private concurrencyLimit = globalApiLimit;
+
     async downloadAlbum(albumId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const albumInfo = await this.api.getAlbum(albumId);
         if (!albumInfo.success) return { success: false, error: albumInfo.error };
         const album = albumInfo.data;
-
+ 
         const tracks = album?.tracks?.items || [];
-        const limit = pLimit(CONFIG.download.concurrent);
-
-        const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, requestedQuality, {
+ 
+        const promises = tracks.map((track: any) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
             album,
             isCancelled: options.isCancelled,
             onProgress: (p) => {
@@ -442,10 +444,10 @@ export default class DownloadService {
                 });
             }
         })));
-
+ 
         const results = await Promise.all(promises);
         const completed = results.filter(r => r.success).length;
-
+ 
         if (completed > 0 && album) {
             mediaServerService.notifyNewContent({
                 title: album.title,
@@ -454,20 +456,19 @@ export default class DownloadService {
                 type: 'album'
             });
         }
-
+ 
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
-
+ 
     async downloadPlaylist(playlistId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const playlistInfo = await this.api.getPlaylist(playlistId);
         if (!playlistInfo.success) return { success: false, error: playlistInfo.error };
         const playlist = playlistInfo.data!;
-
+ 
         const tracks = playlist.tracks.items;
-        const limit = pLimit(CONFIG.download.concurrent);
-
-        const promises = tracks.map((track: any) => limit(() => this.downloadTrack(track.id, requestedQuality, {
+ 
+        const promises = tracks.map((track: any) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
             isCancelled: options.isCancelled,
             onProgress: (p) => {
                 if (options.onProgress) options.onProgress(track.id.toString(), {
@@ -479,10 +480,10 @@ export default class DownloadService {
                 });
             }
         })));
-
+ 
         const results = await Promise.all(promises);
         const completed = results.filter(r => r.success).length;
-
+ 
         if (completed > 0) {
             mediaServerService.notifyNewContent({
                 title: playlist.name,
@@ -491,10 +492,10 @@ export default class DownloadService {
                 type: 'playlist'
             });
         }
-
+ 
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
-
+ 
     async downloadArtist(artistId: string | number, quality: number | string = 27, options: AlbumDownloadOptions = {}): Promise<DownloadResult> {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const artistInfo = await this.api.getArtist(artistId);
@@ -502,16 +503,15 @@ export default class DownloadService {
         
         const albumsRes = await this.api.getArtistAlbums(artistId, 50);
         if (!albumsRes.success) return { success: false, error: albumsRes.error };
-
+ 
         const albums = (albumsRes.data as any)?.items || [];
-        const limit = pLimit(CONFIG.download.concurrent);
         
         const results = [];
         for (const album of albums) {
-            const res = await limit(() => this.downloadAlbum(album.id, requestedQuality, options));
+            const res = await this.concurrencyLimit(() => this.downloadAlbum(album.id, requestedQuality, options));
             results.push(res);
         }
-
+ 
         const completed = results.filter(r => r.success).length;
         return { success: completed > 0, completedTracks: completed, totalTracks: results.length };
     }
