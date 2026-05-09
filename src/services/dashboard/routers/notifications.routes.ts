@@ -20,7 +20,7 @@ router.get('/unread/count', (req: Request, res: Response) => {
 
 // Mark a notification as read
 router.post('/:id/read', (req: Request, res: Response) => {
-    const success = notificationService.markAsRead(req.params.id);
+    const success = notificationService.markAsRead(req.params.id as string);
     if (success) {
         res.json({ success: true });
     } else {
@@ -36,7 +36,7 @@ router.post('/read-all', (req: Request, res: Response) => {
 
 // Delete a notification
 router.delete('/:id', (req: Request, res: Response) => {
-    const success = notificationService.delete(req.params.id);
+    const success = notificationService.delete(req.params.id as string);
     if (success) {
         res.json({ success: true });
     } else {

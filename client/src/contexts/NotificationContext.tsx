@@ -28,7 +28,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { socket } = useSocket();
-    const { addToast } = useToast();
+    const { showToast } = useToast();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
 
@@ -62,7 +62,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             
             // Show toast for new notifications if they are important
             if (notification.type === 'error' || notification.type === 'warning' || notification.type === 'success') {
-                addToast(notification.message, notification.type as any);
+                showToast(notification.message, notification.type as any);
             }
         };
 
