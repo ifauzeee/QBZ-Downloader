@@ -175,7 +175,7 @@ export const RecommendationsView: React.FC = () => {
                     align-items: flex-end;
                     margin-bottom: 40px;
                     padding: 40px;
-                    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.05) 50%, transparent 100%);
+                    background: linear-gradient(135deg, rgba(99, 102, 241, var(--header-bg-opacity, 0.1)) 0%, rgba(168, 85, 247, calc(var(--header-bg-opacity, 0.1) / 2)) 50%, transparent 100%);
                     border-radius: 32px;
                     border: 1px solid var(--border);
                     position: relative;
@@ -198,21 +198,21 @@ export const RecommendationsView: React.FC = () => {
                     align-items: center;
                     gap: 8px;
                     padding: 6px 14px;
-                    background: rgba(99, 102, 241, 0.2);
+                    background: rgba(var(--accent-rgb), 0.15);
                     border-radius: 100px;
                     font-size: 0.75rem;
                     font-weight: 800;
-                    color: #818cf8;
+                    color: var(--accent);
                     margin-bottom: 16px;
                     letter-spacing: 0.1em;
-                    border: 1px solid rgba(99, 102, 241, 0.3);
+                    border: 1px solid rgba(var(--accent-rgb), 0.3);
                 }
                 .badge-pulse {
                     width: 6px;
                     height: 6px;
-                    background: #818cf8;
+                    background: var(--accent);
                     border-radius: 50%;
-                    box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.7);
+                    box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.7);
                     animation: pulse 2s infinite;
                 }
                 @keyframes pulse {

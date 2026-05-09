@@ -34,28 +34,30 @@
     --lyrics-fullscreen-bg: radial-gradient(circle at top, #0b1b2d 0%, #04070d 68%);
     --player-shadow-opacity: 0.8;
     --sidebar-bg: rgba(8, 13, 21, 0.9);
+    --header-bg-opacity: 0.15;
 }
 
 body.light-theme {
-    --bg-dark: #f0f4f8;
+    --bg-dark: #f5f7fa;
     --bg-card: #ffffff;
-    --bg-hover: #eef2f6;
+    --bg-hover: #edf2f7;
     --bg-elevated: #ffffff;
-    --text-primary: #1a202c;
-    --text-secondary: #4a5568;
-    --border: rgba(0, 0, 0, 0.08);
-    --border-light: rgba(0, 0, 0, 0.04);
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --border: rgba(0, 0, 0, 0.06);
+    --border-light: rgba(0, 0, 0, 0.03);
     --gradient-primary: linear-gradient(130deg, #0891b2 0%, #0d9488 45%, #d97706 100%);
     --gradient-card: linear-gradient(145deg, #ffffff 0%, #f8faff 100%);
-    --gradient-text: linear-gradient(to right, #1a202c, #4a5568);
-    --player-bg: rgba(255, 255, 255, 0.9);
-    --player-border: rgba(0, 0, 0, 0.1);
-    --progress-bg: rgba(0, 0, 0, 0.05);
+    --gradient-text: linear-gradient(to right, #111827, #374151);
+    --player-bg: rgba(255, 255, 255, 0.8);
+    --player-border: rgba(0, 0, 0, 0.05);
+    --progress-bg: rgba(0, 0, 0, 0.08);
     --lyrics-bg: rgba(255, 255, 255, 0.98);
-    --lyrics-fullscreen-bg: linear-gradient(135deg, #f0f4f8 0%, #ffffff 100%);
-    --skeleton-bg: #e2e8f0;
-    --player-shadow-opacity: 0.2;
-    --sidebar-bg: rgba(255, 255, 255, 0.9);
+    --lyrics-fullscreen-bg: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+    --skeleton-bg: #e5e7eb;
+    --player-shadow-opacity: 0.15;
+    --sidebar-bg: rgba(255, 255, 255, 0.75);
+    --header-bg-opacity: 0.4;
 }
 
 * {
@@ -110,7 +112,7 @@ body.desktop-mode {
     justify-content: space-between;
     padding: 0 6px 0 14px;
     border-bottom: 1px solid var(--border);
-    background: var(--bg-dark);
+    background: linear-gradient(to bottom, var(--bg-card), var(--bg-dark));
     -webkit-app-region: drag;
 }
 
@@ -957,7 +959,7 @@ body.desktop-mode {
     align-items: center;
     padding: 0 32px;
     border-bottom: 1px solid var(--border);
-    background: rgba(8, 13, 21, 0.85);
+    background: var(--sidebar-bg);
     backdrop-filter: blur(20px);
     position: relative;
     z-index: 1000;
@@ -967,6 +969,7 @@ body.desktop-mode {
 .top-bar h2 {
     font-size: 20px;
     font-weight: 700;
+    color: var(--text-primary);
 }
 
 .sync-pill {
@@ -987,7 +990,7 @@ body.desktop-mode {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #94a3b8;
+    background: var(--text-secondary);
 }
 
 .sync-pill.online .sync-dot {
@@ -996,7 +999,7 @@ body.desktop-mode {
 }
 
 .sync-pill.online {
-    color: #d8ffe9;
+    color: var(--text-primary);
 }
 
 .sync-pill.offline .sync-dot {
@@ -1012,7 +1015,7 @@ body.desktop-mode {
     height: 44px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-hover);
     color: var(--text-secondary);
 }
 
@@ -1024,23 +1027,23 @@ body.desktop-mode {
 .update-pill.available,
 .update-pill.downloading {
     border-color: rgba(245, 158, 11, 0.45);
-    color: #f9dda5;
+    color: var(--warning);
 }
 
 .update-pill.ready,
 .update-pill.downloaded {
     border-color: rgba(34, 197, 94, 0.55);
-    color: #d8ffe9;
+    color: var(--success);
 }
 
 .update-pill.error {
     border-color: rgba(239, 68, 68, 0.5);
-    color: #fecaca;
+    color: var(--danger);
 }
 
 .update-pill.disabled {
-    border-color: rgba(100, 116, 139, 0.45);
-    color: #cbd5e1;
+    border-color: var(--border);
+    color: var(--text-secondary);
 }
 
 .update-action-btn {
