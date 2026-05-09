@@ -141,6 +141,7 @@ export class DashboardService {
     private setupSocket(): void {
         this.io.use((socket, next) => {
             const password = CONFIG.dashboard.password;
+            // If no password is set in settings, the dashboard operates in Public Mode
             if (!password) return next();
 
             const providedPassword = socket.handshake.auth?.password || socket.handshake.query?.pw;
