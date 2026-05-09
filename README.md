@@ -30,8 +30,8 @@ A comprehensive desktop-first music downloading and library management applicati
 <br/>
 
 > [!IMPORTANT]
-> **🚀 v5.0.0 Release is here!**
-> This major update introduces the **Spotify Migration Service**, **Library Healer AI**, **Advanced Analytics**, and a **Complete UI Overhaul**. Check the [Changelog](CHANGELOG.md) for full details.
+> **🚀 v5.1.0 Release is here!**
+> This major update introduces the **Missing Tracks Logging**, **Spotify Migration**, **Library Healer AI**, and more. Check the [Changelog](CHANGELOG.md) for full details.
 
 ---
 
