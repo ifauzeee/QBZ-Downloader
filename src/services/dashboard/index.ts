@@ -12,6 +12,7 @@ import { downloadQueue } from '../queue/queue.js';
 import { registerRoutes } from './routes.js';
 import { CONFIG } from '../../config.js';
 import { libraryScannerService } from '../library-scanner/index.js';
+import { notificationService } from '../notifications.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -165,6 +166,9 @@ export class DashboardService {
 
         this.io.on('connection', (socket) => {
             logger.debug(`Client connection established: ${socket.id}`, 'WEB');
+            
+            socket.emit('notifications:history', notificationService.getRecent(50));
+            socket.emit('notifications:unreadCount', notificationService.getUnreadCount());
 
             socket.emit('queue:update', downloadQueue.getStats());
 
@@ -214,6 +218,23 @@ export class DashboardService {
 
         libraryScannerService.on('scan:started', (data) => {
             this.io.emit('scan:started', data);
+        });
+
+        notificationService.on('notification', (notif) => {
+            this.io.emit('notification:new', notif);
+            this.io.emit('notifications:unreadCount', notificationService.getUnreadCount());
+        });
+
+        notificationService.on('notification:read', () => {
+            this.io.emit('notifications:unreadCount', notificationService.getUnreadCount());
+        });
+
+        notificationService.on('notifications:allRead', () => {
+            this.io.emit('notifications:unreadCount', 0);
+        });
+
+        notificationService.on('notifications:cleared', () => {
+            this.io.emit('notifications:unreadCount', 0);
         });
     }
 

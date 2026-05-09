@@ -5,6 +5,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { PlayerProvider } from './contexts/PlayerContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QueueView } from './components/QueueView';
 import { BatchImportView } from './components/BatchImportView';
@@ -22,6 +23,8 @@ import { LogView } from './components/LogView';
 import { LibraryHealthView } from './components/LibraryHealthView';
 import { AddUrlModal, LoginModal } from './components/Modals';
 import { DesktopSetupGate } from './components/DesktopSetupGate';
+import { useNotifications } from './contexts/NotificationContext';
+import { NotificationsPanel } from './components/NotificationsPanel';
 
 
 import { CommandPalette } from './components/CommandPalette';
@@ -67,6 +70,8 @@ function AppContent() {
   const [desktopSetupState, setDesktopSetupState] = useState<DesktopSetupState>(
     isDesktop ? 'checking' : 'ready'
   );
+  const { unreadCount } = useNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     document.body.classList.remove('dark-theme', 'light-theme');
@@ -523,6 +528,27 @@ function AppContent() {
                       <Icons.Github width={20} height={20} />
                     </button>
 
+                    <button
+                      className="btn secondary icon-btn"
+                      onClick={() => setShowNotifications(true)}
+                      style={{ position: 'relative' }}
+                      title="Notifications"
+                    >
+                      <Icons.Bell width={20} height={20} />
+                      {unreadCount > 0 && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '8px',
+                          right: '8px',
+                          width: '10px',
+                          height: '10px',
+                          background: 'var(--accent)',
+                          borderRadius: '50%',
+                          border: '2px solid var(--bg-card)'
+                        }} />
+                      )}
+                    </button>
+
                     <button id="add-btn" className="btn primary" onClick={() => setShowAddModal(true)}>
                       <span className="icon">
                         <Icons.Plus />
@@ -573,6 +599,7 @@ function AppContent() {
               }}
             />
           )}
+          <NotificationsPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
           <QueuePanel />
         </DropZone>
       </ErrorBoundary>
@@ -586,13 +613,15 @@ function App() {
     <SocketProvider>
       <LanguageProvider>
         <NavigationProvider>
-          <ThemeProvider>
-            <ToastProvider>
-              <PlayerProvider>
-                <AppContent />
-              </PlayerProvider>
-            </ToastProvider>
-          </ThemeProvider>
+            <ThemeProvider>
+              <ToastProvider>
+                <NotificationProvider>
+                  <PlayerProvider>
+                    <AppContent />
+                  </PlayerProvider>
+                </NotificationProvider>
+              </ToastProvider>
+            </ThemeProvider>
         </NavigationProvider>
       </LanguageProvider>
     </SocketProvider>
