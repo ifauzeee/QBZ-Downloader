@@ -105,6 +105,10 @@ parentPort?.on('message', async (filePath: string) => {
             stream.on('error', () => resolve(''));
         });
 
+        const essentialMissing = missingTags.filter(tag => 
+            ['Title', 'Artist', 'Album', 'Genre', 'Year', 'All Metadata', 'Unreadable'].includes(tag)
+        );
+
         parentPort?.postMessage({
             filePath,
             title,
@@ -120,7 +124,7 @@ parentPort?.on('message', async (filePath: string) => {
             needsUpgrade: quality < 7,
             audioFingerprint: fingerprint,
             checksum,
-            missingInternalTags: missingTags.length > 0,
+            missingInternalTags: essentialMissing.length > 0,
             missingTags
         });
     } catch (error) {

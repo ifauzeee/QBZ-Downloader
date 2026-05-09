@@ -14,12 +14,36 @@ export interface QualityReport {
 }
 
 export class QualityScannerService {
+    private static ffmpegAvailable: boolean | null = null;
+
+    private async checkFFmpeg(): Promise<boolean> {
+        if (QualityScannerService.ffmpegAvailable !== null) return QualityScannerService.ffmpegAvailable;
+        try {
+            await execPromise('ffmpeg -version');
+            QualityScannerService.ffmpegAvailable = true;
+            return true;
+        } catch {
+            QualityScannerService.ffmpegAvailable = false;
+            logger.warn('FFmpeg not found. Quality scanning will be disabled. Please install FFmpeg and add it to your PATH.', 'SCANNER');
+            return false;
+        }
+    }
+
     /**
      * Scans an audio file to detect if it's true lossless or upsampled.
      * Uses ffmpeg to analyze the frequency spectrum.
      */
     async scanFile(filePath: string): Promise<QualityReport> {
         try {
+            const hasFFmpeg = await this.checkFFmpeg();
+            if (!hasFFmpeg) {
+                return {
+                    isTrueLossless: true,
+                    confidence: 0,
+                    details: 'Quality scan skipped: FFmpeg not installed.'
+                };
+            }
+
             if (!fs.existsSync(filePath)) {
                 throw new Error('File not found');
             }
