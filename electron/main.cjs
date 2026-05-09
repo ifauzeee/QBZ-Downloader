@@ -448,7 +448,7 @@ function setupSecurityHeaders() {
       // But actually, it's cleaner to just set a unified one here for Electron
       details.responseHeaders['Content-Security-Policy'] = [
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+        "script-src 'self' 'unsafe-inline'; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
         "img-src 'self' data: https: http: blob:; " +
         "media-src 'self' data: blob: https: http:; " +
