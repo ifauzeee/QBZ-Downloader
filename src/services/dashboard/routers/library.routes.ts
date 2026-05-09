@@ -6,13 +6,19 @@ import { historyService } from '../../history.js';
 import QobuzAPI from '../../../api/qobuz.js';
 import { libraryHealerService } from '../../LibraryHealerService.js';
 import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
+import { CONFIG } from '../../../config.js';
 
 const router = Router();
 
 const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
 
 router.get('/scan/status', (req: Request, res: Response) => {
-    res.json(libraryScannerService.getScanStats());
+    const stats = libraryScannerService.getScanStats();
+    res.json({
+        ...stats,
+        stats,
+        scanning: libraryScannerService.isScanInProgress()
+    });
 });
 
 router.post('/scan', (req: Request, res: Response) => {
@@ -139,14 +145,29 @@ router.post('/metadata/edit', async (req: Request, res: Response) => {
 
         let coverBuffer: Buffer | null = null;
         const imageUrl = metadata.image || metadata.coverUrl;
-        if (imageUrl) {
-            try {
-                const axios = (await import('axios')).default;
-                const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-                coverBuffer = Buffer.from(response.data);
-            } catch (e: any) {
-                const { logger } = await import('../../../utils/logger.js');
-                logger.warn(`Failed to download cover art: ${e.message}`, 'METADATA');
+        const coverCandidates = metadataService.getCoverUrlCandidates(
+            metadata.album?.image || metadata.image || {},
+            CONFIG.metadata.coverSize,
+            typeof imageUrl === 'string' ? imageUrl : metadata.coverUrl
+        );
+        if (coverCandidates.length > 0) {
+            const axios = (await import('axios')).default;
+            const { logger } = await import('../../../utils/logger.js');
+            for (const candidate of coverCandidates) {
+                try {
+                    const response = await axios.get(candidate, {
+                        responseType: 'arraybuffer',
+                        timeout: 15000
+                    });
+                    coverBuffer = Buffer.from(response.data);
+                    break;
+                } catch (e: any) {
+                    logger.debug(`Cover candidate failed (${candidate}): ${e.message}`, 'METADATA');
+                }
+            }
+
+            if (!coverBuffer) {
+                logger.warn('Failed to download cover art from all candidates', 'METADATA');
             }
         }
 

@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 interface HealthData {
     totalTracks: number;
     missingCovers: number;
+    missingLyrics: number;
     lowQuality: number;
     hiRes: number;
     duplicates: number;
@@ -280,6 +281,14 @@ export const LibraryHealthView: React.FC = () => {
                     subtext="Missing album artwork"
                     color={data.missingCovers > 0 ? 'var(--warning)' : 'var(--success)'}
                     delay={0.4}
+                />
+                <InsightCard
+                    icon={<Icons.Mic width={24} height={24} />}
+                    label="Lyrics Coverage"
+                    count={data.missingLyrics || 0}
+                    subtext="Missing embedded lyrics"
+                    color={(data.missingLyrics || 0) > 0 ? 'var(--warning)' : 'var(--success)'}
+                    delay={0.45}
                 />
                 <InsightCard 
                     icon={<Icons.Copy width={24} height={24} />} 

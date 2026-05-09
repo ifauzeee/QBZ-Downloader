@@ -3,6 +3,7 @@ import QobuzAPI from '../../../api/qobuz.js';
 import path from 'path';
 import axios from 'axios';
 import { logger } from '../../../utils/logger.js';
+import { CONFIG } from '../../../config.js';
 
 const router = Router();
 const api = new QobuzAPI();
@@ -17,12 +18,12 @@ router.post('/identify', async (req: Request, res: Response) => {
         
         // Extract context from folder structure (e.g., downloads/Artist/Album/File)
         const artistFromFolder = parts.length >= 3 ? parts[parts.length - 3] : '';
-        const albumFromFolder = parts.length >= 2 ? parts[parts.length - 2] : '';
+        const _albumFromFolder = parts.length >= 2 ? parts[parts.length - 2] : '';
 
         // Improved cleaning: remove track numbers like "01. ", "01 - ", "01 ", etc.
-        let cleanFilename = filename
-            .replace(/^(\d+[\.\s\-\s]*)+/g, '') // Remove track numbers at start
-            .replace(/[\(\[].*?[\)\]]/g, '')     // Remove (Explicit), [FLAC]
+        const cleanFilename = filename
+            .replace(/^(\d+[.\s-]*)+/g, '') // Remove track numbers at start
+            .replace(/\(.*?\)|\[.*?\]/g, '') // Remove (Explicit), [FLAC]
             .trim();
 
         // Build a strong query: "Artist - Title"
@@ -40,7 +41,7 @@ router.post('/identify', async (req: Request, res: Response) => {
 
         const result = await api.search(query, 'tracks', 5);
         if (result.success && result.data?.tracks?.items?.length) {
-            let track = result.data.tracks.items[0];
+            const track = result.data.tracks.items[0];
             
             // Intelligence Boost: Fetch full album to get Genre, Label, and accurate Year
             if (track.album?.id) {
@@ -90,15 +91,27 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
         const targetMeta = await metadataService.extractMetadata(metadata, metadata.album || {});
         
         let coverBuffer: Buffer | null = null;
-        const imageUrl = metadata.image?.large || metadata.album?.image?.large || metadata.coverUrl;
-        
-        if (imageUrl) {
+        const coverCandidates = metadataService.getCoverUrlCandidates(
+            metadata.album?.image || metadata.image || {},
+            CONFIG.metadata.coverSize,
+            typeof metadata.image === 'string' ? metadata.image : metadata.coverUrl
+        );
+
+        for (const imageUrl of coverCandidates) {
             try {
-                const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+                const response = await axios.get(imageUrl, {
+                    responseType: 'arraybuffer',
+                    timeout: 15000
+                });
                 coverBuffer = Buffer.from(response.data);
+                break;
             } catch (e: any) {
-                logger.warn(`Failed to fetch cover art for heal: ${e.message}`, 'TOOLS');
+                logger.debug(`Cover candidate failed for heal (${imageUrl}): ${e.message}`, 'TOOLS');
             }
+        }
+
+        if (!coverBuffer && coverCandidates.length > 0) {
+            logger.warn('Failed to fetch cover art for heal from all candidates', 'TOOLS');
         }
 
         // Pass lyrics if found

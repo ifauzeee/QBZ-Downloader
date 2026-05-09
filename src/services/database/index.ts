@@ -838,7 +838,8 @@ class DatabaseService {
             const db = this.getDb();
             
             const totalTracks = db.prepare('SELECT COUNT(*) as count FROM library_files').get() as { count: number };
-            const missingCovers = db.prepare('SELECT COUNT(*) as count FROM library_files lf LEFT JOIN tracks t ON lf.track_id = t.id WHERE lf.track_id IS NOT NULL AND (t.cover_url IS NULL OR t.cover_url = \'\')').get() as { count: number };
+            const missingCovers = db.prepare("SELECT COUNT(*) as count FROM library_files WHERE missing_tags LIKE '%Cover Art%'").get() as { count: number };
+            const missingLyrics = db.prepare("SELECT COUNT(*) as count FROM library_files WHERE missing_tags LIKE '%Lyrics%'").get() as { count: number };
             const lowQuality = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE quality < 6').get() as { count: number };
             const hiRes = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE quality >= 7').get() as { count: number };
             const duplicates = db.prepare('SELECT COUNT(*) as count FROM duplicates WHERE resolved = 0').get() as { count: number };
@@ -850,6 +851,7 @@ class DatabaseService {
             return {
                 totalTracks: totalTracks.count,
                 missingCovers: missingCovers.count,
+                missingLyrics: missingLyrics.count,
                 lowQuality: lowQuality.count,
                 hiRes: hiRes.count,
                 duplicates: duplicates.count,

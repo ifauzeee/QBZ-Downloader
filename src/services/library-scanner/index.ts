@@ -754,6 +754,7 @@ class LibraryScannerService extends EventEmitter {
         totalFiles: number;
         duplicates: number;
         upgradeable: number;
+        missingMetadata: number;
         totalSize: number;
         processedFiles?: number;
         currentFile?: string;
@@ -764,11 +765,15 @@ class LibraryScannerService extends EventEmitter {
         const totalRow = db
             .prepare('SELECT COUNT(*) as count, SUM(file_size) as size FROM library_files')
             .get() as any;
+        const missingRow = db
+            .prepare('SELECT COUNT(*) as count FROM library_files WHERE missing_metadata = 1')
+            .get() as any;
 
         const stats = {
             totalFiles: totalRow?.count || 0,
             duplicates: duplicates.length,
             upgradeable: upgradeable.length,
+            missingMetadata: missingRow?.count || 0,
             totalSize: totalRow?.size || 0
         };
 

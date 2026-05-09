@@ -73,8 +73,8 @@ export const LibraryView: React.FC = () => {
             const res = await smartFetch('/api/library/scan/status');
             if (res && res.ok) {
                 const data = await res.json();
-                setStats(data.stats);
-                setScanning(data.scanning);
+                setStats(data.stats || data);
+                setScanning(Boolean(data.scanning));
             }
         } catch (e) { console.error(e); }
     }, []);
@@ -440,7 +440,7 @@ export const LibraryView: React.FC = () => {
                     {missingMetadata.length > 0 && (
                         <div className="library-header" style={{ marginBottom: '20px' }}>
                             <p className="section-desc">
-                                The following files are missing Title or Artist tags. Click "Auto-Fix All" to identify and tag them using Smart Match.
+                                The following files are missing metadata, cover art, or lyrics. Click "Auto-Fix All" to identify and tag them using Smart Match.
                             </p>
                             <button
                                 className="btn primary"

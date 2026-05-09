@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { execSync } from 'child_process';
 import { parseFile } from 'music-metadata';
+import type { IAudioMetadata } from 'music-metadata';
 
 function getAudioFingerprint(filePath: string): string | undefined {
     try {
@@ -16,6 +17,35 @@ function getAudioFingerprint(filePath: string): string | undefined {
     } catch {
         return undefined;
     }
+}
+
+function hasLyricsMetadata(metadata: IAudioMetadata): boolean {
+    if (
+        metadata.common.lyrics?.some((line: any) =>
+            String(typeof line === 'string' ? line : line?.text || '').trim()
+        )
+    ) {
+        return true;
+    }
+
+    const lyricTagNames = new Set([
+        'lyrics',
+        'syncedlyrics',
+        'unsyncedlyrics',
+        'synchronisedlyrics',
+        'unsynchronisedlyrics',
+        'uslt',
+        'sylt'
+    ]);
+
+    return Object.values(metadata.native || {}).some((tags) =>
+        tags.some((tag) => {
+            const id = tag.id.toLowerCase();
+            if (!lyricTagNames.has(id)) return false;
+            const value = Array.isArray(tag.value) ? tag.value.join('\n') : tag.value;
+            return String(value || '').trim().length > 0;
+        })
+    );
 }
 
 parentPort?.on('message', async (filePath: string) => {
@@ -71,8 +101,7 @@ parentPort?.on('message', async (filePath: string) => {
 
                 if (!metadata.common.picture || metadata.common.picture.length === 0)
                     missingTags.push('Cover Art');
-                if (!metadata.common.lyrics || metadata.common.lyrics.length === 0)
-                    missingTags.push('Lyrics');
+                if (!hasLyricsMetadata(metadata)) missingTags.push('Lyrics');
                 if (!metadata.common.genre || metadata.common.genre.length === 0)
                     missingTags.push('Genre');
                 if (!metadata.common.year && !metadata.common.date) missingTags.push('Year');
@@ -105,8 +134,18 @@ parentPort?.on('message', async (filePath: string) => {
             stream.on('error', () => resolve(''));
         });
 
-        const essentialMissing = missingTags.filter(tag => 
-            ['Title', 'Artist', 'Album', 'Genre', 'Year', 'All Metadata', 'Unreadable'].includes(tag)
+        const essentialMissing = missingTags.filter((tag) =>
+            [
+                'Title',
+                'Artist',
+                'Album',
+                'Genre',
+                'Year',
+                'Cover Art',
+                'Lyrics',
+                'All Metadata',
+                'Unreadable'
+            ].includes(tag)
         );
 
         parentPort?.postMessage({

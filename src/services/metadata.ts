@@ -96,6 +96,50 @@ class MetadataService {
         return `${filteredNames.join(', ')} & ${last}`;
     }
 
+    selectCoverUrl(image: RawData = {}, preferredSize = 'max'): string {
+        return this.getCoverUrlCandidates(image, preferredSize)[0] || '';
+    }
+
+    getCoverUrlCandidates(image: RawData = {}, preferredSize = 'max', seedUrl = ''): string[] {
+        const size = (preferredSize || 'max').toLowerCase();
+        const fieldOrder =
+            size === 'small'
+                ? ['small', 'thumbnail', 'large', 'extralarge', 'mega']
+                : size === 'large'
+                  ? ['large', 'extralarge', 'mega', 'small', 'thumbnail']
+                  : ['mega', 'extralarge', 'large', 'small', 'thumbnail'];
+
+        const baseUrls = [
+            seedUrl,
+            ...fieldOrder.map((field) => image?.[field])
+        ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
+
+        const candidates: string[] = [];
+        const add = (url: string) => {
+            const trimmed = url.trim();
+            if (trimmed && !candidates.includes(trimmed)) candidates.push(trimmed);
+        };
+
+        for (const url of baseUrls) {
+            if (size === 'max') {
+                add(this.replaceQobuzCoverSize(url, 'org'));
+                add(this.replaceQobuzCoverSize(url, 'max'));
+            } else if (size === 'large') {
+                add(this.replaceQobuzCoverSize(url, '600'));
+            } else if (size === 'small') {
+                add(this.replaceQobuzCoverSize(url, '230'));
+            }
+
+            add(url);
+        }
+
+        return candidates;
+    }
+
+    private replaceQobuzCoverSize(url: string, size: string): string {
+        return url.replace(/_(?:\d+|max|org)(\.[a-z0-9]+)(?:\?.*)?$/i, `_${size}$1`);
+    }
+
     async extractMetadata(
         trackData: RawData,
         albumData: RawData,
@@ -309,12 +353,7 @@ class MetadataService {
             hiresAvailable: album.hires || trackData.hires || false,
             parental: trackData.parental_warning || false,
 
-            coverUrl:
-                album.image?.mega ||
-                album.image?.extralarge ||
-                album.image?.large ||
-                album.image?.small ||
-                '',
+            coverUrl: this.selectCoverUrl(album.image, 'max'),
 
             description: album.description || '',
             comment: 'downloader by qbz-dl https://github.com/ifauzeee/QBZ-Downloader',

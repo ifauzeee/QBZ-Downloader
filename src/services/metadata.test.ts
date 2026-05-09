@@ -146,5 +146,33 @@ describe('MetadataService', () => {
             const metadata = await metadataService.extractMetadata(track, album);
             expect(metadata.coverUrl).toBe('http://example.com/large.jpg');
         });
+
+        it('should prefer original Qobuz artwork for max cover size', () => {
+            const candidates = metadataService.getCoverUrlCandidates(
+                {
+                    large: 'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_600.jpg'
+                },
+                'max'
+            );
+
+            expect(candidates[0]).toBe(
+                'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_org.jpg'
+            );
+            expect(candidates).toContain(
+                'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_600.jpg'
+            );
+        });
+
+        it('should keep fallback candidates unique when a seed url is provided', () => {
+            const candidates = metadataService.getCoverUrlCandidates(
+                {
+                    large: 'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_600.jpg'
+                },
+                'max',
+                'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_600.jpg'
+            );
+
+            expect(new Set(candidates).size).toBe(candidates.length);
+        });
     });
 });

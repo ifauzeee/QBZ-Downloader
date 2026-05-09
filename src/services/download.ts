@@ -108,6 +108,62 @@ export default class DownloadService {
         return path.resolve(candidate || './downloads');
     }
 
+    private async fetchCoverBuffer(
+        metadata: Metadata,
+        album: any
+    ): Promise<{ buffer: Buffer; url: string } | null> {
+        const { default: axios } = await import('axios');
+        const candidates = this.metadataService.getCoverUrlCandidates(
+            album?.image || {},
+            CONFIG.metadata.coverSize,
+            metadata.coverUrl
+        );
+
+        for (const url of candidates) {
+            try {
+                const response = await axios.get(url, {
+                    responseType: 'arraybuffer',
+                    timeout: 15000
+                });
+                const contentType = String(response.headers?.['content-type'] || '');
+                const buffer = Buffer.from(response.data);
+
+                if (buffer.length > 0 && (!contentType || contentType.startsWith('image/'))) {
+                    return { buffer, url };
+                }
+            } catch (e: any) {
+                logger.debug(`Cover candidate failed (${url}): ${e.message}`, 'COVER');
+            }
+        }
+
+        return null;
+    }
+
+    private buildQobuzLyrics(track: any) {
+        const qobuzLyrics = track?.lyrics;
+        if (!qobuzLyrics) return null;
+
+        const syncedLyrics =
+            typeof qobuzLyrics.sync === 'string' && qobuzLyrics.sync.trim()
+                ? qobuzLyrics.sync
+                : null;
+        const plainLyrics =
+            typeof qobuzLyrics.text === 'string' && qobuzLyrics.text.trim()
+                ? qobuzLyrics.text
+                : null;
+
+        if (!syncedLyrics && !plainLyrics) return null;
+
+        return {
+            success: true,
+            source: 'Qobuz',
+            syncedLyrics,
+            plainLyrics,
+            parsedLyrics: this.lyricsProvider.parseLrc(syncedLyrics),
+            syltFormat: this.lyricsProvider.toSylt(syncedLyrics)
+        };
+    }
+
     async downloadTrack(
         trackId: string | number,
         quality = 27,
@@ -222,13 +278,16 @@ export default class DownloadService {
             if (CONFIG.metadata.downloadLyrics) {
                 if (options.onProgress) options.onProgress({ phase: 'lyrics', loaded: 0 });
                 try {
-                    const res = await this.lyricsProvider.getLyrics(
-                        metadata.title,
-                        metadata.artist,
-                        metadata.album,
-                        metadata.duration,
-                        metadata.albumArtist
-                    );
+                    const qobuzLyrics = this.buildQobuzLyrics(track);
+                    const res =
+                        qobuzLyrics ||
+                        (await this.lyricsProvider.getLyrics(
+                            metadata.title,
+                            metadata.artist,
+                            metadata.album,
+                            metadata.duration,
+                            metadata.albumArtist
+                        ));
                     if (res.success) {
                         lyricsResult = res;
                         logger.success(`Lyrics found for: ${metadata.title} (Source: ${res.source})`, 'LYRICS');
@@ -248,11 +307,10 @@ export default class DownloadService {
             if (CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile) {
                 if (options.onProgress) options.onProgress({ phase: 'cover', loaded: 0 });
                 try {
-                    const coverUrl = metadata.coverUrl || album?.image?.mega || album?.image?.large;
-                    if (coverUrl) {
-                        const { default: axios } = await import('axios');
-                        const coverResponse = await axios.get(coverUrl, { responseType: 'arraybuffer' });
-                        coverBuffer = Buffer.from(coverResponse.data);
+                    const cover = await this.fetchCoverBuffer(metadata, album);
+                    if (cover) {
+                        coverBuffer = cover.buffer;
+                        metadata.coverUrl = cover.url;
                         if (CONFIG.metadata.saveCoverFile) {
                             writeFileSync(path.join(folderPath, 'cover.jpg'), coverBuffer);
                         }
