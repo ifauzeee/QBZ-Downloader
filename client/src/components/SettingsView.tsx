@@ -28,6 +28,10 @@ interface AppSettings {
     LYRICS_TYPE: string;
     DASHBOARD_PORT: number;
     DASHBOARD_PASSWORD_CONFIGURED: boolean;
+    AI_REPAIR_ENABLED: boolean;
+    AI_PROVIDER: string;
+    AI_API_KEY_CONFIGURED: boolean;
+    AI_MODEL: string;
 }
 
 interface Credentials {
@@ -68,7 +72,11 @@ export const SettingsView: React.FC = () => {
         saveLrcFile: true,
         lyricsType: 'both',
         dashboardPort: 3000,
-        dashboardPassword: ''
+        dashboardPassword: '',
+        aiRepairEnabled: false,
+        aiProvider: 'none',
+        aiApiKey: '',
+        aiModel: 'gemini-1.5-flash'
     });
     const [creds, setCreds] = useState<Credentials | null>(null);
     const [validationResult, setValidationResult] = useState<any>(null);
@@ -120,7 +128,11 @@ export const SettingsView: React.FC = () => {
                         data.SAVE_LRC_FILE !== undefined ? Boolean(data.SAVE_LRC_FILE) : true,
                     lyricsType: data.LYRICS_TYPE || 'both',
                     dashboardPort: Number(data.DASHBOARD_PORT || 3000),
-                    dashboardPassword: ''
+                    dashboardPassword: '',
+                    aiRepairEnabled: Boolean(data.AI_REPAIR_ENABLED),
+                    aiProvider: data.AI_PROVIDER || 'none',
+                    aiApiKey: '',
+                    aiModel: data.AI_MODEL || 'gemini-1.5-flash'
                 });
             }
             if (cRes && cRes.ok) setCreds(await cRes.json());
@@ -178,11 +190,18 @@ export const SettingsView: React.FC = () => {
                 embed_lyrics: settingsForm.embedLyrics,
                 save_lrc_file: settingsForm.saveLrcFile,
                 lyrics_type: settingsForm.lyricsType,
-                dashboard_port: settingsForm.dashboardPort
+                dashboard_port: settingsForm.dashboardPort,
+                ai_repair_enabled: settingsForm.aiRepairEnabled,
+                ai_provider: settingsForm.aiProvider,
+                ai_model: settingsForm.aiModel
             };
 
             if (settingsForm.dashboardPassword.trim()) {
                 payload.dashboard_password = settingsForm.dashboardPassword.trim();
+            }
+
+            if (settingsForm.aiApiKey.trim()) {
+                payload.ai_api_key = settingsForm.aiApiKey.trim();
             }
 
             const res = await smartFetch('/api/settings/update', {
@@ -629,6 +648,76 @@ export const SettingsView: React.FC = () => {
                                 onChange={() => { }}
                             />
                             <label>{t('label_save_lrc')}</label>
+                        </div>
+                    </div>
+                </div>
+                <div style={{ marginTop: '32px' }}>
+                    <button className="btn primary hero" onClick={updateAppSettings} style={{ minHeight: '52px', padding: '0 40px' }}>
+                        {t('action_save_settings')}
+                    </button>
+                </div>
+            </div>
+
+            <div className="settings-section">
+                <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="icon">🤖</span> {t('sec_ai_metadata')}
+                </h3>
+                <p className="section-desc">{t('desc_ai_metadata')}</p>
+                <div className="update-cred-grid">
+                    <div className="form-group">
+                        <label>{t('label_ai_provider')}</label>
+                        <select
+                            value={settingsForm.aiProvider}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, aiProvider: e.target.value }))
+                            }
+                        >
+                            <option value="none">None</option>
+                            <option value="gemini">Google Gemini</option>
+                            <option value="openai">OpenAI</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>{t('label_ai_model')}</label>
+                        <input
+                            type="text"
+                            placeholder={
+                                settingsForm.aiProvider === 'gemini' 
+                                    ? 'e.g. gemini-1.5-flash' 
+                                    : 'e.g. gpt-4o'
+                            }
+                            value={settingsForm.aiModel}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, aiModel: e.target.value }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                        <label>{t('label_ai_api_key')}</label>
+                        <input
+                            type="password"
+                            placeholder={
+                                settings?.AI_API_KEY_CONFIGURED
+                                    ? 'Configured (leave blank to keep current key)'
+                                    : 'Enter API Key...'
+                            }
+                            value={settingsForm.aiApiKey}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    aiApiKey: e.target.value
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="settings-checkbox-group" style={{ gridColumn: 'span 2' }}>
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, aiRepairEnabled: !prev.aiRepairEnabled }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.aiRepairEnabled}
+                                onChange={() => { }}
+                            />
+                            <label>{t('label_ai_enabled')}</label>
                         </div>
                     </div>
                 </div>

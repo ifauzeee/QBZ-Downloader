@@ -36,7 +36,11 @@ const APP_SETTING_KEYS = new Set([
     'DASHBOARD_PASSWORD',
     'STREAMING_QUALITY',
     'SPOTIFY_CLIENT_ID',
-    'SPOTIFY_CLIENT_SECRET'
+    'SPOTIFY_CLIENT_SECRET',
+    'AI_REPAIR_ENABLED',
+    'AI_PROVIDER',
+    'AI_API_KEY',
+    'AI_MODEL'
 ]);
 
 router.get('/status', (req: Request, res: Response) => {
@@ -103,7 +107,11 @@ router.get('/settings', (req: Request, res: Response) => {
         DASHBOARD_PORT: CONFIG.dashboard.port,
         DASHBOARD_PASSWORD_CONFIGURED: !!CONFIG.dashboard.password,
         SPOTIFY_CLIENT_ID: CONFIG.spotify.clientId,
-        SPOTIFY_CLIENT_SECRET: CONFIG.spotify.clientSecret ? '****' : ''
+        SPOTIFY_CLIENT_SECRET: CONFIG.spotify.clientSecret ? '****' : '',
+        AI_REPAIR_ENABLED: CONFIG.ai.enabled,
+        AI_PROVIDER: CONFIG.ai.provider,
+        AI_API_KEY_CONFIGURED: !!CONFIG.ai.apiKey,
+        AI_MODEL: CONFIG.ai.model
     });
 });
 
@@ -146,6 +154,10 @@ router.post('/settings/update', async (req: Request, res: Response) => {
         setIfDefined('DASHBOARD_PASSWORD', body.dashboard_password);
         setIfDefined('SPOTIFY_CLIENT_ID', body.spotify_client_id);
         setIfDefined('SPOTIFY_CLIENT_SECRET', body.spotify_client_secret);
+        setIfDefined('AI_REPAIR_ENABLED', body.ai_repair_enabled);
+        setIfDefined('AI_PROVIDER', body.ai_provider);
+        setIfDefined('AI_API_KEY', body.ai_api_key);
+        setIfDefined('AI_MODEL', body.ai_model);
 
         if (body.settings && typeof body.settings === 'object') {
             for (const [key, value] of Object.entries(body.settings)) {

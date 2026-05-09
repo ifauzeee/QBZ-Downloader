@@ -186,6 +186,12 @@ vi.mock('../../config.js', () => ({
         dashboard: {
             port: 3000,
             password: ''
+        },
+        ai: {
+            enabled: false,
+            provider: 'none',
+            apiKey: '',
+            model: 'gemini-1.5-flash'
         }
     }
 }));
