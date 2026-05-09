@@ -110,7 +110,7 @@ export default class DownloadService {
 
     private async fetchCoverBuffer(
         metadata: Metadata,
-        album: Album
+        album: any
     ): Promise<{ buffer: Buffer; url: string } | null> {
         const { default: axios } = await import('axios');
         const candidates = this.metadataService.getCoverUrlCandidates(
@@ -139,7 +139,7 @@ export default class DownloadService {
         return null;
     }
 
-    private buildQobuzLyrics(track: Track) {
+    private buildQobuzLyrics(track: Track): LyricsResult | null {
         const qobuzLyrics = track?.lyrics;
         if (!qobuzLyrics) return null;
 
@@ -156,11 +156,13 @@ export default class DownloadService {
 
         return {
             success: true,
-            source: 'Qobuz',
-            syncedLyrics,
-            plainLyrics,
-            parsedLyrics: this.lyricsProvider.parseLrc(syncedLyrics),
-            syltFormat: this.lyricsProvider.toSylt(syncedLyrics)
+            syncedLyrics: !!syncedLyrics,
+            synced: syncedLyrics,
+            plainLyrics: plainLyrics || undefined,
+            unsynced: plainLyrics,
+            parsedLyrics: syncedLyrics ? this.lyricsProvider.parseLrc(syncedLyrics) : undefined,
+            // @ts-ignore - syltFormat is an extension
+            syltFormat: syncedLyrics ? this.lyricsProvider.toSylt(syncedLyrics) : undefined
         };
     }
 
@@ -195,7 +197,7 @@ export default class DownloadService {
             try {
                 const fullAlbumInfo = await retryOperation(
                     async () => {
-                        const res = await this.api.getAlbum(album.id);
+                        const res = await this.api.getAlbum(album.id!);
                         if (!res.success) throw new Error(res.error || 'Failed to fetch album info');
                         return res;
                     },
@@ -204,7 +206,7 @@ export default class DownloadService {
                     'ALBUM_INFO'
                 );
                 if (fullAlbumInfo.success && fullAlbumInfo.data) {
-                    album = fullAlbumInfo.data;
+                    album = fullAlbumInfo.data as Album;
                 }
             } catch (e: unknown) {
                 logger.warn(`Failed to fetch full album info: ${(e as Error).message}`, 'DOWNLOAD');
@@ -306,15 +308,15 @@ export default class DownloadService {
 
                     if (lyricsResult && CONFIG.metadata.saveLrcFile) {
                         const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
-                        writeFileSync(lrcPath, lyricsResult.syncedLyrics || lyricsResult.plainLyrics || '', 'utf8');
+                        writeFileSync(lrcPath, (lyricsResult.synced || lyricsResult.plainLyrics || '') as string, 'utf8');
                     }
-                } catch (e: any) {
-                    logger.error(`Lyrics acquisition error: ${e.message}`, 'LYRICS');
+                } catch (e: unknown) {
+                    logger.error(`Lyrics acquisition error: ${(e as Error).message}`, 'LYRICS');
                 }
             }
 
             let coverBuffer: Buffer | null = null;
-            if (CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile) {
+            if (album && (CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile)) {
                 if (options.onProgress) options.onProgress({ phase: 'cover', loaded: 0 });
                 try {
                     const cover = await this.fetchCoverBuffer(metadata, album);
@@ -325,8 +327,8 @@ export default class DownloadService {
                             writeFileSync(path.join(folderPath, 'cover.jpg'), coverBuffer);
                         }
                     }
-                } catch (e: any) {
-                    logger.warn(`Cover error: ${e.message}`, 'COVER');
+                } catch (e: unknown) {
+                    logger.warn(`Cover error: ${(e as Error).message}`, 'COVER');
                 }
             }
 

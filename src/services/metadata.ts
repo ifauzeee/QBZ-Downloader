@@ -767,7 +767,7 @@ class MetadataService {
 
             let metadataInserted = false;
 
-            processor.on('preprocess', (mdb: { type: number; remove: () => void }) => {
+            processor.on('preprocess', (mdb: { type: number; remove: () => void; isLast: boolean }) => {
                 if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
                     mdb.remove();
                     return;

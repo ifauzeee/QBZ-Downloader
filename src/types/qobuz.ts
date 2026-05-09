@@ -124,14 +124,17 @@ export interface SearchResults {
 
 export interface LyricsResult {
     success: boolean;
-    syncedLyrics?: boolean;
-    parsedLyrics?: { timeStr: string; text: string }[];
-    plainLyrics?: string;
+    source?: string;
+    syncedLyrics?: any;
+    plainLyrics?: string | null;
+    parsedLyrics?: any[] | null;
+    syltFormat?: any[] | null;
     synced?: string | null;
     unsynced?: string | null;
     copyright?: string | null;
     writer?: string | null;
     error?: string;
+    [key: string]: any;
 }
 
 export interface FileUrlData {

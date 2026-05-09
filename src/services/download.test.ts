@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DownloadService from './download.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
-import MetadataService from './metadata.js';
+import MetadataService, { Metadata } from './metadata.js';
 
 vi.mock('../api/qobuz.js');
 vi.mock('../api/lyrics.js');

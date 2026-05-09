@@ -443,7 +443,7 @@ export class BatchImportService {
         }
 
         if (validation.type && validation.id) {
-            const type = validation.type as 'track' | 'album' | 'artist' | 'playlist' | 'label';
+            const type = validation.type as any;
             downloadQueue.add(type, validation.id, quality, {
                 title: `${type}: ${validation.id}`,
                 metadata: { source: 'batch-import', batchId }
