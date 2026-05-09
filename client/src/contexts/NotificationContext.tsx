@@ -83,7 +83,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             socket.off('notifications:unreadCount', handleUnreadCount);
             socket.off('notifications:history', handleHistory);
         };
-    }, [socket, addToast]);
+    }, [socket, showToast]);
 
     const markAsRead = async (id: string) => {
         try {

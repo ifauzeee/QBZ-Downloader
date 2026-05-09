@@ -1,6 +1,5 @@
 import React from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
-import type { Notification } from '../contexts/NotificationContext';
 import { Icons } from './Icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
