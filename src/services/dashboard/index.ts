@@ -13,6 +13,7 @@ import { registerRoutes } from './routes.js';
 import { CONFIG } from '../../config.js';
 import { libraryScannerService } from '../library-scanner/index.js';
 import { notificationService } from '../notifications.js';
+import { printBox } from '../../utils/ui.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -244,7 +245,6 @@ export class DashboardService {
             this.httpServer.listen(this.port, '127.0.0.1', async () => {
 
                 try {
-                    const { default: boxen } = await import('boxen');
                     const message = `
 ${chalk.bold.green('Dashboard Active')}
 
@@ -252,16 +252,7 @@ Local:   ${chalk.cyan(`http://localhost:${this.port}`)}
 Status:  ${chalk.green('Running')}
 Mode:    ${CONFIG.dashboard.password ? chalk.red('Protected') : chalk.yellow('Public')}
 `;
-                    console.log(
-                        boxen(message, {
-                            padding: 1,
-                            margin: 1,
-                            borderStyle: 'round',
-                            borderColor: 'cyan',
-                            title: 'Server Info',
-                            titleAlignment: 'center'
-                        })
-                    );
+                    printBox(message, 'Server Info', 'success');
                 } catch {
                     logger.success(
                         `Web Interface available at http://localhost:${this.port}`,

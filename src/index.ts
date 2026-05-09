@@ -11,8 +11,8 @@ import { historyService } from './services/history.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
 import { logger } from './utils/logger.js';
 import figlet from 'figlet';
-import gradient from 'gradient-string';
 import { playlistWatcherService } from './services/PlaylistWatcherService.js';
+import { printLogo } from './utils/ui.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf-8'));
@@ -41,16 +41,7 @@ async function gracefulShutdown(signal: string) {
 }
 
 function displayBanner() {
-    console.clear();
-    const title = figlet.textSync(`QBZ-DL v${version}`, {
-        font: 'Slant',
-        horizontalLayout: 'default',
-        verticalLayout: 'default'
-    });
-
-    console.log(gradient.pastel.multiline(title));
-    console.log(gradient.pastel('  Premium High-Res Audio Downloader & Manager\n'));
-
+    printLogo();
     logger.system('Initializing application components...', 'BOOT');
 }
 
