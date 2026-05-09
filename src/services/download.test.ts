@@ -43,9 +43,9 @@ vi.mock('./settings.js', () => ({
 
 describe('DownloadService', () => {
     let downloadService: DownloadService;
-    let mockApi: any;
-    let mockLyrics: any;
-    let mockMetadata: any;
+    let mockApi: QobuzAPI;
+    let mockLyrics: LyricsProvider;
+    let mockMetadata: MetadataService;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -104,8 +104,8 @@ describe('DownloadService', () => {
         });
 
         it('should return Unknown for null/undefined', () => {
-            expect(downloadService.sanitizeFilename(null as any)).toBe('Unknown');
-            expect(downloadService.sanitizeFilename(undefined as any)).toBe('Unknown');
+            expect(downloadService.sanitizeFilename(null as unknown as string)).toBe('Unknown');
+            expect(downloadService.sanitizeFilename(undefined as unknown as string)).toBe('Unknown');
         });
 
         it('should truncate long names to 128 chars', () => {
@@ -136,7 +136,7 @@ describe('DownloadService', () => {
                 year: 2024
             };
 
-            const result = downloadService.buildFilename(metadata as any, 27);
+            const result = downloadService.buildFilename(metadata as unknown as Metadata, 27);
             expect(result).toContain('01');
             expect(result).toContain('Test Track');
             expect(result).toMatch(/\.flac$/);
@@ -150,7 +150,7 @@ describe('DownloadService', () => {
                 trackNumber: 5
             };
 
-            const result = downloadService.buildFilename(metadata as any, 27);
+            const result = downloadService.buildFilename(metadata as unknown as Metadata, 27);
             expect(result).toContain('05');
         });
 
@@ -161,7 +161,7 @@ describe('DownloadService', () => {
                 album: 'Album'
             };
 
-            const result = downloadService.buildFilename(metadata as any, 27);
+            const result = downloadService.buildFilename(metadata as unknown as Metadata, 27);
             expect(result).toContain('01');
         });
 
@@ -171,7 +171,7 @@ describe('DownloadService', () => {
                 trackNumber: 1
             };
 
-            const result = downloadService.buildFilename(metadata as any, 5);
+            const result = downloadService.buildFilename(metadata as unknown as Metadata, 5);
             expect(result).toMatch(/\.mp3$/);
         });
     });
@@ -185,7 +185,7 @@ describe('DownloadService', () => {
                 year: 2024
             };
 
-            const result = downloadService.buildFolderPath(metadata as any, 27);
+            const result = downloadService.buildFolderPath(metadata as unknown as Metadata, 27);
             expect(result).toContain('Test Album Artist');
             expect(result).toContain('Test Album');
         });
@@ -196,7 +196,7 @@ describe('DownloadService', () => {
                 album: 'Test Album'
             };
 
-            const result = downloadService.buildFolderPath(metadata as any, 27);
+            const result = downloadService.buildFolderPath(metadata as unknown as Metadata, 27);
             expect(result).toContain('Test Artist');
         });
     });

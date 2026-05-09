@@ -47,8 +47,8 @@ export class ResumeService {
                     logger.debug(`Resume: Loaded ${this.partials.size} partial downloads`);
                 }
             }
-        } catch (error: any) {
-            logger.warn(`Resume: Failed to load (${error.message})`);
+        } catch (error: unknown) {
+            logger.warn(`Resume: Failed to load (${(error as Error).message})`);
         }
     }
 
@@ -65,8 +65,8 @@ export class ResumeService {
             };
 
             fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf8');
-        } catch (error: any) {
-            logger.error(`Resume: Failed to save (${error.message})`);
+        } catch (error: unknown) {
+            logger.error(`Resume: Failed to save (${(error as Error).message})`);
         }
     }
 
@@ -160,7 +160,7 @@ export class BatchImportService {
     }
 
     private setupListeners() {
-        downloadQueue.on('item:completed', (item: any) => {
+        downloadQueue.on('item:completed', (item: { metadata?: any; filePath?: string }) => {
             if (item.metadata && item.metadata.batchId) {
                 if (item.metadata.batchFiles && Array.isArray(item.metadata.batchFiles)) {
                     this.updateBatchProgress(
@@ -175,7 +175,7 @@ export class BatchImportService {
             }
         });
 
-        downloadQueue.on('item:failed', (item: any) => {
+        downloadQueue.on('item:failed', (item: { metadata?: any }) => {
             if (item.metadata && item.metadata.batchId) {
                 this.updateBatchProgress(item.metadata.batchId, 'failed');
             }
@@ -261,8 +261,8 @@ export class BatchImportService {
             }
 
             await archive.finalize();
-        } catch (error: any) {
-            logger.error(`Failed to create ZIP: ${error.message}`, 'BATCH');
+        } catch (error: unknown) {
+            logger.error(`Failed to create ZIP: ${(error as Error).message}`, 'BATCH');
         }
     }
 
@@ -384,9 +384,9 @@ export class BatchImportService {
             try {
                 await this.addToQueue(url, quality);
                 imported++;
-            } catch (error: any) {
+            } catch (error: unknown) {
                 failed++;
-                errors.push(`${url}: ${error.message}`);
+                errors.push(`${url}: ${(error as Error).message}`);
             }
         }
 
@@ -423,9 +423,9 @@ export class BatchImportService {
             try {
                 await this.addToQueue(url, quality, batchId);
                 imported++;
-            } catch (error: any) {
+            } catch (error: unknown) {
                 failed++;
-                errors.push(`${url}: ${error.message}`);
+                errors.push(`${url}: ${(error as Error).message}`);
                 if (batchId) {
                     this.updateBatchProgress(batchId, 'failed');
                 }
@@ -443,7 +443,7 @@ export class BatchImportService {
         }
 
         if (validation.type && validation.id) {
-            const type = validation.type as any;
+            const type = validation.type as 'track' | 'album' | 'artist' | 'playlist' | 'label';
             downloadQueue.add(type, validation.id, quality, {
                 title: `${type}: ${validation.id}`,
                 metadata: { source: 'batch-import', batchId }

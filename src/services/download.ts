@@ -1,6 +1,5 @@
 import path from 'path';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
-import pLimit from 'p-limit';
 
 import { logger } from '../utils/logger.js';
 import { retryOperation } from '../utils/async.js';
@@ -8,7 +7,7 @@ import { CONFIG, normalizeDownloadQuality } from '../config.js';
 import QobuzAPI from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import MetadataService, { Metadata } from './metadata.js';
-import { Album, FileUrlData } from '../types/qobuz.js';
+import { Album, FileUrlData, Track, LyricsResult } from '../types/qobuz.js';
 import { historyService } from './history.js';
 import { resumeService } from './batch.js';
 
@@ -30,7 +29,7 @@ interface DownloadOptions {
     onQuality?: (quality: number) => void;
     trackIndices?: number[];
     skipExisting?: boolean;
-    album?: any;
+    album?: Album;
 }
 
 export interface BatchProgressCallback {
@@ -73,7 +72,7 @@ interface DownloadResult {
     failedTracks?: number;
     totalTracks?: number;
     name?: string;
-    lyrics?: any;
+    lyrics?: LyricsResult | null;
     skipped?: boolean;
 }
 
@@ -111,7 +110,7 @@ export default class DownloadService {
 
     private async fetchCoverBuffer(
         metadata: Metadata,
-        album: any
+        album: Album
     ): Promise<{ buffer: Buffer; url: string } | null> {
         const { default: axios } = await import('axios');
         const candidates = this.metadataService.getCoverUrlCandidates(
@@ -132,15 +131,15 @@ export default class DownloadService {
                 if (buffer.length > 0 && (!contentType || contentType.startsWith('image/'))) {
                     return { buffer, url };
                 }
-            } catch (e: any) {
-                logger.debug(`Cover candidate failed (${url}): ${e.message}`, 'COVER');
+            } catch (e: unknown) {
+                logger.debug(`Cover candidate failed (${url}): ${(e as Error).message}`, 'COVER');
             }
         }
 
         return null;
     }
 
-    private buildQobuzLyrics(track: any) {
+    private buildQobuzLyrics(track: Track) {
         const qobuzLyrics = track?.lyrics;
         if (!qobuzLyrics) return null;
 
@@ -185,8 +184,8 @@ export default class DownloadService {
                 1000,
                 'TRACK_INFO'
             );
-        } catch (e: any) {
-            return { success: false, error: e.message };
+        } catch (e: unknown) {
+            return { success: false, error: (e as Error).message };
         }
 
         const track = trackInfo.data!;
@@ -207,8 +206,8 @@ export default class DownloadService {
                 if (fullAlbumInfo.success && fullAlbumInfo.data) {
                     album = fullAlbumInfo.data;
                 }
-            } catch (e: any) {
-                logger.warn(`Failed to fetch full album info: ${e.message}`, 'DOWNLOAD');
+            } catch (e: unknown) {
+                logger.warn(`Failed to fetch full album info: ${(e as Error).message}`, 'DOWNLOAD');
             }
         }
 
@@ -224,8 +223,8 @@ export default class DownloadService {
                 1000,
                 'FILE_URL'
             );
-        } catch (e: any) {
-            return { success: false, error: e.message };
+        } catch (e: unknown) {
+            return { success: false, error: (e as Error).message };
         }
 
         const fileUrlData = fileUrl.data as FileUrlData;
@@ -428,7 +427,7 @@ export default class DownloadService {
             if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true });
             const logPath = path.join(folderPath, 'missing_tracks.txt');
             const timestamp = new Date().toLocaleString();
-            let content = `QBZ-Downloader - Missing Tracks Log\n`;
+            let content = 'QBZ-Downloader - Missing Tracks Log\n';
             content += `Generated: ${timestamp}\n`;
             content += `${'='.repeat(50)}\n\n`;
 

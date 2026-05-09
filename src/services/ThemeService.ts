@@ -75,7 +75,7 @@ class ThemeService {
 
     async getAll(): Promise<Theme[]> {
         const db = databaseService.getDb();
-        const rows = db.prepare('SELECT * FROM themes ORDER BY created_at DESC').all() as any[];
+        const rows = db.prepare('SELECT * FROM themes ORDER BY created_at DESC').all() as Theme[];
 
         return rows.map((row) => ({
             id: row.id,
@@ -89,7 +89,7 @@ class ThemeService {
 
     async get(id: string): Promise<Theme | null> {
         const db = databaseService.getDb();
-        const row = db.prepare('SELECT * FROM themes WHERE id = ?').get(id) as any;
+        const row = db.prepare('SELECT * FROM themes WHERE id = ?').get(id) as Theme;
 
         if (!row) return null;
 

@@ -71,8 +71,8 @@ export class RecommendationService {
 
             return recommendations;
 
-        } catch (error: any) {
-            logger.error(`RecommendationService: Failed to get recommendations: ${error.message}`);
+        } catch (error: unknown) {
+            logger.error(`RecommendationService: Failed to get recommendations: ${(error as Error).message}`);
             return [];
         }
     }
