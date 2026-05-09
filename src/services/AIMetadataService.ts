@@ -20,8 +20,8 @@ export class AIMetadataService {
                 return await this.repairWithOpenAI(currentMetadata, apiKey, model);
             }
             return null;
-        } catch (error: any) {
-            let message = error.message || 'Unknown error';
+        } catch (error: unknown) {
+            let message = error instanceof Error ? error.message : 'Unknown error';
             if (apiKey) {
                 message = message.split(apiKey).join('***REDACTED***');
             }

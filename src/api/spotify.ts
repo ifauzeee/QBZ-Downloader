@@ -52,8 +52,9 @@ class SpotifyAPI {
             logger.info('Spotify API: Successfully authenticated', 'SPOTIFY');
             return true;
         } catch (error: unknown) {
-            const err = error as any;
-            logger.error(`Spotify Auth Error: ${err.response?.data?.error || err.message}`, 'SPOTIFY');
+            const err = error as { response?: { data?: { error?: string } }; message?: string };
+            const errorMsg = err.response?.data?.error || err.message || String(error);
+            logger.error(`Spotify Auth Error: ${errorMsg}`, 'SPOTIFY');
             return false;
         }
 

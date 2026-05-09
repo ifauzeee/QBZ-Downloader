@@ -1,6 +1,6 @@
 import { promises as fs, existsSync } from 'fs';
 import path from 'path';
-import { databaseService } from './database/index.js';
+import { databaseService, DbTrack } from './database/index.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../config.js';
 import { aiMetadataService } from './AIMetadataService.js';
@@ -39,7 +39,7 @@ export class LibraryHealerService {
         return report;
     }
 
-    private async healTrack(track: any, report: HealingReport) {
+    private async healTrack(track: DbTrack, report: HealingReport) {
         let exists = false;
         try {
             await fs.access(track.file_path);

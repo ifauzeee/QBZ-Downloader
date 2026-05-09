@@ -54,14 +54,16 @@ export class FormatConverterService {
                 try {
                     unlinkSync(inputPath);
                     logger.debug(`Converter: Original file removed: ${path.basename(inputPath)}`, 'CONVERTER');
-                } catch (e: any) {
-                    logger.warn(`Converter: Failed to remove original file: ${e.message}`, 'CONVERTER');
+                } catch (e: unknown) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    logger.warn(`Converter: Failed to remove original file: ${message}`, 'CONVERTER');
                 }
             }
 
             return outputPath;
-        } catch (error: any) {
-            logger.error(`Converter: Conversion failed: ${error.message}`, 'CONVERTER');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`Converter: Conversion failed: ${message}`, 'CONVERTER');
             return null;
         }
     }

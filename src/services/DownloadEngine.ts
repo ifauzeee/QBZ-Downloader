@@ -60,9 +60,10 @@ export class DownloadEngine {
                     existingData.on('end', resolve);
                     existingData.on('error', reject);
                 });
-            } catch (hashErr: any) {
-                logger.error(`Critical failure re-hashing existing part: ${hashErr.message}`, 'DOWNLOAD');
-                throw new Error(`Integrity check failed: Could not re-hash existing file part for resume. ${hashErr.message}`);
+            } catch (hashErr: unknown) {
+                const message = hashErr instanceof Error ? hashErr.message : String(hashErr);
+                logger.error(`Critical failure re-hashing existing part: ${message}`, 'DOWNLOAD');
+                throw new Error(`Integrity check failed: Could not re-hash existing file part for resume. ${message}`);
             }
         }
 

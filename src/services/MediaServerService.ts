@@ -30,8 +30,9 @@ export class MediaServerService {
                     await this.notifyWebhook(url, data);
                     break;
             }
-        } catch (error: any) {
-            logger.error(`MediaServer Notification Failed (${type}): ${error.message}`, 'MEDIA');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`MediaServer Notification Failed (${type}): ${message}`, 'MEDIA');
         }
     }
 
@@ -57,27 +58,30 @@ export class MediaServerService {
         logger.success('MediaServer: Webhook notification sent.', 'MEDIA');
     }
 
-    async testConnection(type: string, url: string, token: string, libraryId?: string) {
+    async testConnection(type: string, url: string, token: string, _libraryId?: string) {
         if (!url) throw new Error('URL is required');
 
         try {
             switch (type) {
-                case 'plex':
+                case 'plex': {
                     const plexEndpoint = `${url}/identity?X-Plex-Token=${token}`;
                     await axios.get(plexEndpoint, { timeout: 5000 });
                     return { success: true, message: 'Connected to Plex successfully' };
-                case 'jellyfin':
+                }
+                case 'jellyfin': {
                     const jellyEndpoint = `${url}/System/Info?api_key=${token}`;
                     await axios.get(jellyEndpoint, { timeout: 5000 });
                     return { success: true, message: 'Connected to Jellyfin successfully' };
+                }
                 case 'webhook':
                     await axios.post(url, { event: 'ping', timestamp: new Date().toISOString() }, { timeout: 5000 });
                     return { success: true, message: 'Webhook test ping successful' };
                 default:
                     throw new Error('Invalid media server type');
             }
-        } catch (error: any) {
-            const msg = error.response?.data?.message || error.message;
+        } catch (error: unknown) {
+            const err = error as any;
+            const msg = err.response?.data?.message || err.message || String(error);
             throw new Error(`Connection failed: ${msg}`);
         }
     }
