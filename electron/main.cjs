@@ -414,8 +414,8 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       spellcheck: false,
-      webSecurity: false,
-      allowRunningInsecureContent: true
+      webSecurity: true,
+      allowRunningInsecureContent: false
     }
   });
 

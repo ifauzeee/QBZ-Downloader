@@ -45,6 +45,18 @@ export class DashboardService {
     }
 
     private setupMiddleware(): void {
+        this.app.use((_req: Request, res: Response, next: NextFunction) => {
+            res.setHeader(
+                'Content-Security-Policy',
+                "default-src 'self'; " +
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                "style-src 'self' 'unsafe-inline'; " +
+                "img-src 'self' data: https: http:; " +
+                "connect-src 'self' ws: wss: http: https:; " +
+                "font-src 'self' data: https:;"
+            );
+            next();
+        });
         this.app.use(express.json());
 
 
