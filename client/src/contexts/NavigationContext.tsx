@@ -11,6 +11,7 @@ export type Tab =
     | 'settings'
     | 'logs'
     | 'health'
+    | 'recommendations'
     | 'metadata'
     | 'album'
     | 'artist'
@@ -18,11 +19,11 @@ export type Tab =
     | 'artist_tracks';
 
 const ALLOWED_TABS: Tab[] = [
-    'queue', 'search', 'batch', 'statistics', 'library', 'playlists', 'history', 'metadata', 'settings', 'logs', 'health'
+    'queue', 'search', 'batch', 'statistics', 'library', 'playlists', 'history', 'metadata', 'settings', 'logs', 'health', 'recommendations'
 ];
 
 const ALLOWED_ROUTES: string[] = [
-    'queue', 'search', 'batch', 'statistics', 'library', 'playlists', 'history', 'metadata', 'settings', 'logs', 'health'
+    'queue', 'search', 'batch', 'statistics', 'library', 'playlists', 'history', 'metadata', 'settings', 'logs', 'health', 'recommendations'
 ];
 
 export interface SearchState {

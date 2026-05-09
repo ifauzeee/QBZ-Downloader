@@ -21,6 +21,7 @@ import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { LogView } from './components/LogView';
 import { LibraryHealthView } from './components/LibraryHealthView';
+import { RecommendationsView } from './components/RecommendationsView';
 import { AddUrlModal, LoginModal } from './components/Modals';
 import { DesktopSetupGate } from './components/DesktopSetupGate';
 import { useNotifications } from './contexts/NotificationContext';
@@ -205,6 +206,7 @@ function AppContent() {
     { id: 'statistics', icon: <Icons.Analytics />, label: t('menu_analytics') },
     { id: 'health', icon: <Icons.Security />, label: 'Library Health' },
     { id: 'library', icon: <Icons.Library />, label: t('menu_library') },
+    { id: 'recommendations', icon: <Icons.Sparkles />, label: t('menu_recommendations') || 'Recommendations' },
     { id: 'playlists', icon: <Icons.Playlist />, label: t('menu_playlists') },
     { id: 'history', icon: <Icons.History />, label: t('menu_history') },
     { id: 'logs', icon: <Icons.Logs />, label: 'System Logs' },
@@ -219,6 +221,7 @@ function AppContent() {
       statistics: t('title_analytics'),
       health: 'Library Health',
       library: t('title_library'),
+      recommendations: t('title_recommendations') || 'Recommendations',
       playlists: t('title_playlists'),
       history: t('title_history'),
       logs: 'System Logs',
@@ -577,6 +580,7 @@ function AppContent() {
                     {activeTab === 'statistics' && <AnalyticsView />}
                     {activeTab === 'health' && <LibraryHealthView />}
                     {activeTab === 'library' && <LibraryView />}
+                    {activeTab === 'recommendations' && <RecommendationsView />}
                     {activeTab === 'playlists' && <PlaylistsView />}
                     {activeTab === 'history' && <HistoryView />}
                     {activeTab === 'logs' && <LogView />}
