@@ -50,7 +50,8 @@ const KNOWN_SETTING_KEYS = [
     'AI_REPAIR_ENABLED',
     'AI_PROVIDER',
     'AI_API_KEY',
-    'AI_MODEL'
+    'AI_MODEL',
+    'BANDWIDTH_LIMIT'
 ] as const;
 
 export type KnownSettingKey = (typeof KNOWN_SETTING_KEYS)[number];

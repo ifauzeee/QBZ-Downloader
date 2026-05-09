@@ -179,7 +179,8 @@ vi.mock('../../config.js', () => ({
             fileNaming: '{track_number}. {title}',
             concurrent: 2,
             retryAttempts: 3,
-            retryDelay: 1000
+            retryDelay: 1000,
+            bandwidthLimit: 0
         },
         metadata: {
             embedCover: true,

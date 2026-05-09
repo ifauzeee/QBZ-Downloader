@@ -51,7 +51,8 @@ const APP_SETTING_KEYS = new Set([
     'EXPORT_FORMAT',
     'EXPORT_BITRATE',
     'EXPORT_KEEP_ORIGINAL',
-    'EXPORT_PATH'
+    'EXPORT_PATH',
+    'BANDWIDTH_LIMIT'
 ]);
 
 router.get('/status', (req: Request, res: Response) => {
@@ -133,6 +134,7 @@ router.get('/settings', async (req: Request, res: Response) => {
         EXPORT_BITRATE: CONFIG.export.bitrate,
         EXPORT_KEEP_ORIGINAL: CONFIG.export.keepOriginal,
         EXPORT_PATH: CONFIG.export.outputDir,
+        BANDWIDTH_LIMIT: CONFIG.download.bandwidthLimit,
         FFMPEG_AVAILABLE: await formatConverterService.isAvailable()
     });
 });
@@ -190,6 +192,7 @@ router.post('/settings/update', async (req: Request, res: Response) => {
         setIfDefined('EXPORT_BITRATE', body.export_bitrate);
         setIfDefined('EXPORT_KEEP_ORIGINAL', body.export_keep_original);
         setIfDefined('EXPORT_PATH', body.export_path);
+        setIfDefined('BANDWIDTH_LIMIT', body.bandwidth_limit);
 
         if (body.settings && typeof body.settings === 'object') {
             for (const [key, value] of Object.entries(body.settings)) {

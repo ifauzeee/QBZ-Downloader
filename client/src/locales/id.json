@@ -110,6 +110,8 @@
     "label_export_path": "Folder Ekspor (Opsional)",
     "msg_ffmpeg_missing": "ffmpeg tidak terinstal atau tidak ada di PATH. Konversi tidak akan berfungsi.",
     "msg_ffmpeg_found": "ffmpeg terdeteksi dan siap.",
+    "label_bandwidth_limit": "Batas Bandwidth (KB/s)",
+    "desc_bandwidth_limit": "Set ke 0 untuk kecepatan tanpa batas. Nilai berlaku per-aliran.",
     "label_total": "Total",
     "label_downloading": "Mengunduh",
     "label_completed": "Selesai",

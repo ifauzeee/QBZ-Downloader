@@ -110,6 +110,8 @@
     "label_export_path": "Export Path (Optional)",
     "msg_ffmpeg_missing": "ffmpeg is not installed or not in PATH. Conversion will not work.",
     "msg_ffmpeg_found": "ffmpeg detected and ready.",
+    "label_bandwidth_limit": "Bandwidth Limit (KB/s)",
+    "desc_bandwidth_limit": "Set to 0 for unlimited speed. Value is per-stream.",
     "label_total": "Total",
     "label_downloading": "Downloading",
     "label_completed": "Completed",

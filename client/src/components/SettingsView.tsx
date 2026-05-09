@@ -42,6 +42,7 @@ interface AppSettings {
     EXPORT_BITRATE: string;
     EXPORT_KEEP_ORIGINAL: boolean;
     EXPORT_PATH: string;
+    BANDWIDTH_LIMIT: number;
     FFMPEG_AVAILABLE: boolean;
 }
 
@@ -97,7 +98,8 @@ export const SettingsView: React.FC = () => {
         exportFormat: 'mp3',
         exportBitrate: '320k',
         exportKeepOriginal: true,
-        exportPath: ''
+        exportPath: '',
+        bandwidthLimit: 0
     });
     const [creds, setCreds] = useState<Credentials | null>(null);
     const [validationResult, setValidationResult] = useState<any>(null);
@@ -163,7 +165,8 @@ export const SettingsView: React.FC = () => {
                     exportFormat: data.EXPORT_FORMAT || 'mp3',
                     exportBitrate: data.EXPORT_BITRATE || '320k',
                     exportKeepOriginal: data.EXPORT_KEEP_ORIGINAL !== undefined ? Boolean(data.EXPORT_KEEP_ORIGINAL) : true,
-                    exportPath: data.EXPORT_PATH || ''
+                    exportPath: data.EXPORT_PATH || '',
+                    bandwidthLimit: Number(data.BANDWIDTH_LIMIT || 0)
                 });
             }
             if (cRes && cRes.ok) setCreds(await cRes.json());
@@ -233,7 +236,8 @@ export const SettingsView: React.FC = () => {
                 export_format: settingsForm.exportFormat,
                 export_bitrate: settingsForm.exportBitrate,
                 export_keep_original: settingsForm.exportKeepOriginal,
-                export_path: settingsForm.exportPath
+                export_path: settingsForm.exportPath,
+                bandwidth_limit: settingsForm.bandwidthLimit
             };
 
             if (settingsForm.dashboardPassword.trim()) {
@@ -648,6 +652,21 @@ export const SettingsView: React.FC = () => {
                                 setSettingsForm((prev) => ({
                                     ...prev,
                                     dashboardPassword: e.target.value
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>{t('label_bandwidth_limit')}</label>
+                        <input
+                            type="number"
+                            min={0}
+                            placeholder={t('desc_bandwidth_limit')}
+                            value={settingsForm.bandwidthLimit}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    bandwidthLimit: Number(e.target.value || 0)
                                 }))
                             }
                         />
