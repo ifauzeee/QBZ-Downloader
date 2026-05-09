@@ -153,24 +153,6 @@ class AudioPreviewService extends EventEmitter {
         }
     }
 
-    async getBatchPreviewInfo(trackIds: string[]): Promise<Map<string, PreviewInfo>> {
-        const results = new Map<string, PreviewInfo>();
-
-        const batchSize = 5;
-        for (let i = 0; i < trackIds.length; i += batchSize) {
-            const batch = trackIds.slice(i, i + batchSize);
-            const promises = batch.map((id) => this.getPreviewInfo(id));
-            const infos = await Promise.all(promises);
-
-            for (let j = 0; j < batch.length; j++) {
-                if (infos[j]) {
-                    results.set(batch[j], infos[j]!);
-                }
-            }
-        }
-
-        return results;
-    }
 
     generateWaveform(duration: number, samples = 100): number[] {
         const waveform: number[] = [];
@@ -212,27 +194,6 @@ class AudioPreviewService extends EventEmitter {
         return '';
     }
 
-    async prefetch(trackIds: string[]): Promise<void> {
-        const uncached = trackIds.filter((id) => !this.previewCache.has(id));
-
-        if (uncached.length === 0) return;
-
-        logger.debug(`Prefetching ${uncached.length} tracks`, 'PREVIEW');
-
-        for (const trackId of uncached.slice(0, 5)) {
-            this.getPreviewInfo(trackId).catch(() => {});
-        }
-    }
-
-    getStats(): {
-        cachedPreviews: number;
-        currentTrack: string | null;
-    } {
-        return {
-            cachedPreviews: this.previewCache.size,
-            currentTrack: this.currentTrack?.trackId || null
-        };
-    }
 }
 
 export const audioPreviewService = new AudioPreviewService();

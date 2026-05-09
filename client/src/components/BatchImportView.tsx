@@ -15,7 +15,6 @@ export const BatchImportView: React.FC = () => {
 
     const [mode, setMode] = useState<'file' | 'm3u8' | 'csv' | 'direct'>('direct');
     const [stagedCount, setStagedCount] = useState(0);
-    const [createZip, setCreateZip] = useState(false);
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [selectedFile, setSelectedFile] = useState<{ name: string, count: number } | null>(null);
@@ -104,7 +103,7 @@ export const BatchImportView: React.FC = () => {
             const res = await smartFetch('/api/batch/import/direct', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ urls: urlsToImport, quality, createZip })
+                body: JSON.stringify({ urls: urlsToImport, quality })
             });
 
             if (res && res.ok) {
@@ -228,44 +227,6 @@ export const BatchImportView: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Options Section */}
-                    <div className="config-section">
-                        <label className="section-label">Options</label>
-                        <div
-                            className={`option-card ${createZip ? 'active' : ''}`}
-                            onClick={() => setCreateZip(!createZip)}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                padding: '16px',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '12px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                borderColor: createZip ? 'var(--accent)' : 'var(--border)'
-                            }}
-                        >
-                            <div style={{
-                                width: '20px',
-                                height: '20px',
-                                borderRadius: '4px',
-                                border: `2px solid ${createZip ? 'var(--accent)' : 'var(--text-secondary)'}`,
-                                background: createZip ? 'var(--accent)' : 'transparent',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white'
-                            }}>
-                                {createZip && <Icons.Check width={14} height={14} />}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t('label_create_zip')}</span>
-                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('label_zip_desc')}</span>
-                            </div>
-                        </div>
-                    </div>
 
                     {/* Input Area */}
                     <div className="config-section">

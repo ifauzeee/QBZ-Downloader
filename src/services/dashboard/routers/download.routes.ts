@@ -101,6 +101,21 @@ router.post('/download/album', async (req: Request, res: Response) => {
     }
 });
 
+router.post('/download/artist', async (req: Request, res: Response) => {
+    const { id, quality } = req.body;
+    if (!id) return res.status(400).json({ error: 'ID is required' });
+    const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
+
+    const { downloadService } = await import('../../../index.js');
+    const result = await downloadService.downloadArtist(id, q);
+
+    if (result.success) {
+        res.json({ success: true, count: result.completedTracks });
+    } else {
+        res.status(500).json({ error: result.error || 'Failed to download artist discography' });
+    }
+});
+
 
 router.get('/history', (req: Request, res: Response) => {
     res.json(Object.entries(historyService.getAll()).map(([id, data]) => ({ id, ...data })));
@@ -210,8 +225,16 @@ router.post('/lyrics/:id/save', async (req: Request, res: Response) => {
 
 router.post('/migrate/spotify', async (req: Request, res: Response) => {
     try {
+        const { url, quality, download } = req.body;
+        const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const migrationService = createMigrationService(api);
-        const results = await migrationService.migrateFromSpotify(req.body.url);
+        const results = await migrationService.migrateFromSpotify(url, q);
+        
+        if (download && results.results.length > 0) {
+            const count = await migrationService.startMigrationDownload(results.results, q);
+            return res.json({ ...results, enqueued: count });
+        }
+        
         res.json(results);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
