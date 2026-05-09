@@ -43,8 +43,8 @@ export class RecommendationService {
                     
 
                     const artistDetails = await this.api.getArtist(artist.id, 0, 10);
-                    if (artistDetails.success && (artistDetails.data as any)?.albums?.items) {
-                        const albums = (artistDetails.data as any).albums.items as Album[];
+                    if (artistDetails.success && artistDetails.data?.albums?.items) {
+                        const albums = artistDetails.data.albums.items;
                         
                         for (const album of albums) {
                             if (!seenAlbumIds.has(album.id) && recommendations.length < limit) {

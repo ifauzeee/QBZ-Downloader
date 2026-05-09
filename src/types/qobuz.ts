@@ -5,6 +5,19 @@ export interface Artist {
     image?: { small?: string; medium?: string; large?: string };
 }
 
+export interface ArtistDetails extends Artist {
+    albums?: {
+        items: Album[];
+        total: number;
+        offset: number;
+        limit: number;
+    };
+    tracks?: {
+        items: Track[];
+        total: number;
+    };
+}
+
 export interface Playlist {
     id: number | string;
     name: string;

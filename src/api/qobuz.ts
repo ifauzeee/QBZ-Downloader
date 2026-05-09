@@ -9,7 +9,7 @@ import { refreshUserToken } from '../utils/token.js';
 import { URL_PATTERNS } from '../constants.js';
 import { settingsService } from '../services/settings.js';
 
-import { Album, Track, UserInfo, SearchResults, LyricsResult, Playlist } from '../types/qobuz.js';
+import { Album, Track, UserInfo, SearchResults, LyricsResult, Playlist, ArtistDetails } from '../types/qobuz.js';
 
 interface ApiResponse<T = unknown> {
     success: boolean;
@@ -162,7 +162,7 @@ class QobuzAPI {
         albumLimit = 20,
         trackOffset = 0,
         trackLimit = 25
-    ): Promise<ApiResponse> {
+    ): Promise<ApiResponse<ArtistDetails>> {
         const cacheKey = `artist:${artistId}:${albumOffset}:${albumLimit}:${trackOffset}:${trackLimit}`;
         const cached = await cacheService.get(cacheKey);
         if (cached) return { success: true, data: cached };
@@ -197,7 +197,7 @@ class QobuzAPI {
         }
     }
 
-    async getArtistAlbums(artistId: string | number, limit = 20, offset = 0): Promise<ApiResponse> {
+    async getArtistAlbums(artistId: string | number, limit = 20, offset = 0): Promise<ApiResponse<ArtistDetails>> {
         try {
             const response = await this.client.get('/artist/get', {
                 params: {
