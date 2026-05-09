@@ -26,7 +26,7 @@ export class MetadataProcessor {
             'DEBUG'
         );
 
-        const data: Record<string, any> = {
+        const data: Record<string, string> = {
             artist: metadata.artist || 'Unknown Artist',
             albumArtist: metadata.albumArtist || metadata.artist || 'Unknown Artist',
             album: metadata.album || 'Unknown Album',

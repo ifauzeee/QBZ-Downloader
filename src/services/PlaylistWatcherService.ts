@@ -44,14 +44,15 @@ export class PlaylistWatcherService {
             for (const playlist of watched) {
                 await this.scanPlaylist(playlist);
             }
-        } catch (error: any) {
-            logger.error(`PlaylistWatcher Scan Error: ${error.message}`, 'WATCHER');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`PlaylistWatcher Scan Error: ${message}`, 'WATCHER');
         } finally {
             this.isScanning = false;
         }
     }
 
-    private async scanPlaylist(p: any) {
+    private async scanPlaylist(p: { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }) {
         const lastSync = p.last_synced_at ? new Date(p.last_synced_at) : new Date(0);
         const nextSync = new Date(lastSync.getTime() + p.interval_hours * 60 * 60 * 1000);
 
@@ -96,8 +97,9 @@ export class PlaylistWatcherService {
 
             databaseService.updatePlaylistSyncTime(p.id);
 
-        } catch (error: any) {
-            logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${error.message}`, 'WATCHER');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${message}`, 'WATCHER');
         }
     }
 }

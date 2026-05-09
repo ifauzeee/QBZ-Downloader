@@ -106,12 +106,13 @@ export class QualityScannerService {
                 details
             };
 
-        } catch (error: any) {
-            logger.error(`QualityScanner: Failed to scan ${filePath}: ${error.message}`);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`QualityScanner: Failed to scan ${filePath}: ${message}`);
             return {
                 isTrueLossless: true,
                 confidence: 0,
-                details: `Scan failed: ${error.message}`
+                details: `Scan failed: ${message}`
             };
         }
     }

@@ -41,8 +41,9 @@ export class LibraryStatisticsService {
             stats.activity = this.calculateActivity(tracks);
 
             return stats;
-        } catch (error: any) {
-            logger.error(`Statistics: Failed to calculate stats: ${error.message}`, 'STATS');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`Statistics: Failed to calculate stats: ${message}`, 'STATS');
             throw error;
         }
     }
@@ -54,7 +55,7 @@ export class LibraryStatisticsService {
         return 'Other';
     }
 
-    private calculateActivity(tracks: any[]): { date: string; count: number }[] {
+    private calculateActivity(tracks: { created_at?: string }[]): { date: string; count: number }[] {
         const activityMap = new Map<string, number>();
         const now = new Date();
         
