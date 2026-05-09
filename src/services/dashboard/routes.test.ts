@@ -192,6 +192,13 @@ vi.mock('../../config.js', () => ({
             provider: 'none',
             apiKey: '',
             model: 'gemini-1.5-flash'
+        },
+        mediaServer: {
+            enabled: false,
+            type: 'none',
+            url: '',
+            token: '',
+            libraryId: ''
         }
     }
 }));

@@ -32,6 +32,11 @@ interface AppSettings {
     AI_PROVIDER: string;
     AI_API_KEY_CONFIGURED: boolean;
     AI_MODEL: string;
+    MEDIA_SERVER_ENABLED: boolean;
+    MEDIA_SERVER_TYPE: string;
+    MEDIA_SERVER_URL: string;
+    MEDIA_SERVER_TOKEN_CONFIGURED: boolean;
+    MEDIA_SERVER_LIBRARY_ID: string;
 }
 
 interface Credentials {
@@ -76,7 +81,12 @@ export const SettingsView: React.FC = () => {
         aiRepairEnabled: false,
         aiProvider: 'none',
         aiApiKey: '',
-        aiModel: 'gemini-1.5-flash'
+        aiModel: 'gemini-1.5-flash',
+        mediaServerEnabled: false,
+        mediaServerType: 'none',
+        mediaServerUrl: '',
+        mediaServerToken: '',
+        mediaServerLibraryId: ''
     });
     const [creds, setCreds] = useState<Credentials | null>(null);
     const [validationResult, setValidationResult] = useState<any>(null);
@@ -132,7 +142,12 @@ export const SettingsView: React.FC = () => {
                     aiRepairEnabled: Boolean(data.AI_REPAIR_ENABLED),
                     aiProvider: data.AI_PROVIDER || 'none',
                     aiApiKey: '',
-                    aiModel: data.AI_MODEL || 'gemini-1.5-flash'
+                    aiModel: data.AI_MODEL || 'gemini-1.5-flash',
+                    mediaServerEnabled: Boolean(data.MEDIA_SERVER_ENABLED),
+                    mediaServerType: data.MEDIA_SERVER_TYPE || 'none',
+                    mediaServerUrl: data.MEDIA_SERVER_URL || '',
+                    mediaServerToken: '',
+                    mediaServerLibraryId: data.MEDIA_SERVER_LIBRARY_ID || ''
                 });
             }
             if (cRes && cRes.ok) setCreds(await cRes.json());
@@ -193,7 +208,11 @@ export const SettingsView: React.FC = () => {
                 dashboard_port: settingsForm.dashboardPort,
                 ai_repair_enabled: settingsForm.aiRepairEnabled,
                 ai_provider: settingsForm.aiProvider,
-                ai_model: settingsForm.aiModel
+                ai_model: settingsForm.aiModel,
+                media_server_enabled: settingsForm.mediaServerEnabled,
+                media_server_type: settingsForm.mediaServerType,
+                media_server_url: settingsForm.mediaServerUrl,
+                media_server_library_id: settingsForm.mediaServerLibraryId
             };
 
             if (settingsForm.dashboardPassword.trim()) {
@@ -202,6 +221,10 @@ export const SettingsView: React.FC = () => {
 
             if (settingsForm.aiApiKey.trim()) {
                 payload.ai_api_key = settingsForm.aiApiKey.trim();
+            }
+
+            if (settingsForm.mediaServerToken.trim()) {
+                payload.media_server_token = settingsForm.mediaServerToken.trim();
             }
 
             const res = await smartFetch('/api/settings/update', {
@@ -718,6 +741,84 @@ export const SettingsView: React.FC = () => {
                                 onChange={() => { }}
                             />
                             <label>{t('label_ai_enabled')}</label>
+                        </div>
+                    </div>
+                </div>
+                <div style={{ marginTop: '32px' }}>
+                    <button className="btn primary hero" onClick={updateAppSettings} style={{ minHeight: '52px', padding: '0 40px' }}>
+                        {t('action_save_settings')}
+                    </button>
+                </div>
+            </div>
+
+            <div className="settings-section">
+                <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="icon">🖥️</span> {t('sec_media_server')}
+                </h3>
+                <p className="section-desc">{t('desc_media_server')}</p>
+                <div className="update-cred-grid">
+                    <div className="form-group">
+                        <label>{t('label_ms_type')}</label>
+                        <select
+                            value={settingsForm.mediaServerType}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, mediaServerType: e.target.value }))
+                            }
+                        >
+                            <option value="none">None</option>
+                            <option value="plex">Plex</option>
+                            <option value="jellyfin">Jellyfin</option>
+                            <option value="webhook">Webhook</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>{t('label_ms_url')}</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. http://192.168.1.100:32400"
+                            value={settingsForm.mediaServerUrl}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, mediaServerUrl: e.target.value }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>{t('label_ms_token')}</label>
+                        <input
+                            type="password"
+                            placeholder={
+                                settings?.MEDIA_SERVER_TOKEN_CONFIGURED
+                                    ? 'Configured (leave blank to keep current)'
+                                    : 'Enter API Token...'
+                            }
+                            value={settingsForm.mediaServerToken}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({
+                                    ...prev,
+                                    mediaServerToken: e.target.value
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>{t('label_ms_library')}</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. 1"
+                            value={settingsForm.mediaServerLibraryId}
+                            onChange={(e) =>
+                                setSettingsForm((prev) => ({ ...prev, mediaServerLibraryId: e.target.value }))
+                            }
+                        />
+                    </div>
+                    <div className="settings-checkbox-group" style={{ gridColumn: 'span 2' }}>
+                        <div className="settings-checkbox-item" onClick={() => setSettingsForm(prev => ({ ...prev, mediaServerEnabled: !prev.mediaServerEnabled }))}>
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.mediaServerEnabled}
+                                onChange={() => { }}
+                            />
+                            <label>{t('label_ms_enabled')}</label>
                         </div>
                     </div>
                 </div>

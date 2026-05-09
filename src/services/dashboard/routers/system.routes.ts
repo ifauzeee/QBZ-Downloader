@@ -40,7 +40,12 @@ const APP_SETTING_KEYS = new Set([
     'AI_REPAIR_ENABLED',
     'AI_PROVIDER',
     'AI_API_KEY',
-    'AI_MODEL'
+    'AI_MODEL',
+    'MEDIA_SERVER_ENABLED',
+    'MEDIA_SERVER_TYPE',
+    'MEDIA_SERVER_URL',
+    'MEDIA_SERVER_TOKEN',
+    'MEDIA_SERVER_LIBRARY_ID'
 ]);
 
 router.get('/status', (req: Request, res: Response) => {
@@ -111,7 +116,12 @@ router.get('/settings', (req: Request, res: Response) => {
         AI_REPAIR_ENABLED: CONFIG.ai.enabled,
         AI_PROVIDER: CONFIG.ai.provider,
         AI_API_KEY_CONFIGURED: !!CONFIG.ai.apiKey,
-        AI_MODEL: CONFIG.ai.model
+        AI_MODEL: CONFIG.ai.model,
+        MEDIA_SERVER_ENABLED: CONFIG.mediaServer.enabled,
+        MEDIA_SERVER_TYPE: CONFIG.mediaServer.type,
+        MEDIA_SERVER_URL: CONFIG.mediaServer.url,
+        MEDIA_SERVER_TOKEN_CONFIGURED: !!CONFIG.mediaServer.token,
+        MEDIA_SERVER_LIBRARY_ID: CONFIG.mediaServer.libraryId
     });
 });
 
@@ -158,6 +168,11 @@ router.post('/settings/update', async (req: Request, res: Response) => {
         setIfDefined('AI_PROVIDER', body.ai_provider);
         setIfDefined('AI_API_KEY', body.ai_api_key);
         setIfDefined('AI_MODEL', body.ai_model);
+        setIfDefined('MEDIA_SERVER_ENABLED', body.media_server_enabled);
+        setIfDefined('MEDIA_SERVER_TYPE', body.media_server_type);
+        setIfDefined('MEDIA_SERVER_URL', body.media_server_url);
+        setIfDefined('MEDIA_SERVER_TOKEN', body.media_server_token);
+        setIfDefined('MEDIA_SERVER_LIBRARY_ID', body.media_server_library_id);
 
         if (body.settings && typeof body.settings === 'object') {
             for (const [key, value] of Object.entries(body.settings)) {
