@@ -250,6 +250,17 @@ router.post('/system/reset', async (req: Request, res: Response) => {
     }
 });
 
+router.post('/media-server/test', async (req: Request, res: Response) => {
+    try {
+        const { type, url, token, libraryId } = req.body;
+        const { mediaServerService } = await import('../../MediaServerService.js');
+        const result = await mediaServerService.testConnection(type, url, token, libraryId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/logs', (req: Request, res: Response) => {
     res.json(logger.getLogs());
 });

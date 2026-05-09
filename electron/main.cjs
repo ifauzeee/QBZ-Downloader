@@ -725,6 +725,9 @@ if (!gotLock) {
 } else {
   app.setAppUserModelId('com.ifauze.qbzdownloader');
 
+  // Disable Autofill features to prevent "Autofill.enable not found" errors in console
+  app.commandLine.appendSwitch('disable-features', 'AutofillServerCommunication');
+
   app.on('second-instance', () => {
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();

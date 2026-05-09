@@ -56,6 +56,31 @@ export class MediaServerService {
         });
         logger.success('MediaServer: Webhook notification sent.', 'MEDIA');
     }
+
+    async testConnection(type: string, url: string, token: string, libraryId?: string) {
+        if (!url) throw new Error('URL is required');
+
+        try {
+            switch (type) {
+                case 'plex':
+                    const plexEndpoint = `${url}/identity?X-Plex-Token=${token}`;
+                    await axios.get(plexEndpoint, { timeout: 5000 });
+                    return { success: true, message: 'Connected to Plex successfully' };
+                case 'jellyfin':
+                    const jellyEndpoint = `${url}/System/Info?api_key=${token}`;
+                    await axios.get(jellyEndpoint, { timeout: 5000 });
+                    return { success: true, message: 'Connected to Jellyfin successfully' };
+                case 'webhook':
+                    await axios.post(url, { event: 'ping', timestamp: new Date().toISOString() }, { timeout: 5000 });
+                    return { success: true, message: 'Webhook test ping successful' };
+                default:
+                    throw new Error('Invalid media server type');
+            }
+        } catch (error: any) {
+            const msg = error.response?.data?.message || error.message;
+            throw new Error(`Connection failed: ${msg}`);
+        }
+    }
 }
 
 export const mediaServerService = new MediaServerService();

@@ -111,6 +111,10 @@ export const SettingsView: React.FC = () => {
     const [showDoubleConfirm, setShowDoubleConfirm] = useState(false);
     const [showDeleteThemeConfirm, setShowDeleteThemeConfirm] = useState<string | null>(null);
 
+    const [msTestResult, setMsTestResult] = useState<string | null>(null);
+    const [msTestError, setMsTestError] = useState<string | null>(null);
+    const [msTesting, setMsTesting] = useState(false);
+
     const [isEditingTheme, setIsEditingTheme] = useState(false);
     const [themeName, setThemeName] = useState('');
     const [themeColors, setThemeColors] = useState<Record<string, string>>({});
@@ -276,6 +280,45 @@ export const SettingsView: React.FC = () => {
         }
     };
 
+    const testMediaServer = async () => {
+        if (!settingsForm.mediaServerUrl) {
+            showToast('Media Server URL is required', 'error');
+            return;
+        }
+
+        try {
+            setMsTesting(true);
+            setMsTestResult(null);
+            setMsTestError(null);
+            
+            const res = await smartFetch('/api/media-server/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: settingsForm.mediaServerType,
+                    url: settingsForm.mediaServerUrl,
+                    token: settingsForm.mediaServerToken,
+                    libraryId: settingsForm.mediaServerLibraryId
+                })
+            });
+
+            if (res && res.ok) {
+                const data = await res.json();
+                setMsTestResult(data.message);
+                showToast(data.message, 'success');
+            } else {
+                const err = res ? await res.json() : { error: 'Network error' };
+                setMsTestError(err.error || 'Connection failed');
+                showToast(err.error || 'Connection failed', 'error');
+            }
+        } catch (error: any) {
+            setMsTestError(error.message);
+            showToast(error.message, 'error');
+        } finally {
+            setMsTesting(false);
+        }
+    };
+
     const validateCredentials = async () => {
         try {
             showToast('Validating...', 'info');
@@ -298,10 +341,9 @@ export const SettingsView: React.FC = () => {
             } else {
                 setValidationError('Network error or server unreachable');
             }
-
-            loadSettings();
-        } catch (e) {
-            setValidationError('Validation error');
+        } catch (error: any) {
+            setValidationError(error.message);
+            showToast('Validation failed', 'error');
         }
     };
 
@@ -861,6 +903,19 @@ export const SettingsView: React.FC = () => {
                             <label>{t('label_ms_enabled')}</label>
                         </div>
                     </div>
+                </div>
+                <div style={{ marginTop: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button 
+                        className={`btn ${msTesting ? 'secondary' : 'primary'}`} 
+                        onClick={testMediaServer} 
+                        disabled={msTesting || settingsForm.mediaServerType === 'none'}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        {msTesting ? <Icons.Loading width={14} height={14} className="spin" /> : <Icons.Resolve width={14} height={14} />}
+                        {msTesting ? 'Testing...' : 'Test Connection'}
+                    </button>
+                    {msTestResult && <span style={{ color: 'var(--success)', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ {msTestResult}</span>}
+                    {msTestError && <span style={{ color: 'var(--danger)', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px' }}>✗ {msTestError}</span>}
                 </div>
                 <div style={{ marginTop: '32px' }}>
                     <button className="btn primary hero" onClick={updateAppSettings} style={{ minHeight: '52px', padding: '0 40px' }}>

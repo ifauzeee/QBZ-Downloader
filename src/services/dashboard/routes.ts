@@ -5,6 +5,7 @@ import downloadRouter from './routers/download.routes.js';
 import libraryRouter from './routers/library.routes.js';
 import analyticsRouter from './routers/analytics.routes.js';
 import notificationsRouter from './routers/notifications.routes.js';
+import toolsRouter from './routers/tools.routes.js';
 
 export function registerRoutes(app: Express) {
     app.use('/api', systemRouter);
@@ -13,6 +14,7 @@ export function registerRoutes(app: Express) {
     app.use('/api', analyticsRouter);
     app.use('/api/library', libraryRouter);
     app.use('/api/notifications', notificationsRouter);
+    app.use('/api/tools', toolsRouter);
 }
 
 

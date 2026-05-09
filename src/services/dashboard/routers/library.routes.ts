@@ -15,13 +15,13 @@ router.get('/scan/status', (req: Request, res: Response) => {
     res.json(libraryScannerService.getScanStats());
 });
 
-router.post('/scan/start', (req: Request, res: Response) => {
+router.post('/scan', (req: Request, res: Response) => {
     const { path } = req.body;
     libraryScannerService.scanLibrary(path);
     res.json({ success: true });
 });
 
-router.post('/scan/stop', (req: Request, res: Response) => {
+router.post('/scan/abort', (req: Request, res: Response) => {
     libraryScannerService.abortScan();
     res.json({ success: true });
 });
@@ -50,6 +50,22 @@ router.get('/files', (req: Request, res: Response) => {
         const offset = parseInt(getParam(req.query.offset)) || 0;
         const files = databaseService.getLibraryFiles(limit, offset);
         res.json(files);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/upgradeable', (req: Request, res: Response) => {
+    try {
+        res.json(libraryScannerService.getUpgradeableFiles());
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/missing-metadata', (req: Request, res: Response) => {
+    try {
+        res.json(libraryScannerService.getMissingMetadataFiles());
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

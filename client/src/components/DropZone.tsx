@@ -10,13 +10,16 @@ interface DropZoneProps {
 
 export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
     const [isDragging, setIsDragging] = useState(false);
+    const [_dragCounter, setDragCounter] = useState(0);
     const [dragType, setDragType] = useState<'url' | 'file' | 'none'>('none');
     const { showToast } = useToast();
 
-    const handleDragOver = useCallback((e: React.DragEvent) => {
+    const handleDragEnter = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
         
+        setDragCounter(prev => prev + 1);
+
         if (e.dataTransfer.types.includes('text/uri-list') || e.dataTransfer.types.includes('text/plain')) {
             setDragType('url');
             setIsDragging(true);
@@ -26,20 +29,30 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
         }
     }, []);
 
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, []);
+
     const handleDragLeave = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
         
-        // Only stop dragging if we're leaving the overlay or the main window
-        if (e.currentTarget === e.target) {
-            setIsDragging(false);
-        }
+        setDragCounter(prev => {
+            const next = prev - 1;
+            if (next <= 0) {
+                setIsDragging(false);
+                return 0;
+            }
+            return next;
+        });
     }, []);
 
     const handleDrop = useCallback(async (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragging(false);
+        setDragCounter(0);
 
         const url = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list');
         const files = Array.from(e.dataTransfer.files);
@@ -96,16 +109,23 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
     return (
         <div 
             className="drop-zone-container"
+            onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             style={{ position: 'relative', width: '100%', height: '100%' }}
         >
             {children}
             
             <div 
                 className={`drop-zone-overlay ${isDragging ? 'active' : ''}`}
+                onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
+                onClick={() => {
+                    setIsDragging(false);
+                    setDragCounter(0);
+                }}
             >
                 <div className="drop-zone-content">
                     <div className="drop-zone-icon">
