@@ -175,9 +175,9 @@ export const RecommendationsView: React.FC = () => {
                     align-items: flex-end;
                     margin-bottom: 40px;
                     padding: 40px;
-                    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.1) 50%, transparent 100%);
+                    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.05) 50%, transparent 100%);
                     border-radius: 32px;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border: 1px solid var(--border);
                     position: relative;
                     overflow: hidden;
                     backdrop-filter: blur(20px);
@@ -228,7 +228,7 @@ export const RecommendationsView: React.FC = () => {
                     line-height: 1;
                 }
                 .title-gradient {
-                    background: linear-gradient(to right, #fff, #a5b4fc);
+                    background: var(--gradient-text);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                 }
@@ -240,9 +240,9 @@ export const RecommendationsView: React.FC = () => {
                     opacity: 0.8;
                 }
                 .refresh-btn-premium {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    color: white;
+                    background: var(--bg-hover);
+                    border: 1px solid var(--border);
+                    color: var(--text-primary);
                     padding: 12px 28px;
                     border-radius: 100px;
                     font-weight: 700;
@@ -264,9 +264,9 @@ export const RecommendationsView: React.FC = () => {
                     transform: scale(0.98);
                 }
                 .recommend-card-premium {
-                    background: rgba(255, 255, 255, 0.02);
+                    background: var(--bg-card);
                     border-radius: 24px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid var(--border);
                     overflow: hidden;
                     cursor: pointer;
                     transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
@@ -278,10 +278,10 @@ export const RecommendationsView: React.FC = () => {
                     to { opacity: 1; transform: translateY(0); }
                 }
                 .recommend-card-premium:hover {
-                    background: rgba(255, 255, 255, 0.04);
+                    background: var(--bg-hover);
                     transform: translateY(-12px);
                     border-color: rgba(99, 102, 241, 0.3);
-                    box-shadow: 0 25px 60px -15px rgba(0,0,0,0.6);
+                    box-shadow: 0 25px 60px -15px rgba(0,0,0,var(--player-shadow-opacity, 0.3));
                 }
                 .card-image-container {
                     position: relative;
@@ -289,7 +289,7 @@ export const RecommendationsView: React.FC = () => {
                     overflow: hidden;
                     margin: 12px;
                     border-radius: 18px;
-                    background: #1a1a1a;
+                    background: var(--bg-dark);
                 }
                 .card-image {
                     width: 100%;
@@ -376,7 +376,7 @@ export const RecommendationsView: React.FC = () => {
                 .album-title-premium {
                     font-weight: 700;
                     font-size: 1.05rem;
-                    color: white;
+                    color: var(--text-primary);
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
@@ -392,9 +392,9 @@ export const RecommendationsView: React.FC = () => {
                 .empty-state-premium {
                     text-align: center;
                     padding: 100px 40px;
-                    background: rgba(255, 255, 255, 0.02);
+                    background: var(--bg-card);
                     border-radius: 40px;
-                    border: 1px dashed rgba(255, 255, 255, 0.1);
+                    border: 1px dashed var(--border);
                 }
                 .empty-icon-glow {
                     font-size: 5rem;

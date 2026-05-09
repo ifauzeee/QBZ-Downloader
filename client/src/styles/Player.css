@@ -284,9 +284,11 @@
     height: 84px;
     padding: 0 24px;
     border-radius: 20px;
-    background: #050505;
+    background: var(--player-bg);
     border: 1px solid var(--player-border);
-    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, var(--player-shadow-opacity, 0.6));
 }
 
 /* Left Section */
@@ -408,8 +410,8 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: #fff;
-    color: #000;
+    background: var(--text-primary);
+    color: var(--bg-dark);
     border: none;
     display: flex;
     align-items: center;

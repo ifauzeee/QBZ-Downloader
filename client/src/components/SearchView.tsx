@@ -264,7 +264,7 @@ export const SearchView: React.FC = () => {
                             borderRadius: '12px',
                             marginTop: '8px',
                             zIndex: 1000,
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                            boxShadow: '0 10px 30px rgba(0,0,0, var(--player-shadow-opacity, 0.4))',
                             padding: '8px',
                             maxHeight: '400px',
                             overflowY: 'auto'

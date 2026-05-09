@@ -26,27 +26,36 @@
     --font-family: 'Sora', 'Space Grotesk', 'Aptos', 'Segoe UI', sans-serif;
     --gradient-primary: linear-gradient(130deg, #06b6d4 0%, #14b8a6 45%, #f59e0b 100%);
     --gradient-card: linear-gradient(160deg, rgba(11, 17, 26, 0.94) 0%, rgba(7, 13, 22, 0.9) 100%);
+    --gradient-text: linear-gradient(to right, #ffffff, #a6b0c3);
     --player-bg: rgba(6, 10, 18, 0.9);
     --player-border: rgba(255, 255, 255, 0.09);
     --progress-bg: rgba(255, 255, 255, 0.08);
     --lyrics-bg: rgba(4, 7, 13, 0.95);
     --lyrics-fullscreen-bg: radial-gradient(circle at top, #0b1b2d 0%, #04070d 68%);
+    --player-shadow-opacity: 0.8;
+    --sidebar-bg: rgba(8, 13, 21, 0.9);
 }
 
 body.light-theme {
-    --bg-dark: #edf4f8;
+    --bg-dark: #f0f4f8;
     --bg-card: #ffffff;
-    --bg-hover: #f4f8ff;
-    --bg-elevated: #fbfdff;
-    --text-primary: #0f2234;
-    --text-secondary: #617285;
-    --border: #d8e3ef;
-    --gradient-card: linear-gradient(145deg, #ffffff 0%, #f6fbff 100%);
-    --player-bg: rgba(255, 255, 255, 0.85);
-    --player-border: rgba(0, 0, 0, 0.06);
-    --progress-bg: rgba(0, 0, 0, 0.1);
-    --lyrics-bg: rgba(255, 255, 255, 0.95);
-    --lyrics-fullscreen-bg: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
+    --bg-hover: #eef2f6;
+    --bg-elevated: #ffffff;
+    --text-primary: #1a202c;
+    --text-secondary: #4a5568;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-light: rgba(0, 0, 0, 0.04);
+    --gradient-primary: linear-gradient(130deg, #0891b2 0%, #0d9488 45%, #d97706 100%);
+    --gradient-card: linear-gradient(145deg, #ffffff 0%, #f8faff 100%);
+    --gradient-text: linear-gradient(to right, #1a202c, #4a5568);
+    --player-bg: rgba(255, 255, 255, 0.9);
+    --player-border: rgba(0, 0, 0, 0.1);
+    --progress-bg: rgba(0, 0, 0, 0.05);
+    --lyrics-bg: rgba(255, 255, 255, 0.98);
+    --lyrics-fullscreen-bg: linear-gradient(135deg, #f0f4f8 0%, #ffffff 100%);
+    --skeleton-bg: #e2e8f0;
+    --player-shadow-opacity: 0.2;
+    --sidebar-bg: rgba(255, 255, 255, 0.9);
 }
 
 * {
@@ -101,7 +110,7 @@ body.desktop-mode {
     justify-content: space-between;
     padding: 0 6px 0 14px;
     border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, rgba(7, 12, 20, 0.98), rgba(7, 12, 20, 0.85));
+    background: var(--bg-dark);
     -webkit-app-region: drag;
 }
 
@@ -821,7 +830,7 @@ body.desktop-mode {
 
 .sidebar {
     width: 260px;
-    background: rgba(8, 13, 21, 0.9);
+    background: var(--sidebar-bg);
     backdrop-filter: blur(12px);
     border-right: 1px solid var(--border);
     display: flex;
