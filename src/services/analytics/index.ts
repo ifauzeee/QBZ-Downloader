@@ -391,31 +391,58 @@ class AdvancedAnalyticsService {
     }
 
     comparePeriods(
-        _start1: Date,
-        _end1: Date,
-        _start2: Date,
-        _end2: Date
+        start1: Date,
+        end1: Date,
+        start2: Date,
+        end2: Date
     ): {
         period1: { downloads: number; size: number };
         period2: { downloads: number; size: number };
         change: { downloads: number; size: number };
     } {
+        const stats1 = databaseService.getStatsForRange(
+            start1.toISOString().split('T')[0],
+            end1.toISOString().split('T')[0]
+        );
+        const stats2 = databaseService.getStatsForRange(
+            start2.toISOString().split('T')[0],
+            end2.toISOString().split('T')[0]
+        );
+
+        const agg1 = this.aggregateStats(stats1);
+        const agg2 = this.aggregateStats(stats2);
+
         return {
-            period1: { downloads: 0, size: 0 },
-            period2: { downloads: 0, size: 0 },
-            change: { downloads: 0, size: 0 }
+            period1: { downloads: agg1.downloads, size: agg1.size },
+            period2: { downloads: agg2.downloads, size: agg2.size },
+            change: {
+                downloads: agg2.downloads - agg1.downloads,
+                size: agg2.size - agg1.size
+            }
         };
     }
 
     getRecommendations(): {
-        upgradeableTracsk: { id: string; title: string; currentQuality: number }[];
+        upgradeableTracks: { id: string; title: string; currentQuality: number }[];
         missingFromAlbums: { albumId: string; albumTitle: string; missingCount: number }[];
         suggestedArtists: string[];
     } {
+        const upgradeable = databaseService.getUpgradeableFiles();
+        const incomplete = databaseService.getIncompleteAlbums();
+        const topArtists = databaseService.getTopArtists(10);
+
         return {
-            upgradeableTracsk: [],
-            missingFromAlbums: [],
-            suggestedArtists: []
+            upgradeableTracks: upgradeable.slice(0, 10).map((f: any) => ({
+                id: f.track_id,
+                title: f.title,
+                currentQuality: f.quality
+            })),
+            missingFromAlbums: incomplete.slice(0, 10).map((a: any) => ({
+                albumId: a.id,
+                albumTitle: a.title,
+                missingCount: a.trackCount - a.currentCount
+            })),
+            suggestedArtists: topArtists.slice(0, 5).map((a: any) => a.name)
         };
     }
 }

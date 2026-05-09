@@ -640,6 +640,28 @@ class DatabaseService {
             .all(days) as DbStatistic[];
     }
 
+    getStatsForRange(start: string, end: string): DbStatistic[] {
+        const db = this.getDb();
+        return db
+            .prepare('SELECT * FROM daily_stats WHERE date >= ? AND date <= ? ORDER BY date ASC')
+            .all(start, end) as DbStatistic[];
+    }
+
+    getIncompleteAlbums(): { id: string; title: string; trackCount: number; currentCount: number }[] {
+        const db = this.getDb();
+        return db
+            .prepare(
+                `
+            SELECT a.id, a.title, a.track_count as trackCount, COUNT(t.id) as currentCount
+            FROM albums a
+            LEFT JOIN tracks t ON t.album_id = a.id
+            GROUP BY a.id
+            HAVING currentCount < trackCount
+        `
+            )
+            .all() as any[];
+    }
+
     getGenreStats(limit = 5): { genre: string; count: number; total_size: number }[] {
         const db = this.getDb();
         return db.prepare('SELECT * FROM genre_stats ORDER BY count DESC LIMIT ?').all(limit) as {
