@@ -112,11 +112,6 @@ export function humanizeError(error: Error | string | unknown): ErrorInfo {
     };
 }
 
-export function formatErrorForCLI(error: Error | string | unknown): string {
-    const info = humanizeError(error);
-    return `${info.emoji} ${info.message}\n   💡 ${info.suggestion}`;
-}
-
 export function formatErrorForAPI(error: Error | string | unknown): {
     error: string;
     suggestion: string;
@@ -168,7 +163,6 @@ export const errorChecks = {
 
 export default {
     humanizeError,
-    formatErrorForCLI,
     formatErrorForAPI,
     errorChecks
 };

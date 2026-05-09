@@ -4628,136 +4628,40 @@ declare module 'ink-progress-bar' {
 }
 </file>
 
-<file path="src/types/qobuz.ts">
-export interface Artist {
-    id: number | string;
-    name: string;
-    albums_count?: number;
-    image?: { small?: string; medium?: string; large?: string };
+<file path="src/utils/async.ts">
+import { logger } from './logger.js';
+
+export async function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export interface Playlist {
-    id: number | string;
-    name: string;
-    description?: string;
-    tracks: {
-        items: Track[];
-        total: number;
-    };
-    owner?: {
-        name: string;
-        id: number | string;
-    };
-}
+export async function retryOperation<T>(
+    operation: () => Promise<T>,
+    retries = 3,
+    delay = 1000,
+    context = 'API'
+): Promise<T> {
+    let lastError: any;
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await operation();
+        } catch (e: any) {
+            lastError = e;
+            const isAuthError = e.message?.includes('401') || e.message?.includes('403');
+            const isNotFoundError =
+                e.message?.includes('404') || e.message?.includes('not found');
 
-export interface Album {
-    id: string | number;
-    title: string;
-    artist: Artist;
-    label?: { name: string };
-    genre?: { name: string };
-    duration: number;
-    tracks_count: number;
-    released_at?: number;
-    hires: boolean;
-    hires_streamable?: boolean;
-    maximum_bit_depth?: number;
-    maximum_sampling_rate?: number;
-    goodies?: unknown[];
-    tracks?: {
-        items: Track[];
-    };
-    [key: string]: unknown;
-}
+            if (isAuthError || isNotFoundError) throw e;
 
-export interface Track {
-    id: string | number;
-    title: string;
-    artist?: Artist;
-    performer?: {
-        id?: number | string;
-        name: string;
-        image?: { small?: string; medium?: string; large?: string };
-    };
-    album?: {
-        title: string;
-        id?: string | number;
-        artist?: Artist;
-        image?: {
-            small?: string;
-            medium?: string;
-            large?: string;
-            mega?: string;
-            extralarge?: string;
-        };
-    };
-    duration: number;
-    hires: boolean;
-    track_number: number;
-    maximum_sampling_rate?: number;
-    maximum_bit_depth?: number;
-    hires_streamable?: boolean;
-    lyrics?: {
-        sync?: string;
-        text?: string;
-        copyright?: string;
-        writer?: string;
-    };
-}
-
-export interface UserInfo {
-    id: string | number;
-    email: string;
-    country_code: string;
-    subscription?: {
-        offer: string;
-        end_date?: string;
-        period_end_date?: string;
-    };
-    hires_streaming: boolean;
-    credential?: {
-        parameters?: {
-            hires_streaming?: boolean;
-            lossless_streaming?: boolean;
-        };
-    };
-}
-
-export interface DownloadResultSummary {
-    success: boolean;
-    title?: string;
-    name?: string;
-    artist?: string;
-    totalTracks?: number;
-    completedTracks?: number;
-    failedTracks?: number;
-}
-
-export interface SearchResults {
-    albums?: { items: Album[] };
-    tracks?: { items: Track[] };
-    artists?: { items: Artist[] };
-    [key: string]: { items: (Album | Track | Artist)[] } | undefined;
-}
-
-export interface LyricsResult {
-    success: boolean;
-    syncedLyrics?: boolean;
-    parsedLyrics?: { timeStr: string; text: string }[];
-    plainLyrics?: string;
-    synced?: string | null;
-    unsynced?: string | null;
-    copyright?: string | null;
-    writer?: string | null;
-    error?: string;
-}
-
-export interface FileUrlData {
-    url: string;
-    format_id: number;
-    bit_depth?: number;
-    sampling_rate?: number;
-    mime_type?: string;
+            const waitTime = delay * Math.pow(2, i);
+            logger.debug(
+                `[${context}] Retry ${i + 1}/${retries} after ${waitTime}ms. Error: ${e.message}`,
+                'RETRY'
+            );
+            await sleep(waitTime);
+        }
+    }
+    throw lastError;
 }
 </file>
 
@@ -4810,6 +4714,44 @@ class CacheService {
 }
 
 export const cacheService = new CacheService();
+</file>
+
+<file path="src/utils/crypto.ts">
+import crypto from 'crypto';
+import os from 'os';
+
+const ALGORITHM = 'aes-256-cbc';
+const IV_LENGTH = 16;
+
+const SECRET_SEED = os.hostname() + os.platform() + os.arch() + (process.env.USERDOMAIN || 'qbz-default');
+const ENCRYPTION_KEY = crypto.createHash('sha256').update(SECRET_SEED).digest();
+
+export function encrypt(text: string): string {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return `${iv.toString('hex')}:${encrypted}`;
+}
+
+export function decrypt(text: string): string {
+    try {
+        const [ivHex, encryptedHex] = text.split(':');
+        if (!ivHex || !encryptedHex) return text;
+
+        const iv = Buffer.from(ivHex, 'hex');
+        const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+        let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    } catch {
+        return text;
+    }
+}
+
+export function isEncrypted(text: string): boolean {
+    return text.includes(':') && text.split(':')[0].length === IV_LENGTH * 2;
+}
 </file>
 
 <file path="src/utils/encryption.ts">
@@ -5026,6 +4968,46 @@ export function handleError(error: Error | QobuzError, display: any) {
         logger.info(`💡 ${friendlyError.suggestion}`, 'HELP');
     }
 }
+</file>
+
+<file path="src/utils/events.ts">
+import { EventEmitter } from 'events';
+
+/**
+ * Global event bus for inter-service communication.
+ * Useful for decoupled communication between backend logic and Electron main process.
+ */
+class EventBus extends EventEmitter {
+    private static instance: EventBus;
+
+    private constructor() {
+        super();
+        this.setMaxListeners(20);
+    }
+
+    static getInstance(): EventBus {
+        if (!EventBus.instance) {
+            EventBus.instance = new EventBus();
+        }
+        return EventBus.instance;
+    }
+}
+
+export const eventBus = EventBus.getInstance();
+
+export const EVENTS = {
+    DOWNLOAD: {
+        PROGRESS: 'download:progress',
+        COMPLETE: 'download:complete',
+        FAILED: 'download:failed'
+    },
+    QUEUE: {
+        UPDATE: 'queue:update'
+    },
+    SYSTEM: {
+        READY: 'system:ready'
+    }
+} as const;
 </file>
 
 <file path="src/utils/friendly-errors.ts">
@@ -5337,6 +5319,45 @@ export const THEME = {
         backgroundColor: '#111111'
     }
 };
+</file>
+
+<file path="src/utils/throttle.ts">
+import { Transform, TransformCallback } from 'stream';
+
+export class ThrottleStream extends Transform {
+    private bytesRead = 0;
+    private startTime: number = Date.now();
+    private limit: number;
+
+    constructor(limitKbps: number) {
+        super();
+        this.limit = limitKbps * 1024;
+    }
+
+    _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {
+        if (this.limit <= 0) {
+            this.push(chunk);
+            callback();
+            return;
+        }
+
+        this.bytesRead += chunk.length;
+        const now = Date.now();
+        const elapsed = (now - this.startTime) / 1000;
+        const expectedTime = this.bytesRead / this.limit;
+
+        if (elapsed < expectedTime) {
+            const delay = (expectedTime - elapsed) * 1000;
+            setTimeout(() => {
+                this.push(chunk);
+                callback();
+            }, delay);
+        } else {
+            this.push(chunk);
+            callback();
+        }
+    }
+}
 </file>
 
 <file path="src/utils/token.ts">
@@ -9196,378 +9217,150 @@ export class HistoryService {
 export const historyService = new HistoryService();
 </file>
 
-<file path="src/services/LibraryStatisticsService.ts">
-import { databaseService } from './database/index.js';
-import { logger } from '../utils/logger.js';
-
-export interface LibraryStats {
-    totalTracks: number;
-    totalAlbums: number;
-    totalArtists: number;
-    totalSize: number;
-    qualityDistribution: Record<string, number>;
-    genreDistribution: Record<string, number>;
-    activity: {
-        date: string;
-        count: number;
-    }[];
+<file path="src/types/qobuz.ts">
+export interface Artist {
+    id: number | string;
+    name: string;
+    albums_count?: number;
+    image?: { small?: string; medium?: string; large?: string };
 }
 
-export class LibraryStatisticsService {
-    async getLibraryStats(): Promise<LibraryStats> {
-        try {
-            const tracks = databaseService.getAllTracks();
-            
-            const stats: LibraryStats = {
-                totalTracks: tracks.length,
-                totalAlbums: new Set(tracks.map(t => t.album)).size,
-                totalArtists: new Set(tracks.map(t => t.artist)).size,
-                totalSize: tracks.reduce((acc, t) => acc + (t.file_size || 0), 0),
-                qualityDistribution: {},
-                genreDistribution: {},
-                activity: []
-            };
-
-            for (const track of tracks) {
-                const qName = this.getQualityLabel(track.quality);
-                stats.qualityDistribution[qName] = (stats.qualityDistribution[qName] || 0) + 1;
-
-                if (track.genre) {
-                    stats.genreDistribution[track.genre] = (stats.genreDistribution[track.genre] || 0) + 1;
-                }
-            }
-
-            stats.activity = this.calculateActivity(tracks);
-
-            return stats;
-        } catch (error: any) {
-            logger.error(`Statistics: Failed to calculate stats: ${error.message}`, 'STATS');
-            throw error;
-        }
-    }
-
-    private getQualityLabel(quality: number): string {
-        if (quality >= 7) return 'Hi-Res';
-        if (quality === 6) return 'FLAC';
-        if (quality === 5) return 'MP3';
-        return 'Other';
-    }
-
-    private calculateActivity(tracks: any[]): { date: string; count: number }[] {
-        const activityMap = new Map<string, number>();
-        const now = new Date();
-        
-        for (let i = 29; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(now.getDate() - i);
-            activityMap.set(d.toISOString().split('T')[0], 0);
-        }
-
-        for (const track of tracks) {
-            if (track.created_at) {
-                const date = track.created_at.split(' ')[0];
-                if (activityMap.has(date)) {
-                    activityMap.set(date, (activityMap.get(date) || 0) + 1);
-                }
-            }
-        }
-
-        return Array.from(activityMap.entries()).map(([date, count]) => ({ date, count }));
-    }
+export interface ArtistDetails extends Artist {
+    albums?: {
+        items: Album[];
+        total: number;
+        offset: number;
+        limit: number;
+    };
+    tracks?: {
+        items: Track[];
+        total: number;
+    };
 }
 
-export const libraryStatisticsService = new LibraryStatisticsService();
-</file>
+export interface Playlist {
+    id: number | string;
+    name: string;
+    description?: string;
+    tracks: {
+        items: Track[];
+        total: number;
+    };
+    owner?: {
+        name: string;
+        id: number | string;
+    };
+}
 
-<file path="src/services/MetadataProcessor.ts">
-import path from 'path';
-import { Metadata } from './metadata.js';
-import { CONFIG } from '../config.js';
-import { logger } from '../utils/logger.js';
+export interface Album {
+    id: string | number;
+    title: string;
+    artist: Artist;
+    label?: { name: string };
+    genre?: { name: string };
+    duration: number;
+    tracks_count: number;
+    released_at?: number;
+    hires: boolean;
+    hires_streamable?: boolean;
+    maximum_bit_depth?: number;
+    maximum_sampling_rate?: number;
+    goodies?: unknown[];
+    tracks?: {
+        items: Track[];
+    };
+    [key: string]: unknown;
+}
 
-export class MetadataProcessor {
-    sanitizeFilename(name: string, maxLength: number = 128): string {
-        if (!name) return 'Unknown';
-        const sanitized = name
-            .replace(/[<>:"/\\|?*]/g, '')
-            .replace(/&/g, 'and')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .replace(/^\.+|\.+$/g, '');
-
-        // Truncate while ensuring we don't end up with an empty string
-        return sanitized.substring(0, maxLength).trim() || 'Unknown';
-    }
-
-    applyTemplate(template: string, metadata: Metadata, quality: number): string {
-        const qualityName = CONFIG.quality.formats[quality]?.name || 'FLAC';
-        let result = template;
-
-        logger.info(
-            `Processing template: "${template}" for ${metadata.artist} - ${metadata.title}`,
-            'DEBUG'
-        );
-
-        const data: Record<string, any> = {
-            artist: metadata.artist || 'Unknown Artist',
-            albumArtist: metadata.albumArtist || metadata.artist || 'Unknown Artist',
-            album: metadata.album || 'Unknown Album',
-            title: metadata.title || 'Unknown Title',
-            year: metadata.year?.toString() || 'Unknown',
-            quality: qualityName,
-            format: qualityName,
-            track_number: metadata.trackNumber?.toString().padStart(2, '0') || '01',
-            tracknumber: metadata.trackNumber?.toString().padStart(2, '0') || '01',
-            track: metadata.trackNumber?.toString().padStart(2, '0') || '01'
+export interface Track {
+    id: string | number;
+    title: string;
+    artist?: Artist;
+    performer?: {
+        id?: number | string;
+        name: string;
+        image?: { small?: string; medium?: string; large?: string };
+    };
+    album?: {
+        title: string;
+        id?: string | number;
+        artist?: Artist;
+        image?: {
+            small?: string;
+            medium?: string;
+            large?: string;
+            mega?: string;
+            extralarge?: string;
         };
-
-        for (const [key, value] of Object.entries(data)) {
-            const sanitizedValue = this.sanitizeFilename(String(value));
-            const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\{${escapedKey}\\}`, 'gi');
-
-            if (regex.test(result)) {
-                result = result.replace(regex, sanitizedValue);
-                logger.debug(`Replaced {${key}} with "${sanitizedValue}"`, 'DEBUG');
-            }
-        }
-
-        return result;
-    }
-
-    buildFolderPath(metadata: Metadata, quality: number): string {
-        return this.applyTemplate(CONFIG.download.folderStructure, metadata, quality);
-    }
-
-    buildFilename(metadata: Metadata, quality: number): string {
-        const format = CONFIG.quality.formats[quality] || CONFIG.quality.formats[27];
-        const ext = format.extension || 'flac';
-        const filename = this.applyTemplate(CONFIG.download.fileNaming, metadata, quality);
-        return filename.endsWith(`.${ext}`) ? filename : `${filename}.${ext}`;
-    }
-
-    /**
-     * Ensures that the total path (base + folder + file) does not exceed Windows path limits (260 chars).
-     * If it does, it intelligently truncates components while preserving extensions and essential info.
-     */
-    ensurePathSafety(
-        basePath: string,
-        folderPath: string,
-        filename: string
-    ): { folder: string; file: string } {
-        const MAX_TOTAL_PATH = 255;
-        const currentTotal = path.join(basePath, folderPath, filename).length;
-
-        if (currentTotal <= MAX_TOTAL_PATH) {
-            return { folder: folderPath, file: filename };
-        }
-
-        let overLimit = currentTotal - MAX_TOTAL_PATH;
-        let newFilename = filename;
-
-        // 1. Try truncating the filename first (but keep extension)
-        const ext = path.extname(filename);
-        const nameOnly = path.basename(filename, ext);
-
-        if (nameOnly.length > 20) {
-            const toCut = Math.min(overLimit, nameOnly.length - 10);
-            newFilename = nameOnly.substring(0, nameOnly.length - toCut).trim() + ext;
-            overLimit -= toCut;
-        }
-
-        let newFolder = folderPath;
-        // 2. If still over, truncate folder components (prioritizing the deepest folder, usually album)
-        if (overLimit > 0) {
-            const parts = folderPath.split(/[/\\]/);
-            for (let i = parts.length - 1; i >= 0 && overLimit > 0; i--) {
-                const part = parts[i];
-                if (part.length > 10) {
-                    const toCut = Math.min(overLimit, part.length - 5);
-                    parts[i] = part.substring(0, part.length - toCut).trim();
-                    overLimit -= toCut;
-                }
-            }
-            newFolder = parts.join(path.sep);
-        }
-
-        logger.warn(
-            `Path too long (${currentTotal} chars). Truncated to fit limit.`,
-            'PROCESSOR'
-        );
-        return { folder: newFolder, file: newFilename };
-    }
-}
-</file>
-
-<file path="src/utils/async.ts">
-import { logger } from './logger.js';
-
-export async function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    };
+    duration: number;
+    hires: boolean;
+    track_number: number;
+    maximum_sampling_rate?: number;
+    maximum_bit_depth?: number;
+    hires_streamable?: boolean;
+    lyrics?: {
+        sync?: string;
+        text?: string;
+        copyright?: string;
+        writer?: string;
+    };
 }
 
-export async function retryOperation<T>(
-    operation: () => Promise<T>,
-    retries = 3,
-    delay = 1000,
-    context = 'API'
-): Promise<T> {
-    let lastError: any;
-    for (let i = 0; i < retries; i++) {
-        try {
-            return await operation();
-        } catch (e: any) {
-            lastError = e;
-            const isAuthError = e.message?.includes('401') || e.message?.includes('403');
-            const isNotFoundError =
-                e.message?.includes('404') || e.message?.includes('not found');
-
-            if (isAuthError || isNotFoundError) throw e;
-
-            const waitTime = delay * Math.pow(2, i);
-            logger.debug(
-                `[${context}] Retry ${i + 1}/${retries} after ${waitTime}ms. Error: ${e.message}`,
-                'RETRY'
-            );
-            await sleep(waitTime);
-        }
-    }
-    throw lastError;
-}
-</file>
-
-<file path="src/utils/crypto.ts">
-import crypto from 'crypto';
-import os from 'os';
-
-const ALGORITHM = 'aes-256-cbc';
-const IV_LENGTH = 16;
-
-const SECRET_SEED = os.hostname() + os.platform() + os.arch() + (process.env.USERDOMAIN || 'qbz-default');
-const ENCRYPTION_KEY = crypto.createHash('sha256').update(SECRET_SEED).digest();
-
-export function encrypt(text: string): string {
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return `${iv.toString('hex')}:${encrypted}`;
+export interface UserInfo {
+    id: string | number;
+    email: string;
+    country_code: string;
+    subscription?: {
+        offer: string;
+        end_date?: string;
+        period_end_date?: string;
+    };
+    hires_streaming: boolean;
+    credential?: {
+        parameters?: {
+            hires_streaming?: boolean;
+            lossless_streaming?: boolean;
+        };
+    };
 }
 
-export function decrypt(text: string): string {
-    try {
-        const [ivHex, encryptedHex] = text.split(':');
-        if (!ivHex || !encryptedHex) return text;
-
-        const iv = Buffer.from(ivHex, 'hex');
-        const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
-        let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return decrypted;
-    } catch {
-        return text;
-    }
+export interface DownloadResultSummary {
+    success: boolean;
+    title?: string;
+    name?: string;
+    artist?: string;
+    totalTracks?: number;
+    completedTracks?: number;
+    failedTracks?: number;
 }
 
-export function isEncrypted(text: string): boolean {
-    return text.includes(':') && text.split(':')[0].length === IV_LENGTH * 2;
-}
-</file>
-
-<file path="src/utils/events.ts">
-import { EventEmitter } from 'events';
-
-/**
- * Global event bus for inter-service communication.
- * Useful for decoupled communication between backend logic and Electron main process.
- */
-class EventBus extends EventEmitter {
-    private static instance: EventBus;
-
-    private constructor() {
-        super();
-        this.setMaxListeners(20);
-    }
-
-    static getInstance(): EventBus {
-        if (!EventBus.instance) {
-            EventBus.instance = new EventBus();
-        }
-        return EventBus.instance;
-    }
+export interface SearchResults {
+    albums?: { items: Album[] };
+    tracks?: { items: Track[] };
+    artists?: { items: Artist[] };
+    [key: string]: { items: (Album | Track | Artist)[] } | undefined;
 }
 
-export const eventBus = EventBus.getInstance();
-
-export const EVENTS = {
-    DOWNLOAD: {
-        PROGRESS: 'download:progress',
-        COMPLETE: 'download:complete',
-        FAILED: 'download:failed'
-    },
-    QUEUE: {
-        UPDATE: 'queue:update'
-    },
-    SYSTEM: {
-        READY: 'system:ready'
-    }
-} as const;
-</file>
-
-<file path="src/utils/throttle.ts">
-import { Transform, TransformCallback } from 'stream';
-
-export class ThrottleStream extends Transform {
-    private bytesRead = 0;
-    private startTime: number = Date.now();
-    private limit: number;
-
-    constructor(limitKbps: number) {
-        super();
-        this.limit = limitKbps * 1024;
-    }
-
-    _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {
-        if (this.limit <= 0) {
-            this.push(chunk);
-            callback();
-            return;
-        }
-
-        this.bytesRead += chunk.length;
-        const now = Date.now();
-        const elapsed = (now - this.startTime) / 1000;
-        const expectedTime = this.bytesRead / this.limit;
-
-        if (elapsed < expectedTime) {
-            const delay = (expectedTime - elapsed) * 1000;
-            setTimeout(() => {
-                this.push(chunk);
-                callback();
-            }, delay);
-        } else {
-            this.push(chunk);
-            callback();
-        }
-    }
+export interface LyricsResult {
+    success: boolean;
+    syncedLyrics?: boolean;
+    parsedLyrics?: { timeStr: string; text: string }[];
+    plainLyrics?: string;
+    synced?: string | null;
+    unsynced?: string | null;
+    copyright?: string | null;
+    writer?: string | null;
+    error?: string;
 }
-</file>
 
-<file path="src/utils/ui.ts">
-import chalk from 'chalk';
-import figlet from 'figlet';
-import { APP_VERSION } from '../constants.js';
-import { GRADIENTS } from './theme.js';
-
-export const printLogo = () => {
-    console.clear();
-    const logo = figlet.textSync(' Qobuz DL ', { font: 'Slant' });
-    console.log(GRADIENTS.title(logo));
-    const subtitle = `v${APP_VERSION} • Premium High-Res Downloader`;
-    const padding = Math.max(0, Math.floor((60 - subtitle.length) / 2));
-    console.log(' '.repeat(padding) + chalk.white(subtitle));
-    console.log();
-};
+export interface FileUrlData {
+    url: string;
+    format_id: number;
+    bit_depth?: number;
+    sampling_rate?: number;
+    mime_type?: string;
+}
 </file>
 
 <file path="client/index.html">
@@ -12139,446 +11932,6 @@ class LyricsProvider {
 export default LyricsProvider;
 </file>
 
-<file path="src/api/qobuz.ts">
-import { createAxiosInstance } from '../utils/network.js';
-import { cacheService } from '../utils/cache.js';
-import { logger } from '../utils/logger.js';
-import { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
-import crypto from 'crypto';
-import { CONFIG, normalizeDownloadQuality } from '../config.js';
-import { APIError, AuthenticationError } from '../utils/errors.js';
-import { refreshUserToken } from '../utils/token.js';
-import { URL_PATTERNS } from '../constants.js';
-import { settingsService } from '../services/settings.js';
-
-import { Album, Track, UserInfo, SearchResults, LyricsResult, Playlist } from '../types/qobuz.js';
-
-interface ApiResponse<T = unknown> {
-    success: boolean;
-    data?: T;
-    error?: string;
-}
-
-class QobuzAPI {
-    baseUrl: string;
-    client: AxiosInstance;
-
-    get appId() {
-        return CONFIG.credentials.appId;
-    }
-    set appId(val: string) {
-        settingsService.set('QOBUZ_APP_ID', val);
-    }
-
-    get appSecret() {
-        return CONFIG.credentials.appSecret;
-    }
-    set appSecret(val: string) {
-        settingsService.set('QOBUZ_APP_SECRET', val);
-    }
-
-    get token() {
-        return CONFIG.credentials.token;
-    }
-    set token(val: string) {
-        settingsService.set('QOBUZ_USER_AUTH_TOKEN', val);
-    }
-
-    get userId() {
-        return CONFIG.credentials.userId;
-    }
-    set userId(val: string) {
-        settingsService.set('QOBUZ_USER_ID', val);
-    }
-
-    constructor() {
-        this.baseUrl = CONFIG.api.baseUrl;
-
-        this.client = createAxiosInstance({
-            baseURL: this.baseUrl,
-            timeout: 30000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                get 'X-App-Id'() {
-                    return CONFIG.credentials.appId;
-                },
-                'Accept-Language': 'en-US,en;q=0.9'
-            }
-        });
-
-        this.client.interceptors.request.use((config) => {
-            config.headers['X-App-Id'] = this.appId;
-            return config;
-        });
-
-        this.setupInterceptors();
-    }
-
-    setupInterceptors() {
-        this.client.interceptors.response.use(
-            (response) => response,
-            async (error) => {
-                const originalRequest = error.config;
-
-                if (
-                    (error.response?.status === 401 || error.response?.status === 403) &&
-                    !originalRequest._retry
-                ) {
-                    originalRequest._retry = true;
-
-                    try {
-                        const newToken = await refreshUserToken();
-                        if (newToken) {
-                            this.token = newToken;
-
-                            if (originalRequest.params) {
-                                originalRequest.params.user_auth_token = newToken;
-                            }
-
-                            return this.client(originalRequest as AxiosRequestConfig);
-                        }
-                    } catch {
-                        return Promise.reject(error);
-                    }
-                }
-                return Promise.reject(error);
-            }
-        );
-    }
-
-    generateSignature(trackId: string | number, formatId: number, intent = 'stream') {
-        const timestamp = Math.floor(Date.now() / 1000);
-        const secret = CONFIG.credentials.appSecret;
-        const data = `trackgetFileUrlformat_id${formatId}intent${intent}track_id${trackId}${timestamp}${secret}`;
-        const signature = crypto.createHash('md5').update(data).digest('hex');
-        return { timestamp, signature };
-    }
-
-    async getTrack(trackId: string | number): Promise<ApiResponse<Track>> {
-        const cacheKey = `track:${trackId}`;
-        const cached = await cacheService.get(cacheKey);
-        if (cached) return { success: true, data: cached };
-
-        try {
-            const response = await this.client.get('/track/get', {
-                params: {
-                    track_id: trackId,
-                    app_id: this.appId,
-                    user_auth_token: this.token,
-                    extra: 'track_url,lyrics'
-                }
-            });
-            await cacheService.set(cacheKey, response.data, 3600);
-            return { success: true, data: response.data };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getAlbum(albumId: string | number): Promise<ApiResponse<Album>> {
-        const cacheKey = `album:${albumId}`;
-        const cached = await cacheService.get(cacheKey);
-        if (cached) return { success: true, data: cached };
-
-        try {
-            const response = await this.client.get('/album/get', {
-                params: {
-                    album_id: albumId,
-                    app_id: this.appId,
-                    user_auth_token: this.token,
-                    extra: 'albumsFromSameArtist,focus'
-                }
-            });
-            await cacheService.set(cacheKey, response.data, 3600);
-            return { success: true, data: response.data };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getArtist(
-        artistId: string | number,
-        albumOffset = 0,
-        albumLimit = 20,
-        trackOffset = 0,
-        trackLimit = 25
-    ): Promise<ApiResponse> {
-        const cacheKey = `artist:${artistId}:${albumOffset}:${albumLimit}:${trackOffset}:${trackLimit}`;
-        const cached = await cacheService.get(cacheKey);
-        if (cached) return { success: true, data: cached };
-
-        try {
-            const response = await this.client.get('/artist/get', {
-                params: {
-                    artist_id: artistId,
-                    app_id: this.appId,
-                    user_auth_token: this.token,
-                    extra: 'albums,tracks,focus',
-                    album_offset: albumOffset,
-                    album_limit: albumLimit,
-                    track_offset: trackOffset,
-                    track_limit: trackLimit,
-                    offset: albumOffset,
-                    limit: albumLimit
-                }
-            });
-
-            if (response.data?.albums) {
-                logger.debug(
-                    `[QobuzAPI] Artist Album Response - Requested Offset: ${albumOffset} | Returned: ${response.data.albums.offset} | Count: ${response.data.albums.items?.length}`
-                );
-            }
-
-            await cacheService.set(cacheKey, response.data, 1800);
-            return { success: true, data: response.data };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getArtistAlbums(artistId: string | number, limit = 20, offset = 0): Promise<ApiResponse> {
-        try {
-            const response = await this.client.get('/artist/get', {
-                params: {
-                    artist_id: artistId,
-                    app_id: this.appId,
-                    user_auth_token: this.token,
-                    extra: 'albums',
-                    album_limit: limit,
-                    album_offset: offset,
-                    offset: offset,
-                    limit: limit
-                }
-            });
-            return { success: true, data: response.data };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getPlaylist(playlistId: string | number): Promise<ApiResponse<Playlist>> {
-        try {
-            const response = await this.client.get('/playlist/get', {
-                params: {
-                    playlist_id: playlistId,
-                    app_id: this.appId,
-                    user_auth_token: this.token,
-                    extra: 'tracks,subscribers'
-                }
-            });
-            return { success: true, data: response.data };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getGenres(): Promise<ApiResponse> {
-        try {
-            const response = await this.client.get('/genre/list', {
-                params: {
-                    app_id: this.appId,
-                    user_auth_token: this.token
-                }
-            });
-            return { success: true, data: response.data };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async search(
-        query: string,
-        type = 'albums',
-        limit = 20,
-        offset = 0
-    ): Promise<ApiResponse<SearchResults>> {
-        try {
-            const response = await this.client.get('/catalog/search', {
-                params: {
-                    query: query,
-                    type: type,
-                    limit: limit,
-                    offset: offset,
-                    app_id: this.appId,
-                    user_auth_token: this.token
-                }
-            });
-            return { success: true, data: response.data };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getFileUrl(trackId: string | number, formatId: number | string = 27): Promise<ApiResponse> {
-        try {
-            const requestedFormatId = normalizeDownloadQuality(formatId, 27);
-            const { timestamp, signature } = this.generateSignature(trackId, requestedFormatId);
-
-            const response = await this.client.get('/track/getFileUrl', {
-                params: {
-                    track_id: trackId,
-                    format_id: requestedFormatId,
-                    intent: 'stream',
-                    request_ts: timestamp,
-                    request_sig: signature,
-                    app_id: this.appId,
-                    user_auth_token: this.token
-                }
-            });
-
-            if (response.data) {
-                let detectedFormat = requestedFormatId;
-                const { bit_depth, sampling_rate, mime_type } = response.data;
-
-                if (mime_type === 'audio/mpeg' || mime_type === 'audio/mp3') {
-                    detectedFormat = 5;
-                } else if (bit_depth === 16) {
-                    detectedFormat = 6;
-                } else if (bit_depth === 24) {
-                    if (sampling_rate >= 176.4) {
-                        detectedFormat = 27;
-                    } else {
-                        detectedFormat = 7;
-                    }
-                }
-
-                response.data.format_id = detectedFormat;
-
-                if (
-                    response.data.sample ||
-                    (response.data.duration && response.data.duration <= 30)
-                ) {
-                    logger.warn(`Track ${trackId} returned as a SAMPLE/PREVIEW (30s limit)`, 'API');
-
-                    const debugInfo = {
-                        duration: response.data.duration,
-                        sample: response.data.sample,
-                        restrictions: response.data.restrictions,
-                        format_id: response.data.format_id
-                    };
-
-                    logger.debug(`Sample Details: ${JSON.stringify(debugInfo, null, 2)}`, 'API');
-                }
-            }
-
-            return { success: true, data: response.data };
-        } catch (error) {
-            const requestedFormatId = normalizeDownloadQuality(formatId, 27);
-
-            if (requestedFormatId === 27) {
-                return await this.getFileUrl(trackId, 7);
-            } else if (requestedFormatId === 7) {
-                return await this.getFileUrl(trackId, 6);
-            } else if (requestedFormatId === 6) {
-                return await this.getFileUrl(trackId, 5);
-            } else if (requestedFormatId === 5) {
-                // Last resort: format 1 is often used for 30s preview
-                return await this.getFileUrl(trackId, 1);
-            }
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getUserInfo(): Promise<ApiResponse<UserInfo>> {
-        try {
-            const response = await this.client.get('/user/get', {
-                params: {
-                    user_id: this.userId,
-                    app_id: this.appId,
-                    user_auth_token: this.token
-                }
-            });
-            return { success: true, data: response.data };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getLyrics(trackId: string | number): Promise<ApiResponse<LyricsResult>> {
-        try {
-            const trackInfo = await this.getTrack(trackId);
-            if (trackInfo.success && trackInfo.data && trackInfo.data.lyrics) {
-                return {
-                    success: true,
-                    data: {
-                        success: true,
-                        synced: trackInfo.data.lyrics.sync || null,
-                        unsynced: trackInfo.data.lyrics.text || null,
-                        copyright: trackInfo.data.lyrics.copyright || null,
-                        writer: trackInfo.data.lyrics.writer || null
-                    }
-                };
-            }
-            return { success: false, error: 'No lyrics available' };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    async getGoodies(albumId: string | number): Promise<ApiResponse> {
-        try {
-            const albumInfo = await this.getAlbum(albumId);
-            if (albumInfo.success && albumInfo.data && albumInfo.data.goodies) {
-                return { success: true, data: albumInfo.data.goodies };
-            }
-            return { success: false, error: 'No goodies available' };
-        } catch (error) {
-            this.handleApiError(error);
-            return { success: false, error: 'API Error' };
-        }
-    }
-
-    handleApiError(error: unknown) {
-        const err = error as AxiosError;
-        const statusCode = err.response?.status;
-        const data = err.response?.data as Record<string, unknown> | undefined;
-        const rawMessage = data?.message || data?.error || err.message;
-        const message = typeof rawMessage === 'string' ? rawMessage : 'Unknown error';
-
-        if (statusCode === 401 || statusCode === 403) {
-            throw new AuthenticationError(message || 'Authentication failed');
-        }
-
-        throw new APIError(message || 'API Error', statusCode);
-    }
-
-    parseUrl(url: string) {
-        const patterns = {
-            track: URL_PATTERNS.TRACK,
-            album: URL_PATTERNS.ALBUM,
-            artist: URL_PATTERNS.ARTIST,
-            playlist: URL_PATTERNS.PLAYLIST,
-            label: URL_PATTERNS.LABEL
-        };
-
-        for (const [type, pattern] of Object.entries(patterns)) {
-            const match = url.match(pattern);
-            if (match) {
-                return { type, id: match[1] };
-            }
-        }
-
-        if (URL_PATTERNS.NUMERIC_ID.test(url)) {
-            return { type: 'album', id: url };
-        }
-
-        return null;
-    }
-}
-
-export default QobuzAPI;
-</file>
-
 <file path="src/services/analytics/index.ts">
 import { databaseService } from '../database/index.js';
 
@@ -14275,89 +13628,122 @@ class MetadataService {
 export default MetadataService;
 </file>
 
-<file path="src/services/RecommendationService.ts">
-import QobuzAPI from '../api/qobuz.js';
-import { historyService } from './history.js';
-import { Album } from '../types/qobuz.js';
+<file path="src/services/MetadataProcessor.ts">
+import path from 'path';
+import { Metadata } from './metadata.js';
+import { CONFIG } from '../config.js';
 import { logger } from '../utils/logger.js';
 
-export class RecommendationService {
-    private api: QobuzAPI;
+export class MetadataProcessor {
+    sanitizeFilename(name: string, maxLength: number = 128): string {
+        if (!name) return 'Unknown';
+        const sanitized = name
+            .replace(/[<>:"/\\|?*]/g, '')
+            .replace(/&/g, 'and')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/^\.+|\.+$/g, '');
 
-    constructor(api: QobuzAPI) {
-        this.api = api;
+        // Truncate while ensuring we don't end up with an empty string
+        return sanitized.substring(0, maxLength).trim() || 'Unknown';
     }
 
-    async getRecommendations(limit = 10): Promise<Album[]> {
-        try {
-            const history = historyService.getSorted();
-            if (history.length === 0) {
-                return this.getGeneralRecommendations(limit);
+    applyTemplate(template: string, metadata: Metadata, quality: number): string {
+        const qualityName = CONFIG.quality.formats[quality]?.name || 'FLAC';
+        let result = template;
+
+        logger.info(
+            `Processing template: "${template}" for ${metadata.artist} - ${metadata.title}`,
+            'DEBUG'
+        );
+
+        const data: Record<string, string> = {
+            artist: metadata.artist || 'Unknown Artist',
+            albumArtist: metadata.albumArtist || metadata.artist || 'Unknown Artist',
+            album: metadata.album || 'Unknown Album',
+            title: metadata.title || 'Unknown Title',
+            year: metadata.year?.toString() || 'Unknown',
+            quality: qualityName,
+            format: qualityName,
+            track_number: metadata.trackNumber?.toString().padStart(2, '0') || '01',
+            tracknumber: metadata.trackNumber?.toString().padStart(2, '0') || '01',
+            track: metadata.trackNumber?.toString().padStart(2, '0') || '01'
+        };
+
+        for (const [key, value] of Object.entries(data)) {
+            const sanitizedValue = this.sanitizeFilename(String(value));
+            const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\{${escapedKey}\\}`, 'gi');
+
+            if (regex.test(result)) {
+                result = result.replace(regex, sanitizedValue);
+                logger.debug(`Replaced {${key}} with "${sanitizedValue}"`, 'DEBUG');
             }
-
-
-            const artistCounts: Record<string, number> = {};
-            history.forEach(entry => {
-                if (entry.artist) {
-                    artistCounts[entry.artist] = (artistCounts[entry.artist] || 0) + 1;
-                }
-            });
-
-            const topArtists = Object.entries(artistCounts)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 3)
-                .map(([name]) => name);
-
-
-            const recommendations: Album[] = [];
-            const seenAlbumIds = new Set<string | number>();
-
-
-
-            for (const artistName of topArtists) {
-                const searchRes = await this.api.search(artistName, 'artists', 1);
-                if (searchRes.success && searchRes.data?.artists?.items?.length) {
-                    const artist = searchRes.data.artists.items[0];
-                    
-
-                    const artistDetails = await this.api.getArtist(artist.id, 0, 10);
-                    if (artistDetails.success && (artistDetails.data as any)?.albums?.items) {
-                        const albums = (artistDetails.data as any).albums.items as Album[];
-                        
-                        for (const album of albums) {
-                            if (!seenAlbumIds.has(album.id) && recommendations.length < limit) {
-                                if (album.hires) {
-                                    recommendations.push(album);
-                                    seenAlbumIds.add(album.id);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-
-            if (recommendations.length < limit) {
-                const extra = await this.getGeneralRecommendations(limit - recommendations.length);
-                extra.forEach(album => {
-                    if (!seenAlbumIds.has(album.id) && recommendations.length < limit) {
-                        recommendations.push(album);
-                        seenAlbumIds.add(album.id);
-                    }
-                });
-            }
-
-            return recommendations;
-
-        } catch (error: any) {
-            logger.error(`RecommendationService: Failed to get recommendations: ${error.message}`);
-            return [];
         }
+
+        return result;
     }
 
-    private async getGeneralRecommendations(limit: number): Promise<Album[]> {
-        const res = await this.api.search('Hi-Res', 'albums', limit);
-        return res.success && res.data?.albums?.items ? res.data.albums.items : [];
+    buildFolderPath(metadata: Metadata, quality: number): string {
+        return this.applyTemplate(CONFIG.download.folderStructure, metadata, quality);
+    }
+
+    buildFilename(metadata: Metadata, quality: number): string {
+        const format = CONFIG.quality.formats[quality] || CONFIG.quality.formats[27];
+        const ext = format.extension || 'flac';
+        const filename = this.applyTemplate(CONFIG.download.fileNaming, metadata, quality);
+        return filename.endsWith(`.${ext}`) ? filename : `${filename}.${ext}`;
+    }
+
+    /**
+     * Ensures that the total path (base + folder + file) does not exceed Windows path limits (260 chars).
+     * If it does, it intelligently truncates components while preserving extensions and essential info.
+     */
+    ensurePathSafety(
+        basePath: string,
+        folderPath: string,
+        filename: string
+    ): { folder: string; file: string } {
+        const MAX_TOTAL_PATH = 255;
+        const currentTotal = path.join(basePath, folderPath, filename).length;
+
+        if (currentTotal <= MAX_TOTAL_PATH) {
+            return { folder: folderPath, file: filename };
+        }
+
+        let overLimit = currentTotal - MAX_TOTAL_PATH;
+        let newFilename = filename;
+
+        // 1. Try truncating the filename first (but keep extension)
+        const ext = path.extname(filename);
+        const nameOnly = path.basename(filename, ext);
+
+        if (nameOnly.length > 20) {
+            const toCut = Math.min(overLimit, nameOnly.length - 10);
+            newFilename = nameOnly.substring(0, nameOnly.length - toCut).trim() + ext;
+            overLimit -= toCut;
+        }
+
+        let newFolder = folderPath;
+        // 2. If still over, truncate folder components (prioritizing the deepest folder, usually album)
+        if (overLimit > 0) {
+            const parts = folderPath.split(/[/\\]/);
+            for (let i = parts.length - 1; i >= 0 && overLimit > 0; i--) {
+                const part = parts[i];
+                if (part.length > 10) {
+                    const toCut = Math.min(overLimit, part.length - 5);
+                    parts[i] = part.substring(0, part.length - toCut).trim();
+                    overLimit -= toCut;
+                }
+            }
+            newFolder = parts.join(path.sep);
+        }
+
+        logger.warn(
+            `Path too long (${currentTotal} chars). Truncated to fit limit.`,
+            'PROCESSOR'
+        );
+        return { folder: newFolder, file: newFilename };
     }
 }
 </file>
@@ -14547,6 +13933,247 @@ class SettingsService {
 }
 
 export const settingsService = new SettingsService();
+</file>
+
+<file path="src/utils/logger.ts">
+import chalk from 'chalk';
+import fs from 'fs';
+import path from 'path';
+
+export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'system';
+
+class Logger {
+    private static instance: Logger;
+    private logs: any[] = [];
+    private readonly MAX_LOGS = 500;
+    private readonly LOG_DIR = path.resolve('./logs');
+    private readonly CURRENT_LOG_FILE = 'qbz-latest.log';
+    private readonly MAX_LOG_FILES = 5;
+
+    private constructor() {
+        this.initLogDir();
+    }
+
+    static getInstance(): Logger {
+        if (!Logger.instance) {
+            Logger.instance = new Logger();
+        }
+        return Logger.instance;
+    }
+
+    public getLogs() {
+        return this.logs;
+    }
+
+    private broadcastCallback: ((log: any) => void) | null = null;
+
+    public setBroadcastCallback(callback: (log: any) => void) {
+        this.broadcastCallback = callback;
+    }
+
+    private getTimestamp(): string {
+        return new Date().toLocaleTimeString('en-US', { hour12: false });
+    }
+
+    log(message: string, type: LogType = 'info', scope?: string) {
+        const timestampStr = this.getTimestamp();
+        const logEntry = {
+            timestamp: timestampStr,
+            type,
+            scope: scope?.toUpperCase() || 'SYSTEM',
+            message,
+            time: Date.now()
+        };
+
+        this.logs.push(logEntry);
+        this.writeToLogFile(logEntry);
+
+        if (this.logs.length > this.MAX_LOGS) {
+            this.logs.shift();
+        }
+
+        if (this.broadcastCallback) {
+            this.broadcastCallback(this.logs[this.logs.length - 1]);
+        }
+
+        const timestamp = chalk.gray(timestampStr);
+
+        let icon = '';
+        let badge = '';
+        let colorizedMessage = message;
+
+        switch (type) {
+            case 'success':
+                icon = '✅';
+                badge = chalk.green.bold('SUCCESS'.padEnd(7));
+                colorizedMessage = chalk.greenBright(message);
+                break;
+            case 'warn':
+                icon = '⚠️ ';
+                badge = chalk.yellow.bold('WARNING'.padEnd(7));
+                colorizedMessage = chalk.yellowBright(message);
+                break;
+            case 'error':
+                icon = '❌';
+                badge = chalk.red.bold('ERROR  '.padEnd(7));
+                colorizedMessage = chalk.redBright(message);
+                break;
+            case 'debug':
+                icon = '🐛';
+                badge = chalk.magenta.bold('DEBUG  '.padEnd(7));
+                colorizedMessage = chalk.magenta(message);
+                break;
+            case 'system':
+                icon = '💻';
+                badge = chalk.cyan.bold('SYSTEM '.padEnd(7));
+                colorizedMessage = chalk.cyanBright(message);
+                break;
+            default:
+                icon = 'ℹ️ ';
+                badge = chalk.blue.bold('INFO   '.padEnd(7));
+                colorizedMessage = chalk.white(message);
+        }
+
+        const scopeStr = scope ? scope.toUpperCase() : '';
+        const targetWidth = 8;
+        const padding = Math.max(0, targetWidth - scopeStr.length);
+        const padLeft = Math.floor(padding / 2);
+        const padRight = padding - padLeft;
+        const centeredScope = ' '.repeat(padLeft) + scopeStr + ' '.repeat(padRight);
+
+        const scopeLabel = chalk.bold.white(`[${centeredScope}]`);
+        const separator = chalk.gray('│');
+
+        console.log(
+            `${timestamp} ${separator} ${icon} ${badge} ${separator} ${scopeLabel} ${colorizedMessage}`
+        );
+    }
+
+    info(message: string, scope?: string) {
+        this.log(message, 'info', scope);
+    }
+    success(message: string, scope?: string) {
+        this.log(message, 'success', scope);
+    }
+    warn(message: string, scope?: string) {
+        this.log(message, 'warn', scope);
+    }
+    error(message: string, scope?: string) {
+        this.log(message, 'error', scope);
+    }
+    debug(message: string, scope?: string) {
+        this.log(message, 'debug', scope);
+    }
+    system(message: string, scope?: string) {
+        this.log(message, 'system', scope);
+    }
+
+    private initLogDir() {
+        if (!fs.existsSync(this.LOG_DIR)) {
+            fs.mkdirSync(this.LOG_DIR, { recursive: true });
+        }
+    }
+
+    private writeToLogFile(logEntry: any) {
+        try {
+            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
+            const line = `[${logEntry.timestamp}] [${logEntry.type.toUpperCase().padEnd(7)}] [${logEntry.scope}] ${logEntry.message}\n`;
+
+            if (fs.existsSync(logFilePath) && fs.statSync(logFilePath).size > 5 * 1024 * 1024) {
+                this.rotateLogs();
+            }
+
+            fs.appendFileSync(logFilePath, line, 'utf8');
+        } catch {
+        }
+    }
+
+    private rotateLogs() {
+        try {
+            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
+
+            for (let i = this.MAX_LOG_FILES - 1; i >= 1; i--) {
+                const oldPath = path.join(this.LOG_DIR, `qbz-old-${i}.log`);
+                const nextPath = path.join(this.LOG_DIR, `qbz-old-${i + 1}.log`);
+                if (fs.existsSync(oldPath)) {
+                    if (i === this.MAX_LOG_FILES - 1) {
+                        fs.unlinkSync(oldPath);
+                    } else {
+                        fs.renameSync(oldPath, nextPath);
+                    }
+                }
+            }
+
+            if (fs.existsSync(logFilePath)) {
+                fs.renameSync(logFilePath, path.join(this.LOG_DIR, 'qbz-old-1.log'));
+            }
+        } catch {
+        }
+    }
+}
+
+export const logger = Logger.getInstance();
+</file>
+
+<file path="src/utils/ui.ts">
+import boxen from 'boxen';
+import chalk from 'chalk';
+import figlet from 'figlet';
+import { APP_VERSION } from '../constants.js';
+import { COLORS, GRADIENTS, SYMBOLS } from './theme.js';
+
+export const printLogo = () => {
+    console.clear();
+    const logo = figlet.textSync(' Qobuz DL ', { font: 'Slant' });
+    console.log(GRADIENTS.title(logo));
+    const subtitle = `v${APP_VERSION} • Premium High-Res Downloader`;
+    const padding = Math.max(0, Math.floor((60 - subtitle.length) / 2));
+    console.log(' '.repeat(padding) + chalk.white(subtitle));
+    console.log();
+};
+
+export const printBox = (content: string, title = '', style = 'info') => {
+    let borderColor = 'cyan';
+    if (style === 'error') borderColor = 'red';
+    if (style === 'success') borderColor = 'green';
+    if (style === 'warning') borderColor = 'yellow';
+
+    console.log(
+        boxen(content, {
+            title: title ? chalk.bold(title) : undefined,
+            titleAlignment: 'center',
+            padding: 1,
+            margin: { top: 1, bottom: 1 },
+            borderStyle: 'round',
+            borderColor: borderColor
+        })
+    );
+};
+
+export const printHeader = (text: string) => {
+    console.log('\n' + chalk.bold.hex(COLORS.primary)(` ${SYMBOLS.arrow} ${text.toUpperCase()}`));
+    console.log(chalk.hex(COLORS.subtext)(SYMBOLS.line.repeat(50)));
+};
+
+export const printSection = (label: string, value: string | number) => {
+    console.log(`${chalk.hex(COLORS.primary).bold(label.padEnd(15))} : ${chalk.white(value)}`);
+};
+
+export const printSuccess = (msg: string) => {
+    console.log(chalk.hex(COLORS.success)(`\n ${SYMBOLS.success} ${msg}`));
+};
+
+export const printError = (msg: string) => {
+    console.log(chalk.hex(COLORS.error)(`\n ${SYMBOLS.error} ${msg}`));
+};
+
+export const printWarning = (msg: string) => {
+    console.log(chalk.hex(COLORS.warning)(`\n ${SYMBOLS.warning} ${msg}`));
+};
+
+export const printInfo = (msg: string) => {
+    console.log(chalk.hex(COLORS.primary)(`\n ${SYMBOLS.info} ${msg}`));
+};
 </file>
 
 <file path="client/src/contexts/NotificationContext.tsx">
@@ -14970,6 +14597,446 @@ export const useTheme = () => {
     }
     return context;
 };
+</file>
+
+<file path="src/api/qobuz.ts">
+import { createAxiosInstance } from '../utils/network.js';
+import { cacheService } from '../utils/cache.js';
+import { logger } from '../utils/logger.js';
+import { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
+import crypto from 'crypto';
+import { CONFIG, normalizeDownloadQuality } from '../config.js';
+import { APIError, AuthenticationError } from '../utils/errors.js';
+import { refreshUserToken } from '../utils/token.js';
+import { URL_PATTERNS } from '../constants.js';
+import { settingsService } from '../services/settings.js';
+
+import { Album, Track, UserInfo, SearchResults, LyricsResult, Playlist, ArtistDetails } from '../types/qobuz.js';
+
+interface ApiResponse<T = unknown> {
+    success: boolean;
+    data?: T;
+    error?: string;
+}
+
+class QobuzAPI {
+    baseUrl: string;
+    client: AxiosInstance;
+
+    get appId() {
+        return CONFIG.credentials.appId;
+    }
+    set appId(val: string) {
+        settingsService.set('QOBUZ_APP_ID', val);
+    }
+
+    get appSecret() {
+        return CONFIG.credentials.appSecret;
+    }
+    set appSecret(val: string) {
+        settingsService.set('QOBUZ_APP_SECRET', val);
+    }
+
+    get token() {
+        return CONFIG.credentials.token;
+    }
+    set token(val: string) {
+        settingsService.set('QOBUZ_USER_AUTH_TOKEN', val);
+    }
+
+    get userId() {
+        return CONFIG.credentials.userId;
+    }
+    set userId(val: string) {
+        settingsService.set('QOBUZ_USER_ID', val);
+    }
+
+    constructor() {
+        this.baseUrl = CONFIG.api.baseUrl;
+
+        this.client = createAxiosInstance({
+            baseURL: this.baseUrl,
+            timeout: 30000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                get 'X-App-Id'() {
+                    return CONFIG.credentials.appId;
+                },
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        });
+
+        this.client.interceptors.request.use((config) => {
+            config.headers['X-App-Id'] = this.appId;
+            return config;
+        });
+
+        this.setupInterceptors();
+    }
+
+    setupInterceptors() {
+        this.client.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                const originalRequest = error.config;
+
+                if (
+                    (error.response?.status === 401 || error.response?.status === 403) &&
+                    !originalRequest._retry
+                ) {
+                    originalRequest._retry = true;
+
+                    try {
+                        const newToken = await refreshUserToken();
+                        if (newToken) {
+                            this.token = newToken;
+
+                            if (originalRequest.params) {
+                                originalRequest.params.user_auth_token = newToken;
+                            }
+
+                            return this.client(originalRequest as AxiosRequestConfig);
+                        }
+                    } catch {
+                        return Promise.reject(error);
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
+    }
+
+    generateSignature(trackId: string | number, formatId: number, intent = 'stream') {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const secret = CONFIG.credentials.appSecret;
+        const data = `trackgetFileUrlformat_id${formatId}intent${intent}track_id${trackId}${timestamp}${secret}`;
+        const signature = crypto.createHash('md5').update(data).digest('hex');
+        return { timestamp, signature };
+    }
+
+    async getTrack(trackId: string | number): Promise<ApiResponse<Track>> {
+        const cacheKey = `track:${trackId}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return { success: true, data: cached };
+
+        try {
+            const response = await this.client.get('/track/get', {
+                params: {
+                    track_id: trackId,
+                    app_id: this.appId,
+                    user_auth_token: this.token,
+                    extra: 'track_url,lyrics'
+                }
+            });
+            await cacheService.set(cacheKey, response.data, 3600);
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getAlbum(albumId: string | number): Promise<ApiResponse<Album>> {
+        const cacheKey = `album:${albumId}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return { success: true, data: cached };
+
+        try {
+            const response = await this.client.get('/album/get', {
+                params: {
+                    album_id: albumId,
+                    app_id: this.appId,
+                    user_auth_token: this.token,
+                    extra: 'albumsFromSameArtist,focus'
+                }
+            });
+            await cacheService.set(cacheKey, response.data, 3600);
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getArtist(
+        artistId: string | number,
+        albumOffset = 0,
+        albumLimit = 20,
+        trackOffset = 0,
+        trackLimit = 25
+    ): Promise<ApiResponse<ArtistDetails>> {
+        const cacheKey = `artist:${artistId}:${albumOffset}:${albumLimit}:${trackOffset}:${trackLimit}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return { success: true, data: cached };
+
+        try {
+            const response = await this.client.get('/artist/get', {
+                params: {
+                    artist_id: artistId,
+                    app_id: this.appId,
+                    user_auth_token: this.token,
+                    extra: 'albums,tracks,focus',
+                    album_offset: albumOffset,
+                    album_limit: albumLimit,
+                    track_offset: trackOffset,
+                    track_limit: trackLimit,
+                    offset: albumOffset,
+                    limit: albumLimit
+                }
+            });
+
+            if (response.data?.albums) {
+                logger.debug(
+                    `[QobuzAPI] Artist Album Response - Requested Offset: ${albumOffset} | Returned: ${response.data.albums.offset} | Count: ${response.data.albums.items?.length}`
+                );
+            }
+
+            await cacheService.set(cacheKey, response.data, 1800);
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getArtistAlbums(artistId: string | number, limit = 20, offset = 0): Promise<ApiResponse<ArtistDetails>> {
+        try {
+            const response = await this.client.get('/artist/get', {
+                params: {
+                    artist_id: artistId,
+                    app_id: this.appId,
+                    user_auth_token: this.token,
+                    extra: 'albums',
+                    album_limit: limit,
+                    album_offset: offset,
+                    offset: offset,
+                    limit: limit
+                }
+            });
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getPlaylist(playlistId: string | number): Promise<ApiResponse<Playlist>> {
+        try {
+            const response = await this.client.get('/playlist/get', {
+                params: {
+                    playlist_id: playlistId,
+                    app_id: this.appId,
+                    user_auth_token: this.token,
+                    extra: 'tracks,subscribers'
+                }
+            });
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getGenres(): Promise<ApiResponse> {
+        try {
+            const response = await this.client.get('/genre/list', {
+                params: {
+                    app_id: this.appId,
+                    user_auth_token: this.token
+                }
+            });
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async search(
+        query: string,
+        type = 'albums',
+        limit = 20,
+        offset = 0
+    ): Promise<ApiResponse<SearchResults>> {
+        try {
+            const response = await this.client.get('/catalog/search', {
+                params: {
+                    query: query,
+                    type: type,
+                    limit: limit,
+                    offset: offset,
+                    app_id: this.appId,
+                    user_auth_token: this.token
+                }
+            });
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getFileUrl(trackId: string | number, formatId: number | string = 27): Promise<ApiResponse> {
+        try {
+            const requestedFormatId = normalizeDownloadQuality(formatId, 27);
+            const { timestamp, signature } = this.generateSignature(trackId, requestedFormatId);
+
+            const response = await this.client.get('/track/getFileUrl', {
+                params: {
+                    track_id: trackId,
+                    format_id: requestedFormatId,
+                    intent: 'stream',
+                    request_ts: timestamp,
+                    request_sig: signature,
+                    app_id: this.appId,
+                    user_auth_token: this.token
+                }
+            });
+
+            if (response.data) {
+                let detectedFormat = requestedFormatId;
+                const { bit_depth, sampling_rate, mime_type } = response.data;
+
+                if (mime_type === 'audio/mpeg' || mime_type === 'audio/mp3') {
+                    detectedFormat = 5;
+                } else if (bit_depth === 16) {
+                    detectedFormat = 6;
+                } else if (bit_depth === 24) {
+                    if (sampling_rate >= 176.4) {
+                        detectedFormat = 27;
+                    } else {
+                        detectedFormat = 7;
+                    }
+                }
+
+                response.data.format_id = detectedFormat;
+
+                if (
+                    response.data.sample ||
+                    (response.data.duration && response.data.duration <= 30)
+                ) {
+                    logger.warn(`Track ${trackId} returned as a SAMPLE/PREVIEW (30s limit)`, 'API');
+
+                    const debugInfo = {
+                        duration: response.data.duration,
+                        sample: response.data.sample,
+                        restrictions: response.data.restrictions,
+                        format_id: response.data.format_id
+                    };
+
+                    logger.debug(`Sample Details: ${JSON.stringify(debugInfo, null, 2)}`, 'API');
+                }
+            }
+
+            return { success: true, data: response.data };
+        } catch (error) {
+            const requestedFormatId = normalizeDownloadQuality(formatId, 27);
+
+            if (requestedFormatId === 27) {
+                return await this.getFileUrl(trackId, 7);
+            } else if (requestedFormatId === 7) {
+                return await this.getFileUrl(trackId, 6);
+            } else if (requestedFormatId === 6) {
+                return await this.getFileUrl(trackId, 5);
+            } else if (requestedFormatId === 5) {
+                // Last resort: format 1 is often used for 30s preview
+                return await this.getFileUrl(trackId, 1);
+            }
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getUserInfo(): Promise<ApiResponse<UserInfo>> {
+        try {
+            const response = await this.client.get('/user/get', {
+                params: {
+                    user_id: this.userId,
+                    app_id: this.appId,
+                    user_auth_token: this.token
+                }
+            });
+            return { success: true, data: response.data };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getLyrics(trackId: string | number): Promise<ApiResponse<LyricsResult>> {
+        try {
+            const trackInfo = await this.getTrack(trackId);
+            if (trackInfo.success && trackInfo.data && trackInfo.data.lyrics) {
+                return {
+                    success: true,
+                    data: {
+                        success: true,
+                        synced: trackInfo.data.lyrics.sync || null,
+                        unsynced: trackInfo.data.lyrics.text || null,
+                        copyright: trackInfo.data.lyrics.copyright || null,
+                        writer: trackInfo.data.lyrics.writer || null
+                    }
+                };
+            }
+            return { success: false, error: 'No lyrics available' };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    async getGoodies(albumId: string | number): Promise<ApiResponse> {
+        try {
+            const albumInfo = await this.getAlbum(albumId);
+            if (albumInfo.success && albumInfo.data && albumInfo.data.goodies) {
+                return { success: true, data: albumInfo.data.goodies };
+            }
+            return { success: false, error: 'No goodies available' };
+        } catch (error) {
+            this.handleApiError(error);
+            return { success: false, error: 'API Error' };
+        }
+    }
+
+    handleApiError(error: unknown) {
+        const err = error as AxiosError;
+        const statusCode = err.response?.status;
+        const data = err.response?.data as Record<string, unknown> | undefined;
+        const rawMessage = data?.message || data?.error || err.message;
+        const message = typeof rawMessage === 'string' ? rawMessage : 'Unknown error';
+
+        if (statusCode === 401 || statusCode === 403) {
+            throw new AuthenticationError(message || 'Authentication failed');
+        }
+
+        throw new APIError(message || 'API Error', statusCode);
+    }
+
+    parseUrl(url: string) {
+        const patterns = {
+            track: URL_PATTERNS.TRACK,
+            album: URL_PATTERNS.ALBUM,
+            artist: URL_PATTERNS.ARTIST,
+            playlist: URL_PATTERNS.PLAYLIST,
+            label: URL_PATTERNS.LABEL
+        };
+
+        for (const [type, pattern] of Object.entries(patterns)) {
+            const match = url.match(pattern);
+            if (match) {
+                return { type, id: match[1] };
+            }
+        }
+
+        if (URL_PATTERNS.NUMERIC_ID.test(url)) {
+            return { type: 'album', id: url };
+        }
+
+        return null;
+    }
+}
+
+export default QobuzAPI;
 </file>
 
 <file path="src/api/spotify.ts">
@@ -16036,385 +16103,729 @@ export class LibraryHealerService {
 export const libraryHealerService = new LibraryHealerService();
 </file>
 
-<file path="src/services/MediaServerService.ts">
-import axios from 'axios';
-import { CONFIG } from '../config.js';
+<file path="src/services/LibraryStatisticsService.ts">
+import { databaseService } from './database/index.js';
 import { logger } from '../utils/logger.js';
 
-export class MediaServerService {
-    async notifyNewContent(data: {
-        title: string;
-        artist: string;
-        album: string;
-        type: 'track' | 'album' | 'playlist';
-        filePath?: string;
-    }) {
-        const { enabled, type, url, token, libraryId } = CONFIG.mediaServer;
+export interface LibraryStats {
+    totalTracks: number;
+    totalAlbums: number;
+    totalArtists: number;
+    totalSize: number;
+    qualityDistribution: Record<string, number>;
+    genreDistribution: Record<string, number>;
+    activity: {
+        date: string;
+        count: number;
+    }[];
+}
 
-        if (!enabled || type === 'none' || !url) {
+export class LibraryStatisticsService {
+    async getLibraryStats(): Promise<LibraryStats> {
+        try {
+            const tracks = databaseService.getAllTracks();
+            
+            const stats: LibraryStats = {
+                totalTracks: tracks.length,
+                totalAlbums: new Set(tracks.map(t => t.album)).size,
+                totalArtists: new Set(tracks.map(t => t.artist)).size,
+                totalSize: tracks.reduce((acc, t) => acc + (t.file_size || 0), 0),
+                qualityDistribution: {},
+                genreDistribution: {},
+                activity: []
+            };
+
+            for (const track of tracks) {
+                const qName = this.getQualityLabel(track.quality);
+                stats.qualityDistribution[qName] = (stats.qualityDistribution[qName] || 0) + 1;
+
+                if (track.genre) {
+                    stats.genreDistribution[track.genre] = (stats.genreDistribution[track.genre] || 0) + 1;
+                }
+            }
+
+            stats.activity = this.calculateActivity(tracks);
+
+            return stats;
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`Statistics: Failed to calculate stats: ${message}`, 'STATS');
+            throw error;
+        }
+    }
+
+    private getQualityLabel(quality: number): string {
+        if (quality >= 7) return 'Hi-Res';
+        if (quality === 6) return 'FLAC';
+        if (quality === 5) return 'MP3';
+        return 'Other';
+    }
+
+    private calculateActivity(tracks: { downloaded_at?: string }[]): { date: string; count: number }[] {
+        const activityMap = new Map<string, number>();
+        const now = new Date();
+        
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(now.getDate() - i);
+            activityMap.set(d.toISOString().split('T')[0], 0);
+        }
+
+        for (const track of tracks) {
+            if (track.downloaded_at) {
+                const date = track.downloaded_at.split(' ')[0];
+                if (activityMap.has(date)) {
+                    activityMap.set(date, (activityMap.get(date) || 0) + 1);
+                }
+            }
+        }
+
+        return Array.from(activityMap.entries()).map(([date, count]) => ({ date, count }));
+    }
+}
+
+export const libraryStatisticsService = new LibraryStatisticsService();
+</file>
+
+<file path="src/services/migration.ts">
+import { spotifyApi, SpotifyTrack } from '../api/spotify.js';
+import QobuzAPI from '../api/qobuz.js';
+import { logger } from '../utils/logger.js';
+import { downloadQueue } from './queue/queue.js';
+
+export interface MigrationResult {
+    spotifyTrack: SpotifyTrack;
+    qobuzTrackId?: string;
+    found: boolean;
+    quality?: number;
+    matchScore: number;
+}
+
+class MigrationService {
+    private qobuzApi: QobuzAPI;
+
+    constructor(qobuzApi: QobuzAPI) {
+        this.qobuzApi = qobuzApi;
+    }
+
+    async migrateFromSpotify(url: string, _quality: number = 27): Promise<{
+        total: number;
+        found: number;
+        results: MigrationResult[];
+    }> {
+        const extraction = spotifyApi.extractId(url);
+        if (!extraction) {
+            throw new Error('Invalid Spotify URL. Please provide a playlist or album URL.');
+        }
+
+        let spotifyTracks: SpotifyTrack[] = [];
+        if (extraction.type === 'playlist') {
+            spotifyTracks = await spotifyApi.getPlaylistTracks(extraction.id);
+        } else if (extraction.type === 'album') {
+            spotifyTracks = await spotifyApi.getAlbumTracks(extraction.id);
+        } else if (extraction.type === 'track') {
+            const track = await spotifyApi.getTrack(extraction.id);
+            if (track) spotifyTracks = [track];
+        }
+
+        logger.info(`Migration: Found ${spotifyTracks.length} tracks on Spotify. Searching on Qobuz...`, 'MIGRATION');
+
+        const results: MigrationResult[] = [];
+        for (const sTrack of spotifyTracks) {
+            const match = await this.findOnQobuz(sTrack);
+            results.push({
+                spotifyTrack: sTrack,
+                qobuzTrackId: match?.id,
+                found: !!match,
+                quality: match?.quality,
+                matchScore: match?.score || 0
+            });
+        }
+
+        const foundCount = results.filter(r => r.found).length;
+        logger.info(`Migration complete: ${foundCount}/${results.length} tracks matched.`, 'MIGRATION');
+
+        return {
+            total: results.length,
+            found: foundCount,
+            results
+        };
+    }
+
+    private async findOnQobuz(sTrack: SpotifyTrack): Promise<{ id: string; quality: number; score: number } | null> {
+
+
+        try {
+            const query = `${sTrack.title} ${sTrack.artist.split(',')[0]}`;
+            const searchRes = await this.qobuzApi.search(query, 'track', 5);
+
+            if (searchRes.success && searchRes.data?.tracks?.items) {
+                const candidates = searchRes.data.tracks.items;
+                let bestMatch = null;
+                let highestScore = 0;
+
+                for (const qTrack of candidates) {
+                    const score = this.calculateMatchScore(sTrack, qTrack);
+                    if (score > highestScore && score > 0.7) {
+                        highestScore = score;
+                        bestMatch = qTrack;
+                    }
+                }
+
+                if (bestMatch) {
+                    return {
+                        id: bestMatch.id.toString(),
+                        quality: bestMatch.maximum_sampling_rate ? 27 : 6,
+                        score: highestScore
+                    };
+                }
+            }
+        } catch (error: any) {
+            logger.error(`Migration Search Error: ${error.message}`, 'MIGRATION');
+        }
+
+        return null;
+    }
+
+    private calculateMatchScore(sTrack: SpotifyTrack, qTrack: any): number {
+        let score = 0;
+
+        const sTitle = sTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
+        const qTitle = qTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
+
+        if (sTitle === qTitle) score += 0.5;
+        else if (qTitle.includes(sTitle) || sTitle.includes(qTitle)) score += 0.3;
+
+        const sArtist = sTrack.artist.toLowerCase().split(',')[0].trim();
+        const qArtist = qTrack.artist?.name?.toLowerCase() || '';
+
+        if (qArtist.includes(sArtist) || sArtist.includes(qArtist)) score += 0.4;
+
+        const sDuration = sTrack.duration_ms / 1000;
+        const qDuration = qTrack.duration;
+        if (Math.abs(sDuration - qDuration) < 5) score += 0.1;
+
+        return score;
+    }
+
+    async startMigrationDownload(results: MigrationResult[], quality: number = 27): Promise<number> {
+        let added = 0;
+        for (const res of results) {
+            if (res.found && res.qobuzTrackId) {
+                downloadQueue.add('track', res.qobuzTrackId, quality, {
+                    title: res.spotifyTrack.title,
+                    metadata: { source: 'spotify-migration' }
+                });
+                added++;
+            }
+        }
+        return added;
+    }
+}
+
+export const createMigrationService = (qobuzApi: QobuzAPI) => new MigrationService(qobuzApi);
+</file>
+
+<file path="src/services/queue/queue.ts">
+import { EventEmitter } from 'events';
+import { QueueItem, QueueItemStatus, QueuePriority, QueueStats, DownloadType } from './types.js';
+import { generateQueueId } from './utils.js';
+import { logger } from '../../utils/logger.js';
+import { databaseService } from '../database/index.js';
+import { eventBus, EVENTS } from '../../utils/events.js';
+import { CONFIG, normalizeDownloadQuality } from '../../config.js';
+
+export class DownloadQueue {
+    private items: Map<string, QueueItem> = new Map();
+    private processing: Set<string> = new Set();
+    private maxConcurrent: number;
+    private paused: boolean = false;
+    private eventEmitter: EventEmitter = new EventEmitter();
+
+    constructor(maxConcurrent: number = 2) {
+        this.maxConcurrent = maxConcurrent;
+    }
+
+    add(
+        type: DownloadType,
+        contentId: string | number,
+        quality: number | string,
+        options: {
+            title?: string;
+            priority?: QueuePriority;
+            maxRetries?: number;
+            metadata?: any;
+        } = {}
+    ): QueueItem {
+        const id = generateQueueId();
+        const normalizedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
+        const item: QueueItem = {
+            id,
+            type,
+            contentId,
+            quality: normalizedQuality,
+            status: 'pending',
+            priority: options.priority || 'normal',
+            progress: 0,
+            title: options.title,
+            addedAt: new Date(),
+            retryCount: 0,
+            maxRetries: options.maxRetries ?? 3,
+            metadata: options.metadata
+        };
+
+        this.items.set(id, item);
+        databaseService.addQueueItem(item);
+
+        this.emit('item:added', item);
+        logger.debug(`Queue: Added ${type} ${contentId} (${id})`);
+
+        return item;
+    }
+
+    getNext(): QueueItem | null {
+        if (this.paused) return null;
+
+        const pending = Array.from(this.items.values())
+            .filter((item) => item.status === 'pending')
+            .sort((a, b) => {
+                const priorityOrder: Record<QueuePriority, number> = {
+                    high: 0,
+                    normal: 1,
+                    low: 2
+                };
+                const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+                if (priorityDiff !== 0) return priorityDiff;
+                return a.addedAt.getTime() - b.addedAt.getTime();
+            });
+
+        return pending[0] || null;
+    }
+
+    dequeue(): QueueItem | null {
+        if (this.paused) return null;
+        if (this.processing.size >= this.maxConcurrent) return null;
+
+        const item = this.getNext();
+        if (item) {
+            const success = this.startItem(item.id);
+            if (success) {
+                return item;
+            }
+            // If starting failed (someone else got it), try the next one
+            return this.dequeue();
+        }
+        return null;
+    }
+
+
+    startItem(id: string): boolean {
+        const item = this.items.get(id);
+        if (!item || item.status !== 'pending') return false;
+        
+        // Final concurrency guard
+        if (this.processing.size >= this.maxConcurrent) return false;
+
+        item.status = 'downloading';
+        item.startedAt = new Date();
+        this.processing.add(id);
+
+        databaseService.updateQueueItemStatus(id, 'downloading', item.progress);
+
+        this.emit('item:started', item);
+        logger.debug(`Queue: Started ${id}`);
+
+        return true;
+    }
+
+
+    updateProgress(id: string, progress: number, status?: QueueItemStatus): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        item.progress = Math.min(100, Math.max(0, progress));
+        if (status && item.status !== status) {
+            item.status = status;
+            
+            // If status changed to a finished state, remove from processing
+            const activeStatuses: QueueItemStatus[] = ['downloading', 'processing', 'uploading'];
+            if (!activeStatuses.includes(status)) {
+                this.processing.delete(id);
+            }
+        }
+        databaseService.updateQueueItemStatus(id, item.status, item.progress);
+        this.emit('item:progress', item, progress);
+        this.emitGlobalProgress();
+    }
+
+
+    updateMetadata(id: string, metadata: { title?: string; artist?: any; album?: any }): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        if (metadata.title) item.title = metadata.title;
+        if (metadata.artist) item.artist = metadata.artist;
+        if (metadata.album) item.album = metadata.album;
+
+        databaseService.addQueueItem(item);
+        this.emit('item:progress', item, item.progress);
+    }
+
+    updateQuality(id: string, quality: number | string): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        item.quality = normalizeDownloadQuality(quality, item.quality);
+        databaseService.addQueueItem(item);
+        this.emit('item:progress', item, item.progress);
+    }
+
+    complete(id: string, filePath?: string): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        item.status = 'completed';
+        item.progress = 100;
+        item.completedAt = new Date();
+        if (filePath) item.filePath = filePath;
+        this.processing.delete(id);
+
+        databaseService.addQueueItem(item);
+
+        this.emit('item:completed', item);
+        logger.debug(`Queue: Completed ${id}`);
+
+        this.checkQueueEmpty();
+    }
+
+    fail(id: string, error: string): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        item.error = error;
+
+        if (item.retryCount < item.maxRetries) {
+            item.retryCount++;
+            item.status = 'pending';
+            item.progress = 0;
+            logger.debug(`Queue: Retry ${item.retryCount}/${item.maxRetries} for ${id}`);
+        } else {
+            item.status = 'failed';
+            item.completedAt = new Date();
+
+            this.emit('item:failed', item, error);
+            logger.error(`Queue: Failed ${id}: ${error}`);
+        }
+        databaseService.addQueueItem(item);
+        this.processing.delete(id);
+        this.checkQueueEmpty();
+    }
+
+    getPendingItems(): QueueItem[] {
+        return Array.from(this.items.values()).filter((item) => item.status === 'pending');
+    }
+
+    get(id: string): QueueItem | undefined {
+        return this.items.get(id);
+    }
+
+    cancel(id: string): boolean {
+        const item = this.items.get(id);
+        if (!item) return false;
+
+        this.processing.delete(id);
+
+        item.status = 'failed';
+
+        this.emit('item:failed', item, 'Cancelled by user');
+        this.items.delete(id);
+        databaseService.removeQueueItem(id);
+
+        return true;
+    }
+
+    remove(id: string): boolean {
+        const item = this.items.get(id);
+        if (!item) return false;
+
+        if (this.processing.has(id)) {
+            return false;
+        }
+
+        this.items.delete(id);
+        databaseService.removeQueueItem(id);
+        return true;
+    }
+
+    clearCompleted(): number {
+        let count = 0;
+        for (const [id, item] of this.items) {
+            if (
+                item.status === 'completed' ||
+                item.status === 'failed' ||
+                item.status === 'cancelled'
+            ) {
+                this.items.delete(id);
+                databaseService.removeQueueItem(id);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    clearPending(): number {
+        let count = 0;
+        for (const [id, item] of this.items) {
+            if (item.status === 'pending') {
+                this.items.delete(id);
+                databaseService.removeQueueItem(id);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    clear(): number {
+        let count = 0;
+        for (const [id, item] of this.items) {
+            if (
+                item.status !== 'downloading' &&
+                item.status !== 'processing' &&
+                item.status !== 'uploading'
+            ) {
+                this.items.delete(id);
+                databaseService.removeQueueItem(id);
+                count++;
+            }
+        }
+        this.emit('queue:empty');
+
+        return count;
+    }
+
+    getAll(): QueueItem[] {
+        return Array.from(this.items.values());
+    }
+
+    getByStatus(status: QueueItemStatus): QueueItem[] {
+        return Array.from(this.items.values()).filter((item) => item.status === status);
+    }
+
+    getStats(): QueueStats {
+        const items = Array.from(this.items.values());
+        return {
+            total: items.length,
+            pending: items.filter((i) => i.status === 'pending').length,
+            downloading: items.filter((i) => i.status === 'downloading').length,
+            processing: items.filter((i) => i.status === 'processing' || i.status === 'uploading')
+                .length,
+            completed: items.filter((i) => i.status === 'completed').length,
+            failed: items.filter((i) => i.status === 'failed').length
+        };
+    }
+
+    getPosition(id: string): number {
+        const pending = this.getByStatus('pending').sort(
+            (a, b) => a.addedAt.getTime() - b.addedAt.getTime()
+        );
+        const index = pending.findIndex((item) => item.id === id);
+        return index >= 0 ? index + 1 : -1;
+    }
+
+    hasPending(): boolean {
+        return Array.from(this.items.values()).some((item) => item.status === 'pending');
+    }
+
+    isProcessing(): boolean {
+        return this.processing.size > 0;
+    }
+
+    pause(): void {
+        this.paused = true;
+        this.emit('queue:paused');
+        logger.debug('Queue: Paused');
+    }
+
+    resume(): void {
+        this.paused = false;
+        this.emit('queue:resumed');
+        logger.debug('Queue: Resumed');
+    }
+
+    isPaused(): boolean {
+        return this.paused;
+    }
+
+    setMaxConcurrent(max: number): void {
+        this.maxConcurrent = Math.max(1, max);
+    }
+
+    getMaxConcurrent(): number {
+        return this.maxConcurrent;
+    }
+
+    hasContent(type: DownloadType, contentId: string | number): boolean {
+        return Array.from(this.items.values()).some(
+            (item) =>
+                item.type === type &&
+                item.contentId.toString() === contentId.toString() &&
+                (item.status === 'pending' ||
+                    item.status === 'downloading' ||
+                    item.status === 'processing')
+        );
+    }
+
+    private checkQueueEmpty(): void {
+        if (!this.hasPending() && !this.isProcessing()) {
+            this.emit('queue:empty');
+            eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, -1);
+        }
+    }
+
+    private emitGlobalProgress(): void {
+        const items = Array.from(this.items.values());
+        const activeItems = items.filter(i => i.status === 'downloading' || i.status === 'processing');
+        
+        if (activeItems.length === 0) {
+            eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, -1);
             return;
         }
 
-        logger.info(`MediaServer: Notifying ${type} about new content: ${data.title}`, 'MEDIA');
+        const totalProgress = activeItems.reduce((acc, curr) => acc + curr.progress, 0);
+        const averageProgress = totalProgress / activeItems.length / 100;
+        
+        eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, averageProgress);
+    }
 
+    on(event: string, listener: (...args: any[]) => void): this {
+        this.eventEmitter.on(event, listener);
+        return this;
+    }
+
+    emit(event: string, ...args: any[]): boolean {
+        return this.eventEmitter.emit(event, ...args);
+    }
+
+    off(event: string, listener: (...args: any[]) => void): this {
+        this.eventEmitter.off(event, listener);
+        return this;
+    }
+
+    getItems(): QueueItem[] {
+        return Array.from(this.items.values());
+    }
+
+    async load(): Promise<void> {
         try {
-            switch (type) {
-                case 'plex':
-                    await this.notifyPlex(url, token, libraryId);
-                    break;
-                case 'jellyfin':
-                    await this.notifyJellyfin(url, token);
-                    break;
-                case 'webhook':
-                    await this.notifyWebhook(url, data);
-                    break;
-            }
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`MediaServer Notification Failed (${type}): ${message}`, 'MEDIA');
-        }
-    }
-
-    private async notifyPlex(url: string, token: string, libraryId?: string) {
-        const section = libraryId || 'all';
-        const endpoint = `${url}/library/sections/${section}/refresh?X-Plex-Token=${token}`;
-        await axios.get(endpoint);
-        logger.success('MediaServer: Plex library scan triggered.', 'MEDIA');
-    }
-
-    private async notifyJellyfin(url: string, token: string) {
-        const endpoint = `${url}/Library/Refresh?api_key=${token}`;
-        await axios.post(endpoint);
-        logger.success('MediaServer: Jellyfin library scan triggered.', 'MEDIA');
-    }
-
-    private async notifyWebhook(url: string, data: any) {
-        await axios.post(url, {
-            event: 'download_complete',
-            timestamp: new Date().toISOString(),
-            payload: data
-        });
-        logger.success('MediaServer: Webhook notification sent.', 'MEDIA');
-    }
-
-    async testConnection(type: string, url: string, token: string, _libraryId?: string) {
-        if (!url) throw new Error('URL is required');
-
-        try {
-            switch (type) {
-                case 'plex': {
-                    const plexEndpoint = `${url}/identity?X-Plex-Token=${token}`;
-                    await axios.get(plexEndpoint, { timeout: 5000 });
-                    return { success: true, message: 'Connected to Plex successfully' };
+            const persistedItems = databaseService.getQueueItems();
+            for (const item of persistedItems) {
+                if (
+                    item.status === 'downloading' ||
+                    item.status === 'processing' ||
+                    item.status === 'uploading'
+                ) {
+                    item.status = 'pending';
+                    item.progress = 0;
+                    databaseService.updateQueueItemStatus(item.id, 'pending', 0);
                 }
-                case 'jellyfin': {
-                    const jellyEndpoint = `${url}/System/Info?api_key=${token}`;
-                    await axios.get(jellyEndpoint, { timeout: 5000 });
-                    return { success: true, message: 'Connected to Jellyfin successfully' };
-                }
-                case 'webhook':
-                    await axios.post(url, { event: 'ping', timestamp: new Date().toISOString() }, { timeout: 5000 });
-                    return { success: true, message: 'Webhook test ping successful' };
-                default:
-                    throw new Error('Invalid media server type');
+                item.quality = normalizeDownloadQuality(item.quality, CONFIG.quality.default);
+                this.items.set(item.id, item);
             }
-        } catch (error: unknown) {
-            const err = error as any;
-            const msg = err.response?.data?.message || err.message || String(error);
-            throw new Error(`Connection failed: ${msg}`);
+            logger.info(`Queue: Loaded ${persistedItems.length} items from database`, 'QUEUE');
+        } catch (error) {
+            logger.error(`Queue: Failed to load from database: ${error}`, 'QUEUE');
         }
     }
 }
 
-export const mediaServerService = new MediaServerService();
+export const downloadQueue = new DownloadQueue(2);
 </file>
 
-<file path="src/services/PlaylistWatcherService.ts">
+<file path="src/services/RecommendationService.ts">
 import QobuzAPI from '../api/qobuz.js';
-import { databaseService } from './database/index.js';
-import { downloadQueue } from './queue/queue.js';
-import { logger } from '../utils/logger.js';
 import { historyService } from './history.js';
-import { notificationService } from './notifications.js';
-import { normalizeDownloadQuality } from '../config.js';
+import { Album } from '../types/qobuz.js';
+import { logger } from '../utils/logger.js';
 
-export class PlaylistWatcherService {
+export class RecommendationService {
     private api: QobuzAPI;
-    private timer: NodeJS.Timeout | null = null;
-    private isScanning = false;
 
     constructor(api: QobuzAPI) {
         this.api = api;
     }
 
-    start(checkIntervalMinutes = 60) {
-        if (this.timer) return;
-
-        this.timer = setInterval(() => {
-            this.scanAllPlaylists();
-        }, checkIntervalMinutes * 60 * 1000);
-
-        this.scanAllPlaylists();
-        logger.info(`PlaylistWatcher: Started (checking every ${checkIntervalMinutes} mins)`, 'WATCHER');
-    }
-
-    stop() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
-
-    async scanAllPlaylists() {
-        if (this.isScanning) return;
-        this.isScanning = true;
-
+    async getRecommendations(limit = 10): Promise<Album[]> {
         try {
-            const watched = databaseService.getWatchedPlaylists();
-            logger.debug(`PlaylistWatcher: Scanning ${watched.length} playlists`, 'WATCHER');
-
-            for (const playlist of watched) {
-                await this.scanPlaylist(playlist);
-            }
-        } catch (error: any) {
-            logger.error(`PlaylistWatcher Scan Error: ${error.message}`, 'WATCHER');
-        } finally {
-            this.isScanning = false;
-        }
-    }
-
-    private async scanPlaylist(p: any) {
-        const lastSync = p.last_synced_at ? new Date(p.last_synced_at) : new Date(0);
-        const nextSync = new Date(lastSync.getTime() + p.interval_hours * 60 * 60 * 1000);
-
-        if (nextSync > new Date()) {
-            return;
-        }
-
-        logger.info(`PlaylistWatcher: Checking "${p.title}" for new tracks...`, 'WATCHER');
-
-        try {
-            const res = await this.api.getPlaylist(p.playlist_id);
-            if (!res.success || !res.data) {
-                logger.warn(`PlaylistWatcher: Could not fetch playlist ${p.playlist_id}`, 'WATCHER');
-                return;
+            const history = historyService.getSorted();
+            if (history.length === 0) {
+                return this.getGeneralRecommendations(limit);
             }
 
-            const tracks = res.data.tracks.items;
-            let newTracksCount = 0;
 
-            for (const track of tracks) {
-                const trackId = track.id.toString();
-                const inHistory = historyService.has(trackId);
-                const inDb = databaseService.hasTrack(trackId);
-                const inQueue = downloadQueue.hasContent('track', trackId);
-
-                if (!inHistory && !inDb && !inQueue) {
-                    downloadQueue.add('track', trackId, normalizeDownloadQuality(p.quality, 27), {
-                        title: track.title,
-                        metadata: { source: 'playlist-watcher', playlistTitle: p.title }
-                    });
-                    newTracksCount++;
+            const artistCounts: Record<string, number> = {};
+            history.forEach(entry => {
+                if (entry.artist) {
+                    artistCounts[entry.artist] = (artistCounts[entry.artist] || 0) + 1;
                 }
-            }
+            });
 
-            if (newTracksCount > 0) {
-                logger.success(`PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`, 'WATCHER');
-                notificationService.info(
-                    'Playlist Watcher',
-                    `Added ${newTracksCount} new tracks from "${p.title}" to queue.`
-                );
-            }
+            const topArtists = Object.entries(artistCounts)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 3)
+                .map(([name]) => name);
 
-            databaseService.updatePlaylistSyncTime(p.id);
 
-        } catch (error: any) {
-            logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${error.message}`, 'WATCHER');
-        }
-    }
-}
+            const recommendations: Album[] = [];
+            const seenAlbumIds = new Set<string | number>();
 
-export const playlistWatcherService = new PlaylistWatcherService(new QobuzAPI());
-</file>
 
-<file path="src/utils/logger.ts">
-import chalk from 'chalk';
-import fs from 'fs';
-import path from 'path';
 
-export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'system';
+            for (const artistName of topArtists) {
+                const searchRes = await this.api.search(artistName, 'artists', 1);
+                if (searchRes.success && searchRes.data?.artists?.items?.length) {
+                    const artist = searchRes.data.artists.items[0];
+                    
 
-class Logger {
-    private static instance: Logger;
-    private logs: any[] = [];
-    private readonly MAX_LOGS = 500;
-    private readonly LOG_DIR = path.resolve('./logs');
-    private readonly CURRENT_LOG_FILE = 'qbz-latest.log';
-    private readonly MAX_LOG_FILES = 5;
-
-    private constructor() {
-        this.initLogDir();
-    }
-
-    static getInstance(): Logger {
-        if (!Logger.instance) {
-            Logger.instance = new Logger();
-        }
-        return Logger.instance;
-    }
-
-    public getLogs() {
-        return this.logs;
-    }
-
-    private broadcastCallback: ((log: any) => void) | null = null;
-
-    public setBroadcastCallback(callback: (log: any) => void) {
-        this.broadcastCallback = callback;
-    }
-
-    private getTimestamp(): string {
-        return new Date().toLocaleTimeString('en-US', { hour12: false });
-    }
-
-    log(message: string, type: LogType = 'info', scope?: string) {
-        const timestampStr = this.getTimestamp();
-        const logEntry = {
-            timestamp: timestampStr,
-            type,
-            scope: scope?.toUpperCase() || 'SYSTEM',
-            message,
-            time: Date.now()
-        };
-
-        this.logs.push(logEntry);
-        this.writeToLogFile(logEntry);
-
-        if (this.logs.length > this.MAX_LOGS) {
-            this.logs.shift();
-        }
-
-        if (this.broadcastCallback) {
-            this.broadcastCallback(this.logs[this.logs.length - 1]);
-        }
-
-        const timestamp = chalk.gray(timestampStr);
-
-        let icon = '';
-        let badge = '';
-        let colorizedMessage = message;
-
-        switch (type) {
-            case 'success':
-                icon = '✅';
-                badge = chalk.green.bold('SUCCESS'.padEnd(7));
-                colorizedMessage = chalk.greenBright(message);
-                break;
-            case 'warn':
-                icon = '⚠️ ';
-                badge = chalk.yellow.bold('WARNING'.padEnd(7));
-                colorizedMessage = chalk.yellowBright(message);
-                break;
-            case 'error':
-                icon = '❌';
-                badge = chalk.red.bold('ERROR  '.padEnd(7));
-                colorizedMessage = chalk.redBright(message);
-                break;
-            case 'debug':
-                icon = '🐛';
-                badge = chalk.magenta.bold('DEBUG  '.padEnd(7));
-                colorizedMessage = chalk.magenta(message);
-                break;
-            case 'system':
-                icon = '💻';
-                badge = chalk.cyan.bold('SYSTEM '.padEnd(7));
-                colorizedMessage = chalk.cyanBright(message);
-                break;
-            default:
-                icon = 'ℹ️ ';
-                badge = chalk.blue.bold('INFO   '.padEnd(7));
-                colorizedMessage = chalk.white(message);
-        }
-
-        const scopeStr = scope ? scope.toUpperCase() : '';
-        const targetWidth = 8;
-        const padding = Math.max(0, targetWidth - scopeStr.length);
-        const padLeft = Math.floor(padding / 2);
-        const padRight = padding - padLeft;
-        const centeredScope = ' '.repeat(padLeft) + scopeStr + ' '.repeat(padRight);
-
-        const scopeLabel = chalk.bold.white(`[${centeredScope}]`);
-        const separator = chalk.gray('│');
-
-        console.log(
-            `${timestamp} ${separator} ${icon} ${badge} ${separator} ${scopeLabel} ${colorizedMessage}`
-        );
-    }
-
-    info(message: string, scope?: string) {
-        this.log(message, 'info', scope);
-    }
-    success(message: string, scope?: string) {
-        this.log(message, 'success', scope);
-    }
-    warn(message: string, scope?: string) {
-        this.log(message, 'warn', scope);
-    }
-    error(message: string, scope?: string) {
-        this.log(message, 'error', scope);
-    }
-    debug(message: string, scope?: string) {
-        this.log(message, 'debug', scope);
-    }
-    system(message: string, scope?: string) {
-        this.log(message, 'system', scope);
-    }
-
-    private initLogDir() {
-        if (!fs.existsSync(this.LOG_DIR)) {
-            fs.mkdirSync(this.LOG_DIR, { recursive: true });
-        }
-    }
-
-    private writeToLogFile(logEntry: any) {
-        try {
-            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
-            const line = `[${logEntry.timestamp}] [${logEntry.type.toUpperCase().padEnd(7)}] [${logEntry.scope}] ${logEntry.message}\n`;
-
-            if (fs.existsSync(logFilePath) && fs.statSync(logFilePath).size > 5 * 1024 * 1024) {
-                this.rotateLogs();
-            }
-
-            fs.appendFileSync(logFilePath, line, 'utf8');
-        } catch {
-        }
-    }
-
-    private rotateLogs() {
-        try {
-            const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
-
-            for (let i = this.MAX_LOG_FILES - 1; i >= 1; i--) {
-                const oldPath = path.join(this.LOG_DIR, `qbz-old-${i}.log`);
-                const nextPath = path.join(this.LOG_DIR, `qbz-old-${i + 1}.log`);
-                if (fs.existsSync(oldPath)) {
-                    if (i === this.MAX_LOG_FILES - 1) {
-                        fs.unlinkSync(oldPath);
-                    } else {
-                        fs.renameSync(oldPath, nextPath);
+                    const artistDetails = await this.api.getArtist(artist.id, 0, 10);
+                    if (artistDetails.success && artistDetails.data?.albums?.items) {
+                        const albums = artistDetails.data.albums.items;
+                        
+                        for (const album of albums) {
+                            if (!seenAlbumIds.has(album.id) && recommendations.length < limit) {
+                                if (album.hires) {
+                                    recommendations.push(album);
+                                    seenAlbumIds.add(album.id);
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            if (fs.existsSync(logFilePath)) {
-                fs.renameSync(logFilePath, path.join(this.LOG_DIR, 'qbz-old-1.log'));
+
+            if (recommendations.length < limit) {
+                const extra = await this.getGeneralRecommendations(limit - recommendations.length);
+                extra.forEach(album => {
+                    if (!seenAlbumIds.has(album.id) && recommendations.length < limit) {
+                        recommendations.push(album);
+                        seenAlbumIds.add(album.id);
+                    }
+                });
             }
-        } catch {
+
+            return recommendations;
+
+        } catch (error: any) {
+            logger.error(`RecommendationService: Failed to get recommendations: ${error.message}`);
+            return [];
         }
     }
-}
 
-export const logger = Logger.getInstance();
+    private async getGeneralRecommendations(limit: number): Promise<Album[]> {
+        const res = await this.api.search('Hi-Res', 'albums', limit);
+        return res.success && res.data?.albums?.items ? res.data.albums.items : [];
+    }
+}
 </file>
 
 <file path="client/src/components/LibraryHealthView.tsx">
@@ -19827,690 +20238,99 @@ export const libraryScannerService = new LibraryScannerService();
 export default libraryScannerService;
 </file>
 
-<file path="src/services/migration.ts">
-import { spotifyApi, SpotifyTrack } from '../api/spotify.js';
-import QobuzAPI from '../api/qobuz.js';
+<file path="src/services/MediaServerService.ts">
+import axios from 'axios';
+import { CONFIG } from '../config.js';
 import { logger } from '../utils/logger.js';
-import { downloadQueue } from './queue/queue.js';
 
-export interface MigrationResult {
-    spotifyTrack: SpotifyTrack;
-    qobuzTrackId?: string;
-    found: boolean;
-    quality?: number;
-    matchScore: number;
-}
-
-class MigrationService {
-    private qobuzApi: QobuzAPI;
-
-    constructor(qobuzApi: QobuzAPI) {
-        this.qobuzApi = qobuzApi;
-    }
-
-    async migrateFromSpotify(url: string, _quality: number = 27): Promise<{
-        total: number;
-        found: number;
-        results: MigrationResult[];
-    }> {
-        const extraction = spotifyApi.extractId(url);
-        if (!extraction) {
-            throw new Error('Invalid Spotify URL. Please provide a playlist or album URL.');
-        }
-
-        let spotifyTracks: SpotifyTrack[] = [];
-        if (extraction.type === 'playlist') {
-            spotifyTracks = await spotifyApi.getPlaylistTracks(extraction.id);
-        } else if (extraction.type === 'album') {
-            spotifyTracks = await spotifyApi.getAlbumTracks(extraction.id);
-        } else if (extraction.type === 'track') {
-            const track = await spotifyApi.getTrack(extraction.id);
-            if (track) spotifyTracks = [track];
-        }
-
-        logger.info(`Migration: Found ${spotifyTracks.length} tracks on Spotify. Searching on Qobuz...`, 'MIGRATION');
-
-        const results: MigrationResult[] = [];
-        for (const sTrack of spotifyTracks) {
-            const match = await this.findOnQobuz(sTrack);
-            results.push({
-                spotifyTrack: sTrack,
-                qobuzTrackId: match?.id,
-                found: !!match,
-                quality: match?.quality,
-                matchScore: match?.score || 0
-            });
-        }
-
-        const foundCount = results.filter(r => r.found).length;
-        logger.info(`Migration complete: ${foundCount}/${results.length} tracks matched.`, 'MIGRATION');
-
-        return {
-            total: results.length,
-            found: foundCount,
-            results
-        };
-    }
-
-    private async findOnQobuz(sTrack: SpotifyTrack): Promise<{ id: string; quality: number; score: number } | null> {
-
-
-        try {
-            const query = `${sTrack.title} ${sTrack.artist.split(',')[0]}`;
-            const searchRes = await this.qobuzApi.search(query, 'track', 5);
-
-            if (searchRes.success && searchRes.data?.tracks?.items) {
-                const candidates = searchRes.data.tracks.items;
-                let bestMatch = null;
-                let highestScore = 0;
-
-                for (const qTrack of candidates) {
-                    const score = this.calculateMatchScore(sTrack, qTrack);
-                    if (score > highestScore && score > 0.7) {
-                        highestScore = score;
-                        bestMatch = qTrack;
-                    }
-                }
-
-                if (bestMatch) {
-                    return {
-                        id: bestMatch.id.toString(),
-                        quality: bestMatch.maximum_sampling_rate ? 27 : 6,
-                        score: highestScore
-                    };
-                }
-            }
-        } catch (error: any) {
-            logger.error(`Migration Search Error: ${error.message}`, 'MIGRATION');
-        }
-
-        return null;
-    }
-
-    private calculateMatchScore(sTrack: SpotifyTrack, qTrack: any): number {
-        let score = 0;
-
-        const sTitle = sTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
-        const qTitle = qTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
-
-        if (sTitle === qTitle) score += 0.5;
-        else if (qTitle.includes(sTitle) || sTitle.includes(qTitle)) score += 0.3;
-
-        const sArtist = sTrack.artist.toLowerCase().split(',')[0].trim();
-        const qArtist = qTrack.artist?.name?.toLowerCase() || '';
-
-        if (qArtist.includes(sArtist) || sArtist.includes(qArtist)) score += 0.4;
-
-        const sDuration = sTrack.duration_ms / 1000;
-        const qDuration = qTrack.duration;
-        if (Math.abs(sDuration - qDuration) < 5) score += 0.1;
-
-        return score;
-    }
-
-    async startMigrationDownload(results: MigrationResult[], quality: number = 27): Promise<number> {
-        let added = 0;
-        for (const res of results) {
-            if (res.found && res.qobuzTrackId) {
-                downloadQueue.add('track', res.qobuzTrackId, quality, {
-                    title: res.spotifyTrack.title,
-                    metadata: { source: 'spotify-migration' }
-                });
-                added++;
-            }
-        }
-        return added;
-    }
-}
-
-export const createMigrationService = (qobuzApi: QobuzAPI) => new MigrationService(qobuzApi);
-</file>
-
-<file path="src/services/QualityScannerService.ts">
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { logger } from '../utils/logger.js';
-import path from 'path';
-import fs from 'fs';
-
-const execPromise = promisify(exec);
-
-export interface QualityReport {
-    isTrueLossless: boolean;
-    confidence: number;
-    cutoffFrequency?: number;
-    details: string;
-}
-
-export class QualityScannerService {
-    private static ffmpegAvailable: boolean | null = null;
-
-    private async checkFFmpeg(): Promise<boolean> {
-        if (QualityScannerService.ffmpegAvailable !== null) return QualityScannerService.ffmpegAvailable;
-        try {
-            await execPromise('ffmpeg -version');
-            QualityScannerService.ffmpegAvailable = true;
-            return true;
-        } catch {
-            QualityScannerService.ffmpegAvailable = false;
-            logger.warn('FFmpeg not found. Quality scanning will be disabled. Please install FFmpeg and add it to your PATH.', 'SCANNER');
-            return false;
-        }
-    }
-
-    /**
-     * Scans an audio file to detect if it's true lossless or upsampled.
-     * Uses ffmpeg to analyze the frequency spectrum.
-     */
-    async scanFile(filePath: string): Promise<QualityReport> {
-        try {
-            const hasFFmpeg = await this.checkFFmpeg();
-            if (!hasFFmpeg) {
-                return {
-                    isTrueLossless: true,
-                    confidence: 0,
-                    details: 'Quality scan skipped: FFmpeg not installed.'
-                };
-            }
-
-            if (!fs.existsSync(filePath)) {
-                throw new Error('File not found');
-            }
-
-            // Using -v error to reduce noise and specifically target mean_volume
-            // Use quotes and ensure we handle potential UTF-8 issues by using a more robust way to call ffmpeg if needed
-            const cmd16 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
-            const cmd20 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
-
-            const [result16, result20] = await Promise.all([
-                execPromise(cmd16).catch(e => {
-                    logger.debug(`FFmpeg 16k error: ${e.message}`);
-                    return { stderr: e.stderr || '' };
-                }),
-                execPromise(cmd20).catch(e => {
-                    logger.debug(`FFmpeg 20k error: ${e.message}`);
-                    return { stderr: e.stderr || '' };
-                })
-            ]);
-
-            const stderr16 = result16.stderr || '';
-            const stderr20 = result20.stderr || '';
-
-            const mean16 = this.parseMeanVolume(stderr16);
-            const mean20 = this.parseMeanVolume(stderr20);
-
-            // Log detailed stats for debugging
-            logger.debug(`QualityScan Details: ${path.basename(filePath)} | >16kHz: ${mean16}dB | >20kHz: ${mean20}dB`);
-
-            let isTrueLossless = true;
-            let confidence = 100;
-            let details = 'Crystal clear high frequencies detected.';
-
-            // Slightly more relaxed thresholds to avoid false positives on acoustic/lo-fi tracks
-            // Also check if we actually got a reading (not -100 default)
-            if (mean16 !== -100 && mean16 < -80) {
-                isTrueLossless = false;
-                confidence = 95;
-                details = 'Fake Lossless: Sharp cutoff at 16kHz detected (Likely transcoded from low-bitrate source).';
-            } else if (mean20 !== -100 && mean20 < -85) {
-                // Many real lossless tracks have a natural roll-off at 20kHz, so we are even more relaxed here
-                isTrueLossless = false;
-                confidence = 75;
-                details = 'Likely Upsampled: High frequency roll-off at 20kHz detected (Common for 320kbps MP3 or older recordings).';
-            }
-
-            // If we got -100 for both, something might be wrong with the scan, but we don't want to flag it as fake
-            if (mean16 === -100 && mean20 === -100) {
-                return {
-                    isTrueLossless: true,
-                    confidence: 50,
-                    details: 'Quality scan inconclusive (Frequency analysis failed or no high frequency content found).'
-                };
-            }
-
-            return {
-                isTrueLossless,
-                confidence,
-                cutoffFrequency: !isTrueLossless ? (mean16 < -80 ? 16000 : 20000) : undefined,
-                details
-            };
-
-        } catch (error: any) {
-            logger.error(`QualityScanner: Failed to scan ${filePath}: ${error.message}`);
-            return {
-                isTrueLossless: true,
-                confidence: 0,
-                details: `Scan failed: ${error.message}`
-            };
-        }
-    }
-
-    private parseMeanVolume(output: string): number {
-        const match = output.match(/mean_volume: ([-\d.]+) dB/);
-        if (match) return parseFloat(match[1]);
-        
-        // If no match, check if there's any output at all. 
-        // If ffmpeg failed, we return -100 as "no signal"
-        return -100;
-    }
-}
-
-export const qualityScannerService = new QualityScannerService();
-</file>
-
-<file path="src/services/queue/queue.ts">
-import { EventEmitter } from 'events';
-import { QueueItem, QueueItemStatus, QueuePriority, QueueStats, DownloadType } from './types.js';
-import { generateQueueId } from './utils.js';
-import { logger } from '../../utils/logger.js';
-import { databaseService } from '../database/index.js';
-import { eventBus, EVENTS } from '../../utils/events.js';
-import { CONFIG, normalizeDownloadQuality } from '../../config.js';
-
-export class DownloadQueue {
-    private items: Map<string, QueueItem> = new Map();
-    private processing: Set<string> = new Set();
-    private maxConcurrent: number;
-    private paused: boolean = false;
-    private eventEmitter: EventEmitter = new EventEmitter();
-
-    constructor(maxConcurrent: number = 2) {
-        this.maxConcurrent = maxConcurrent;
-    }
-
-    add(
-        type: DownloadType,
-        contentId: string | number,
-        quality: number | string,
-        options: {
-            title?: string;
-            priority?: QueuePriority;
-            maxRetries?: number;
-            metadata?: any;
-        } = {}
-    ): QueueItem {
-        const id = generateQueueId();
-        const normalizedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
-        const item: QueueItem = {
-            id,
-            type,
-            contentId,
-            quality: normalizedQuality,
-            status: 'pending',
-            priority: options.priority || 'normal',
-            progress: 0,
-            title: options.title,
-            addedAt: new Date(),
-            retryCount: 0,
-            maxRetries: options.maxRetries ?? 3,
-            metadata: options.metadata
-        };
-
-        this.items.set(id, item);
-        databaseService.addQueueItem(item);
-
-        this.emit('item:added', item);
-        logger.debug(`Queue: Added ${type} ${contentId} (${id})`);
-
-        return item;
-    }
-
-    getNext(): QueueItem | null {
-        if (this.paused) return null;
-
-        const pending = Array.from(this.items.values())
-            .filter((item) => item.status === 'pending')
-            .sort((a, b) => {
-                const priorityOrder: Record<QueuePriority, number> = {
-                    high: 0,
-                    normal: 1,
-                    low: 2
-                };
-                const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
-                if (priorityDiff !== 0) return priorityDiff;
-                return a.addedAt.getTime() - b.addedAt.getTime();
-            });
-
-        return pending[0] || null;
-    }
-
-    dequeue(): QueueItem | null {
-        if (this.paused) return null;
-        if (this.processing.size >= this.maxConcurrent) return null;
-
-        const item = this.getNext();
-        if (item) {
-            const success = this.startItem(item.id);
-            if (success) {
-                return item;
-            }
-            // If starting failed (someone else got it), try the next one
-            return this.dequeue();
-        }
-        return null;
-    }
-
-
-    startItem(id: string): boolean {
-        const item = this.items.get(id);
-        if (!item || item.status !== 'pending') return false;
-        
-        // Final concurrency guard
-        if (this.processing.size >= this.maxConcurrent) return false;
-
-        item.status = 'downloading';
-        item.startedAt = new Date();
-        this.processing.add(id);
-
-        databaseService.updateQueueItemStatus(id, 'downloading', item.progress);
-
-        this.emit('item:started', item);
-        logger.debug(`Queue: Started ${id}`);
-
-        return true;
-    }
-
-
-    updateProgress(id: string, progress: number, status?: QueueItemStatus): void {
-        const item = this.items.get(id);
-        if (!item) return;
-
-        item.progress = Math.min(100, Math.max(0, progress));
-        if (status && item.status !== status) {
-            item.status = status;
-            
-            // If status changed to a finished state, remove from processing
-            const activeStatuses: QueueItemStatus[] = ['downloading', 'processing', 'uploading'];
-            if (!activeStatuses.includes(status)) {
-                this.processing.delete(id);
-            }
-        }
-        databaseService.updateQueueItemStatus(id, item.status, item.progress);
-        this.emit('item:progress', item, progress);
-        this.emitGlobalProgress();
-    }
-
-
-    updateMetadata(id: string, metadata: { title?: string; artist?: any; album?: any }): void {
-        const item = this.items.get(id);
-        if (!item) return;
-
-        if (metadata.title) item.title = metadata.title;
-        if (metadata.artist) item.artist = metadata.artist;
-        if (metadata.album) item.album = metadata.album;
-
-        databaseService.addQueueItem(item);
-        this.emit('item:progress', item, item.progress);
-    }
-
-    updateQuality(id: string, quality: number | string): void {
-        const item = this.items.get(id);
-        if (!item) return;
-
-        item.quality = normalizeDownloadQuality(quality, item.quality);
-        databaseService.addQueueItem(item);
-        this.emit('item:progress', item, item.progress);
-    }
-
-    complete(id: string, filePath?: string): void {
-        const item = this.items.get(id);
-        if (!item) return;
-
-        item.status = 'completed';
-        item.progress = 100;
-        item.completedAt = new Date();
-        if (filePath) item.filePath = filePath;
-        this.processing.delete(id);
-
-        databaseService.addQueueItem(item);
-
-        this.emit('item:completed', item);
-        logger.debug(`Queue: Completed ${id}`);
-
-        this.checkQueueEmpty();
-    }
-
-    fail(id: string, error: string): void {
-        const item = this.items.get(id);
-        if (!item) return;
-
-        item.error = error;
-
-        if (item.retryCount < item.maxRetries) {
-            item.retryCount++;
-            item.status = 'pending';
-            item.progress = 0;
-            logger.debug(`Queue: Retry ${item.retryCount}/${item.maxRetries} for ${id}`);
-        } else {
-            item.status = 'failed';
-            item.completedAt = new Date();
-
-            this.emit('item:failed', item, error);
-            logger.error(`Queue: Failed ${id}: ${error}`);
-        }
-        databaseService.addQueueItem(item);
-        this.processing.delete(id);
-        this.checkQueueEmpty();
-    }
-
-    getPendingItems(): QueueItem[] {
-        return Array.from(this.items.values()).filter((item) => item.status === 'pending');
-    }
-
-    get(id: string): QueueItem | undefined {
-        return this.items.get(id);
-    }
-
-    cancel(id: string): boolean {
-        const item = this.items.get(id);
-        if (!item) return false;
-
-        this.processing.delete(id);
-
-        item.status = 'failed';
-
-        this.emit('item:failed', item, 'Cancelled by user');
-        this.items.delete(id);
-        databaseService.removeQueueItem(id);
-
-        return true;
-    }
-
-    remove(id: string): boolean {
-        const item = this.items.get(id);
-        if (!item) return false;
-
-        if (this.processing.has(id)) {
-            return false;
-        }
-
-        this.items.delete(id);
-        databaseService.removeQueueItem(id);
-        return true;
-    }
-
-    clearCompleted(): number {
-        let count = 0;
-        for (const [id, item] of this.items) {
-            if (
-                item.status === 'completed' ||
-                item.status === 'failed' ||
-                item.status === 'cancelled'
-            ) {
-                this.items.delete(id);
-                databaseService.removeQueueItem(id);
-                count++;
-            }
-        }
-        return count;
-    }
-
-    clearPending(): number {
-        let count = 0;
-        for (const [id, item] of this.items) {
-            if (item.status === 'pending') {
-                this.items.delete(id);
-                databaseService.removeQueueItem(id);
-                count++;
-            }
-        }
-        return count;
-    }
-
-    clear(): number {
-        let count = 0;
-        for (const [id, item] of this.items) {
-            if (
-                item.status !== 'downloading' &&
-                item.status !== 'processing' &&
-                item.status !== 'uploading'
-            ) {
-                this.items.delete(id);
-                databaseService.removeQueueItem(id);
-                count++;
-            }
-        }
-        this.emit('queue:empty');
-
-        return count;
-    }
-
-    getAll(): QueueItem[] {
-        return Array.from(this.items.values());
-    }
-
-    getByStatus(status: QueueItemStatus): QueueItem[] {
-        return Array.from(this.items.values()).filter((item) => item.status === status);
-    }
-
-    getStats(): QueueStats {
-        const items = Array.from(this.items.values());
-        return {
-            total: items.length,
-            pending: items.filter((i) => i.status === 'pending').length,
-            downloading: items.filter((i) => i.status === 'downloading').length,
-            processing: items.filter((i) => i.status === 'processing' || i.status === 'uploading')
-                .length,
-            completed: items.filter((i) => i.status === 'completed').length,
-            failed: items.filter((i) => i.status === 'failed').length
-        };
-    }
-
-    getPosition(id: string): number {
-        const pending = this.getByStatus('pending').sort(
-            (a, b) => a.addedAt.getTime() - b.addedAt.getTime()
-        );
-        const index = pending.findIndex((item) => item.id === id);
-        return index >= 0 ? index + 1 : -1;
-    }
-
-    hasPending(): boolean {
-        return Array.from(this.items.values()).some((item) => item.status === 'pending');
-    }
-
-    isProcessing(): boolean {
-        return this.processing.size > 0;
-    }
-
-    pause(): void {
-        this.paused = true;
-        this.emit('queue:paused');
-        logger.debug('Queue: Paused');
-    }
-
-    resume(): void {
-        this.paused = false;
-        this.emit('queue:resumed');
-        logger.debug('Queue: Resumed');
-    }
-
-    isPaused(): boolean {
-        return this.paused;
-    }
-
-    setMaxConcurrent(max: number): void {
-        this.maxConcurrent = Math.max(1, max);
-    }
-
-    getMaxConcurrent(): number {
-        return this.maxConcurrent;
-    }
-
-    hasContent(type: DownloadType, contentId: string | number): boolean {
-        return Array.from(this.items.values()).some(
-            (item) =>
-                item.type === type &&
-                item.contentId.toString() === contentId.toString() &&
-                (item.status === 'pending' ||
-                    item.status === 'downloading' ||
-                    item.status === 'processing')
-        );
-    }
-
-    private checkQueueEmpty(): void {
-        if (!this.hasPending() && !this.isProcessing()) {
-            this.emit('queue:empty');
-            eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, -1);
-        }
-    }
-
-    private emitGlobalProgress(): void {
-        const items = Array.from(this.items.values());
-        const activeItems = items.filter(i => i.status === 'downloading' || i.status === 'processing');
-        
-        if (activeItems.length === 0) {
-            eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, -1);
+export class MediaServerService {
+    async notifyNewContent(data: {
+        title: string;
+        artist: string;
+        album: string;
+        type: 'track' | 'album' | 'playlist';
+        filePath?: string;
+    }) {
+        const { enabled, type, url, token, libraryId } = CONFIG.mediaServer;
+
+        if (!enabled || type === 'none' || !url) {
             return;
         }
 
-        const totalProgress = activeItems.reduce((acc, curr) => acc + curr.progress, 0);
-        const averageProgress = totalProgress / activeItems.length / 100;
-        
-        eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, averageProgress);
-    }
+        logger.info(`MediaServer: Notifying ${type} about new content: ${data.title}`, 'MEDIA');
 
-    on(event: string, listener: (...args: any[]) => void): this {
-        this.eventEmitter.on(event, listener);
-        return this;
-    }
-
-    emit(event: string, ...args: any[]): boolean {
-        return this.eventEmitter.emit(event, ...args);
-    }
-
-    off(event: string, listener: (...args: any[]) => void): this {
-        this.eventEmitter.off(event, listener);
-        return this;
-    }
-
-    getItems(): QueueItem[] {
-        return Array.from(this.items.values());
-    }
-
-    async load(): Promise<void> {
         try {
-            const persistedItems = databaseService.getQueueItems();
-            for (const item of persistedItems) {
-                if (
-                    item.status === 'downloading' ||
-                    item.status === 'processing' ||
-                    item.status === 'uploading'
-                ) {
-                    item.status = 'pending';
-                    item.progress = 0;
-                    databaseService.updateQueueItemStatus(item.id, 'pending', 0);
-                }
-                item.quality = normalizeDownloadQuality(item.quality, CONFIG.quality.default);
-                this.items.set(item.id, item);
+            switch (type) {
+                case 'plex':
+                    await this.notifyPlex(url, token, libraryId);
+                    break;
+                case 'jellyfin':
+                    await this.notifyJellyfin(url, token);
+                    break;
+                case 'webhook':
+                    await this.notifyWebhook(url, data);
+                    break;
             }
-            logger.info(`Queue: Loaded ${persistedItems.length} items from database`, 'QUEUE');
-        } catch (error) {
-            logger.error(`Queue: Failed to load from database: ${error}`, 'QUEUE');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`MediaServer Notification Failed (${type}): ${message}`, 'MEDIA');
+        }
+    }
+
+    private async notifyPlex(url: string, token: string, libraryId?: string) {
+        const section = libraryId || 'all';
+        const endpoint = `${url}/library/sections/${section}/refresh?X-Plex-Token=${token}`;
+        await axios.get(endpoint);
+        logger.success('MediaServer: Plex library scan triggered.', 'MEDIA');
+    }
+
+    private async notifyJellyfin(url: string, token: string) {
+        const endpoint = `${url}/Library/Refresh?api_key=${token}`;
+        await axios.post(endpoint);
+        logger.success('MediaServer: Jellyfin library scan triggered.', 'MEDIA');
+    }
+
+    private async notifyWebhook(url: string, data: { title: string; artist: string; album: string; type: string }) {
+        await axios.post(url, {
+            event: 'download_complete',
+            timestamp: new Date().toISOString(),
+            payload: data
+        });
+        logger.success('MediaServer: Webhook notification sent.', 'MEDIA');
+    }
+
+    async testConnection(type: string, url: string, token: string, _libraryId?: string) {
+        if (!url) throw new Error('URL is required');
+
+        try {
+            switch (type) {
+                case 'plex': {
+                    const plexEndpoint = `${url}/identity?X-Plex-Token=${token}`;
+                    await axios.get(plexEndpoint, { timeout: 5000 });
+                    return { success: true, message: 'Connected to Plex successfully' };
+                }
+                case 'jellyfin': {
+                    const jellyEndpoint = `${url}/System/Info?api_key=${token}`;
+                    await axios.get(jellyEndpoint, { timeout: 5000 });
+                    return { success: true, message: 'Connected to Jellyfin successfully' };
+                }
+                case 'webhook':
+                    await axios.post(url, { event: 'ping', timestamp: new Date().toISOString() }, { timeout: 5000 });
+                    return { success: true, message: 'Webhook test ping successful' };
+                default:
+                    throw new Error('Invalid media server type');
+            }
+        } catch (error: unknown) {
+            let msg = String(error);
+            if (axios.isAxiosError(error)) {
+                msg = error.response?.data?.message || error.message;
+            }
+            throw new Error(`Connection failed: ${msg}`);
         }
     }
 }
 
-export const downloadQueue = new DownloadQueue(2);
+export const mediaServerService = new MediaServerService();
 </file>
 
 <file path="client/src/index.css">
@@ -25045,6 +24865,249 @@ export class FormatConverterService {
 }
 
 export const formatConverterService = new FormatConverterService();
+</file>
+
+<file path="src/services/PlaylistWatcherService.ts">
+import QobuzAPI from '../api/qobuz.js';
+import { databaseService } from './database/index.js';
+import { downloadQueue } from './queue/queue.js';
+import { logger } from '../utils/logger.js';
+import { historyService } from './history.js';
+import { notificationService } from './notifications.js';
+import { normalizeDownloadQuality } from '../config.js';
+
+export class PlaylistWatcherService {
+    private api: QobuzAPI;
+    private timer: NodeJS.Timeout | null = null;
+    private isScanning = false;
+
+    constructor(api: QobuzAPI) {
+        this.api = api;
+    }
+
+    start(checkIntervalMinutes = 60) {
+        if (this.timer) return;
+
+        this.timer = setInterval(() => {
+            this.scanAllPlaylists();
+        }, checkIntervalMinutes * 60 * 1000);
+
+        this.scanAllPlaylists();
+        logger.info(`PlaylistWatcher: Started (checking every ${checkIntervalMinutes} mins)`, 'WATCHER');
+    }
+
+    stop() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+    }
+
+    async scanAllPlaylists() {
+        if (this.isScanning) return;
+        this.isScanning = true;
+
+        try {
+            const watched = databaseService.getWatchedPlaylists();
+            logger.debug(`PlaylistWatcher: Scanning ${watched.length} playlists`, 'WATCHER');
+
+            for (const playlist of watched) {
+                await this.scanPlaylist(playlist);
+            }
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`PlaylistWatcher Scan Error: ${message}`, 'WATCHER');
+        } finally {
+            this.isScanning = false;
+        }
+    }
+
+    private async scanPlaylist(p: { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }) {
+        const lastSync = p.last_synced_at ? new Date(p.last_synced_at) : new Date(0);
+        const nextSync = new Date(lastSync.getTime() + p.interval_hours * 60 * 60 * 1000);
+
+        if (nextSync > new Date()) {
+            return;
+        }
+
+        logger.info(`PlaylistWatcher: Checking "${p.title}" for new tracks...`, 'WATCHER');
+
+        try {
+            const res = await this.api.getPlaylist(p.playlist_id);
+            if (!res.success || !res.data) {
+                logger.warn(`PlaylistWatcher: Could not fetch playlist ${p.playlist_id}`, 'WATCHER');
+                return;
+            }
+
+            const tracks = res.data.tracks.items;
+            let newTracksCount = 0;
+
+            for (const track of tracks) {
+                const trackId = track.id.toString();
+                const inHistory = historyService.has(trackId);
+                const inDb = databaseService.hasTrack(trackId);
+                const inQueue = downloadQueue.hasContent('track', trackId);
+
+                if (!inHistory && !inDb && !inQueue) {
+                    downloadQueue.add('track', trackId, normalizeDownloadQuality(p.quality, 27), {
+                        title: track.title,
+                        metadata: { source: 'playlist-watcher', playlistTitle: p.title }
+                    });
+                    newTracksCount++;
+                }
+            }
+
+            if (newTracksCount > 0) {
+                logger.success(`PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`, 'WATCHER');
+                notificationService.info(
+                    'Playlist Watcher',
+                    `Added ${newTracksCount} new tracks from "${p.title}" to queue.`
+                );
+            }
+
+            databaseService.updatePlaylistSyncTime(p.id.toString());
+
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${message}`, 'WATCHER');
+        }
+    }
+}
+
+export const playlistWatcherService = new PlaylistWatcherService(new QobuzAPI());
+</file>
+
+<file path="src/services/QualityScannerService.ts">
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { logger } from '../utils/logger.js';
+import path from 'path';
+import fs from 'fs';
+
+const execPromise = promisify(exec);
+
+export interface QualityReport {
+    isTrueLossless: boolean;
+    confidence: number;
+    cutoffFrequency?: number;
+    details: string;
+}
+
+export class QualityScannerService {
+    private static ffmpegAvailable: boolean | null = null;
+
+    private async checkFFmpeg(): Promise<boolean> {
+        if (QualityScannerService.ffmpegAvailable !== null) return QualityScannerService.ffmpegAvailable;
+        try {
+            await execPromise('ffmpeg -version');
+            QualityScannerService.ffmpegAvailable = true;
+            return true;
+        } catch {
+            QualityScannerService.ffmpegAvailable = false;
+            logger.warn('FFmpeg not found. Quality scanning will be disabled. Please install FFmpeg and add it to your PATH.', 'SCANNER');
+            return false;
+        }
+    }
+
+    /**
+     * Scans an audio file to detect if it's true lossless or upsampled.
+     * Uses ffmpeg to analyze the frequency spectrum.
+     */
+    async scanFile(filePath: string): Promise<QualityReport> {
+        try {
+            const hasFFmpeg = await this.checkFFmpeg();
+            if (!hasFFmpeg) {
+                return {
+                    isTrueLossless: true,
+                    confidence: 0,
+                    details: 'Quality scan skipped: FFmpeg not installed.'
+                };
+            }
+
+            if (!fs.existsSync(filePath)) {
+                throw new Error('File not found');
+            }
+
+            // Using -v error to reduce noise and specifically target mean_volume
+            // Use quotes and ensure we handle potential UTF-8 issues by using a more robust way to call ffmpeg if needed
+            const cmd16 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
+            const cmd20 = `ffmpeg -v error -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
+
+            const [result16, result20] = await Promise.all([
+                execPromise(cmd16).catch(e => {
+                    logger.debug(`FFmpeg 16k error: ${e.message}`);
+                    return { stderr: e.stderr || '' };
+                }),
+                execPromise(cmd20).catch(e => {
+                    logger.debug(`FFmpeg 20k error: ${e.message}`);
+                    return { stderr: e.stderr || '' };
+                })
+            ]);
+
+            const stderr16 = result16.stderr || '';
+            const stderr20 = result20.stderr || '';
+
+            const mean16 = this.parseMeanVolume(stderr16);
+            const mean20 = this.parseMeanVolume(stderr20);
+
+            // Log detailed stats for debugging
+            logger.debug(`QualityScan Details: ${path.basename(filePath)} | >16kHz: ${mean16}dB | >20kHz: ${mean20}dB`);
+
+            let isTrueLossless = true;
+            let confidence = 100;
+            let details = 'Crystal clear high frequencies detected.';
+
+            // Slightly more relaxed thresholds to avoid false positives on acoustic/lo-fi tracks
+            // Also check if we actually got a reading (not -100 default)
+            if (mean16 !== -100 && mean16 < -80) {
+                isTrueLossless = false;
+                confidence = 95;
+                details = 'Fake Lossless: Sharp cutoff at 16kHz detected (Likely transcoded from low-bitrate source).';
+            } else if (mean20 !== -100 && mean20 < -85) {
+                // Many real lossless tracks have a natural roll-off at 20kHz, so we are even more relaxed here
+                isTrueLossless = false;
+                confidence = 75;
+                details = 'Likely Upsampled: High frequency roll-off at 20kHz detected (Common for 320kbps MP3 or older recordings).';
+            }
+
+            // If we got -100 for both, something might be wrong with the scan, but we don't want to flag it as fake
+            if (mean16 === -100 && mean20 === -100) {
+                return {
+                    isTrueLossless: true,
+                    confidence: 50,
+                    details: 'Quality scan inconclusive (Frequency analysis failed or no high frequency content found).'
+                };
+            }
+
+            return {
+                isTrueLossless,
+                confidence,
+                cutoffFrequency: !isTrueLossless ? (mean16 < -80 ? 16000 : 20000) : undefined,
+                details
+            };
+
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`QualityScanner: Failed to scan ${filePath}: ${message}`);
+            return {
+                isTrueLossless: true,
+                confidence: 0,
+                details: `Scan failed: ${message}`
+            };
+        }
+    }
+
+    private parseMeanVolume(output: string): number {
+        const match = output.match(/mean_volume: ([-\d.]+) dB/);
+        if (match) return parseFloat(match[1]);
+        
+        // If no match, check if there's any output at all. 
+        // If ffmpeg failed, we return -100 as "no signal"
+        return -100;
+    }
+}
+
+export const qualityScannerService = new QualityScannerService();
 </file>
 
 <file path="client/src/components/AudioVisualizer.tsx">

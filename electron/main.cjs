@@ -11,11 +11,25 @@ try {
 }
 
 const initialCwd = process.cwd();
-const DESKTOP_PORT = Number.parseInt(
-  process.env.DESKTOP_DASHBOARD_PORT || process.env.DASHBOARD_PORT || '3210',
-  10
-);
-const DASHBOARD_URL = `http://127.0.0.1:${DESKTOP_PORT}`;
+const net = require('net');
+
+async function findAvailablePort(startPort) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', () => {
+      resolve(findAvailablePort(startPort + 1));
+    });
+    server.listen(startPort, () => {
+      server.close(() => {
+        resolve(startPort);
+      });
+    });
+  });
+}
+
+let DESKTOP_PORT = 3210;
+let DASHBOARD_URL = `http://127.0.0.1:${DESKTOP_PORT}`;
 
 const baseAppPath = app.isPackaged ? app.getAppPath() : path.join(__dirname, '..');
 let runtimeDir = initialCwd;
@@ -441,7 +455,7 @@ function setupSecurityHeaders() {
   
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     // Only apply to our dashboard
-    if (details.url.startsWith(DASHBOARD_URL) || details.url.startsWith('data:')) {
+    if (details.url.startsWith(`http://127.0.0.1:${DESKTOP_PORT}`) || details.url.startsWith('data:')) {
       const existingCsp = details.responseHeaders['content-security-policy'] || details.responseHeaders['Content-Security-Policy'];
       
       // If we already have a CSP (from Express), we might want to ensure media-src is there
@@ -673,8 +687,15 @@ function registerIpc() {
 }
 
 async function bootstrap() {
+  const startPort = Number.parseInt(
+    process.env.DESKTOP_DASHBOARD_PORT || process.env.DASHBOARD_PORT || '3210',
+    10
+  );
+  DESKTOP_PORT = await findAvailablePort(startPort);
+  DASHBOARD_URL = `http://127.0.0.1:${DESKTOP_PORT}`;
+
   mainWindow = createWindow();
-  await loadInlinePage(mainWindow, 'Starting local backend and loading dashboard...');
+  await loadInlinePage(mainWindow, `Starting local backend on port ${DESKTOP_PORT} and loading dashboard...`);
 
   try {
     await startBackend();

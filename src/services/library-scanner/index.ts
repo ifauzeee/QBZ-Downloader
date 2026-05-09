@@ -64,11 +64,29 @@ class LibraryScannerService extends EventEmitter {
     private scanAborted = false;
     private supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
     private api: QobuzAPI;
+    private static fpcalcAvailable: boolean | null = null;
     private currentProgress: ScanProgress | null = null;
 
     constructor() {
         super();
         this.api = new QobuzAPI();
+    }
+
+    private async checkFpcalc(): Promise<boolean> {
+        if (LibraryScannerService.fpcalcAvailable !== null) return LibraryScannerService.fpcalcAvailable;
+        try {
+            const { execSync } = await import('child_process');
+            execSync('fpcalc -version', { stdio: 'ignore' });
+            LibraryScannerService.fpcalcAvailable = true;
+            return true;
+        } catch {
+            LibraryScannerService.fpcalcAvailable = false;
+            logger.warn(
+                'fpcalc (Chromaprint) not found. Audio fingerprinting will be disabled. Duplicates will rely on metadata only.',
+                'SCANNER'
+            );
+            return false;
+        }
     }
 
     async scanLibrary(
@@ -112,6 +130,7 @@ class LibraryScannerService extends EventEmitter {
         try {
             databaseService.clearLibraryScan();
 
+            await this.checkFpcalc();
             const allFiles = await this.collectAudioFiles(scanDir);
             result.totalFiles = allFiles.length;
 
@@ -758,6 +777,7 @@ class LibraryScannerService extends EventEmitter {
         totalSize: number;
         processedFiles?: number;
         currentFile?: string;
+        FPCALC_AVAILABLE: boolean;
     } {
         const upgradeable = databaseService.getUpgradeableFiles();
         const duplicates = databaseService.getDuplicates();
@@ -774,7 +794,8 @@ class LibraryScannerService extends EventEmitter {
             duplicates: duplicates.length,
             upgradeable: upgradeable.length,
             missingMetadata: missingRow?.count || 0,
-            totalSize: totalRow?.size || 0
+            totalSize: totalRow?.size || 0,
+            FPCALC_AVAILABLE: LibraryScannerService.fpcalcAvailable === true
         };
 
         if (this.isScanning && this.currentProgress) {
@@ -791,7 +812,19 @@ class LibraryScannerService extends EventEmitter {
     }
 
     async findMissingTracks(): Promise<any[]> {
-        return [];
+        const files = databaseService.getLibraryFiles(100000, 0);
+        const missing: any[] = [];
+        for (const file of files) {
+            if (!fs.existsSync(file.file_path)) {
+                missing.push({
+                    filePath: file.file_path,
+                    title: file.title,
+                    artist: file.artist,
+                    album: file.album
+                });
+            }
+        }
+        return missing;
     }
 }
 

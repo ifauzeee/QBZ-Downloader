@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import QobuzAPI from '../../../api/qobuz.js';
 import { databaseService } from '../../database/index.js';
 import { normalizeDownloadQuality } from '../../../config.js';
+import { RecommendationService } from '../../RecommendationService.js';
+import { historyService } from '../../history.js';
 
 const router = Router();
 const api = new QobuzAPI();
@@ -256,6 +258,50 @@ router.delete('/playlists/watch/:id', async (req: Request, res: Response) => {
     try {
         databaseService.removeWatchedPlaylist(getParam(req.params.id));
         res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/recommendations', async (req: Request, res: Response) => {
+    try {
+        const limit = parseInt(getParam(req.query.limit)) || 10;
+        const recommendationService = new RecommendationService(api);
+        const albums = await recommendationService.getRecommendations(limit);
+        res.json(albums);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/quality-stats', (req: Request, res: Response) => {
+    try {
+        const history = historyService.getAll();
+        const stats = {
+            totalScanned: 0,
+            trueLossless: 0,
+            fakeLossless: 0,
+            issues: [] as any[]
+        };
+
+        Object.values(history).forEach((entry: any) => {
+            if (entry.qualityScan) {
+                stats.totalScanned++;
+                if (entry.qualityScan.isTrueLossless) {
+                    stats.trueLossless++;
+                } else {
+                    stats.fakeLossless++;
+                    stats.issues.push({
+                        title: entry.title,
+                        artist: entry.artist,
+                        details: entry.qualityScan.details,
+                        confidence: entry.qualityScan.confidence
+                    });
+                }
+            }
+        });
+
+        res.json(stats);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
