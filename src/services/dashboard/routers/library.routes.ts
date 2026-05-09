@@ -5,7 +5,7 @@ import { RecommendationService } from '../../RecommendationService.js';
 import { historyService } from '../../history.js';
 import QobuzAPI from '../../../api/qobuz.js';
 import { libraryHealerService } from '../../LibraryHealerService.js';
-import { statisticsService } from '../../StatisticsService.js';
+import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
 
 const router = Router();
 
@@ -37,7 +37,7 @@ router.post('/heal', async (req: Request, res: Response) => {
 
 router.get('/statistics', async (req: Request, res: Response) => {
     try {
-        const stats = await statisticsService.getLibraryStats();
+        const stats = await libraryStatisticsService.getLibraryStats();
         res.json(stats);
     } catch (error: any) {
         res.status(500).json({ error: error.message });

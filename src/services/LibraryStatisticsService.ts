@@ -14,7 +14,7 @@ export interface LibraryStats {
     }[];
 }
 
-export class StatisticsService {
+export class LibraryStatisticsService {
     async getLibraryStats(): Promise<LibraryStats> {
         try {
             const tracks = databaseService.getAllTracks();
@@ -77,4 +77,4 @@ export class StatisticsService {
     }
 }
 
-export const statisticsService = new StatisticsService();
+export const libraryStatisticsService = new LibraryStatisticsService();

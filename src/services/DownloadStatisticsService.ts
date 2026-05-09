@@ -57,7 +57,7 @@ const QUALITY_LABELS: Record<number, string> = {
     27: 'FLAC 24-bit/192kHz'
 };
 
-class StatisticsService {
+class DownloadStatisticsService {
     getAll(): StatisticsData {
         return {
             overall: this.getOverallStats(),
@@ -378,4 +378,4 @@ class StatisticsService {
     }
 }
 
-export const statisticsService = new StatisticsService();
+export const downloadStatisticsService = new DownloadStatisticsService();
