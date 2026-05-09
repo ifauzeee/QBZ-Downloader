@@ -182,7 +182,53 @@ class AdvancedAnalyticsService {
     }
 
     private calculateMonthlyTrends(): DownloadTrend[] {
-        return [];
+        try {
+            const stats = databaseService.getDailyStats(180);
+            const monthsMap = new Map<string, any[]>();
+
+            for (const stat of stats) {
+                const month = stat.date.substring(0, 7); // YYYY-MM
+                if (!monthsMap.has(month)) {
+                    monthsMap.set(month, []);
+                }
+                monthsMap.get(month)!.push(stat);
+            }
+
+            const trends: DownloadTrend[] = [];
+            const monthKeys = Array.from(monthsMap.keys()).sort().reverse();
+
+            for (let i = 0; i < monthKeys.length; i++) {
+                const month = monthKeys[i];
+                const monthData = monthsMap.get(month)!;
+                const aggregated = this.aggregateStats(monthData);
+
+                const prevMonth = monthKeys[i + 1];
+                let change = 0;
+                if (prevMonth) {
+                    const prevData = monthsMap.get(prevMonth)!;
+                    const prevAggregated = this.aggregateStats(prevData);
+                    change =
+                        prevAggregated.downloads > 0
+                            ? ((aggregated.downloads - prevAggregated.downloads) /
+                                  prevAggregated.downloads) *
+                              100
+                            : 0;
+                }
+
+                trends.push({
+                    period: month,
+                    downloads: aggregated.downloads,
+                    tracks: aggregated.tracks,
+                    albums: aggregated.albums,
+                    size: aggregated.size,
+                    change: Math.round(change * 10) / 10
+                });
+            }
+
+            return trends.slice(0, 6);
+        } catch (error) {
+            return [];
+        }
     }
 
     private getQualityDistribution(
