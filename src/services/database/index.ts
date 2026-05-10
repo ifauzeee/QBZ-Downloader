@@ -905,7 +905,13 @@ class DatabaseService {
         });
 
         transaction();
-        logger.info('Database statistics reset', 'DB');
+        logger.info('Database statistics and data reset', 'DB');
+    }
+
+    clearAllSettings(): void {
+        const db = this.getDb();
+        db.prepare('DELETE FROM app_settings').run();
+        logger.info('All application settings have been cleared from database', 'DB');
     }
 
     deleteTrackByPath(filePath: string): void {

@@ -292,7 +292,6 @@ function migrateLegacyState(targetDir) {
   const exeDir = path.dirname(app.getPath('exe'));
   const candidates = uniqueExisting([
     process.env.QBZ_MIGRATE_FROM,
-    initialCwd,
     exeDir,
     path.join(home, 'Project', 'QBZ-Downloader'),
     path.join(docs, 'QBZ-Downloader')

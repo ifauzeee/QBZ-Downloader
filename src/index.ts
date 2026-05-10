@@ -78,15 +78,19 @@ async function main() {
             logger.warn(`Database init failed: ${error.message}`, 'DB');
         }
 
-        logger.info('Starting Queue Processor...', 'QUEUE');
-        queueProcessor.start();
-        logger.success('Queue Processor active and listening.', 'QUEUE');
+        if (valid) {
+            logger.info('Starting Queue Processor...', 'QUEUE');
+            queueProcessor.start();
+            logger.success('Queue Processor active and listening.', 'QUEUE');
+
+            logger.info('Starting Playlist Watcher Service...', 'WATCHER');
+            playlistWatcherService.start();
+        } else {
+            logger.info('Background services (Queue/Watcher) suspended until credentials are configured.', 'BOOT');
+        }
 
         logger.info('Initializing Dashboard Service...', 'WEB');
         dashboardService.start();
-
-        logger.info('Starting Playlist Watcher Service...', 'WATCHER');
-        playlistWatcherService.start();
 
         // Check for ffmpeg if export is enabled
         if (CONFIG.export.enabled) {

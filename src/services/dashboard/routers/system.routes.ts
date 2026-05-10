@@ -225,12 +225,22 @@ router.post('/login', async (req: Request, res: Response) => {
             // This ensures App Secret is valid (which isn't checked by getUserInfo)
             try {
                 const sigTest = await api.getFileUrl('1', 5);
-                if (!sigTest.success && sigTest.error?.includes('request_sig')) {
-                    tokenManager.markInvalid();
-                    return res.status(401).json({ error: 'Invalid App Secret: Signature verification failed' });
+                if (!sigTest.success) {
+                    const isSigError = sigTest.error?.toLowerCase().includes('request_sig') || 
+                                     sigTest.error?.toLowerCase().includes('signature');
+                    
+                    if (isSigError) {
+                        tokenManager.markInvalid();
+                        return res.status(401).json({ 
+                            error: 'Invalid App Secret: Signature verification failed. Please check your App Secret.' 
+                        });
+                    }
                 }
-            } catch (e) {
-                // If it fails for other reasons (like 404), it's probably fine as long as it's not a sig error
+            } catch (e: any) {
+                if (e.message?.toLowerCase().includes('signature') || e.message?.toLowerCase().includes('auth')) {
+                    tokenManager.markInvalid();
+                    return res.status(401).json({ error: 'Authentication failed during signature test: ' + e.message });
+                }
             }
 
             tokenManager.markValid();
@@ -254,9 +264,10 @@ router.post('/login', async (req: Request, res: Response) => {
 router.post('/system/reset', async (req: Request, res: Response) => {
     try {
         databaseService.resetStatistics();
+        databaseService.clearAllSettings();
         historyService.clearAll();
         downloadQueue.clear();
-        res.json({ success: true });
+        res.json({ success: true, message: 'All data and settings have been cleared.' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

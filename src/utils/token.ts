@@ -61,9 +61,13 @@ class TokenManager extends EventEmitter {
     }
 
     markInvalid(): void {
+        if (!this.token) return; 
+        const previouslyValid = this.isValid !== false;
         this.isValid = false;
-        this.emit('token:invalid');
-        logger.warn('Token marked as invalid');
+        if (previouslyValid) {
+            this.emit('token:invalid');
+            logger.warn('Token marked as invalid');
+        }
     }
 
     markValid(): void {
@@ -96,8 +100,11 @@ export async function refreshUserToken(): Promise<string | null> {
         return null;
     }
 
-    logger.warn('Token expired or invalid. Please update via Dashboard Settings.');
-    tokenManager.markInvalid();
+    // Only mark invalid and notify if we haven't already marked it as invalid
+    if (status.valid !== false) {
+        logger.warn('Token expired or invalid. Please update via Dashboard Settings.');
+        tokenManager.markInvalid();
+    }
 
     return null;
 }

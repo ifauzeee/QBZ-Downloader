@@ -3,13 +3,20 @@
 All notable changes to this project will be documented in this file.
 
 ## [5.1.3] - 2026-05-10
+### Added
+- Implemented **Pure AMOLED Black** theme (`#000000`) for high-contrast desktop experience.
+- Expanded Onboarding/Setup view to 720px for a more immersive desktop-first initialization.
 
-### ✨ New Features
-- **AMOLED Black Theme**: Implemented a pure black background (#000000) across the application for a stunning, high-contrast experience on OLED/AMOLED displays.
-- **Enhanced Setup "Full View"**: Increased the setup wizard width and refined the onboarding layout to provide a more immersive and expansive installation experience.
+### Fixed
+- Fixed persistent "Token Invalid" notification loop when background services run with old credentials.
+- Improved `TokenManager` logic to prevent redundant authentication failure alerts.
+- Optimized `electron/main.cjs` to stop aggressive legacy data migration from the current working directory.
+- Fixed a bug where signature test failures during login were not correctly reported to the UI.
 
-### 🛠️ Improvements
-- **Visual Purity**: Removed background gradients and glowing effects during setup to achieve a true "Pure Black" aesthetic.
+### Changed
+- Secured startup sequence: background services (Queue & Watcher) are now suspended until valid credentials are configured.
+- Improved "Reset Database" functionality to perform a "Deep Reset" including application settings.
+- Refined UI aesthetics: removed decorative gradients and mesh glows for a clean, professional AMOLED look.
 
 ## [5.1.2] - 2026-05-10
 
