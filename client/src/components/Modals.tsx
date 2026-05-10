@@ -127,7 +127,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                         Dashboard is currently locked for security. Please provide your administrative password to proceed and manage your high-res audio library.
                     </p>
                     <div className="login-footer-meta">
-                        <span>v5.0.0</span>
+                        <span>v5.1.3</span>
 
                         <span className="dot"></span>
                         <span>This application uses the Qobuz API but is not certified by Qobuz.</span>

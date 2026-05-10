@@ -213,7 +213,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                     <Icons.ArrowRight size={18} />
                                 </button>
                                 <div className="welcome-footer">
-                                    <span>Version 5.1.2 Stable</span>
+                                    <span>Version 5.1.3 Stable</span>
                                 </div>
                             </motion.div>
                         )}
