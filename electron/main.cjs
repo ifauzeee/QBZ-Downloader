@@ -382,7 +382,7 @@ async function startBackend() {
     process.env.DASHBOARD_PORT = String(DESKTOP_PORT);
     process.env.QBZ_DESKTOP = '1';
     process.env.NODE_ENV = process.env.NODE_ENV || (app.isPackaged ? 'production' : 'development');
-    process.env.DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || path.join(runtimeDir, 'downloads');
+    process.env.DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || path.join(app.getPath('downloads'), 'QBZ-Downloader');
 
     const serverEntry = path.join(baseAppPath, 'dist', 'index.js');
     await import(pathToFileURL(serverEntry).href);
@@ -683,6 +683,29 @@ function registerIpc() {
       body: body,
       icon: fs.existsSync(iconPath) ? iconPath : undefined
     }).show();
+  });
+
+  ipcMain.handle('desktop:select-folder', async (event, defaultPath) => {
+    const { dialog } = require('electron');
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: defaultPath || undefined
+    });
+    if (result.canceled) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle('desktop:open-folder', async (event, folderPath) => {
+    if (!folderPath || !fs.existsSync(folderPath)) return false;
+    await shell.openPath(folderPath);
+    return true;
+  });
+
+  ipcMain.handle('desktop:show-item', async (event, filePath) => {
+    if (!filePath || !fs.existsSync(filePath)) return false;
+    shell.showItemInFolder(filePath);
+    return true;
   });
 }
 

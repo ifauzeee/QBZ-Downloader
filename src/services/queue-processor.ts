@@ -103,7 +103,7 @@ export class QueueProcessor {
             try {
                 const pendingItems = downloadQueue.getPendingItems();
                 const itemsToHydrate = pendingItems.filter(
-                    (item) => item.title === `${item.type}: ${item.contentId}`
+                    (item) => !item.title || item.title === `${item.type}: ${item.contentId}`
                 );
 
                 for (const item of itemsToHydrate) {

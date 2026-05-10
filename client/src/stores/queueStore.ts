@@ -19,6 +19,7 @@ export interface QueueItem {
     progress: number;
     artist?: string;
     album?: string;
+    filePath?: string;
 }
 
 interface QueueState {

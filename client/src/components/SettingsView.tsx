@@ -541,13 +541,31 @@ export const SettingsView: React.FC = () => {
                 <div className="update-cred-grid">
                     <div className="form-group">
                         <label>{t('label_dl_path')}</label>
-                        <input
-                            type="text"
-                            value={settingsForm.downloadsPath}
-                            onChange={(e) =>
-                                setSettingsForm((prev) => ({ ...prev, downloadsPath: e.target.value }))
-                            }
-                        />
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <input
+                                type="text"
+                                style={{ flex: 1 }}
+                                value={settingsForm.downloadsPath}
+                                onChange={(e) =>
+                                    setSettingsForm((prev) => ({ ...prev, downloadsPath: e.target.value }))
+                                }
+                            />
+                            {window.qbzDesktop && (
+                                <button
+                                    type="button"
+                                    className="btn secondary"
+                                    style={{ padding: '0 15px', whiteSpace: 'nowrap' }}
+                                    onClick={async () => {
+                                        const path = await window.qbzDesktop?.app.selectFolder(settingsForm.downloadsPath);
+                                        if (path) {
+                                            setSettingsForm(prev => ({ ...prev, downloadsPath: path }));
+                                        }
+                                    }}
+                                >
+                                    Browse
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <div className="form-group">
                         <label>{t('label_folder_tmpl')}</label>

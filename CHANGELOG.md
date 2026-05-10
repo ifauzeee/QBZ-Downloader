@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.1.1] - 2026-05-10
+
+### ✨ New Features
+- **Modern Onboarding Experience**: Completely refactored the desktop setup process into a premium, multi-step wizard with smooth animations and real-time account verification.
+- **Native Explorer Integration**: Added "Open Folder" and "Show in Folder" buttons in History and Queue views, allowing users to instantly find downloaded files in Windows Explorer.
+
+### 🛠️ Improvements
+- **Enhanced Metadata Resolution**: Improved the background metadata hydration service to handle missing titles and batch downloads more reliably.
+- **Visual Polish**: Refined the onboarding UI with glassmorphism effects, dynamic progress hubs, and accent-colored micro-animations.
+
+### 🐞 Bug Fixes
+- Fixed a critical issue where batch downloads (albums/playlists) would show as "Loading..." even after completion.
+- Resolved multiple TypeScript errors related to `IconProps`, `QueueItem` interfaces, and API response null-safety.
+- Corrected a bug where the default download path was not consistently respected in some scenarios.
+- Fixed broken IPC handlers for folder selection and file system interaction.
+
 ## [5.1.0] - 2026-05-09
 
 ### ✨ New Features

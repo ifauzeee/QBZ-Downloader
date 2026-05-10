@@ -15,6 +15,7 @@ declare global {
       isDesktop: boolean;
       app: {
         getVersion: () => Promise<string>;
+        selectFolder: (defaultPath?: string) => Promise<string | null>;
       };
       window: {
         minimize: () => Promise<void>;

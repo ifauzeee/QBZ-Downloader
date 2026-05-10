@@ -3,7 +3,10 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('qbzDesktop', {
   isDesktop: true,
   app: {
-    getVersion: () => ipcRenderer.invoke('desktop:app-version')
+    getVersion: () => ipcRenderer.invoke('desktop:app-version'),
+    selectFolder: (defaultPath) => ipcRenderer.invoke('desktop:select-folder', defaultPath),
+    openFolder: (folderPath) => ipcRenderer.invoke('desktop:open-folder', folderPath),
+    showItem: (filePath) => ipcRenderer.invoke('desktop:show-item', filePath)
   },
   window: {
     minimize: () => ipcRenderer.invoke('desktop:window:minimize'),

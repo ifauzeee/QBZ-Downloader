@@ -260,6 +260,7 @@ export default class DownloadService {
 
         const filename = safeFile;
         const filePath = path.join(folderPath, filename);
+        logger.info(`Saving download to: ${filePath}`, 'DOWNLOAD');
 
         if (options.skipExisting && existsSync(filePath)) {
             return { success: true, skipped: true, filePath, quality: actualQuality, metadata };
@@ -456,6 +457,14 @@ export default class DownloadService {
         const albumInfo = await this.api.getAlbum(albumId);
         if (!albumInfo.success) return { success: false, error: albumInfo.error };
         const album = albumInfo.data;
+
+        if (options.onMetadata && album) {
+            options.onMetadata({
+                title: album.title,
+                artist: album.artist?.name || 'Unknown Artist',
+                album: album.title
+            });
+        }
  
         const tracks = album?.tracks?.items || [];
  
@@ -528,6 +537,14 @@ export default class DownloadService {
         const playlistInfo = await this.api.getPlaylist(playlistId);
         if (!playlistInfo.success) return { success: false, error: playlistInfo.error };
         const playlist = playlistInfo.data!;
+
+        if (options.onMetadata) {
+            options.onMetadata({
+                title: playlist.name,
+                artist: playlist.owner?.name || 'Various Artists',
+                album: playlist.name
+            });
+        }
  
         const tracks = playlist.tracks.items;
  
@@ -605,6 +622,15 @@ export default class DownloadService {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const artistInfo = await this.api.getArtist(artistId);
         if (!artistInfo.success) return { success: false, error: artistInfo.error };
+        const artist = artistInfo.data as any;
+
+        if (options.onMetadata) {
+            options.onMetadata({
+                title: artist.name,
+                artist: artist.name,
+                album: 'Discography'
+            });
+        }
         
         const albumsRes = await this.api.getArtistAlbums(artistId, 50);
         if (!albumsRes.success) return { success: false, error: albumsRes.error };

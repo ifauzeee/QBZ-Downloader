@@ -42,9 +42,21 @@ const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, ha
                 {(item.status === 'downloading' || item.status === 'pending' || item.status === 'processing') ? (
                     <button className="btn danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleCancel(item.id)}>{t('action_cancel')}</button>
                 ) : item.status === 'completed' ? (
-                    <button className="btn primary" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => handleDownload(item.contentId)}>
-                        <Icons.Download width={12} height={12} /> {t('action_download')}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="btn primary" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }} onClick={() => handleDownload(item.contentId)}>
+                            <Icons.Download size={14} /> {t('action_download')}
+                        </button>
+                        {(window as any).qbzDesktop && (
+                            <button 
+                                className="btn secondary" 
+                                style={{ padding: '6px 8px', display: 'flex', alignItems: 'center' }} 
+                                onClick={() => (window as any).qbzDesktop.app.showItem(item.filePath)}
+                                title="Open in Explorer"
+                            >
+                                <Icons.Folder size={14} />
+                            </button>
+                        )}
+                    </div>
                 ) : null}
             </div>
         </div>

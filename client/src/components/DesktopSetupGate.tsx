@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { smartFetch } from '../utils/api';
+import { Icons } from './Icons';
 
 type OnboardingStep = {
     id: 'app_id' | 'app_secret' | 'token' | 'user_id';
@@ -11,37 +13,21 @@ type OnboardingResponse = {
     steps: OnboardingStep[];
 };
 
-type SetupStage = 'intro' | 'setup';
-type ChecklistId = OnboardingStep['id'] | 'downloads_path';
+type WizardStep = 'welcome' | 'api' | 'auth' | 'storage' | 'finish';
 
 interface DesktopSetupGateProps {
     onContinue: () => void;
 }
 
-const BASE_STEPS: OnboardingStep[] = [
-    { id: 'app_id', completed: false },
-    { id: 'app_secret', completed: false },
-    { id: 'token', completed: false },
-    { id: 'user_id', completed: false }
-];
-
-const STEP_LABELS: Record<ChecklistId, string> = {
-    app_id: 'Qobuz App ID',
-    app_secret: 'Qobuz App Secret',
-    token: 'User Auth Token',
-    user_id: 'Qobuz User ID',
-    downloads_path: 'Download Path'
-};
 
 export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
-    const [stage, setStage] = useState<SetupStage>('intro');
-    const [steps, setSteps] = useState<OnboardingStep[]>(BASE_STEPS);
+    const [wizardStep, setWizardStep] = useState<WizardStep>('welcome');
+    const [steps, setSteps] = useState<OnboardingStep[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [verifying, setVerifying] = useState(false);
-    const [message, setMessage] = useState('');
     const [error, setError] = useState('');
-    const [verifiedAccount, setVerifiedAccount] = useState('');
+    const [verifiedAccount, setVerifiedAccount] = useState<any>(null);
     const [showSecret, setShowSecret] = useState(false);
     const [showToken, setShowToken] = useState(false);
 
@@ -50,80 +36,22 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
         appSecret: '',
         token: '',
         userId: '',
-        downloadsPath: './downloads'
+        downloadsPath: ''
     });
-
-    const remoteCompletion = useMemo(() => {
-        const map: Record<OnboardingStep['id'], boolean> = {
-            app_id: false,
-            app_secret: false,
-            token: false,
-            user_id: false
-        };
-
-        for (const step of steps) {
-            map[step.id] = Boolean(step.completed);
-        }
-
-        return map;
-    }, [steps]);
-
-    const checklist = useMemo(
-        () => [
-            {
-                id: 'app_id' as const,
-                completed: remoteCompletion.app_id || Boolean(form.appId.trim())
-            },
-            {
-                id: 'app_secret' as const,
-                completed: remoteCompletion.app_secret || Boolean(form.appSecret.trim())
-            },
-            {
-                id: 'token' as const,
-                completed: remoteCompletion.token || Boolean(form.token.trim())
-            },
-            {
-                id: 'user_id' as const,
-                completed: remoteCompletion.user_id || Boolean(form.userId.trim())
-            },
-            {
-                id: 'downloads_path' as const,
-                completed: Boolean(form.downloadsPath.trim())
-            }
-        ],
-        [form.appId, form.appSecret, form.downloadsPath, form.token, form.userId, remoteCompletion]
-    );
-
-    const completion = useMemo(() => {
-        const done = checklist.filter((item) => item.completed).length;
-        return Math.round((done / checklist.length) * 100);
-    }, [checklist]);
 
     const loadStatus = async () => {
         setLoading(true);
         try {
             const res = await smartFetch('/api/onboarding');
-            if (!res) {
-                setError('Cannot reach local service. Please check your connection.');
-                return;
-            }
-
+            if (!res) return;
             const data = (await res.json()) as OnboardingResponse;
-            if (!res.ok) {
-                setError('Failed to load onboarding status.');
-                return;
-            }
-
             if (data.configured) {
                 onContinue();
                 return;
             }
-
-            setSteps(data.steps?.length ? data.steps : BASE_STEPS);
-            setError('');
+            setSteps(data.steps || []);
         } catch (e) {
             console.error(e);
-            setError('Unexpected error while checking setup status.');
         } finally {
             setLoading(false);
         }
@@ -133,42 +61,23 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
         void loadStatus();
     }, []);
 
-    const validateMissingFields = () => {
-        const missing: string[] = [];
+    const remoteCompletion = useMemo(() => {
+        const map: Record<string, boolean> = {};
+        steps.forEach(s => map[s.id] = s.completed);
+        return map;
+    }, [steps]);
 
-        if (!remoteCompletion.app_id && !form.appId.trim()) missing.push(STEP_LABELS.app_id);
-        if (!remoteCompletion.app_secret && !form.appSecret.trim())
-            missing.push(STEP_LABELS.app_secret);
-        if (!remoteCompletion.token && !form.token.trim()) missing.push(STEP_LABELS.token);
-        if (!remoteCompletion.user_id && !form.userId.trim()) missing.push(STEP_LABELS.user_id);
-        if (!form.downloadsPath.trim()) missing.push(STEP_LABELS.downloads_path);
-
-        if (missing.length > 0) {
-            setError(`Please complete: ${missing.join(', ')}`);
-            return false;
-        }
-
-        return true;
-    };
-
-    const saveCredentials = async (continueAfterSave: boolean): Promise<boolean> => {
+    const handleSave = async (isFinal = false) => {
         setError('');
-        setMessage('');
-
-        if (!validateMissingFields()) {
-            return false;
-        }
-
-        const payload: Record<string, string> = {};
-
-        if (form.appId.trim()) payload.app_id = form.appId.trim();
-        if (form.appSecret.trim()) payload.app_secret = form.appSecret.trim();
-        if (form.token.trim()) payload.token = form.token.trim();
-        if (form.userId.trim()) payload.user_id = form.userId.trim();
-        if (form.downloadsPath.trim()) payload.downloads_path = form.downloadsPath.trim();
-
         setSaving(true);
         try {
+            const payload: any = {};
+            if (form.appId) payload.app_id = form.appId;
+            if (form.appSecret) payload.app_secret = form.appSecret;
+            if (form.token) payload.token = form.token;
+            if (form.userId) payload.user_id = form.userId;
+            if (form.downloadsPath) payload.downloads_path = form.downloadsPath;
+
             const res = await smartFetch('/api/settings/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -176,324 +85,651 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
             });
 
             if (!res) {
-                setError('Failed to connect to local API.');
+                setSaving(false);
                 return false;
             }
-
             const data = await res.json();
             if (!res.ok || !data.success) {
-                setError(data.error || 'Failed to save credentials.');
+                setError(data.error || 'Failed to save settings');
+                setSaving(false);
                 return false;
             }
 
-            setMessage('Credentials and path saved locally.');
-
-            const checkRes = await smartFetch('/api/onboarding');
-            if (checkRes && checkRes.ok) {
-                const checkData = (await checkRes.json()) as OnboardingResponse;
-                if (checkData.steps?.length) {
-                    setSteps(checkData.steps);
-                }
-
-                if (continueAfterSave) {
-                    if (checkData.configured) {
-                        onContinue();
-                    } else {
-                        setError('Credentials are still incomplete. Please review required fields.');
-                        return false;
-                    }
+            // Refresh status
+            const statusRes = await smartFetch('/api/onboarding');
+            if (statusRes && statusRes.ok) {
+                const statusData = await statusRes.json();
+                setSteps(statusData.steps || []);
+                if (isFinal && statusData.configured) {
+                    onContinue();
                 }
             }
-
+            setSaving(false);
             return true;
         } catch (e) {
-            console.error(e);
-            setError('Unexpected error while saving credentials.');
-            return false;
-        } finally {
+            setError('Connection error');
             setSaving(false);
+            return false;
         }
-    };
-
-    const handleSaveAndContinue = async () => {
-        await saveCredentials(true);
     };
 
     const handleVerify = async () => {
         setVerifying(true);
-        setVerifiedAccount('');
+        setVerifiedAccount(null);
         setError('');
-        setMessage('');
-
-        const saved = await saveCredentials(false);
-        if (!saved) {
-            setVerifying(false);
-            return;
-        }
+        
+        await handleSave(false);
 
         try {
             const res = await smartFetch('/api/login', { method: 'POST' });
             if (!res) {
-                setError('Cannot verify now. Local API is not reachable.');
+                setVerifying(false);
                 return;
             }
-
             const data = await res.json();
             if (res.ok && data.success) {
-                const account = data.user?.email || data.user?.id || 'Account verified';
-                setVerifiedAccount(account);
-                setMessage('Connection verified successfully.');
+                setVerifiedAccount(data.user);
             } else {
-                setError(data.error || 'Verification failed. Please check your credentials.');
+                setError(data.error || 'Verification failed');
             }
         } catch (e) {
-            console.error(e);
-            setError('Unexpected error during verification.');
+            setError('Verification failed');
         } finally {
             setVerifying(false);
         }
     };
 
-    if (loading) {
-        return (
-            <section className="desktop-onboarding-screen">
-                <div className="desktop-onboarding-loading">
-                    <div className="desktop-onboarding-spinner" />
-                    <p>Preparing setup workspace...</p>
-                </div>
-            </section>
-        );
-    }
+    const nextStep = async () => {
+        if (wizardStep === 'api') {
+            if (!remoteCompletion.app_id && !form.appId) return setError('App ID is required');
+            if (!remoteCompletion.app_secret && !form.appSecret) return setError('App Secret is required');
+            const ok = await handleSave();
+            if (ok) setWizardStep('auth');
+        } else if (wizardStep === 'auth') {
+            if (!remoteCompletion.token && !form.token) return setError('Token is required');
+            if (!remoteCompletion.user_id && !form.userId) return setError('User ID is required');
+            const ok = await handleSave();
+            if (ok) setWizardStep('storage');
+        } else if (wizardStep === 'storage') {
+            if (!form.downloadsPath) return setError('Download path is required');
+            const ok = await handleSave();
+            if (ok) setWizardStep('finish');
+        }
+    };
 
-    if (stage === 'intro') {
-        return (
-            <section className="desktop-onboarding-screen">
-                <div className="desktop-onboarding-intro">
-                    <article className="onboarding-intro-main">
-                        <div className="onboarding-intro-badge">
-                            <span className="sync-dot" style={{ background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }}></span>
-                            Ready to Start
-                        </div>
-                        <h1>Welcome to QBZ Downloader Desktop</h1>
-                        <p className="onboarding-intro-copy">
-                            The professional way to manage your high-resolution audio library. 
-                            Complete a quick setup to unlock bit-perfect downloads and automated metadata management.
-                        </p>
-                        <div className="onboarding-intro-actions">
-                            <button
-                                type="button"
-                                className="btn primary hero"
-                                onClick={() => setStage('setup')}
-                                style={{ minHeight: '52px', padding: '0 32px', fontSize: '16px' }}
-                            >
-                                Get Started
-                            </button>
-                            <a
-                                className="desktop-onboarding-github hero"
-                                href="https://github.com/ifauzeee/QBZ-Downloader"
-                                target="_blank"
-                                rel="noreferrer noopener"
-                            >
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.02c-3.22.7-3.9-1.56-3.9-1.56-.52-1.35-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.56-2.57-.3-5.28-1.3-5.28-5.76 0-1.27.45-2.3 1.2-3.1-.12-.3-.52-1.5.12-3.1 0 0 .98-.32 3.2 1.18a11.1 11.1 0 0 1 5.84 0c2.2-1.5 3.19-1.18 3.19-1.18.64 1.6.24 2.8.12 3.1.74.8 1.2 1.83 1.2 3.1 0 4.47-2.72 5.46-5.31 5.75.41.36.79 1.07.79 2.17v3.22c0 .31.2.67.8.56A11.5 11.5 0 0 0 12 .5z" />
-                                </svg>
-                                <span>Project Documentation</span>
-                            </a>
-                        </div>
-                    </article>
-
-                    <aside className="onboarding-intro-side">
-                        <p className="desktop-onboarding-project-title">Setup Roadmap</p>
-                        <ul className="onboarding-feature-list">
-                            <li className="onboarding-feature-item">Qobuz API credentials integration</li>
-                            <li className="onboarding-feature-item">User authentication & session token</li>
-                            <li className="onboarding-feature-item">Local library destination mapping</li>
-                            <li className="onboarding-feature-item">Real-time connection validation</li>
-                        </ul>
-                        
-                        <div style={{ marginTop: '32px', opacity: 0.6 }}>
-                            <p style={{ fontSize: '12px', lineHeight: '1.6' }}>
-                                Your credentials are encrypted and stored locally in your app data folder. 
-                                We never share your data with third parties.
-                            </p>
-                        </div>
-                    </aside>
-                </div>
-            </section>
-        );
-    }
-
-    return (
+    if (loading) return (
         <section className="desktop-onboarding-screen">
-            <div className="desktop-onboarding-shell">
-                <aside className="desktop-onboarding-panel">
-                    <p className="desktop-onboarding-eyebrow">Step 2 - Configuration</p>
-                    <h1 style={{ fontWeight: 800 }}>Core Credentials</h1>
-                    <p className="desktop-onboarding-copy">
-                        We need to connect to Qobuz API to fetch high-quality audio streams and official metadata.
-                    </p>
-
-                    <div className="desktop-onboarding-progress">
-                        <div className="desktop-onboarding-progress-label">
-                            <span>Setup Progress</span>
-                            <strong>{completion}%</strong>
-                        </div>
-                        <div className="desktop-onboarding-progress-track">
-                            <span style={{ width: `${completion}%` }} />
-                        </div>
-                    </div>
-
-                    <ul className="desktop-onboarding-steps">
-                        {checklist.map((item) => (
-                            <li key={item.id} className={item.completed ? 'done' : 'todo'}>
-                                <span className="state-dot" />
-                                <span>{STEP_LABELS[item.id]}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </aside>
-
-                <div className="desktop-onboarding-form-wrap">
-                    <div className="desktop-onboarding-form">
-                        <div className="onboarding-form-header">
-                            <h2 className="onboarding-form-title">Account Details</h2>
-                            <p className="onboarding-form-copy">
-                                Enter your credentials. You only need to do this once.
-                            </p>
-                        </div>
-
-                        <div className="onboarding-form-group">
-                            <label>Qobuz App ID</label>
-                            <input
-                                type="text"
-                                value={form.appId}
-                                placeholder={
-                                    remoteCompletion.app_id
-                                        ? 'Already configured (optional to update)'
-                                        : 'Required'
-                                }
-                                onChange={(e) =>
-                                    setForm((prev) => ({ ...prev, appId: e.target.value }))
-                                }
-                            />
-                        </div>
-
-                        <div className="onboarding-form-group">
-                            <label>Qobuz App Secret</label>
-                            <div className="onboarding-input-with-action">
-                                <input
-                                    type={showSecret ? 'text' : 'password'}
-                                    value={form.appSecret}
-                                    placeholder={
-                                        remoteCompletion.app_secret
-                                            ? 'Already configured (optional to update)'
-                                            : 'Required'
-                                    }
-                                    onChange={(e) =>
-                                        setForm((prev) => ({ ...prev, appSecret: e.target.value }))
-                                    }
-                                />
-                                <button
-                                    type="button"
-                                    className="toggle-input-btn"
-                                    onClick={() => setShowSecret((value) => !value)}
-                                >
-                                    {showSecret ? 'Hide' : 'Show'}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="onboarding-form-group">
-                            <label>User Auth Token</label>
-                            <div className="onboarding-input-with-action">
-                                <input
-                                    type={showToken ? 'text' : 'password'}
-                                    value={form.token}
-                                    placeholder={
-                                        remoteCompletion.token
-                                            ? 'Already configured (optional to update)'
-                                            : 'Required'
-                                    }
-                                    onChange={(e) =>
-                                        setForm((prev) => ({ ...prev, token: e.target.value }))
-                                    }
-                                />
-                                <button
-                                    type="button"
-                                    className="toggle-input-btn"
-                                    onClick={() => setShowToken((value) => !value)}
-                                >
-                                    {showToken ? 'Hide' : 'Show'}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="onboarding-form-group">
-                            <label>Qobuz User ID</label>
-                            <input
-                                type="text"
-                                value={form.userId}
-                                placeholder={
-                                    remoteCompletion.user_id
-                                        ? 'Already configured (optional to update)'
-                                        : 'Required'
-                                }
-                                onChange={(e) =>
-                                    setForm((prev) => ({ ...prev, userId: e.target.value }))
-                                }
-                            />
-                        </div>
-
-                        <div className="onboarding-form-group">
-                            <label>Download Path</label>
-                            <input
-                                type="text"
-                                value={form.downloadsPath}
-                                placeholder="Example: D:\\Music\\Qobuz"
-                                onChange={(e) =>
-                                    setForm((prev) => ({ ...prev, downloadsPath: e.target.value }))
-                                }
-                            />
-                            <p className="onboarding-form-note">
-                                Use full path if you want to save downloads outside app folder.
-                            </p>
-                        </div>
-
-                        {error && <p className="onboarding-error">{error}</p>}
-                        {message && <p className="onboarding-success">{message}</p>}
-                        {verifiedAccount && (
-                            <p className="onboarding-verified">Verified account: {verifiedAccount}</p>
-                        )}
-
-                        <div className="onboarding-actions">
-                            <button
-                                type="button"
-                                className="btn secondary"
-                                onClick={() => setStage('intro')}
-                                disabled={saving || verifying}
-                            >
-                                Back
-                            </button>
-                            <button
-                                type="button"
-                                className="btn secondary"
-                                onClick={handleVerify}
-                                disabled={saving || verifying}
-                            >
-                                {verifying ? 'Verifying...' : 'Verify Connection'}
-                            </button>
-                            <button
-                                type="button"
-                                className="btn primary"
-                                onClick={handleSaveAndContinue}
-                                disabled={saving || verifying}
-                            >
-                                {saving ? 'Saving...' : 'Save & Continue to Dashboard'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div className="desktop-onboarding-loading">
+                <div className="desktop-onboarding-spinner" />
+                <p>Initializing setup...</p>
             </div>
         </section>
     );
+
+    const stepOrder: WizardStep[] = ['welcome', 'api', 'auth', 'storage', 'finish'];
+    const currentIdx = stepOrder.indexOf(wizardStep);
+
+    return (
+        <section className="desktop-onboarding-screen">
+            <div className="onboarding-v2-container">
+                {/* Background Decoration */}
+                <div className="onboarding-bg-glow" />
+                
+                <div className="onboarding-v2-shell">
+                    {/* Header / Progress */}
+                    {wizardStep !== 'welcome' && (
+                        <div className="onboarding-v2-header">
+                            <div className="onboarding-v2-steps">
+                                {['API', 'Auth', 'Storage', 'Verify'].map((label, idx) => (
+                                    <div key={label} className={`step-dot-wrap ${idx + 1 <= currentIdx ? 'done' : idx === currentIdx - 1 ? 'active' : ''}`}>
+                                        <div className="step-dot" />
+                                        <span>{label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <AnimatePresence mode="wait">
+                        {wizardStep === 'welcome' && (
+                            <motion.div 
+                                key="welcome"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="onboarding-v2-card welcome"
+                            >
+                                <div className="welcome-hero-icon">
+                                    <Icons.Library size={64} />
+                                </div>
+                                <h1>QBZ Downloader</h1>
+                                <p className="subtitle">High-Fidelity Audio Experience</p>
+                                <p className="description">
+                                    Welcome to the most advanced music downloader for Qobuz. 
+                                    Let's get you set up with your credentials and preferences.
+                                </p>
+                                <button className="btn primary hero" onClick={() => setWizardStep('api')}>
+                                    Start Setup
+                                    <Icons.ArrowRight size={18} />
+                                </button>
+                                <div className="welcome-footer">
+                                    <span>Version 5.1.1 Stable</span>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {wizardStep === 'api' && (
+                            <motion.div 
+                                key="api"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="onboarding-v2-card"
+                            >
+                                <div className="card-header">
+                                    <Icons.Resolve size={32} color="var(--accent)" />
+                                    <h2>API Credentials</h2>
+                                    <p>Enter your Qobuz Application credentials.</p>
+                                </div>
+
+                                <div className="onboarding-v2-form">
+                                    <div className="form-item">
+                                        <label>App ID</label>
+                                        <input 
+                                            type="text" 
+                                            value={form.appId} 
+                                            placeholder={remoteCompletion.app_id ? "••••••••" : "Enter App ID..."}
+                                            onChange={e => setForm({...form, appId: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="form-item">
+                                        <label>App Secret</label>
+                                        <div className="input-with-action">
+                                            <input 
+                                                type={showSecret ? "text" : "password"} 
+                                                value={form.appSecret} 
+                                                placeholder={remoteCompletion.app_secret ? "••••••••••••••••" : "Enter Secret..."}
+                                                onChange={e => setForm({...form, appSecret: e.target.value})}
+                                            />
+                                            <button onClick={() => setShowSecret(!showSecret)}>
+                                                {showSecret ? <Icons.Search size={16} /> : <Icons.Search size={16} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {error && <div className="onboarding-error-msg">{error}</div>}
+                                </div>
+
+                                <div className="card-footer">
+                                    <button className="btn secondary" onClick={() => setWizardStep('welcome')}>Back</button>
+                                    <button className="btn primary" onClick={nextStep} disabled={saving}>
+                                        {saving ? 'Saving...' : 'Next'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {wizardStep === 'auth' && (
+                            <motion.div 
+                                key="auth"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="onboarding-v2-card"
+                            >
+                                <div className="card-header">
+                                    <Icons.Batch size={32} color="var(--accent)" />
+                                    <h2>User Session</h2>
+                                    <p>Your unique authentication token and user ID.</p>
+                                </div>
+
+                                <div className="onboarding-v2-form">
+                                    <div className="form-item">
+                                        <label>Auth Token</label>
+                                        <div className="input-with-action">
+                                            <input 
+                                                type={showToken ? "text" : "password"} 
+                                                value={form.token} 
+                                                placeholder={remoteCompletion.token ? "••••••••••••••••" : "Enter Token..."}
+                                                onChange={e => setForm({...form, token: e.target.value})}
+                                            />
+                                            <button onClick={() => setShowToken(!showToken)}>
+                                                {showToken ? <Icons.Search size={16} /> : <Icons.Search size={16} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="form-item">
+                                        <label>User ID</label>
+                                        <input 
+                                            type="text" 
+                                            value={form.userId} 
+                                            placeholder={remoteCompletion.user_id ? "••••••••" : "Enter User ID..."}
+                                            onChange={e => setForm({...form, userId: e.target.value})}
+                                        />
+                                    </div>
+                                    {error && <div className="onboarding-error-msg">{error}</div>}
+                                </div>
+
+                                <div className="card-footer">
+                                    <button className="btn secondary" onClick={() => setWizardStep('api')}>Back</button>
+                                    <button className="btn primary" onClick={nextStep} disabled={saving}>
+                                        {saving ? 'Saving...' : 'Next'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {wizardStep === 'storage' && (
+                            <motion.div 
+                                key="storage"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="onboarding-v2-card"
+                            >
+                                <div className="card-header">
+                                    <Icons.Download size={32} color="var(--accent)" />
+                                    <h2>Library Storage</h2>
+                                    <p>Where should we save your high-res music?</p>
+                                </div>
+
+                                <div className="onboarding-v2-form">
+                                    <div className="form-item">
+                                        <label>Download Location</label>
+                                        <div className="input-with-action">
+                                            <input 
+                                                type="text" 
+                                                value={form.downloadsPath} 
+                                                placeholder="Select folder..."
+                                                readOnly
+                                            />
+                                            {window.qbzDesktop && (
+                                                <button className="browse-btn" onClick={async () => {
+                                                    const path = await window.qbzDesktop?.app.selectFolder(form.downloadsPath);
+                                                    if (path) setForm({...form, downloadsPath: path});
+                                                }}>
+                                                    Browse
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p className="hint">Your music will be organized using metadata templates.</p>
+                                    {error && <div className="onboarding-error-msg">{error}</div>}
+                                </div>
+
+                                <div className="card-footer">
+                                    <button className="btn secondary" onClick={() => setWizardStep('auth')}>Back</button>
+                                    <button className="btn primary" onClick={nextStep} disabled={saving}>
+                                        {saving ? 'Saving...' : 'Next'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {wizardStep === 'finish' && (
+                            <motion.div 
+                                key="finish"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="onboarding-v2-card finish"
+                            >
+                                <div className="card-header">
+                                    <div className="finish-check">
+                                        <Icons.Check size={40} />
+                                    </div>
+                                    <h2>Almost Ready!</h2>
+                                    <p>Let's verify your account before we dive in.</p>
+                                </div>
+
+                                <div className="onboarding-v2-form">
+                                    {verifiedAccount ? (
+                                        <motion.div 
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            className="account-preview"
+                                        >
+                                            <img src={verifiedAccount.avatar || "https://api.dicebear.com/7.x/bottts/svg?seed=qbz"} alt="Avatar" />
+                                            <div className="account-info">
+                                                <strong>{verifiedAccount.email}</strong>
+                                                <span>{verifiedAccount.country_code} • {verifiedAccount.subscription?.offer || 'Standard'}</span>
+                                            </div>
+                                        </motion.div>
+                                    ) : (
+                                        <div className="verify-placeholder">
+                                            <p>All credentials saved. Click below to verify.</p>
+                                        </div>
+                                    )}
+                                    {error && <div className="onboarding-error-msg">{error}</div>}
+                                </div>
+
+                                <div className="card-footer centered">
+                                    {!verifiedAccount ? (
+                                        <button className="btn primary hero" onClick={handleVerify} disabled={verifying}>
+                                            {verifying ? 'Verifying...' : 'Verify & Launch'}
+                                        </button>
+                                    ) : (
+                                        <button className="btn primary hero success" onClick={() => handleSave(true)}>
+                                            Enter Dashboard
+                                            <Icons.ArrowRight size={18} />
+                                        </button>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
+
+            <style>{`
+                .onboarding-v2-container {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    position: relative;
+                    z-index: 1;
+                }
+
+                .onboarding-bg-glow {
+                    position: absolute;
+                    width: 600px;
+                    height: 600px;
+                    background: radial-gradient(circle, rgba(var(--accent-rgb), 0.15), transparent 70%);
+                    z-index: -1;
+                    filter: blur(60px);
+                }
+
+                .onboarding-v2-shell {
+                    width: min(560px, 92vw);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 32px;
+                }
+
+                .onboarding-v2-header {
+                    display: flex;
+                    justify-content: center;
+                }
+
+                .onboarding-v2-steps {
+                    display: flex;
+                    gap: 40px;
+                }
+
+                .step-dot-wrap {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 8px;
+                    opacity: 0.3;
+                    transition: all 0.4s ease;
+                }
+
+                .step-dot-wrap.active { opacity: 1; transform: scale(1.1); }
+                .step-dot-wrap.done { opacity: 1; }
+
+                .step-dot {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background: #fff;
+                    box-shadow: 0 0 10px rgba(255,255,255,0.3);
+                }
+
+                .step-dot-wrap.active .step-dot {
+                    background: var(--accent);
+                    box-shadow: 0 0 15px var(--accent-glow);
+                }
+
+                .step-dot-wrap.done .step-dot {
+                    background: var(--success);
+                }
+
+                .step-dot-wrap span {
+                    font-size: 10px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+
+                .onboarding-v2-card {
+                    background: rgba(255, 255, 255, 0.03);
+                    backdrop-filter: blur(32px);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 40px;
+                    padding: 48px;
+                    box-shadow: 0 50px 100px rgba(0,0,0,0.5);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 32px;
+                }
+
+                .onboarding-v2-card.welcome {
+                    text-align: center;
+                    align-items: center;
+                }
+
+                .welcome-hero-icon {
+                    width: 120px;
+                    height: 120px;
+                    border-radius: 35% 65% 70% 30% / 30% 40% 60% 70%;
+                    background: var(--gradient-primary);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-bottom: 8px;
+                    animation: blob 10s infinite linear;
+                    color: #000;
+                }
+
+                @keyframes blob {
+                    0% { border-radius: 35% 65% 70% 30% / 30% 40% 60% 70%; }
+                    33% { border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%; }
+                    66% { border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%; }
+                    100% { border-radius: 35% 65% 70% 30% / 30% 40% 60% 70%; }
+                }
+
+                .onboarding-v2-card h1 {
+                    font-size: 48px;
+                    font-weight: 900;
+                    letter-spacing: -2px;
+                    margin: 0;
+                }
+
+                .onboarding-v2-card .subtitle {
+                    font-size: 14px;
+                    font-weight: 700;
+                    color: var(--accent);
+                    text-transform: uppercase;
+                    letter-spacing: 3px;
+                    margin: -16px 0 0;
+                }
+
+                .onboarding-v2-card .description {
+                    color: var(--text-secondary);
+                    font-size: 16px;
+                    line-height: 1.6;
+                    max-width: 32ch;
+                }
+
+                .welcome-footer {
+                    margin-top: 16px;
+                    font-size: 11px;
+                    opacity: 0.4;
+                    font-weight: 600;
+                }
+
+                .card-header h2 {
+                    font-size: 32px;
+                    font-weight: 800;
+                    margin: 12px 0 4px;
+                }
+
+                .card-header p {
+                    color: var(--text-secondary);
+                    margin: 0;
+                }
+
+                .onboarding-v2-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                }
+
+                .form-item {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+
+                .form-item label {
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: var(--text-secondary);
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    padding-left: 4px;
+                }
+
+                .form-item input {
+                    background: rgba(255,255,255,0.04);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 18px;
+                    height: 56px;
+                    padding: 0 20px;
+                    color: #fff;
+                    font-size: 16px;
+                    transition: all 0.3s ease;
+                }
+
+                .form-item input:focus {
+                    background: rgba(255,255,255,0.08);
+                    border-color: var(--accent);
+                    box-shadow: 0 0 25px var(--accent-glow);
+                }
+
+                .input-with-action {
+                    display: grid;
+                    grid-template-columns: 1fr auto;
+                    gap: 8px;
+                }
+
+                .input-with-action button {
+                    height: 56px;
+                    min-width: 56px;
+                    border-radius: 18px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                    background: rgba(255,255,255,0.04);
+                    color: #fff;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
+                }
+
+                .input-with-action button:hover {
+                    background: rgba(255,255,255,0.1);
+                    border-color: rgba(255,255,255,0.2);
+                }
+
+                .browse-btn {
+                    padding: 0 20px !important;
+                    font-size: 14px;
+                    font-weight: 700;
+                }
+
+                .card-footer {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 8px;
+                }
+
+                .card-footer.centered {
+                    justify-content: center;
+                }
+
+                .hint {
+                    font-size: 12px;
+                    color: var(--text-secondary);
+                    margin: -8px 0 0;
+                    padding-left: 4px;
+                }
+
+                .onboarding-error-msg {
+                    padding: 12px 16px;
+                    border-radius: 14px;
+                    background: rgba(239, 68, 68, 0.1);
+                    border: 1px solid rgba(239, 68, 68, 0.2);
+                    color: #fca5a5;
+                    font-size: 13px;
+                    font-weight: 600;
+                }
+
+                .finish-check {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 50%;
+                    background: var(--success);
+                    color: #fff;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-bottom: 8px;
+                    box-shadow: 0 0 30px rgba(34, 197, 94, 0.3);
+                }
+
+                .verify-placeholder {
+                    padding: 40px;
+                    text-align: center;
+                    border: 2px dashed rgba(255,255,255,0.1);
+                    border-radius: 24px;
+                    color: var(--text-secondary);
+                }
+
+                .account-preview {
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                    padding: 20px;
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 24px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                }
+
+                .account-preview img {
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 16px;
+                    background: var(--accent);
+                }
+
+                .account-info {
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .account-info strong {
+                    font-size: 16px;
+                }
+
+                .account-info span {
+                    font-size: 12px;
+                    color: var(--text-secondary);
+                }
+
+                .btn.hero.success {
+                    background: var(--success);
+                    color: #fff;
+                    border: none;
+                }
+
+                .btn.hero.success:hover {
+                    box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
+                    transform: translateY(-2px);
+                }
+            `}</style>
+        </section>
+    );
 }
+

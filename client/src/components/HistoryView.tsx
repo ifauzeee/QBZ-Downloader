@@ -45,6 +45,16 @@ const HistoryRow = React.memo(({ item, virtualItem, downloadFile, confirmDelete,
             <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.filename}</div>
             <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => downloadFile(item.contentId || item.id)}>{t('action_download')}</button>
+                {(window as any).qbzDesktop && (
+                    <button 
+                        className="btn secondary" 
+                        style={{ padding: '6px 8px', display: 'flex', alignItems: 'center' }} 
+                        onClick={() => (window as any).qbzDesktop.app.showItem(item.filename)}
+                        title="Open in Explorer"
+                    >
+                        <Icons.Folder size={14} />
+                    </button>
+                )}
                 <button className="btn danger" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => confirmDelete(item.id)} title={t('action_delete')}><Icons.Trash width={14} height={14} /></button>
             </div>
         </div>
