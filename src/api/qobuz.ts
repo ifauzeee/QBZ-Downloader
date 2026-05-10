@@ -105,22 +105,28 @@ class QobuzAPI {
     }
 
     generateSignature(endpoint: string, params: Record<string, any>) {
-        const timestamp = Math.floor(Date.now() / 1000);
+        const timestamp = Math.floor(Date.now() / 1000).toString();
         const secret = CONFIG.credentials.appSecret;
         
-        // Remove slashes from endpoint (e.g., track/getFileUrl -> trackgetFileUrl)
+        // Remove slashes but KEEP case for signature base
         let data = endpoint.replace(/\//g, '');
         
-        // Sort parameters alphabetically as required by Qobuz
+        // Sort parameters alphabetically
         const sortedKeys = Object.keys(params).sort();
         for (const key of sortedKeys) {
-            data += key + params[key];
+            const val = params[key];
+            if (val !== undefined && val !== null) {
+                data += key + val.toString();
+            }
         }
         
         data += timestamp + secret;
+        
+        logger.debug(`[QobuzAPI] Signature Data: ${data.replace(secret, 'REDACTED')}`, 'API');
+        
         const signature = crypto.createHash('md5').update(data).digest('hex');
         
-        return { timestamp, signature };
+        return { timestamp: parseInt(timestamp), signature };
     }
 
     async getTrack(trackId: string | number): Promise<ApiResponse<Track>> {
@@ -288,7 +294,7 @@ class QobuzAPI {
     async getFileUrl(trackId: string | number, formatId: number | string = 27): Promise<ApiResponse> {
         try {
             const requestedFormatId = normalizeDownloadQuality(formatId, 27);
-            const sigParams = {
+            const sigParams: Record<string, any> = {
                 track_id: trackId,
                 format_id: requestedFormatId,
                 intent: 'stream'
@@ -362,6 +368,9 @@ class QobuzAPI {
     }
 
     async getUserInfo(): Promise<ApiResponse<UserInfo>> {
+        if (!this.appId) {
+            return { success: false, error: 'App ID is not configured' };
+        }
         try {
             const response = await this.client.get('/user/get', {
                 params: {

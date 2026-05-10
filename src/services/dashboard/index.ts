@@ -74,7 +74,10 @@ export class DashboardService {
 
         this.app.use((req: Request, res: Response, next: NextFunction) => {
             const password = CONFIG.dashboard.password;
-            if (!password) return next();
+            const isDesktop = process.env.QBZ_DESKTOP === '1';
+            
+            // Bypass password protection entirely in Desktop mode
+            if (!password || isDesktop) return next();
 
             const excludedRoutes = [
                 '/api/status',
@@ -143,8 +146,10 @@ export class DashboardService {
     private setupSocket(): void {
         this.io.use((socket, next) => {
             const password = CONFIG.dashboard.password;
-            // If no password is set in settings, the dashboard operates in Public Mode
-            if (!password) return next();
+            const isDesktop = process.env.QBZ_DESKTOP === '1';
+
+            // Bypass password protection entirely in Desktop mode
+            if (!password || isDesktop) return next();
 
             const providedPassword = socket.handshake.auth?.password || socket.handshake.query?.pw;
 

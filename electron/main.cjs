@@ -287,15 +287,7 @@ function migrateLegacyState(targetDir) {
   const markerPath = path.join(targetDir, '.desktop-migrated');
   if (fs.existsSync(markerPath)) return;
 
-  const home = app.getPath('home');
-  const docs = app.getPath('documents');
-  const exeDir = path.dirname(app.getPath('exe'));
-  const candidates = uniqueExisting([
-    process.env.QBZ_MIGRATE_FROM,
-    exeDir,
-    path.join(home, 'Project', 'QBZ-Downloader'),
-    path.join(docs, 'QBZ-Downloader')
-  ]);
+  const candidates = uniqueExisting([process.env.QBZ_MIGRATE_FROM]);
 
   const migrated = [];
 
@@ -329,6 +321,7 @@ function migrateLegacyState(targetDir) {
 
   fs.writeFileSync(markerPath, JSON.stringify(summary, null, 2), 'utf8');
 }
+
 
 function pushUpdateState(partialState) {
   updateState = {

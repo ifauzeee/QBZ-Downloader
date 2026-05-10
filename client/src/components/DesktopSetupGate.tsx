@@ -117,8 +117,12 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
         setVerifying(true);
         setVerifiedAccount(null);
         setError('');
-        
-        await handleSave(false);
+
+        const saved = await handleSave(false);
+        if (!saved) {
+            setVerifying(false);
+            return;
+        }
 
         try {
             const res = await smartFetch('/api/login', { method: 'POST' });
@@ -404,9 +408,20 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
 
                                 <div className="card-footer centered">
                                     {!verifiedAccount ? (
-                                        <button className="btn primary hero" onClick={handleVerify} disabled={verifying}>
-                                            {verifying ? 'Verifying...' : 'Verify & Launch'}
-                                        </button>
+                                        <>
+                                            {(!remoteCompletion.app_id || !remoteCompletion.app_secret || !remoteCompletion.token || !remoteCompletion.user_id) && (
+                                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', textAlign: 'center' }}>
+                                                    Go back and complete all required fields before verifying.
+                                                </p>
+                                            )}
+                                            <button
+                                                className="btn primary hero"
+                                                onClick={handleVerify}
+                                                disabled={verifying || !remoteCompletion.app_id || !remoteCompletion.app_secret || !remoteCompletion.token || !remoteCompletion.user_id}
+                                            >
+                                                {verifying ? 'Verifying...' : 'Verify & Launch'}
+                                            </button>
+                                        </>
                                     ) : (
                                         <button className="btn primary hero success" onClick={() => handleSave(true)}>
                                             Enter Dashboard

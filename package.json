@@ -118,7 +118,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "installerIcon": "assets/desktop/icon.ico",
-      "uninstallerIcon": "assets/desktop/icon.ico"
+      "uninstallerIcon": "assets/desktop/icon.ico",
+      "include": "assets/desktop/installer.nsh"
     }
   },
   "dependencies": {

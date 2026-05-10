@@ -10,7 +10,11 @@ export const smartFetch = async (url: string, options: RequestInit = {}) => {
     try {
         const res = await fetch(url, options);
         if (res.status === 401) {
-            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            // Don't trigger the dashboard lock modal if the 401 comes from login or onboarding
+            const isAuthRoute = url.includes('/api/login') || url.includes('/api/onboarding');
+            if (!isAuthRoute) {
+                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            }
         }
         if (res.status === 429) {
             console.warn('Rate limited by server');

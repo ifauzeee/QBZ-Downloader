@@ -3,20 +3,40 @@
 All notable changes to this project will be documented in this file.
 
 ## [5.1.3] - 2026-05-10
+
+### 🐞 Bug Fixes
+
+- **Critical Fix: Credentials Persist After Uninstall** — Qobuz account credentials and session data were surviving a full uninstall/reinstall cycle. Root cause: the NSIS uninstaller was targeting the wrong AppData paths (`%AppData%\QBZ Downloader` / `%LocalAppData%\QBZ Downloader`), while Electron actually writes userData to `%AppData%\qbz-downloader` (Roaming, lowercase — derived from `package.json` `name`, not `productName`).
+- **Fixed `installer.nsh`** — Uninstaller now correctly removes **all five** possible data locations:
+  - `%APPDATA%\qbz-downloader` ← primary (confirmed actual location)
+  - `%LOCALAPPDATA%\qbz-downloader` ← secondary variant
+  - `%LOCALAPPDATA%\qbz-downloader-updater` ← electron-updater cache
+  - `%APPDATA%\QBZ Downloader` ← legacy productName fallback
+  - `%LOCALAPPDATA%\QBZ Downloader` ← legacy productName fallback
+- **Fixed `migrateLegacyState()`** — Removed aggressive auto-migration candidates (`exeDir`, `~/Project/QBZ-Downloader`, `~/Documents/QBZ-Downloader`) that caused old credentials to be restored on fresh installs. Migration now only runs when `QBZ_MIGRATE_FROM` env var is explicitly set.
+
+### 🛠️ Improvements
+
+- Uninstall dialog now clearly guides the user: **YES** for a completely clean uninstall, **NO** to preserve data for reinstall.
+
+---
+
+## [5.1.2] - 2026-05-10
 ### Added
 - Implemented **Pure AMOLED Black** theme (`#000000`) for high-contrast desktop experience.
 - Expanded Onboarding/Setup view to 720px for a more immersive desktop-first initialization.
 
 ### Fixed
+- **Critical Fix: Invalid Request Signature**: Resolved the "Invalid Request Signature" error by strictly aligning the hashing algorithm with case-sensitive endpoint requirements and proper parameter sorting.
+- **Desktop Session Stability**: Fixed the "Access Restricted" (Dashboard Lock) regression by bypassing local password checks in Desktop mode.
+- **Data Persistence**: Guaranteed that setup data and credentials persist across restarts by forcing absolute database pathing.
+- **Shutdown Integrity**: Added database `WAL Checkpoints` during shutdown to ensure all settings are safely flushed to disk.
 - Fixed persistent "Token Invalid" notification loop when background services run with old credentials.
-- Improved `TokenManager` logic to prevent redundant authentication failure alerts.
-- Optimized `electron/main.cjs` to stop aggressive legacy data migration from the current working directory.
-- Fixed a bug where signature test failures during login were not correctly reported to the UI.
+- Optimized `electron/main.cjs` to stop aggressive legacy data migration.
 
 ### Changed
 - Secured startup sequence: background services (Queue & Watcher) are now suspended until valid credentials are configured.
-- Improved "Reset Database" functionality to perform a "Deep Reset" including application settings.
-- Refined UI aesthetics: removed decorative gradients and mesh glows for a clean, professional AMOLED look.
+- Refined UI aesthetics: removed decorative gradients for a clean, professional AMOLED look.
 
 ## [5.1.2] - 2026-05-10
 

@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 
 const DB_VERSION = 9;
-const DEFAULT_DB_PATH = './data/qbz.db';
+const DEFAULT_DB_PATH = path.resolve(process.cwd(), 'data', 'qbz.db');
 
 export interface DbTrack {
     id: string;
@@ -77,12 +77,14 @@ class DatabaseService {
         if (this.initialized) return;
 
         try {
-            const dir = path.dirname(this.dbPath);
+            const absolutePath = path.resolve(this.dbPath);
+            const dir = path.dirname(absolutePath);
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
             }
 
-            this.db = new Database(this.dbPath);
+            this.db = new Database(absolutePath);
+            this.dbPath = absolutePath; 
             const journalMode = process.env.SQLITE_JOURNAL_MODE || 'WAL';
             this.db.pragma(`journal_mode = ${journalMode}`);
             this.db.pragma('foreign_keys = ON');

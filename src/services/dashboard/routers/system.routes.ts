@@ -218,13 +218,26 @@ router.post('/settings/update', async (req: Request, res: Response) => {
 });
 
 router.post('/login', async (req: Request, res: Response) => {
+    const creds = CONFIG.credentials;
+    const missing: string[] = [];
+    if (!creds.appId)     missing.push('App ID');
+    if (!creds.appSecret) missing.push('App Secret');
+    if (!creds.token)     missing.push('Auth Token');
+    if (!creds.userId)    missing.push('User ID');
+    if (missing.length > 0) {
+        return res.status(400).json({
+            error: `Missing required credentials: ${missing.join(', ')}. Please complete setup first.`
+        });
+    }
+
     try {
         const result = await api.getUserInfo();
         if (result.success) {
             // Test signature by attempting a getFileUrl for a dummy track
             // This ensures App Secret is valid (which isn't checked by getUserInfo)
             try {
-                const sigTest = await api.getFileUrl('1', 5);
+                // Test signature with a real-looking track ID (e.g. 184511252)
+                const sigTest = await api.getFileUrl('184511252', 5);
                 if (!sigTest.success) {
                     const isSigError = sigTest.error?.toLowerCase().includes('request_sig') || 
                                      sigTest.error?.toLowerCase().includes('signature');

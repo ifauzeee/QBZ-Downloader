@@ -24,8 +24,10 @@ async function gracefulShutdown(signal: string) {
 
     try {
         const { databaseService } = await import('./services/database/index.js');
+        const db = databaseService.getDb();
+        db.pragma('wal_checkpoint(FULL)');
         databaseService.close();
-        logger.info('Database connection closed.', 'DB');
+        logger.info('Database checkpointed and closed.', 'DB');
     } catch {}
 
     historyService.flush();
@@ -71,8 +73,12 @@ async function main() {
         try {
             const { databaseService } = await import('./services/database/index.js');
             databaseService.initialize();
-            logger.success('Database service initialized.', 'DB');
+            logger.success(`Database service initialized.`, 'DB');
 
+            const { settingsService } = await import('./services/settings.js');
+            // Force initialization to log setting count
+            (settingsService as any).ensureInitialized();
+            
             await downloadQueue.load();
         } catch (error: any) {
             logger.warn(`Database init failed: ${error.message}`, 'DB');

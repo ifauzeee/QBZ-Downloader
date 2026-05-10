@@ -84,6 +84,10 @@ class SettingsService {
                 this.cache.set(row.key, value);
             }
 
+            if (this.cache.size > 0) {
+                logger.success(`Loaded ${this.cache.size} setting(s) from database`, 'SETTINGS');
+            }
+
             if (this.cache.size === 0) {
                 let seeded = 0;
                 const upsert = db.prepare(
