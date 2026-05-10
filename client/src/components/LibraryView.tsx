@@ -66,6 +66,7 @@ export const LibraryView: React.FC = () => {
     const [missingMetadata, setMissingMetadata] = useState<ProcessingFile[]>([]);
     const [processingMetadata, setProcessingMetadata] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [upgradingIds, setUpgradingIds] = useState<Set<string>>(new Set());
 
     const { showToast } = useToast();
 
@@ -175,16 +176,28 @@ export const LibraryView: React.FC = () => {
     };
 
     const upgradeTrack = async (track: UpgradeableFile) => {
-        await smartFetch('/api/queue/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'track',
-                id: track.trackId,
-                quality: track.availableQuality
-            })
-        });
-        showToast('Added to queue for upgrade', 'success');
+        setUpgradingIds(prev => new Set(prev).add(track.trackId));
+        try {
+            const res = await smartFetch('/api/queue/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'track',
+                    id: track.trackId,
+                    quality: track.availableQuality,
+                    metadata: { isUpgrade: true, oldFilePath: track.filePath }
+                })
+            });
+            if (res && res.ok) {
+                showToast(t('toast_upgrade_queued') || 'Added to download queue', 'success');
+            } else {
+                showToast(t('toast_upgrade_failed') || 'Failed to queue upgrade', 'error');
+                setUpgradingIds(prev => { const s = new Set(prev); s.delete(track.trackId); return s; });
+            }
+        } catch {
+            showToast(t('toast_upgrade_failed') || 'Failed to queue upgrade', 'error');
+            setUpgradingIds(prev => { const s = new Set(prev); s.delete(track.trackId); return s; });
+        }
     };
 
     const processMetadata = async () => {
@@ -446,8 +459,14 @@ export const LibraryView: React.FC = () => {
                                             <td><span className="quality-badge">{QUALITY_LABELS[file.quality] || file.quality}</span></td>
                                             <td><span className="quality-badge high-res">{QUALITY_LABELS[file.availableQuality] || file.availableQuality}</span></td>
                                             <td>
-                                                <button className="btn small primary" onClick={() => upgradeTrack(file)}>
-                                                    <Icons.Download width={12} height={12} /> {t('action_upgrade')}
+                                                <button 
+                                                    className="btn small primary" 
+                                                    onClick={() => upgradeTrack(file)}
+                                                    disabled={upgradingIds.has(file.trackId)}
+                                                    title={upgradingIds.has(file.trackId) ? 'Queued for download' : 'Download Hi-Res'}
+                                                    style={upgradingIds.has(file.trackId) ? { opacity: 0.6, cursor: 'default' } : {}}
+                                                >
+                                                    <Icons.Download width={12} height={12} /> {upgradingIds.has(file.trackId) ? t('label_queued') || 'Queued ✓' : t('action_upgrade')}
                                                 </button>
                                             </td>
                                         </tr>

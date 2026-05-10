@@ -44,9 +44,10 @@ export class MetadataProcessor {
             const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`\\{${escapedKey}\\}`, 'gi');
 
-            if (regex.test(result)) {
-                result = result.replace(regex, sanitizedValue);
+            const newResult = result.replace(regex, sanitizedValue);
+            if (newResult !== result) {
                 logger.debug(`Replaced {${key}} with "${sanitizedValue}"`, 'DEBUG');
+                result = newResult;
             }
         }
 

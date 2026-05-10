@@ -468,7 +468,13 @@ class LibraryScannerService extends EventEmitter {
             try {
                 const result = await this.api.getFileUrl(trackId, quality);
                 if (result.success && result.data) {
-                    return (result.data as any).format_id || quality;
+                    const formatId = (result.data as any).format_id;
+                    if (formatId && formatId >= quality) {
+                        return formatId;
+                    }
+                    if (formatId && !qualities.includes(formatId)) {
+                        return formatId;
+                    }
                 }
             } catch {}
         }

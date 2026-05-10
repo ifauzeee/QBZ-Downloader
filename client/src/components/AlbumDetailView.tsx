@@ -42,6 +42,7 @@ export const AlbumDetailView: React.FC = () => {
     const [error, setError] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState<'album' | 'lyrics'>('album');
+    const [queuedTrackIds, setQueuedTrackIds] = useState<Set<string>>(new Set());
 
 
 
@@ -78,6 +79,15 @@ export const AlbumDetailView: React.FC = () => {
             });
             if (res && res.ok) {
                 showToast(t('msg_added_to_queue') || 'Added to queue', 'success');
+                if (type === 'track') {
+                    setQueuedTrackIds(prev => new Set(prev).add(id));
+                } else if (type === 'album' && album) {
+                    setQueuedTrackIds(prev => {
+                        const newSet = new Set(prev);
+                        album.tracks.items.forEach(t => newSet.add(t.id));
+                        return newSet;
+                    });
+                }
             } else {
                 showToast('Failed to add', 'error');
             }
@@ -272,8 +282,13 @@ export const AlbumDetailView: React.FC = () => {
                                 {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
                             </div>
                             <div className="track-actions">
-                                <button className="btn-track-dl" title={t('action_download')} onClick={() => addToQueue('track', track.id)}>
-                                    <Icons.Download width={14} height={14} />
+                                <button 
+                                    className="btn-track-dl" 
+                                    title={queuedTrackIds.has(track.id) ? 'Queued ✓' : t('action_download')} 
+                                    onClick={() => !queuedTrackIds.has(track.id) && addToQueue('track', track.id)}
+                                    style={queuedTrackIds.has(track.id) ? { color: 'var(--accent)' } : {}}
+                                >
+                                    {queuedTrackIds.has(track.id) ? <Icons.Check width={14} height={14} /> : <Icons.Download width={14} height={14} />}
                                 </button>
                                 <button className="btn-track-dl" title={t('menu_batch')} onClick={() => addToBatchStaging('track', track.id)}>
                                     <Icons.Batch width={14} height={14} />

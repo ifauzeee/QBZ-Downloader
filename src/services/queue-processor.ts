@@ -294,18 +294,35 @@ export class QueueProcessor {
             onQuality: (quality) => {
                 downloadQueue.updateQuality(item.id, quality);
             },
-            skipExisting: true
+            skipExisting: !(item.metadata?.isUpgrade === true)
         });
 
-        if (result.success && result.filePath) {
+        if (result.skipped) {
+            downloadQueue.complete(item.id, result.filePath);
+            logger.info(`Skipped (File Exists): ${item.title}`, 'SKIP');
+        } else if (result.success && result.filePath) {
             if (result.quality) {
                 downloadQueue.updateQuality(item.id, result.quality);
             }
+            
+            if (item.metadata?.isUpgrade && item.metadata?.oldFilePath && item.metadata.oldFilePath !== result.filePath) {
+                try {
+                    const { existsSync, unlinkSync } = await import('fs');
+                    if (existsSync(item.metadata.oldFilePath)) {
+                        unlinkSync(item.metadata.oldFilePath);
+                        logger.info(`Deleted old file for upgrade: ${item.metadata.oldFilePath}`, 'UPGRADE');
+                        
+                        // Let database know we deleted the old file
+                        const { databaseService } = await import('./database/index.js');
+                        databaseService.deleteTrackByPath(item.metadata.oldFilePath);
+                    }
+                } catch (e: any) {
+                    logger.warn(`Failed to delete old file during upgrade: ${e.message}`, 'UPGRADE');
+                }
+            }
+            
             downloadQueue.complete(item.id, result.filePath);
             notifyDownloadComplete(item.title || 'Track', result.filePath);
-        } else if (result.skipped) {
-            downloadQueue.complete(item.id, result.filePath);
-            logger.info(`Skipped (File Exists): ${item.title}`, 'SKIP');
         } else {
             throw new Error(result.error || 'Unknown download error');
         }
@@ -319,7 +336,20 @@ export class QueueProcessor {
 
         let result;
         const opts = {
-            onProgress: () => {},
+            onProgress: (p: any) => {
+                if (!p) return;
+                const pct =
+                    p.phase === 'download' && p.total
+                        ? Math.floor((p.loaded / p.total) * 100)
+                        : p.phase === 'tagging'
+                          ? 99
+                          : 0;
+                downloadQueue.updateProgress(
+                    item.id,
+                    pct,
+                    p.phase === 'tagging' ? 'processing' : 'downloading'
+                );
+            },
             skipExisting: true,
             onMetadata: (meta: { title?: string; artist?: string; album?: string }) => {
                 downloadQueue.updateMetadata(item.id, {

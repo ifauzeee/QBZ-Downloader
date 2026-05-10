@@ -1024,13 +1024,24 @@ class DatabaseService {
         const db = this.getDb();
         const items = db.prepare('SELECT * FROM queue_items ORDER BY added_at ASC').all() as any[];
         return items.map((item) => ({
-            ...item,
-            artistData: item.artist_data ? JSON.parse(item.artist_data) : null,
-            albumData: item.album_data ? JSON.parse(item.album_data) : null,
-            metadata: item.metadata ? JSON.parse(item.metadata) : null,
+            id: item.id,
+            type: item.type,
+            contentId: item.content_id,
+            quality: item.quality,
+            status: item.status,
+            priority: item.priority,
+            progress: item.progress,
+            title: item.title,
+            artist: item.artist_data ? JSON.parse(item.artist_data) : null,
+            album: item.album_data ? JSON.parse(item.album_data) : null,
+            error: item.error,
+            filePath: item.file_path,
             addedAt: new Date(item.added_at),
             startedAt: item.started_at ? new Date(item.started_at) : null,
-            completedAt: item.completed_at ? new Date(item.completed_at) : null
+            completedAt: item.completed_at ? new Date(item.completed_at) : null,
+            retryCount: item.retry_count,
+            maxRetries: item.max_retries,
+            metadata: item.metadata ? JSON.parse(item.metadata) : null
         }));
     }
 

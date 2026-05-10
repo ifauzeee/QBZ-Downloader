@@ -51,6 +51,21 @@ async function main() {
     try {
         displayBanner();
 
+        logger.info('Initializing Database Service...', 'DB');
+        try {
+            const { databaseService } = await import('./services/database/index.js');
+            databaseService.initialize();
+            logger.success(`Database service initialized.`, 'DB');
+
+            const { settingsService } = await import('./services/settings.js');
+            // Force initialization to log setting count
+            (settingsService as any).ensureInitialized();
+            
+            await downloadQueue.load();
+        } catch (error: any) {
+            logger.warn(`Database init failed: ${error.message}`, 'DB');
+        }
+
         logger.info('Validating application settings...', 'CONFIG');
 
         const { warnings, valid, missing } = validateEnvironment();
@@ -67,21 +82,6 @@ async function main() {
             );
         } else {
             logger.success('Application settings validated.', 'CONFIG');
-        }
-
-        logger.info('Initializing Database Service...', 'DB');
-        try {
-            const { databaseService } = await import('./services/database/index.js');
-            databaseService.initialize();
-            logger.success(`Database service initialized.`, 'DB');
-
-            const { settingsService } = await import('./services/settings.js');
-            // Force initialization to log setting count
-            (settingsService as any).ensureInitialized();
-            
-            await downloadQueue.load();
-        } catch (error: any) {
-            logger.warn(`Database init failed: ${error.message}`, 'DB');
         }
 
         if (valid) {

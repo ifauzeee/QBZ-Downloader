@@ -38,6 +38,9 @@ export class DownloadEngine {
 
         const response = await downloadFile(url, { headers });
         
+        const contentLength = parseInt(String(response.headers?.['content-length'] || '0'), 10);
+        const effectiveTotalLength = contentLength > 0 ? contentLength + (isResuming ? downloaded : 0) : totalLength;
+
         const isPartial = response.status === 206;
         if (isResuming && !isPartial) {
             logger.warn('Server did not honor Range request, restarting download from scratch', 'DOWNLOAD');
@@ -94,14 +97,14 @@ export class DownloadEngine {
 
                 if (onProgress) {
                     const currentTime = Date.now();
-                    if (currentTime - lastProgressEmit >= 100 || downloaded === totalLength) {
+                    if (currentTime - lastProgressEmit >= 100 || (effectiveTotalLength > 0 && downloaded >= effectiveTotalLength)) {
                         const elapsed = (currentTime - startTime) / 1000;
                         const speed = elapsed > 0 ? (downloaded - (isResuming ? resumeService.getResumePosition(trackId) : 0)) / elapsed : 0;
 
                         onProgress({
                             phase: 'download',
                             loaded: downloaded,
-                            total: totalLength,
+                            total: effectiveTotalLength,
                             speed
                         });
                         lastProgressEmit = currentTime;
