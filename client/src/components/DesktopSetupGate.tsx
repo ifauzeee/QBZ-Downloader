@@ -213,7 +213,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                     <Icons.ArrowRight size={18} />
                                 </button>
                                 <div className="welcome-footer">
-                                    <span>Version 5.1.1 Stable</span>
+                                    <span>Version 5.1.2 Stable</span>
                                 </div>
                             </motion.div>
                         )}
@@ -589,6 +589,9 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                     text-transform: uppercase;
                     letter-spacing: 1px;
                     padding-left: 4px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
                 }
 
                 .form-item input {

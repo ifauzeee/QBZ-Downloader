@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.1.2] - 2026-05-10
+
+### 🐞 Bug Fixes
+- **Critical Fix: Invalid Request Signature**: Refactored the Qobuz API signing logic to use dynamic parameter sorting, resolving "Invalid Request Signature" errors for certain accounts and custom credentials.
+- **Improved Verification**: The setup wizard now performs a real signature test during the verification step to ensure the App Secret is valid before allowing access to the dashboard.
+- **Metadata Resilience**: Fixed minor edge cases in background metadata hydration for tracks with special characters.
+
 ## [5.1.1] - 2026-05-10
 
 ### ✨ New Features

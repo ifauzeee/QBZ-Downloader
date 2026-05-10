@@ -221,6 +221,18 @@ router.post('/login', async (req: Request, res: Response) => {
     try {
         const result = await api.getUserInfo();
         if (result.success) {
+            // Test signature by attempting a getFileUrl for a dummy track
+            // This ensures App Secret is valid (which isn't checked by getUserInfo)
+            try {
+                const sigTest = await api.getFileUrl('1', 5);
+                if (!sigTest.success && sigTest.error?.includes('request_sig')) {
+                    tokenManager.markInvalid();
+                    return res.status(401).json({ error: 'Invalid App Secret: Signature verification failed' });
+                }
+            } catch (e) {
+                // If it fails for other reasons (like 404), it's probably fine as long as it's not a sig error
+            }
+
             tokenManager.markValid();
             res.json({ success: true, user: result.data });
         } else {

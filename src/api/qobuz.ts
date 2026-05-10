@@ -104,11 +104,22 @@ class QobuzAPI {
         );
     }
 
-    generateSignature(trackId: string | number, formatId: number, intent = 'stream') {
+    generateSignature(endpoint: string, params: Record<string, any>) {
         const timestamp = Math.floor(Date.now() / 1000);
         const secret = CONFIG.credentials.appSecret;
-        const data = `trackgetFileUrlformat_id${formatId}intent${intent}track_id${trackId}${timestamp}${secret}`;
+        
+        // Remove slashes from endpoint (e.g., track/getFileUrl -> trackgetFileUrl)
+        let data = endpoint.replace(/\//g, '');
+        
+        // Sort parameters alphabetically as required by Qobuz
+        const sortedKeys = Object.keys(params).sort();
+        for (const key of sortedKeys) {
+            data += key + params[key];
+        }
+        
+        data += timestamp + secret;
         const signature = crypto.createHash('md5').update(data).digest('hex');
+        
         return { timestamp, signature };
     }
 
@@ -277,7 +288,12 @@ class QobuzAPI {
     async getFileUrl(trackId: string | number, formatId: number | string = 27): Promise<ApiResponse> {
         try {
             const requestedFormatId = normalizeDownloadQuality(formatId, 27);
-            const { timestamp, signature } = this.generateSignature(trackId, requestedFormatId);
+            const sigParams = {
+                track_id: trackId,
+                format_id: requestedFormatId,
+                intent: 'stream'
+            };
+            const { timestamp, signature } = this.generateSignature('track/getFileUrl', sigParams);
 
             const response = await this.client.get('/track/getFileUrl', {
                 params: {
