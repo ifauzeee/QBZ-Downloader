@@ -1,6 +1,6 @@
 {
   "name": "qbz-downloader",
-  "version": "5.1.2",
+  "version": "5.1.3",
   "description": "Desktop-first Qobuz downloader EXE with Hi-Res audio, metadata automation, and lyrics support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -431,16 +431,11 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                 }
 
                 .onboarding-bg-glow {
-                    position: absolute;
-                    width: 600px;
-                    height: 600px;
-                    background: radial-gradient(circle, rgba(var(--accent-rgb), 0.15), transparent 70%);
-                    z-index: -1;
-                    filter: blur(60px);
+                    display: none;
                 }
 
                 .onboarding-v2-shell {
-                    width: min(560px, 92vw);
+                    width: min(720px, 92vw);
                     display: flex;
                     flex-direction: column;
                     gap: 32px;
@@ -493,12 +488,12 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                 }
 
                 .onboarding-v2-card {
-                    background: rgba(255, 255, 255, 0.03);
-                    backdrop-filter: blur(32px);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    background: rgba(10, 10, 10, 0.4);
+                    backdrop-filter: blur(40px);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
                     border-radius: 40px;
-                    padding: 48px;
-                    box-shadow: 0 50px 100px rgba(0,0,0,0.5);
+                    padding: 56px;
+                    box-shadow: 0 50px 100px rgba(0,0,0,0.8);
                     display: flex;
                     flex-direction: column;
                     gap: 32px;

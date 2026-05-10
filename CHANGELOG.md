@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.1.3] - 2026-05-10
+
+### ✨ New Features
+- **AMOLED Black Theme**: Implemented a pure black background (#000000) across the application for a stunning, high-contrast experience on OLED/AMOLED displays.
+- **Enhanced Setup "Full View"**: Increased the setup wizard width and refined the onboarding layout to provide a more immersive and expansive installation experience.
+
+### 🛠️ Improvements
+- **Visual Purity**: Removed background gradients and glowing effects during setup to achieve a true "Pure Black" aesthetic.
+
 ## [5.1.2] - 2026-05-10
 
 ### 🐞 Bug Fixes
