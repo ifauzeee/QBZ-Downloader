@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.1.5] - 2026-05-10
+
+### 🐞 Bug Fixes
+
+- **File Stream EPERM Lock** — Fixed a critical issue in `DownloadEngine` where an aborted or timed-out download would fail to destroy the file stream, causing the `QueueProcessor`'s automatic retry mechanism to crash with an `EPERM` error because the previous failed connection still held a lock on the `.flac` file.
+
+---
+
 ## [5.1.4] - 2026-05-10
 
 ### 🐞 Bug Fixes

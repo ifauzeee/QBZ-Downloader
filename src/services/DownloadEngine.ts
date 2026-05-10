@@ -84,48 +84,55 @@ export class DownloadEngine {
         }
 
         let lastProgressEmit = 0;
-        await new Promise<void>((resolve, reject) => {
-            const onData = (chunk: Buffer) => {
-                if (isCancelled && isCancelled()) {
-                    response.data.destroy();
-                    writer.destroy();
-                    reject(new Error('Cancelled by user'));
-                    return;
-                }
-                downloaded += chunk.length;
-                md5Hash.update(chunk);
-
-                if (onProgress) {
-                    const currentTime = Date.now();
-                    if (currentTime - lastProgressEmit >= 100 || (effectiveTotalLength > 0 && downloaded >= effectiveTotalLength)) {
-                        const elapsed = (currentTime - startTime) / 1000;
-                        const speed = elapsed > 0 ? (downloaded - (isResuming ? resumeService.getResumePosition(trackId) : 0)) / elapsed : 0;
-
-                        onProgress({
-                            phase: 'download',
-                            loaded: downloaded,
-                            total: effectiveTotalLength,
-                            speed
-                        });
-                        lastProgressEmit = currentTime;
-                        resumeService.updateProgress(trackId, downloaded);
+        try {
+            await new Promise<void>((resolve, reject) => {
+                const onData = (chunk: Buffer) => {
+                    if (isCancelled && isCancelled()) {
+                        reject(new Error('Cancelled by user'));
+                        return;
                     }
+                    downloaded += chunk.length;
+                    md5Hash.update(chunk);
+
+                    if (onProgress) {
+                        const currentTime = Date.now();
+                        if (currentTime - lastProgressEmit >= 100 || (effectiveTotalLength > 0 && downloaded >= effectiveTotalLength)) {
+                            const elapsed = (currentTime - startTime) / 1000;
+                            const speed = elapsed > 0 ? (downloaded - (isResuming ? resumeService.getResumePosition(trackId) : 0)) / elapsed : 0;
+
+                            onProgress({
+                                phase: 'download',
+                                loaded: downloaded,
+                                total: effectiveTotalLength,
+                                speed
+                            });
+                            lastProgressEmit = currentTime;
+                            resumeService.updateProgress(trackId, downloaded);
+                        }
+                    }
+                };
+
+                response.data.on('data', onData);
+
+                if (CONFIG.download.bandwidthLimit > 0) {
+                    const throttle = new ThrottleStream(CONFIG.download.bandwidthLimit);
+                    response.data.pipe(throttle).pipe(writer);
+                } else {
+                    response.data.pipe(writer);
                 }
-            };
 
-            response.data.on('data', onData);
-
-            if (CONFIG.download.bandwidthLimit > 0) {
-                const throttle = new ThrottleStream(CONFIG.download.bandwidthLimit);
-                response.data.pipe(throttle).pipe(writer);
-            } else {
-                response.data.pipe(writer);
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+                response.data.on('error', reject);
+            });
+        } finally {
+            if (!writer.closed) {
+                writer.destroy();
             }
-
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-            response.data.on('error', reject);
-        });
+            if (!response.data.destroyed) {
+                response.data.destroy();
+            }
+        }
 
         return {
             size: downloaded,
