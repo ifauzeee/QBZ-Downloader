@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.1.6] - 2026-05-13
+
+### 🐞 Bug Fixes
+
+- **Queue Store Crash** — Fixed a `Cannot read properties of undefined (reading 'map')` crash in `queueStore.ts` by ensuring the queue state is always initialized as an array and adding defensive guards in `updateItemProgress`.
+- **Premature API Fetching** — Added a connection guard in `QueueView.tsx` to prevent `fetchQueue` from being called before the socket connection (and dashboard authentication) is fully established, preventing 400/401 errors during startup.
+
+---
+
 ## [5.1.5] - 2026-05-10
 
 ### 🐞 Bug Fixes
