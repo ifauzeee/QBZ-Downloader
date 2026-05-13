@@ -37,7 +37,7 @@ export const useQueueStore = create<QueueState>((set) => ({
     setStats: (stats) => set({ stats }),
     setQueue: (queue) => set({ queue }),
     updateItemProgress: (data) => set((state) => ({
-        queue: state.queue.map(item =>
+        queue: (state.queue ?? []).map(item =>
             item.id === data.id ? { ...item, ...data } : item
         )
     })),
@@ -45,7 +45,7 @@ export const useQueueStore = create<QueueState>((set) => ({
         const res = await smartFetch('/api/queue');
         if (res && res.ok) {
             const data = await res.json();
-            set({ queue: data });
+            set({ queue: Array.isArray(data) ? data : [] });
         }
     }
 }));

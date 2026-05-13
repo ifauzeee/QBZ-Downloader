@@ -65,7 +65,7 @@ const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, ha
 
 export const QueueView: React.FC = () => {
     const { t } = useLanguage();
-    const { socket } = useSocket();
+    const { socket, connected } = useSocket();
     const { stats, queue, setStats, fetchQueue, updateItemProgress } = useQueueStore();
 
     const parentRef = useRef<HTMLDivElement>(null);
@@ -87,7 +87,7 @@ export const QueueView: React.FC = () => {
     });
 
     useEffect(() => {
-        if (!socket) return;
+        if (!socket || !connected) return;
 
         fetchQueue();
 
@@ -123,7 +123,7 @@ export const QueueView: React.FC = () => {
             socket.off('item:failed', handleRefresh);
             socket.off('item:progress', handleItemProgress);
         };
-    }, [socket, fetchQueue, setStats, updateItemProgress]);
+    }, [socket, connected, fetchQueue, setStats, updateItemProgress]);
 
     const handleQueueAction = async (action: 'pause' | 'resume' | 'clear') => {
         await smartFetch('/api/queue/action', {
