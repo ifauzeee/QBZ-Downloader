@@ -1,39 +1,34 @@
+import { LRUCache } from 'lru-cache';
 import { logger } from './logger.js';
 
 class CacheService {
-    private cache: Map<string, { value: any; expires: number }> = new Map();
-    private maxSize: number = 1000;
+    private cache: LRUCache<string, any>;
 
-    constructor() {
-        logger.debug('Cache service initialized (in-memory)');
+    constructor(maxSize: number = 1000) {
+        this.cache = new LRUCache({
+            max: maxSize,
+            // TTL is handled per-entry in set(), or we can set a default here
+            ttl: 1000 * 60 * 60, // 1 hour default
+            updateAgeOnGet: true
+        });
+        logger.debug('Cache service initialized (LRU)');
     }
 
     async get(key: string): Promise<any | null> {
-        const item = this.cache.get(key);
-        if (!item) return null;
-
-        if (Date.now() > item.expires) {
-            this.cache.delete(key);
-            return null;
-        }
-
-        return item.value;
+        const value = this.cache.get(key);
+        return value !== undefined ? value : null;
     }
 
     async set(key: string, value: any, ttlSeconds: number = 3600): Promise<void> {
-        if (this.cache.size >= this.maxSize) {
-            const firstKey = this.cache.keys().next().value;
-            if (firstKey) this.cache.delete(firstKey);
-        }
-
-        this.cache.set(key, {
-            value,
-            expires: Date.now() + ttlSeconds * 1000
+        this.cache.set(key, value, {
+            ttl: ttlSeconds * 1000
         });
     }
 
     async delete(key: string): Promise<boolean> {
-        return this.cache.delete(key);
+        const hadKey = this.cache.has(key);
+        this.cache.delete(key);
+        return hadKey;
     }
 
     async clear(): Promise<void> {
@@ -46,3 +41,4 @@ class CacheService {
 }
 
 export const cacheService = new CacheService();
+

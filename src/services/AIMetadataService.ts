@@ -4,6 +4,17 @@ import { logger } from '../utils/logger.js';
 import { Metadata } from './metadata.js';
 
 export class AIMetadataService {
+    private sanitize(text: string | number | undefined): string {
+        if (text === undefined) return 'Unknown';
+        const str = String(text);
+        // Basic sanitization: remove potential prompt injection characters
+        // and limit length to prevent massive payloads
+        return str
+            .replace(/[\\`$]/g, '') // Remove backslashes, backticks, and dollar signs
+            .substring(0, 200) // Limit to 200 characters
+            .trim();
+    }
+
     async repairMetadata(currentMetadata: Partial<Metadata>): Promise<Partial<Metadata> | null> {
         const { enabled, provider, apiKey, model } = CONFIG.ai;
 
@@ -31,17 +42,23 @@ export class AIMetadataService {
     }
 
     private async repairWithGemini(metadata: Partial<Metadata>, apiKey: string, model: string): Promise<Partial<Metadata>> {
+        const sTitle = this.sanitize(metadata.title);
+        const sArtist = this.sanitize(metadata.artist);
+        const sAlbum = this.sanitize(metadata.album);
+        const sYear = this.sanitize(metadata.year);
+        const sGenre = this.sanitize(metadata.genre);
+
         const prompt = `
             Act as a professional music librarian. I have a music track with potentially incomplete or incorrect metadata.
             Fix and complete the following metadata as accurately as possible.
             Ensure names are spelled correctly, dates are accurate, and genre is specific.
             
             Current Data:
-            Title: ${metadata.title}
-            Artist: ${metadata.artist}
-            Album: ${metadata.album}
-            Year: ${metadata.year}
-            Genre: ${metadata.genre}
+            Title: ${sTitle}
+            Artist: ${sArtist}
+            Album: ${sAlbum}
+            Year: ${sYear}
+            Genre: ${sGenre}
             
             Return ONLY a JSON object with these keys: title, artist, album, year, genre, albumArtist, composer.
             Do not include any explanation or other text.
@@ -67,6 +84,10 @@ export class AIMetadataService {
     }
 
     private async repairWithOpenAI(metadata: Partial<Metadata>, apiKey: string, model: string): Promise<Partial<Metadata>> {
+        const sTitle = this.sanitize(metadata.title);
+        const sArtist = this.sanitize(metadata.artist);
+        const sAlbum = this.sanitize(metadata.album);
+
         const url = 'https://api.openai.com/v1/chat/completions';
         
         const response = await axios.post(url, {
@@ -78,7 +99,7 @@ export class AIMetadataService {
                 },
                 {
                     role: 'user',
-                    content: `Fix this metadata: Title: ${metadata.title}, Artist: ${metadata.artist}, Album: ${metadata.album}. Return JSON: {title, artist, album, year, genre, albumArtist, composer}`
+                    content: `Fix this metadata: Title: ${sTitle}, Artist: ${sArtist}, Album: ${sAlbum}. Return JSON: {title, artist, album, year, genre, albumArtist, composer}`
                 }
             ],
             response_format: { type: 'json_object' }
@@ -92,3 +113,4 @@ export class AIMetadataService {
 }
 
 export const aiMetadataService = new AIMetadataService();
+

@@ -66,12 +66,15 @@ export class DashboardService {
 
 
         const limiter = rateLimit({
-            windowMs: 15 * 60 * 1000,
-            max: 5000,
-            message: 'Too many requests'
+            windowMs: 15 * 60 * 1000, // 15 minutes
+            max: 1000, // Limit each IP to 1000 requests per windowMs
+            message: { error: 'Too many requests from this IP, please try again after 15 minutes' },
+            standardHeaders: true,
+            legacyHeaders: false,
         });
 
         this.app.use('/api', limiter);
+
 
         this.app.use((req: Request, res: Response, next: NextFunction) => {
             const password = CONFIG.dashboard.password;

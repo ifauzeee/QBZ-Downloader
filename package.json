@@ -1,6 +1,6 @@
 {
   "name": "qbz-downloader",
-  "version": "5.1.6",
+  "version": "5.2.0",
   "description": "Desktop-first Qobuz downloader EXE with Hi-Res audio, metadata automation, and lyrics support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -136,6 +136,7 @@
     "figlet": "^1.7.0",
     "flac-metadata": "^0.1.1",
     "gradient-string": "^2.0.2",
+    "lru-cache": "^11.3.6",
     "music-metadata": "^11.10.6",
     "node-id3": "^0.2.6",
     "p-limit": "^7.2.0",

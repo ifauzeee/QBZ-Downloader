@@ -3,7 +3,7 @@
 # 🎵 QBZ-Downloader
 ### *The Ultimate High-Resolution Audio Downloader & Library Manager*
 
-[![Version](https://img.shields.io/badge/version-5.1.3-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
+[![Version](https://img.shields.io/badge/version-5.2.0-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
 [![React](https://img.shields.io/badge/React-19.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -30,8 +30,9 @@ A comprehensive desktop-first music downloading and library management applicati
 <br/>
 
 > [!IMPORTANT]
-> **🚀 v5.1.3 Release is here!**
-> This update introduces **Pure AMOLED Black**, **Persistent Auth Fixes**, and **Improved Data Reliability**. Check the [Changelog](CHANGELOG.md) for full details.
+> **🚀 v5.2.0: The Foundation Update is here!**
+> This update implements **Phase 1 of our technical roadmap**, including **Secure safeStorage Encryption**, **LRU Caching**, and **Enhanced Security**. Check the [Changelog](CHANGELOG.md) for full details.
+
 
 ---
 

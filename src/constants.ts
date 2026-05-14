@@ -1,3 +1,10 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'));
+
 export const URL_PATTERNS = {
     TRACK: new RegExp('qobuz\\.com/[a-z-]+/track/(\\d+)', 'i'),
     ALBUM: new RegExp('qobuz\\.com/[a-z-]+/album/[^/]+/([a-zA-Z0-9]+)', 'i'),
@@ -7,5 +14,6 @@ export const URL_PATTERNS = {
     NUMERIC_ID: /^\d+$/
 };
 
-export const APP_VERSION = '5.1.6';
+export const APP_VERSION = packageJson.version;
+
 

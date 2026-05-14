@@ -2,7 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.2.0] - 2026-05-14
+
+### 🚀 Technical Foundation (Roadmap Phase 1)
+
+- **Secure Encryption** — Migrated credential encryption to **Electron `safeStorage`** API. Keys are now tied to the OS keychain, ensuring they are not lost if the application folder is moved. Added fallback for non-Electron environments.
+- **Improved Caching** — Replaced basic FIFO cache with a **proper LRU (Least Recently Used) cache** using `lru-cache`. This ensures track metadata and search results are managed efficiently.
+- **Single Source of Truth (Versioning)** — Fixed versioning inconsistency. `APP_VERSION` is now dynamically read from `package.json`, and README badges have been synchronized.
+- **Enhanced API Security** — Implemented more restrictive **rate limiting** on the Express dashboard API to prevent flooding and improve local stability.
+- **AI Prompt Hardening** — Added input sanitization to `AIMetadataService` to prevent prompt injection when repairing metadata via LLMs (Gemini/OpenAI).
+
+---
+
 ## [5.1.6] - 2026-05-13
+
 
 ### 🐞 Bug Fixes
 
