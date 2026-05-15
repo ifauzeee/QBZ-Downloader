@@ -64,7 +64,7 @@ describe('MigrationService', () => {
         it('should migrate a Spotify playlist', async () => {
             vi.mocked(spotifyApi.extractId).mockReturnValue({ type: 'playlist', id: 'pl123' });
             vi.mocked(spotifyApi.getPlaylistTracks).mockResolvedValue([
-                { id: 's1', title: 'Song Title', artist: 'Artist Name', duration_ms: 200000 }
+                { title: 'Song Title', artist: 'Artist Name', album: 'Album Name', duration_ms: 200000 }
             ]);
 
             const result = await service.migrateFromSpotify('https://spotify.com/playlist/pl123');

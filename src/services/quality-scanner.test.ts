@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QualityScannerService } from './QualityScannerService.js';
 import { exec } from 'child_process';
-import fs from 'fs';
 import { checkBinaryAvailability } from '../utils/binaries.js';
 
 // Mock dependencies
 vi.mock('child_process', () => ({
-    exec: vi.fn((cmd, cb) => cb(null, { stderr: 'mean_volume: -50.0 dB' }))
+    exec: vi.fn((cmd, cb) => {
+        if (cb) cb(null, { stderr: 'mean_volume: -50.0 dB' });
+        return { on: vi.fn() } as any;
+    })
 }));
 
 vi.mock('fs', () => ({
@@ -45,7 +47,8 @@ describe('QualityScannerService', () => {
     it('should identify true lossless files', async () => {
         // Mock ffmpeg output showing high energy above thresholds
         vi.mocked(exec).mockImplementation((cmd, cb: any) => {
-            cb(null, { stderr: 'mean_volume: -30.0 dB' });
+            if (cb) cb(null, { stderr: 'mean_volume: -30.0 dB' });
+            return { on: vi.fn() } as any;
         });
 
         const report = await service.scanFile('test.flac');
@@ -56,11 +59,14 @@ describe('QualityScannerService', () => {
     it('should detect fake lossless (16kHz cutoff)', async () => {
         // Mock ffmpeg output showing very low energy above 16kHz
         vi.mocked(exec).mockImplementation((cmd, cb: any) => {
-            if (cmd.includes('f=16000')) {
-                cb(null, { stderr: 'mean_volume: -85.0 dB' });
-            } else {
-                cb(null, { stderr: 'mean_volume: -95.0 dB' });
+            if (cb) {
+                if (cmd.includes('f=16000')) {
+                    cb(null, { stderr: 'mean_volume: -85.0 dB' });
+                } else {
+                    cb(null, { stderr: 'mean_volume: -95.0 dB' });
+                }
             }
+            return { on: vi.fn() } as any;
         });
 
         const report = await service.scanFile('fake.flac');
@@ -71,11 +77,14 @@ describe('QualityScannerService', () => {
     it('should detect likely upsampled files (20kHz cutoff)', async () => {
         // Mock ffmpeg output: 16k is fine (-50), 20k is low (-90)
         vi.mocked(exec).mockImplementation((cmd, cb: any) => {
-            if (cmd.includes('f=16000')) {
-                cb(null, { stderr: 'mean_volume: -50.0 dB' });
-            } else {
-                cb(null, { stderr: 'mean_volume: -90.0 dB' });
+            if (cb) {
+                if (cmd.includes('f=16000')) {
+                    cb(null, { stderr: 'mean_volume: -50.0 dB' });
+                } else {
+                    cb(null, { stderr: 'mean_volume: -90.0 dB' });
+                }
             }
+            return { on: vi.fn() } as any;
         });
 
         const report = await service.scanFile('upsampled.flac');
