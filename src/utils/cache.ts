@@ -2,7 +2,8 @@ import { LRUCache } from 'lru-cache';
 import { logger } from './logger.js';
 
 class CacheService {
-    private cache: LRUCache<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private cache: LRUCache<string, any>;
 
     constructor(maxSize: number = 1000) {
         this.cache = new LRUCache({
