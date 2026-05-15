@@ -164,16 +164,18 @@ vi.mock('fs', async (importOriginal) => {
             mkdirSync: vi.fn(),
             writeFileSync: vi.fn(),
             createWriteStream: vi.fn().mockReturnValue({
-                on: vi.fn().mockImplementation(function(this: unknown, event, cb) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                on: vi.fn().mockImplementation(function(this: any, event, cb) {
                     if (event === 'finish') setTimeout(cb, 10);
-                    return this as unknown as Record<string, unknown>;
+                    return this;
                 }),
                 once: vi.fn(),
                 emit: vi.fn(),
                 write: vi.fn().mockReturnValue(true),
-                end: vi.fn().mockImplementation(function(this: unknown) {
-                    (this as Record<string, unknown>).emit('finish');
-                    return this as unknown as Record<string, unknown>;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                end: vi.fn().mockImplementation(function(this: any) {
+                    this.emit('finish');
+                    return this;
                 }),
                 destroy: vi.fn(),
                 closed: false
