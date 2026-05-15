@@ -51,8 +51,9 @@ export class HistoryService {
                     logger.debug(`History: Loaded ${this.entries.size} entries`);
                 }
             }
-        } catch (error: any) {
-            logger.warn(`History: Failed to load (${error.message}), starting fresh`);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn(`History: Failed to load (${message}), starting fresh`);
         }
     }
 
@@ -85,8 +86,9 @@ export class HistoryService {
             fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf8');
             this.isDirty = false;
             logger.debug(`History: Saved ${this.entries.size} entries`);
-        } catch (error: any) {
-            logger.error(`History: Failed to save (${error.message})`);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`History: Failed to save (${message})`);
         }
     }
 

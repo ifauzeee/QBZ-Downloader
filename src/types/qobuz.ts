@@ -3,6 +3,7 @@ export interface Artist {
     name: string;
     albums_count?: number;
     image?: { small?: string; medium?: string; large?: string };
+    [key: string]: unknown;
 }
 
 export interface ArtistDetails extends Artist {
@@ -41,6 +42,15 @@ export interface Album {
     duration: number;
     tracks_count: number;
     released_at?: number;
+    description?: string;
+    image?: {
+        small?: string;
+        thumbnail?: string;
+        large?: string;
+        extralarge?: string;
+        mega?: string;
+        [key: string]: unknown;
+    };
     hires: boolean;
     hires_streamable?: boolean;
     maximum_bit_depth?: number;
@@ -49,6 +59,13 @@ export interface Album {
     tracks?: {
         items: Track[];
     };
+    media_count?: number;
+    genres_list?: (string | { name: string })[];
+    credits?: { role?: string; name?: string }[];
+    copyright?: string;
+    upc?: string;
+    catalog_number?: string;
+    release_type?: string;
     [key: string]: unknown;
 }
 
@@ -65,12 +82,15 @@ export interface Track {
         title: string;
         id?: string | number;
         artist?: Artist;
+        description?: string;
         image?: {
             small?: string;
+            thumbnail?: string;
             medium?: string;
             large?: string;
             mega?: string;
             extralarge?: string;
+            [key: string]: unknown;
         };
     };
     duration: number;
@@ -79,12 +99,20 @@ export interface Track {
     maximum_sampling_rate?: number;
     maximum_bit_depth?: number;
     hires_streamable?: boolean;
+    media_number?: number;
+    performers?: string;
+    parental_warning?: boolean;
+    streamable?: boolean;
+    composer?: { name: string; id?: string | number };
+    isrc?: string;
+    version?: string;
     lyrics?: {
         sync?: string;
         text?: string;
         copyright?: string;
         writer?: string;
     };
+    [key: string]: unknown;
 }
 
 export interface UserInfo {
@@ -125,16 +153,16 @@ export interface SearchResults {
 export interface LyricsResult {
     success: boolean;
     source?: string;
-    syncedLyrics?: any;
+    syncedLyrics?: string | boolean | null;
     plainLyrics?: string | null;
-    parsedLyrics?: any[] | null;
-    syltFormat?: any[] | null;
+    parsedLyrics?: unknown[] | null;
+    syltFormat?: unknown[] | null;
     synced?: string | null;
     unsynced?: string | null;
     copyright?: string | null;
     writer?: string | null;
     error?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface FileUrlData {

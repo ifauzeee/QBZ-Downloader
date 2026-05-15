@@ -4,9 +4,17 @@ import path from 'path';
 
 export type LogType = 'info' | 'success' | 'warn' | 'error' | 'debug' | 'system';
 
+export interface LogEntry {
+    timestamp: string;
+    type: LogType;
+    scope: string;
+    message: string;
+    time: number;
+}
+
 class Logger {
     private static instance: Logger;
-    private logs: any[] = [];
+    private logs: LogEntry[] = [];
     private readonly MAX_LOGS = 500;
     private readonly LOG_DIR = path.resolve('./logs');
     private readonly CURRENT_LOG_FILE = 'qbz-latest.log';
@@ -27,9 +35,9 @@ class Logger {
         return this.logs;
     }
 
-    private broadcastCallback: ((log: any) => void) | null = null;
+    private broadcastCallback: ((log: LogEntry) => void) | null = null;
 
-    public setBroadcastCallback(callback: (log: any) => void) {
+    public setBroadcastCallback(callback: (log: LogEntry) => void) {
         this.broadcastCallback = callback;
     }
 
@@ -136,7 +144,7 @@ class Logger {
         }
     }
 
-    private writeToLogFile(logEntry: any) {
+    private writeToLogFile(logEntry: LogEntry) {
         try {
             const logFilePath = path.join(this.LOG_DIR, this.CURRENT_LOG_FILE);
             const line = `[${logEntry.timestamp}] [${logEntry.type.toUpperCase().padEnd(7)}] [${logEntry.scope}] ${logEntry.message}\n`;

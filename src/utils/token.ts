@@ -54,8 +54,9 @@ class TokenManager extends EventEmitter {
                 logger.success(`Config ${key} updated`);
             }
             return true;
-        } catch (error: any) {
-            logger.error(`Failed to persist ${key}: ${error.message}`);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(`Failed to persist ${key}: ${message}`);
             return false;
         }
     }

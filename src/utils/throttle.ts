@@ -10,7 +10,7 @@ export class ThrottleStream extends Transform {
         this.limit = limitKbps * 1024;
     }
 
-    _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {
+    _transform(chunk: Buffer | string, encoding: BufferEncoding, callback: TransformCallback): void {
         if (this.limit <= 0) {
             this.push(chunk);
             callback();

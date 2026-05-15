@@ -3,11 +3,11 @@ import { ResumeService, BatchImportService } from './batch.js';
 import { downloadQueue } from './queue/queue.js';
 import { inputValidator } from '../utils/validator.js';
 import fs from 'fs';
-import path from 'path';
+import { EventEmitter } from 'events';
 
 // Mock dependencies
-vi.mock('fs', () => {
-    const { EventEmitter } = require('events');
+vi.mock('fs', async () => {
+    const { EventEmitter } = await import('events');
     return {
         existsSync: vi.fn().mockReturnValue(false),
         readFileSync: vi.fn().mockReturnValue('{}'),
@@ -41,10 +41,10 @@ vi.mock('archiver', () => {
 });
 
 
-vi.mock('./queue/queue.js', () => {
-    const { EventEmitter } = require('events');
+vi.mock('./queue/queue.js', async () => {
+    const { EventEmitter } = await import('events');
     const emitter = new EventEmitter();
-    (emitter as any).add = vi.fn();
+    (emitter as unknown as { add: unknown }).add = vi.fn();
     return {
         downloadQueue: emitter
     };

@@ -160,24 +160,25 @@ export class BatchImportService {
     }
 
     private setupListeners() {
-        downloadQueue.on('item:completed', (item: { metadata?: any; filePath?: string }) => {
+        downloadQueue.on('item:completed', (item: { metadata?: Record<string, unknown>; filePath?: string }) => {
             if (item.metadata && item.metadata.batchId) {
+                const batchId = String(item.metadata.batchId);
                 if (item.metadata.batchFiles && Array.isArray(item.metadata.batchFiles)) {
                     this.updateBatchProgress(
-                        item.metadata.batchId,
+                        batchId,
                         'completed',
                         undefined,
-                        item.metadata.batchFiles
+                        item.metadata.batchFiles as string[]
                     );
                 } else {
-                    this.updateBatchProgress(item.metadata.batchId, 'completed', item.filePath);
+                    this.updateBatchProgress(batchId, 'completed', item.filePath);
                 }
             }
         });
 
-        downloadQueue.on('item:failed', (item: { metadata?: any }) => {
+        downloadQueue.on('item:failed', (item: { metadata?: Record<string, unknown> }) => {
             if (item.metadata && item.metadata.batchId) {
-                this.updateBatchProgress(item.metadata.batchId, 'failed');
+                this.updateBatchProgress(String(item.metadata.batchId), 'failed');
             }
         });
     }
@@ -246,7 +247,7 @@ export class BatchImportService {
                 notifyBatchZipCreated(zipName, zipPath);
             });
 
-            archive.on('error', (err: any) => {
+            archive.on('error', (err: Error) => {
                 logger.error(`Error creating batch ZIP: ${err.message}`, 'BATCH');
             });
 
@@ -443,7 +444,7 @@ export class BatchImportService {
         }
 
         if (validation.type && validation.id) {
-            const type = validation.type as any;
+            const type = validation.type as 'track' | 'album' | 'playlist' | 'artist';
             downloadQueue.add(type, validation.id, quality, {
                 title: `${type}: ${validation.id}`,
                 metadata: { source: 'batch-import', batchId }

@@ -3,7 +3,7 @@ import { DownloadEngine } from './DownloadEngine.js';
 import * as network from '../utils/network.js';
 import { resumeService } from './batch.js';
 import * as fs from 'fs';
-const { EventEmitter } = require('events');
+import { EventEmitter } from 'events';
 
 vi.mock('../utils/network.js', () => ({
     downloadFile: vi.fn()
@@ -18,9 +18,8 @@ vi.mock('./batch.js', () => ({
     }
 }));
 
-vi.mock('fs', () => {
-    const { EventEmitter } = require('events');
-    
+vi.mock('fs', async () => {
+    const { EventEmitter } = await import('events');
     return {
         createWriteStream: vi.fn().mockImplementation(() => {
             const writer = new EventEmitter();

@@ -10,21 +10,22 @@ export async function retryOperation<T>(
     delay = 1000,
     context = 'API'
 ): Promise<T> {
-    let lastError: any;
+    let lastError: unknown;
     for (let i = 0; i < retries; i++) {
         try {
             return await operation();
-        } catch (e: any) {
+        } catch (e: unknown) {
             lastError = e;
-            const isAuthError = e.message?.includes('401') || e.message?.includes('403');
+            const message = e instanceof Error ? e.message : String(e);
+            const isAuthError = message.includes('401') || message.includes('403');
             const isNotFoundError =
-                e.message?.includes('404') || e.message?.includes('not found');
+                message.includes('404') || message.includes('not found');
 
             if (isAuthError || isNotFoundError) throw e;
 
             const waitTime = delay * Math.pow(2, i);
             logger.debug(
-                `[${context}] Retry ${i + 1}/${retries} after ${waitTime}ms. Error: ${e.message}`,
+                `[${context}] Retry ${i + 1}/${retries} after ${waitTime}ms. Error: ${message}`,
                 'RETRY'
             );
             await sleep(waitTime);

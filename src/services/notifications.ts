@@ -10,7 +10,7 @@ export interface Notification {
     message: string;
     timestamp: Date;
     read: boolean;
-    data?: any;
+    data?: Record<string, unknown>;
 }
 
 export class NotificationService extends EventEmitter {
@@ -27,7 +27,7 @@ export class NotificationService extends EventEmitter {
         type: NotificationType,
         title: string,
         message: string,
-        data?: any
+        data?: Record<string, unknown>
     ): Notification {
         const notification: Notification = {
             id: `notif-${Date.now()}-${++this.idCounter}`,
@@ -51,22 +51,22 @@ export class NotificationService extends EventEmitter {
         return notification;
     }
 
-    success(title: string, message: string, data?: any): Notification {
+    success(title: string, message: string, data?: Record<string, unknown>): Notification {
         logger.success(`[Notification] ${title}: ${message}`);
         return this.notify('success', title, message, data);
     }
 
-    error(title: string, message: string, data?: any): Notification {
+    error(title: string, message: string, data?: Record<string, unknown>): Notification {
         logger.error(`[Notification] ${title}: ${message}`);
         return this.notify('error', title, message, data);
     }
 
-    warning(title: string, message: string, data?: any): Notification {
+    warning(title: string, message: string, data?: Record<string, unknown>): Notification {
         logger.warn(`[Notification] ${title}: ${message}`);
         return this.notify('warning', title, message, data);
     }
 
-    info(title: string, message: string, data?: any): Notification {
+    info(title: string, message: string, data?: Record<string, unknown>): Notification {
         logger.info(`[Notification] ${title}: ${message}`);
         return this.notify('info', title, message, data);
     }

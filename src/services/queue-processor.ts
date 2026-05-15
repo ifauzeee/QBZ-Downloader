@@ -137,7 +137,7 @@ export class QueueProcessor {
                         } else if (item.type === 'artist') {
                             const artistRes = await this.api.getArtist(item.contentId);
                             if (artistRes.success && artistRes.data) {
-                                title = (artistRes.data as any).name;
+                                title = artistRes.data.name;
                             }
                         }
 
@@ -316,8 +316,9 @@ export class QueueProcessor {
                         const { databaseService } = await import('./database/index.js');
                         databaseService.deleteTrackByPath(item.metadata.oldFilePath);
                     }
-                } catch (e: any) {
-                    logger.warn(`Failed to delete old file during upgrade: ${e.message}`, 'UPGRADE');
+                } catch (e: unknown) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    logger.warn(`Failed to delete old file during upgrade: ${message}`, 'UPGRADE');
                 }
             }
             
@@ -336,10 +337,10 @@ export class QueueProcessor {
 
         let result;
         const opts = {
-            onProgress: (p: any) => {
+            onProgress: (_trackId: string, p: { phase?: string; loaded?: number; total?: number }) => {
                 if (!p) return;
                 const pct =
-                    p.phase === 'download' && p.total
+                    p.phase === 'download' && p.total && p.loaded !== undefined
                         ? Math.floor((p.loaded / p.total) * 100)
                         : p.phase === 'tagging'
                           ? 99

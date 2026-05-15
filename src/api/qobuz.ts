@@ -104,7 +104,7 @@ class QobuzAPI {
         );
     }
 
-    generateSignature(endpoint: string, params: Record<string, any>) {
+    generateSignature(endpoint: string, params: Record<string, string | number | boolean>) {
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const secret = CONFIG.credentials.appSecret;
         
@@ -132,7 +132,7 @@ class QobuzAPI {
     async getTrack(trackId: string | number): Promise<ApiResponse<Track>> {
         const cacheKey = `track:${trackId}`;
         const cached = await cacheService.get(cacheKey);
-        if (cached) return { success: true, data: cached };
+        if (cached) return { success: true, data: cached as Track };
 
         try {
             const response = await this.client.get('/track/get', {
@@ -154,7 +154,7 @@ class QobuzAPI {
     async getAlbum(albumId: string | number): Promise<ApiResponse<Album>> {
         const cacheKey = `album:${albumId}`;
         const cached = await cacheService.get(cacheKey);
-        if (cached) return { success: true, data: cached };
+        if (cached) return { success: true, data: cached as Album };
 
         try {
             const response = await this.client.get('/album/get', {
@@ -182,7 +182,7 @@ class QobuzAPI {
     ): Promise<ApiResponse<ArtistDetails>> {
         const cacheKey = `artist:${artistId}:${albumOffset}:${albumLimit}:${trackOffset}:${trackLimit}`;
         const cached = await cacheService.get(cacheKey);
-        if (cached) return { success: true, data: cached };
+        if (cached) return { success: true, data: cached as ArtistDetails };
 
         try {
             const response = await this.client.get('/artist/get', {
@@ -294,7 +294,7 @@ class QobuzAPI {
     async getFileUrl(trackId: string | number, formatId: number | string = 27): Promise<ApiResponse> {
         try {
             const requestedFormatId = normalizeDownloadQuality(formatId, 27);
-            const sigParams: Record<string, any> = {
+            const sigParams: Record<string, string | number | boolean> = {
                 track_id: trackId,
                 format_id: requestedFormatId,
                 intent: 'stream'

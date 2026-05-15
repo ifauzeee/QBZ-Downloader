@@ -2,7 +2,7 @@ import { LRUCache } from 'lru-cache';
 import { logger } from './logger.js';
 
 class CacheService {
-    private cache: LRUCache<string, any>;
+    private cache: LRUCache<string, unknown>;
 
     constructor(maxSize: number = 1000) {
         this.cache = new LRUCache({
@@ -14,12 +14,12 @@ class CacheService {
         logger.debug('Cache service initialized (LRU)');
     }
 
-    async get(key: string): Promise<any | null> {
+    async get(key: string): Promise<unknown | null> {
         const value = this.cache.get(key);
         return value !== undefined ? value : null;
     }
 
-    async set(key: string, value: any, ttlSeconds: number = 3600): Promise<void> {
+    async set(key: string, value: unknown, ttlSeconds: number = 3600): Promise<void> {
         this.cache.set(key, value, {
             ttl: ttlSeconds * 1000
         });

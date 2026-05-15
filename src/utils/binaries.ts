@@ -32,7 +32,7 @@ export function resolveBinaryPath(binaryName: string): string {
     const isDesktop = Boolean(process.versions.electron);
     const appRoot = isDev 
         ? path.join(__dirname, '..', '..') 
-        : (isDesktop ? (process as any).resourcesPath : process.cwd());
+        : (isDesktop ? (process as unknown as { resourcesPath: string }).resourcesPath : process.cwd());
     const localBinPath = path.join(appRoot, 'bin', nameWithExt);
 
     if (fs.existsSync(localBinPath)) {
@@ -64,7 +64,7 @@ export async function checkBinaryAvailability(binaryName: string): Promise<Binar
             available: true,
             version: firstLine
         };
-    } catch (err) {
+    } catch {
         return {
             path: binaryPath,
             available: false

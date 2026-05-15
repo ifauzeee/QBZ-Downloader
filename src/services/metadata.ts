@@ -3,8 +3,9 @@ import flac from 'flac-metadata';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger.js';
+import { Track, Album, Artist, LyricsResult } from '../types/qobuz.js';
 
-export type RawData = Record<string, any>;
+export type RawData = Record<string, unknown>;
 
 export interface Metadata {
     title: string;
@@ -63,7 +64,7 @@ export interface Metadata {
 
     performers: RawData;
     credits: RawData;
-    allArtists: any[];
+    allArtists: string[];
 
     rawTrack: RawData;
     rawAlbum: RawData;
@@ -144,14 +145,15 @@ export class MetadataService {
     }
 
     async extractMetadata(
-        trackData: RawData,
-        albumData: RawData,
-        fileInfo: RawData = {}
+        trackData: Track,
+        albumData: Album,
+        fileInfo: Record<string, unknown> = {}
     ): Promise<Metadata> {
-        const album =
-            albumData && Object.keys(albumData).length > 0 ? albumData : trackData.album || {};
-        const artist = trackData.performer || trackData.artist || {};
-        const composer = trackData.composer || {};
+        const album = (albumData && Object.keys(albumData).length > 0
+            ? albumData
+            : trackData.album || {}) as Album;
+        const artist = (trackData.performer || trackData.artist || {}) as Artist;
+        const composer = (trackData.composer || {}) as Artist;
 
         const performers = this.extractPerformers(trackData, albumData);
         const credits = this.extractCredits(albumData);
@@ -159,9 +161,9 @@ export class MetadataService {
         const allArtistNames = new Set<string>();
 
         if (performers.main.length > 0) {
-            performers.main.forEach((p: any) => allArtistNames.add(p.name));
+            performers.main.forEach((p: { name: string }) => allArtistNames.add(p.name));
         } else {
-            const fallback = artist.name || trackData.performer?.name || 'Unknown';
+            const fallback = (trackData.performer?.name || trackData.artist?.name || 'Unknown') as string;
             allArtistNames.add(fallback);
         }
 
@@ -174,8 +176,8 @@ export class MetadataService {
 
         const composerName = this.joinWithAnd(
             performers.composers.length > 0
-                ? performers.composers.map((p: any) => p.name)
-                : [trackData.composer?.name || composer.name].filter(Boolean)
+                ? performers.composers.map((p: { name: string }) => p.name)
+                : [trackData.composer?.name || (composer as Artist).name].filter(Boolean) as string[]
         );
 
         const metadata: Metadata = {
@@ -193,10 +195,10 @@ export class MetadataService {
 
                 if (list.length > 0) {
                     const lastItem = list[list.length - 1];
-                    const name = typeof lastItem === 'string' ? lastItem : lastItem.name;
+                    const name = typeof lastItem === 'string' ? lastItem : (lastItem as { name: string }).name;
                     bestGenre = name.split('→').pop()!.trim();
-                } else if (album.genre?.name) {
-                    bestGenre = album.genre.name;
+                } else if ((album.genre as { name?: string })?.name) {
+                    bestGenre = (album.genre as { name: string }).name;
                 }
 
                 const GENRE_TRANSLATIONS: Record<string, string> = {
@@ -304,16 +306,16 @@ export class MetadataService {
                 return matchedKey ? GENRE_TRANSLATIONS[matchedKey] : bestGenre;
             })(),
 
-            albumArtist: album.artist?.name || artist.name || '',
+            albumArtist: (album.artist as { name?: string })?.name || artist.name || '',
             composer: composerName,
             conductor: performers.conductor || '',
             producer: (
-                performers.producers.map((p: any) => p.name).join('; ') ||
+                performers.producers.map((p: { name: string }) => p.name).join('; ') ||
                 credits.producer ||
                 ''
             ).trim(),
             mixer: (
-                performers.mixers.map((p: any) => p.name).join('; ') ||
+                performers.mixers.map((p: { name: string }) => p.name).join('; ') ||
                 credits.mixer ||
                 ''
             ).trim(),
@@ -322,45 +324,45 @@ export class MetadataService {
                 credits.lyricist ||
                 performers.writers
                     .filter(
-                        (p: any) =>
+                        (p: { role: string }) =>
                             p.role.toLowerCase().includes('lyricist') ||
                             p.role.toLowerCase().includes('author')
                     )
-                    .map((p: any) => p.name)
+                    .map((p: { name: string }) => p.name)
                     .join('; ') ||
                 composerName ||
                 '',
             writer: (
-                performers.writers.map((p: any) => p.name).join('; ') ||
+                performers.writers.map((p: { name: string }) => p.name).join('; ') ||
                 credits.writer ||
                 composerName ||
                 ''
             ).trim(),
             arranger: credits.arranger || '',
             engineer: (
-                performers.engineers.map((p: any) => p.name).join('; ') ||
+                performers.engineers.map((p: { name: string }) => p.name).join('; ') ||
                 credits.engineer ||
                 ''
             ).trim(),
 
-            label: album.label?.name || '',
+            label: (album.label as { name?: string })?.name || '',
             copyright: album.copyright || '',
             isrc: trackData.isrc || '',
             upc: album.upc || '',
             barcode: album.upc || '',
-            catalogNumber: album.catalog_number || '',
+            catalogNumber: (album.catalog_number as string) || '',
 
-            releaseDate: this.formatDate(album.released_at),
-            originalReleaseDate: this.formatDate(album.released_at),
-            releaseType: album.release_type || 'album',
-            version: trackData.version || '',
+            releaseDate: this.formatDate(album.released_at as number),
+            originalReleaseDate: this.formatDate(album.released_at as number),
+            releaseType: (album.release_type as string) || 'album',
+            version: (trackData.version as string) || '',
 
             duration: trackData.duration || 0,
             durationFormatted: this.formatDuration(trackData.duration),
-            bitDepth: fileInfo.bitDepth || trackData.maximum_bit_depth || 16,
-            sampleRate: fileInfo.sampleRate || trackData.maximum_sampling_rate || 44.1,
-            bitrate: fileInfo.bitrate || 0,
-            channels: fileInfo.channels || 2,
+            bitDepth: (fileInfo.bitDepth as number) || trackData.maximum_bit_depth || 16,
+            sampleRate: (fileInfo.sampleRate as number) || trackData.maximum_sampling_rate || 44.1,
+            bitrate: (fileInfo.bitrate as number) || 0,
+            channels: (fileInfo.channels as number) || 2,
 
             qobuzTrackId: trackData.id?.toString() || '',
             qobuzAlbumId: album.id?.toString() || '',
@@ -378,7 +380,7 @@ export class MetadataService {
 
             performers: performers,
             credits: credits,
-            allArtists: this.getAllArtists(trackData, albumData),
+            allArtists: this.getAllArtists(trackData, albumData) as string[],
 
             rawTrack: trackData,
             rawAlbum: albumData
@@ -387,19 +389,19 @@ export class MetadataService {
         return metadata;
     }
 
-    extractPerformers(trackData: RawData, _albumData: RawData) {
+    extractPerformers(trackData: Track, _albumData: Album) {
         const performers: {
-            main: any[];
+            main: { name: string; role: string }[];
             featured: string[];
             conductor: string;
             orchestra: string;
             choir: string;
             ensemble: string;
-            composers: any[];
-            producers: any[];
-            writers: any[];
-            engineers: any[];
-            mixers: any[];
+            composers: { name: string; role: string }[];
+            producers: { name: string; role: string }[];
+            writers: { name: string; role: string }[];
+            engineers: { name: string; role: string }[];
+            mixers: { name: string; role: string }[];
         } = {
             main: [],
             featured: [],
@@ -414,15 +416,15 @@ export class MetadataService {
             mixers: []
         };
 
-        const addPerformer = (name: string, role: string, targetList: any[]) => {
+        const addPerformer = (name: string, role: string, targetList: { name: string; role: string }[]) => {
             const normalized = this.normalizeName(name);
-            const exists = targetList.some((p: any) => this.normalizeName(p.name) === normalized);
+            const exists = targetList.some((p) => this.normalizeName(p.name) === normalized);
             if (!exists) {
                 targetList.push({ name, role });
             }
         };
 
-        if (trackData.performers) {
+        if (trackData.performers && typeof trackData.performers === 'string') {
             const perfs = trackData.performers.split(' - ');
             for (const perf of perfs) {
                 const parts = perf.split(', ');
@@ -484,8 +486,8 @@ export class MetadataService {
         return performers;
     }
 
-    extractCredits(albumData: RawData) {
-        const credits: any = {
+    extractCredits(albumData: Album) {
+        const credits: Record<string, string> = {
             producer: '',
             mixer: '',
             remixer: '',
@@ -497,7 +499,7 @@ export class MetadataService {
             recordedBy: ''
         };
 
-        if (albumData?.credits) {
+        if (albumData?.credits && Array.isArray(albumData.credits)) {
             const creditMap: Record<string, string> = {
                 Producer: 'producer',
                 Mixer: 'mixer',
@@ -512,7 +514,7 @@ export class MetadataService {
                 Recording: 'recordedBy'
             };
 
-            for (const credit of albumData.credits) {
+            for (const credit of albumData.credits as { role?: string; name?: string }[]) {
                 for (const [key, field] of Object.entries(creditMap)) {
                     if (credit.role?.includes(key)) {
                         const existing = credits[field];
@@ -527,31 +529,31 @@ export class MetadataService {
         return credits;
     }
 
-    getAllArtists(trackData: RawData, albumData: RawData) {
+    getAllArtists(trackData: Track, albumData: Album) {
         const artists = new Set();
 
-        if (trackData.performer?.name) artists.add(trackData.performer.name);
-        if (trackData.artist?.name) artists.add(trackData.artist.name);
-        if (trackData.composer?.name) artists.add(trackData.composer.name);
-        if (albumData?.artist?.name) artists.add(albumData.artist.name);
+        if ((trackData.performer as { name?: string })?.name) artists.add((trackData.performer as { name: string }).name);
+        if ((trackData.artist as { name?: string })?.name) artists.add((trackData.artist as { name: string }).name);
+        if ((trackData.composer as { name?: string })?.name) artists.add((trackData.composer as { name: string }).name);
+        if ((albumData?.artist as { name?: string })?.name) artists.add((albumData.artist as { name: string }).name);
 
         return Array.from(artists);
     }
 
-    formatDate(timestamp: number) {
+    formatDate(timestamp?: number) {
         if (!timestamp) return '';
         const date = new Date(timestamp * 1000);
         return date.toISOString().split('T')[0];
     }
 
-    formatDuration(seconds: number) {
+    formatDuration(seconds?: number) {
         if (!seconds) return '0:00';
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
-    formatDurationLong(seconds: number) {
+    formatDurationLong(seconds?: number) {
         if (!seconds) return '00:00:00';
         const hrs = Math.floor(seconds / 3600);
         const mins = Math.floor((seconds % 3600) / 60);
@@ -559,8 +561,8 @@ export class MetadataService {
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    buildId3Tags(metadata: Metadata, coverBuffer: Buffer | null = null, lyrics: any = null) {
-        const tags: any = {
+    buildId3Tags(metadata: Metadata, coverBuffer: Buffer | null = null, lyrics: LyricsResult | null = null) {
+        const tags: NodeID3.Tags = {
             title: metadata.title,
             artist: metadata.artist,
             album: metadata.album,
@@ -576,7 +578,7 @@ export class MetadataService {
             encodedBy: metadata.encodedBy,
 
             ISRC: metadata.isrc,
-            originalReleaseDate: metadata.originalReleaseDate,
+            originalReleaseTime: metadata.originalReleaseDate,
             comment: {
                 language: 'eng',
                 text: metadata.comment
@@ -614,7 +616,7 @@ export class MetadataService {
             if (mainLyrics) {
                 tags.unsynchronisedLyrics = {
                     language: 'eng',
-                    text: mainLyrics
+                    text: typeof mainLyrics === 'string' ? mainLyrics : ''
                 };
             }
 
@@ -625,7 +627,7 @@ export class MetadataService {
                         timeStampFormat: 2,
                         contentType: 1,
                         shortText: 'Lyrics',
-                        synchronisedText: lyrics.syltFormat.map((l: any) => ({
+                        synchronisedText: (lyrics.syltFormat as { text: string; time: number }[]).map((l: { text: string; time: number }) => ({
                             text: l.text,
                             timeStamp: l.time
                         }))
@@ -637,7 +639,7 @@ export class MetadataService {
         return tags;
     }
 
-    buildFlacTags(metadata: Metadata, lyrics: any = null) {
+    buildFlacTags(metadata: Metadata, lyrics: LyricsResult | null = null) {
         const comments = [
             ['TITLE', metadata.title],
             ['ARTIST', metadata.artist],
@@ -683,17 +685,19 @@ export class MetadataService {
             const plain = lyrics.plainLyrics || lyrics.syncedLyrics;
 
             if (synced) {
-                comments.push(['SYNCEDLYRICS', synced]);
+                const syncedStr = typeof synced === 'string' ? synced : '';
+                comments.push(['SYNCEDLYRICS', syncedStr]);
                 // Many players expect LRC format in the LYRICS tag for synced display
-                comments.push(['LYRICS', synced]);
+                comments.push(['LYRICS', syncedStr]);
             }
 
             if (plain) {
-                comments.push(['UNSYNCEDLYRICS', plain]);
-                comments.push(['UNSYNCED LYRICS', plain]);
+                const plainStr = typeof plain === 'string' ? plain : '';
+                comments.push(['UNSYNCEDLYRICS', plainStr]);
+                comments.push(['UNSYNCED LYRICS', plainStr]);
                 // If no synced lyrics, use plain for the main tag
                 if (!synced) {
-                    comments.push(['LYRICS', plain]);
+                    comments.push(['LYRICS', plainStr]);
                 }
             }
 
@@ -721,7 +725,7 @@ export class MetadataService {
         return expandedComments;
     }
 
-    async writeId3Tags(filePath: string, tags: any) {
+    async writeId3Tags(filePath: string, tags: NodeID3.Tags) {
         return new Promise((resolve, reject) => {
             const success = NodeID3.write(tags, filePath);
             if (success) {
@@ -786,7 +790,7 @@ export class MetadataService {
                 }
             });
 
-            processor.on('postprocess', (mdb: any) => {
+            processor.on('postprocess', (mdb: { type: number }) => {
                 if (mdb.type === flac.Processor.MDB_TYPE_STREAMINFO) {
                     const isVorbisLast = !coverBuffer;
                     const mdbVorbis = flac.data.MetaDataBlockVorbisComment.create(
@@ -828,21 +832,22 @@ export class MetadataService {
                         if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
                         reject(new Error('Tagging resulted in invalid file size'));
                     }
-                } catch (err: any) {
+                } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : String(err);
                     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                    reject(err);
+                    reject(new Error(message));
                 }
             });
 
-            writeStream.on('error', (err: any) => {
+            writeStream.on('error', (err: Error) => {
                 if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
                 reject(err);
             });
-            processor.on('error', (err: any) => {
+            processor.on('error', (err: Error) => {
                 if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
                 reject(err);
             });
-            readStream.on('error', (err: any) => {
+            readStream.on('error', (err: Error) => {
                 if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
                 reject(err);
             });
@@ -855,7 +860,7 @@ export class MetadataService {
         filePath: string,
         metadata: Metadata,
         _quality: number,
-        lyrics: any = null,
+        lyrics: LyricsResult | null = null,
         coverBuffer: Buffer | null = null
     ) {
         const operation = async () => {
@@ -868,8 +873,9 @@ export class MetadataService {
                     const tags = this.buildId3Tags(metadata, coverBuffer, lyrics);
                     await this.writeId3Tags(filePath, tags);
                 }
-            } catch (error: any) {
-                console.error(`[TAG] Failed to tag ${filePath}: ${error.message}`);
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error);
+                console.error(`[TAG] Failed to tag ${filePath}: ${message}`);
                 throw error;
             }
         };

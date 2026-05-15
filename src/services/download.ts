@@ -110,11 +110,11 @@ export default class DownloadService {
 
     private async fetchCoverBuffer(
         metadata: Metadata,
-        album: any
+        album: Album
     ): Promise<{ buffer: Buffer; url: string } | null> {
         const { default: axios } = await import('axios');
         const candidates = this.metadataService.getCoverUrlCandidates(
-            album?.image || {},
+            (album?.image || {}) as Record<string, unknown>,
             CONFIG.metadata.coverSize,
             metadata.coverUrl
         );
@@ -161,7 +161,6 @@ export default class DownloadService {
             plainLyrics: plainLyrics || undefined,
             unsynced: plainLyrics,
             parsedLyrics: syncedLyrics ? this.lyricsProvider.parseLrc(syncedLyrics) : undefined,
-            // @ts-ignore - syltFormat is an extension
             syltFormat: syncedLyrics ? this.lyricsProvider.toSylt(syncedLyrics) : undefined
         };
     }
@@ -234,7 +233,7 @@ export default class DownloadService {
         const actualQuality = fileUrlData.format_id || requestedQuality;
         if (options.onQuality) options.onQuality(actualQuality);
 
-        let metadata = await this.metadataService.extractMetadata(track, album!, {});
+        let metadata = await this.metadataService.extractMetadata(track, (album || {}) as Album, {});
         
         if (CONFIG.ai.enabled) {
             const repaired = await aiMetadataService.repairMetadata(metadata);
@@ -321,7 +320,7 @@ export default class DownloadService {
             if (album && (CONFIG.metadata.embedCover || CONFIG.metadata.saveCoverFile)) {
                 if (options.onProgress) options.onProgress({ phase: 'cover', loaded: 0 });
                 try {
-                    const cover = await this.fetchCoverBuffer(metadata, album);
+                    const cover = await this.fetchCoverBuffer(metadata, album as Album);
                     if (cover) {
                         coverBuffer = cover.buffer;
                         metadata.coverUrl = cover.url;
@@ -339,7 +338,7 @@ export default class DownloadService {
                 filePath,
                 metadata,
                 actualQuality,
-                CONFIG.metadata.embedLyrics ? lyricsResult : null,
+                CONFIG.metadata.embedLyrics ? (lyricsResult as LyricsResult) : null,
                 coverBuffer
             );
 
@@ -351,8 +350,9 @@ export default class DownloadService {
                     if (!scanResult.isTrueLossless) {
                         logger.warn(`Quality Warning for ${metadata.title}: ${scanResult.details}`, 'SCANNER');
                     }
-                } catch (e: any) {
-                    logger.error(`Quality scan failed: ${e.message}`, 'SCANNER');
+                } catch (e: unknown) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    logger.error(`Quality scan failed: ${message}`, 'SCANNER');
                 }
             }
 
@@ -366,7 +366,7 @@ export default class DownloadService {
 
             resumeService.completeDownload(trackId.toString());
 
-            this.updateDatabase(trackId, metadata, actualQuality, finalFilePath, size, md5, track, album, scanResult);
+            this.updateDatabase(trackId, metadata, actualQuality, finalFilePath, size, md5, track, album as Album, scanResult);
 
             mediaServerService.notifyNewContent({
                 title: metadata.title,
@@ -376,14 +376,25 @@ export default class DownloadService {
                 filePath
             });
 
-            return { success: true, filePath, quality: actualQuality, metadata, lyrics: lyricsResult };
-        } catch (error: any) {
+            return { success: true, filePath, quality: actualQuality, metadata, lyrics: lyricsResult as LyricsResult };
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
             if (existsSync(filePath)) unlinkSync(filePath);
-            return { success: false, error: error.message };
+            return { success: false, error: message };
         }
     }
 
-    private async updateDatabase(trackId: any, metadata: any, quality: any, filePath: any, size: any, md5: any, _track: any, _album: any, scanResult?: QualityReport) {
+    private async updateDatabase(
+        trackId: string | number,
+        metadata: Metadata,
+        quality: number,
+        filePath: string,
+        size: number,
+        md5: string,
+        _track: Track,
+        _album: Album,
+        scanResult?: QualityReport
+    ) {
         historyService.add(trackId, {
             filename: filePath,
             quality: quality,
@@ -419,14 +430,15 @@ export default class DownloadService {
                 checksum: md5,
                 verification_status: 'verified'
             });
-        } catch (e: any) {
-            logger.warn(`DB update failed: ${e.message}`, 'DB');
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : String(e);
+            logger.warn(`DB update failed: ${message}`, 'DB');
         }
     }
 
     private concurrencyLimit = globalApiLimit;
 
-    private writeErrorLog(folderPath: string, failedItems: { res: DownloadResult; track: any }[]) {
+    private writeErrorLog(folderPath: string, failedItems: { res: DownloadResult; track: Track }[]) {
         try {
             if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true });
             const logPath = path.join(folderPath, 'missing_tracks.txt');
@@ -447,8 +459,9 @@ export default class DownloadService {
 
             writeFileSync(logPath, content, 'utf8');
             logger.warn(`Created missing tracks log at: ${logPath}`, 'DOWNLOAD');
-        } catch (e: any) {
-            logger.error(`Failed to write missing tracks log: ${e.message}`, 'DOWNLOAD');
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : String(e);
+            logger.error(`Failed to write missing tracks log: ${message}`, 'DOWNLOAD');
         }
     }
 
@@ -468,7 +481,7 @@ export default class DownloadService {
  
         const tracks = album?.tracks?.items || [];
  
-        const promises = tracks.map((track: any) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
+        const promises = tracks.map((track: Track) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
             album,
             isCancelled: options.isCancelled,
             onProgress: (p) => {
@@ -496,7 +509,7 @@ export default class DownloadService {
                 albumFolderPath = path.dirname(firstSuccess.filePath);
             } else {
                 try {
-                    const tempMetadata = await this.metadataService.extractMetadata(tracks[0], album!, {});
+                    const tempMetadata = await this.metadataService.extractMetadata(tracks[0] as Track, album! as Album, {});
                     const outputDir = this.getOutputDir();
                     const rawFolderPath = this.processor.buildFolderPath(tempMetadata, requestedQuality);
                     const { folder: safeFolder } = this.processor.ensurePathSafety(
@@ -505,7 +518,7 @@ export default class DownloadService {
                         'dummy.txt'
                     );
                     albumFolderPath = path.join(outputDir, safeFolder);
-                } catch (e) {
+                } catch {
                     logger.error('Could not determine album folder for error logging', 'DOWNLOAD');
                 }
             }
@@ -548,7 +561,7 @@ export default class DownloadService {
  
         const tracks = playlist.tracks.items;
  
-        const promises = tracks.map((track: any) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
+        const promises = tracks.map((track: Track) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
             isCancelled: options.isCancelled,
             onProgress: (p) => {
                 if (options.onProgress) options.onProgress(track.id.toString(), {
@@ -574,8 +587,8 @@ export default class DownloadService {
                 let folder = '';
                 try {
                     const tempMetadata = await this.metadataService.extractMetadata(
-                        item.track,
-                        item.track.album || {},
+                        item.track as Track,
+                        (item.track.album || {}) as Album,
                         {}
                     );
                     const outputDir = this.getOutputDir();
@@ -586,7 +599,7 @@ export default class DownloadService {
                         'dummy.txt'
                     );
                     folder = path.join(outputDir, safeFolder);
-                } catch (e) {
+                } catch {
                     logger.debug(`Could not determine folder for playlist failure: ${item.track.id}`);
                 }
 
@@ -622,7 +635,7 @@ export default class DownloadService {
         const requestedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const artistInfo = await this.api.getArtist(artistId);
         if (!artistInfo.success) return { success: false, error: artistInfo.error };
-        const artist = artistInfo.data as any;
+        const artist = artistInfo.data!;
 
         if (options.onMetadata) {
             options.onMetadata({
@@ -635,7 +648,7 @@ export default class DownloadService {
         const albumsRes = await this.api.getArtistAlbums(artistId, 50);
         if (!albumsRes.success) return { success: false, error: albumsRes.error };
  
-        const albums = (albumsRes.data as any)?.items || [];
+        const albums = (albumsRes.data as { items?: Album[] })?.items || [];
         
         const results = [];
         for (const album of albums) {
