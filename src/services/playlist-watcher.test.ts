@@ -1,37 +1,50 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PlaylistWatcherService } from './PlaylistWatcherService.js';
+import QobuzAPI from '../api/qobuz.js';
 import { databaseService } from './database/index.js';
 import { downloadQueue } from './queue/queue.js';
 import { historyService } from './history.js';
 import { notificationService } from './notifications.js';
 
-vi.mock('../api/qobuz.js', () => ({
-    default: vi.fn().mockImplementation(function() {
-        return {
-            getPlaylist: vi.fn()
-        };
-    })
-}));
-
+// Mock dependencies
+vi.mock('../api/qobuz.js', () => {
+    return {
+        default: vi.fn().mockImplementation(function() {
+            return {
+                getPlaylist: vi.fn().mockResolvedValue({
+                    success: true,
+                    data: {
+                        tracks: {
+                            items: [
+                                { id: 'new1', title: 'New Track 1' },
+                                { id: 'old1', title: 'Old Track 1' }
+                            ]
+                        }
+                    }
+                })
+            };
+        })
+    };
+});
 
 vi.mock('./database/index.js', () => ({
     databaseService: {
-        getWatchedPlaylists: vi.fn(),
-        hasTrack: vi.fn(),
+        getWatchedPlaylists: vi.fn().mockReturnValue([]),
+        hasTrack: vi.fn().mockReturnValue(false),
         updatePlaylistSyncTime: vi.fn()
     }
 }));
 
 vi.mock('./queue/queue.js', () => ({
     downloadQueue: {
-        hasContent: vi.fn(),
+        hasContent: vi.fn().mockReturnValue(false),
         add: vi.fn()
     }
 }));
 
 vi.mock('./history.js', () => ({
     historyService: {
-        has: vi.fn()
+        has: vi.fn().mockReturnValue(false)
     }
 }));
 
@@ -41,99 +54,87 @@ vi.mock('./notifications.js', () => ({
     }
 }));
 
+vi.mock('../utils/logger.js', () => ({
+    logger: {
+        info: vi.fn(),
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        success: vi.fn()
+    }
+}));
+
 describe('PlaylistWatcherService', () => {
     let service: PlaylistWatcherService;
     let mockApi: any;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        mockApi = {
-            getPlaylist: vi.fn()
-        };
-        service = new PlaylistWatcherService(mockApi as any);
+        mockApi = new QobuzAPI();
+        service = new PlaylistWatcherService(mockApi);
     });
 
-    it('should add new tracks to queue if they are not in history/db/queue', async () => {
-        const mockPlaylist = {
-            id: 1,
-            playlist_id: 'pl1',
-            title: 'Test Playlist',
-            interval_hours: 1,
-            quality: 27,
-            last_synced_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString() // 2 hours ago
-        };
+    describe('Timer Control', () => {
+        it('should start and stop timer', () => {
+            vi.useFakeTimers();
+            service.start(60);
+            expect(vi.getTimerCount()).toBe(1);
+            service.stop();
+            expect(vi.getTimerCount()).toBe(0);
+            vi.useRealTimers();
+        });
+    });
 
-        vi.mocked(databaseService.getWatchedPlaylists).mockReturnValue([mockPlaylist]);
-        mockApi.getPlaylist.mockResolvedValue({
-            success: true,
-            data: {
-                tracks: {
-                    items: [
-                        { id: 't1', title: 'New Track' }
-                    ]
-                }
-            }
+    describe('Scanning Logic', () => {
+        it('should skip scanning if already in progress', async () => {
+            (service as any).isScanning = true;
+            await service.scanAllPlaylists();
+            expect(databaseService.getWatchedPlaylists).not.toHaveBeenCalled();
         });
 
-        vi.mocked(historyService.has).mockReturnValue(false);
-        vi.mocked(databaseService.hasTrack).mockReturnValue(false);
-        vi.mocked(downloadQueue.hasContent).mockReturnValue(false);
+        it('should check for new tracks and add to queue', async () => {
+            const mockPlaylist = {
+                id: 1,
+                playlist_id: 'pl1',
+                title: 'Test Playlist',
+                interval_hours: 1,
+                quality: 27,
+                last_synced_at: '2020-01-01' // Very old
+            };
+            vi.mocked(databaseService.getWatchedPlaylists).mockReturnValue([mockPlaylist]);
+            
+            // Mock track deduplication: new1 is new, old1 is in history
+            vi.mocked(historyService.has).mockImplementation((id) => id === 'old1');
 
-        await service.scanAllPlaylists();
+            await service.scanAllPlaylists();
 
-        expect(downloadQueue.add).toHaveBeenCalledWith(
-            'track',
-            't1',
-            27,
-            expect.objectContaining({ title: 'New Track' })
-        );
-        expect(databaseService.updatePlaylistSyncTime).toHaveBeenCalledWith('1');
-        expect(notificationService.info).toHaveBeenCalled();
-    });
-
-    it('should skip tracks that are already in history', async () => {
-        const mockPlaylist = {
-            id: 1,
-            playlist_id: 'pl1',
-            title: 'Test Playlist',
-            interval_hours: 1,
-            quality: 27,
-            last_synced_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
-        };
-
-        vi.mocked(databaseService.getWatchedPlaylists).mockReturnValue([mockPlaylist]);
-        mockApi.getPlaylist.mockResolvedValue({
-            success: true,
-            data: {
-                tracks: {
-                    items: [
-                        { id: 't1', title: 'Old Track' }
-                    ]
-                }
-            }
+            expect(mockApi.getPlaylist).toHaveBeenCalledWith('pl1');
+            expect(downloadQueue.add).toHaveBeenCalledTimes(1);
+            expect(downloadQueue.add).toHaveBeenCalledWith(
+                'track', 
+                'new1', 
+                expect.any(Number), 
+                expect.objectContaining({ title: 'New Track 1' })
+            );
+            expect(databaseService.updatePlaylistSyncTime).toHaveBeenCalledWith('1');
+            expect(notificationService.info).toHaveBeenCalled();
         });
 
-        vi.mocked(historyService.has).mockReturnValue(true);
+        it('should respect sync interval', async () => {
+            const now = new Date();
+            const mockPlaylist = {
+                id: 1,
+                playlist_id: 'pl1',
+                title: 'Test Playlist',
+                interval_hours: 24,
+                quality: 27,
+                last_synced_at: now.toISOString() // Just synced
+            };
+            vi.mocked(databaseService.getWatchedPlaylists).mockReturnValue([mockPlaylist]);
 
-        await service.scanAllPlaylists();
+            await service.scanAllPlaylists();
 
-        expect(downloadQueue.add).not.toHaveBeenCalled();
-    });
-
-    it('should skip playlist if not enough time has passed since last sync', async () => {
-        const mockPlaylist = {
-            id: 1,
-            playlist_id: 'pl1',
-            title: 'Test Playlist',
-            interval_hours: 5,
-            quality: 27,
-            last_synced_at: new Date(Date.now() - 1 * 3600 * 1000).toISOString() // 1 hour ago, but interval is 5
-        };
-
-        vi.mocked(databaseService.getWatchedPlaylists).mockReturnValue([mockPlaylist]);
-
-        await service.scanAllPlaylists();
-
-        expect(mockApi.getPlaylist).not.toHaveBeenCalled();
+            expect(mockApi.getPlaylist).not.toHaveBeenCalled();
+        });
     });
 });
