@@ -56,7 +56,8 @@ const KNOWN_SETTING_KEYS = [
 
 export type KnownSettingKey = (typeof KNOWN_SETTING_KEYS)[number];
 
-class SettingsService {
+export class SettingsService {
+
     private initialized = false;
     private cache = new Map<string, string>();
 
