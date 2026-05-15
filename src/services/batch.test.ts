@@ -3,7 +3,7 @@ import { ResumeService, BatchImportService } from './batch.js';
 import { downloadQueue } from './queue/queue.js';
 import { inputValidator } from '../utils/validator.js';
 import fs from 'fs';
-import { EventEmitter } from 'events';
+// import { EventEmitter } from 'events';
 
 // Mock dependencies
 vi.mock('fs', async () => {
@@ -88,7 +88,7 @@ describe('ResumeService', () => {
     it('should determine if a download can be resumed', () => {
         service.startDownload('t1', 'p1.flac', 1000, 27);
         vi.mocked(fs.existsSync).mockReturnValue(true);
-        vi.mocked(fs.statSync).mockReturnValue({ size: 500 } as any);
+        vi.mocked(fs.statSync).mockReturnValue({ size: 500 } as unknown as fs.Stats);
 
         expect(service.canResume('t1')).toBe(true);
         expect(service.getResumePosition('t1')).toBe(500);
@@ -100,7 +100,7 @@ describe('ResumeService', () => {
         expect(service.canResume('t1')).toBe(false);
 
         vi.mocked(fs.existsSync).mockReturnValue(true);
-        vi.mocked(fs.statSync).mockReturnValue({ size: 1000 } as any);
+        vi.mocked(fs.statSync).mockReturnValue({ size: 1000 } as unknown as fs.Stats);
         expect(service.canResume('t1')).toBe(false);
     });
 });
@@ -140,17 +140,17 @@ describe('BatchImportService', () => {
         
         // Simulate all items completed
         downloadQueue.emit('item:completed', { 
-            metadata: { batchId: Array.from((service as any).activeBatches.keys())[0] },
+            metadata: { batchId: Array.from((service as unknown as { activeBatches: Map<string, unknown> }).activeBatches.keys())[0] },
             filePath: 'file.flac'
         });
         downloadQueue.emit('item:completed', { 
-            metadata: { batchId: Array.from((service as any).activeBatches.keys())[0] },
+            metadata: { batchId: Array.from((service as unknown as { activeBatches: Map<string, unknown> }).activeBatches.keys())[0] },
             filePath: 'file2.flac'
         });
 
         // FinalizeBatch should have been called
         await new Promise(r => setTimeout(r, 10));
-        expect((service as any).activeBatches.size).toBe(0);
+        expect((service as unknown as { activeBatches: Map<string, unknown> }).activeBatches.size).toBe(0);
 
     });
 });

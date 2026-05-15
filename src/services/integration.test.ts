@@ -44,7 +44,8 @@ vi.mock('../utils/network.js', () => ({
                     setTimeout(() => writer.end(), 10);
                     return writer;
                 }),
-                on: vi.fn()
+                on: vi.fn(),
+                destroy: vi.fn()
             }
         });
     })
@@ -163,16 +164,16 @@ vi.mock('fs', async (importOriginal) => {
             mkdirSync: vi.fn(),
             writeFileSync: vi.fn(),
             createWriteStream: vi.fn().mockReturnValue({
-                on: vi.fn().mockImplementation(function(this: any, event, cb) {
+                on: vi.fn().mockImplementation(function(this: unknown, event, cb) {
                     if (event === 'finish') setTimeout(cb, 10);
-                    return this;
+                    return this as unknown as Record<string, unknown>;
                 }),
                 once: vi.fn(),
                 emit: vi.fn(),
                 write: vi.fn().mockReturnValue(true),
-                end: vi.fn().mockImplementation(function(this: any) {
-                    this.emit('finish');
-                    return this;
+                end: vi.fn().mockImplementation(function(this: unknown) {
+                    (this as Record<string, unknown>).emit('finish');
+                    return this as unknown as Record<string, unknown>;
                 }),
                 destroy: vi.fn(),
                 closed: false

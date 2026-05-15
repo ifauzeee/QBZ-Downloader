@@ -23,10 +23,10 @@ vi.mock('fs', async () => {
     return {
         createWriteStream: vi.fn().mockImplementation(() => {
             const writer = new EventEmitter();
-            (writer as any).write = vi.fn();
-            (writer as any).end = vi.fn();
-            (writer as any).destroy = vi.fn();
-            (writer as any).pipe = vi.fn().mockReturnThis();
+            (writer as unknown as Record<string, unknown>).write = vi.fn();
+            (writer as unknown as Record<string, unknown>).end = vi.fn();
+            (writer as unknown as Record<string, unknown>).destroy = vi.fn();
+            (writer as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
             return writer;
         }),
         createReadStream: vi.fn().mockImplementation(() => {
@@ -35,10 +35,10 @@ vi.mock('fs', async () => {
         default: {
             createWriteStream: vi.fn().mockImplementation(() => {
                 const writer = new EventEmitter();
-                (writer as any).write = vi.fn();
-                (writer as any).end = vi.fn();
-                (writer as any).destroy = vi.fn();
-                (writer as any).pipe = vi.fn().mockReturnThis();
+                (writer as unknown as Record<string, unknown>).write = vi.fn();
+                (writer as unknown as Record<string, unknown>).end = vi.fn();
+                (writer as unknown as Record<string, unknown>).destroy = vi.fn();
+                (writer as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
                 return writer;
             }),
             createReadStream: vi.fn().mockImplementation(() => {

@@ -34,13 +34,13 @@ describe('AIMetadataService', () => {
     describe('Sanitization', () => {
         it('should sanitize input strings', () => {
             const input = '`Dangerous` $Text \\With Backslashes';
-            const result = (service as any).sanitize(input);
+            const result = (service as unknown as { sanitize: (s: string) => string }).sanitize(input);
             expect(result).toBe('Dangerous Text With Backslashes');
         });
 
         it('should truncate long strings', () => {
             const long = 'a'.repeat(300);
-            const result = (service as any).sanitize(long);
+            const result = (service as unknown as { sanitize: (s: string) => string }).sanitize(long);
             expect(result.length).toBe(200);
         });
     });
