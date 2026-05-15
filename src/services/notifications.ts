@@ -13,7 +13,8 @@ export interface Notification {
     data?: any;
 }
 
-class NotificationService extends EventEmitter {
+export class NotificationService extends EventEmitter {
+
     private notifications: Notification[] = [];
     private maxNotifications: number = 100;
     private idCounter: number = 0;

@@ -20,7 +20,8 @@ interface ThemeRow {
     updated_at: string;
 }
 
-class ThemeService {
+export class ThemeService {
+
     async create(name: string, isDark: boolean, colors: Record<string, string>): Promise<Theme> {
         const id = crypto.randomUUID();
         const now = new Date().toISOString();
