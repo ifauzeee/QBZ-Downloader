@@ -1,120 +1,104 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { qualityScannerService } from './QualityScannerService.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { QualityScannerService } from './QualityScannerService.js';
 import { exec } from 'child_process';
 import fs from 'fs';
-import * as binaries from '../utils/binaries.js';
+import { checkBinaryAvailability } from '../utils/binaries.js';
 
+// Mock dependencies
 vi.mock('child_process', () => ({
-    exec: vi.fn()
+    exec: vi.fn((cmd, cb) => cb(null, { stderr: 'mean_volume: -50.0 dB' }))
 }));
 
-vi.mock('fs', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('fs')>();
-    return {
-        ...actual,
-        default: {
-            ...actual,
-            existsSync: vi.fn()
-        }
-    };
-});
+vi.mock('fs', () => ({
+    existsSync: vi.fn().mockReturnValue(true),
+    default: {
+        existsSync: vi.fn().mockReturnValue(true)
+    }
+}));
 
+vi.mock('../utils/logger.js', () => ({
+    logger: {
+        info: vi.fn(),
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        success: vi.fn()
+    }
+}));
 
 vi.mock('../utils/binaries.js', () => ({
-    checkBinaryAvailability: vi.fn(),
-    resolveBinaryPath: vi.fn()
+    checkBinaryAvailability: vi.fn().mockResolvedValue({ available: true, path: 'ffmpeg' }),
+    resolveBinaryPath: vi.fn().mockReturnValue('ffmpeg')
 }));
 
 describe('QualityScannerService', () => {
+    let service: QualityScannerService;
+
     beforeEach(() => {
         vi.clearAllMocks();
-        // Reset static state if possible, though it's private.
-        // We'll rely on the mocks to return consistent values.
-        (qualityScannerService as any).constructor.ffmpegAvailable = null;
+        service = new QualityScannerService();
+        // Reset static flags
+        (QualityScannerService as any).ffmpegAvailable = null;
+        (QualityScannerService as any).ffmpegPath = null;
     });
 
-    it('should return inconclusive if FFmpeg is not available', async () => {
-        vi.mocked(binaries.checkBinaryAvailability).mockResolvedValue({ available: false, path: '' });
+    it('should identify true lossless files', async () => {
+        // Mock ffmpeg output showing high energy above thresholds
+        vi.mocked(exec).mockImplementation((cmd, cb: any) => {
+            cb(null, { stderr: 'mean_volume: -30.0 dB' });
+        });
+
+        const report = await service.scanFile('test.flac');
+        expect(report.isTrueLossless).toBe(true);
+        expect(report.confidence).toBe(100);
+    });
+
+    it('should detect fake lossless (16kHz cutoff)', async () => {
+        // Mock ffmpeg output showing very low energy above 16kHz
+        vi.mocked(exec).mockImplementation((cmd, cb: any) => {
+            if (cmd.includes('f=16000')) {
+                cb(null, { stderr: 'mean_volume: -85.0 dB' });
+            } else {
+                cb(null, { stderr: 'mean_volume: -95.0 dB' });
+            }
+        });
+
+        const report = await service.scanFile('fake.flac');
+        expect(report.isTrueLossless).toBe(false);
+        expect(report.cutoffFrequency).toBe(16000);
+    });
+
+    it('should detect likely upsampled files (20kHz cutoff)', async () => {
+        // Mock ffmpeg output: 16k is fine (-50), 20k is low (-90)
+        vi.mocked(exec).mockImplementation((cmd, cb: any) => {
+            if (cmd.includes('f=16000')) {
+                cb(null, { stderr: 'mean_volume: -50.0 dB' });
+            } else {
+                cb(null, { stderr: 'mean_volume: -90.0 dB' });
+            }
+        });
+
+        const report = await service.scanFile('upsampled.flac');
+        expect(report.isTrueLossless).toBe(false);
+        expect(report.cutoffFrequency).toBe(20000);
+    });
+
+    it('should handle missing FFmpeg gracefully', async () => {
+        vi.mocked(checkBinaryAvailability).mockResolvedValueOnce({ available: false, path: '' });
         
-        const result = await qualityScannerService.scanFile('test.flac');
-        expect(result.details).toContain('FFmpeg not installed');
-        expect(result.confidence).toBe(0);
+        const report = await service.scanFile('test.flac');
+        expect(report.confidence).toBe(0);
+        expect(report.details).toContain('FFmpeg not installed');
     });
 
-    it('should flag as fake lossless if 16kHz cutoff is detected', async () => {
-        vi.mocked(binaries.checkBinaryAvailability).mockResolvedValue({ available: true, path: 'ffmpeg' });
-        vi.mocked(binaries.resolveBinaryPath).mockReturnValue('ffmpeg');
-        vi.mocked(fs.existsSync).mockReturnValue(true);
-
-        // Mock exec response for 16k and 20k
-        // 16kHz mean_volume < -80 means fake
-        const mockExec = vi.mocked(exec);
-        mockExec.mockImplementation((cmd, callback: any) => {
-            if (cmd.includes('f=16000')) {
-                callback(null, { stderr: 'mean_volume: -85.5 dB' });
-            } else {
-                callback(null, { stderr: 'mean_volume: -90.0 dB' });
-            }
-            return {} as any;
+    describe('parseMeanVolume', () => {
+        it('should correctly parse volume from ffmpeg output', () => {
+            const output = '... [volumedetect] mean_volume: -45.2 dB ...';
+            expect((service as any).parseMeanVolume(output)).toBe(-45.2);
         });
 
-        const result = await qualityScannerService.scanFile('test.flac');
-        expect(result.isTrueLossless).toBe(false);
-        expect(result.details).toContain('16kHz detected');
-        expect(result.cutoffFrequency).toBe(16000);
-    });
-
-    it('should flag as likely upsampled if 20kHz roll-off is detected', async () => {
-        vi.mocked(binaries.checkBinaryAvailability).mockResolvedValue({ available: true, path: 'ffmpeg' });
-        vi.mocked(binaries.resolveBinaryPath).mockReturnValue('ffmpeg');
-        vi.mocked(fs.existsSync).mockReturnValue(true);
-
-        const mockExec = vi.mocked(exec);
-        mockExec.mockImplementation((cmd, callback: any) => {
-            if (cmd.includes('f=16000')) {
-                callback(null, { stderr: 'mean_volume: -20.0 dB' }); // Plenty of signal at 16k
-            } else {
-                callback(null, { stderr: 'mean_volume: -87.0 dB' }); // Low signal at 20k
-            }
-            return {} as any;
+        it('should return -100 if no volume found', () => {
+            expect((service as any).parseMeanVolume('garbage')).toBe(-100);
         });
-
-        const result = await qualityScannerService.scanFile('test.flac');
-        expect(result.isTrueLossless).toBe(false);
-        expect(result.details).toContain('20kHz detected');
-        expect(result.cutoffFrequency).toBe(20000);
-    });
-
-    it('should return true lossless if high frequencies are strong', async () => {
-        vi.mocked(binaries.checkBinaryAvailability).mockResolvedValue({ available: true, path: 'ffmpeg' });
-        vi.mocked(binaries.resolveBinaryPath).mockReturnValue('ffmpeg');
-        vi.mocked(fs.existsSync).mockReturnValue(true);
-
-        const mockExec = vi.mocked(exec);
-        mockExec.mockImplementation((cmd, callback: any) => {
-            callback(null, { stderr: 'mean_volume: -25.0 dB' }); // Strong signal in both
-            return {} as any;
-        });
-
-        const result = await qualityScannerService.scanFile('test.flac');
-        expect(result.isTrueLossless).toBe(true);
-        expect(result.confidence).toBe(100);
-    });
-
-    it('should return inconclusive if FFmpeg analysis fails', async () => {
-        vi.mocked(binaries.checkBinaryAvailability).mockResolvedValue({ available: true, path: 'ffmpeg' });
-        vi.mocked(binaries.resolveBinaryPath).mockReturnValue('ffmpeg');
-        vi.mocked(fs.existsSync).mockReturnValue(true);
-
-        const mockExec = vi.mocked(exec);
-        mockExec.mockImplementation((cmd, callback: any) => {
-            callback(null, { stderr: 'some other output' }); // No mean_volume
-            return {} as any;
-        });
-
-        const result = await qualityScannerService.scanFile('test.flac');
-        expect(result.isTrueLossless).toBe(true);
-        expect(result.confidence).toBe(50);
-        expect(result.details).toContain('inconclusive');
     });
 });

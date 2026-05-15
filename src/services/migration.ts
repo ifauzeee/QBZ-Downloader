@@ -12,7 +12,8 @@ export interface MigrationResult {
     matchScore: number;
 }
 
-class MigrationService {
+export class MigrationService {
+
     private qobuzApi: QobuzAPI;
 
     constructor(qobuzApi: QobuzAPI) {
