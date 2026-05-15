@@ -64,7 +64,8 @@ export interface DbPluginConfig {
     installed_at: string;
 }
 
-class DatabaseService {
+export class DatabaseService {
+
     private db: Database.Database | null = null;
     private dbPath: string;
     private initialized = false;
@@ -77,13 +78,18 @@ class DatabaseService {
         if (this.initialized) return;
 
         try {
-            const absolutePath = path.resolve(this.dbPath);
-            const dir = path.dirname(absolutePath);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
+            const isMemory = this.dbPath === ':memory:';
+            const absolutePath = isMemory ? ':memory:' : path.resolve(this.dbPath);
+            
+            if (!isMemory) {
+                const dir = path.dirname(absolutePath);
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
             }
 
             this.db = new Database(absolutePath);
+
             this.dbPath = absolutePath; 
             const journalMode = process.env.SQLITE_JOURNAL_MODE || 'WAL';
             this.db.pragma(`journal_mode = ${journalMode}`);

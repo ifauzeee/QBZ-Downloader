@@ -61,7 +61,8 @@ export interface ScanProgress {
 
 import { checkBinaryAvailability, resolveBinaryPath } from '../../utils/binaries.js';
 
-class LibraryScannerService extends EventEmitter {
+export class LibraryScannerService extends EventEmitter {
+
     private isScanning = false;
     private scanAborted = false;
     private supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
