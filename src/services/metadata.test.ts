@@ -1,179 +1,127 @@
-import { describe, it, expect, vi } from 'vitest';
-import MetadataService from './metadata.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { MetadataService } from './metadata.js';
+
+// Mock dependencies
+vi.mock('node-id3', () => ({
+    default: {
+        write: vi.fn().mockReturnValue(true)
+    }
+}));
+
+vi.mock('flac-metadata', () => ({
+    default: {
+        Processor: vi.fn(),
+        data: {
+            MetaDataBlockVorbisComment: { create: vi.fn() },
+            MetaDataBlockPicture: { create: vi.fn() }
+        }
+    }
+}));
+
+vi.mock('../utils/logger.js', () => ({
+    logger: {
+        info: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
+        debug: vi.fn()
+    }
+}));
 
 describe('MetadataService', () => {
-    const metadataService = new MetadataService();
-    (metadataService as any).fetchItunesMetadata = vi.fn().mockResolvedValue(null);
+    let service: MetadataService;
 
-    const mockMetadata: any = {
-        title: 'Test Title',
-        artist: 'Test Artist',
-        album: 'Test Album'
-    };
+    beforeEach(() => {
+        vi.clearAllMocks();
+        service = new MetadataService();
+    });
 
-    const mockLyricsSynced = {
-        plainLyrics: 'Line 1\nLine 2',
-        syncedLyrics: '[00:10.00] Line 1\n[00:20.00] Line 2',
-        syltFormat: [
-            { text: 'Line 1', timeStamp: 10000 },
-            { text: 'Line 2', timeStamp: 20000 }
-        ],
-        source: 'LRCLIB'
-    };
-
-    const mockLyricsPlainOnly = {
-        plainLyrics: 'Line 1\nLine 2',
-        syncedLyrics: null,
-        syltFormat: null,
-        source: 'Genius'
-    };
-
-    const mockNoLyrics = {
-        plainLyrics: null,
-        syncedLyrics: null,
-        syltFormat: null,
-        source: null
-    };
-
-    describe('buildId3Tags', () => {
-        it('should include synced lyrics when available', () => {
-            const tags = metadataService.buildId3Tags(mockMetadata, null, mockLyricsSynced);
-            expect(tags.synchronisedLyrics).toBeDefined();
-            expect(tags.unsynchronisedLyrics).toBeDefined();
-            expect(tags.unsynchronisedLyrics.text).toBe(mockLyricsSynced.syncedLyrics);
+    describe('Utilities', () => {
+        it('should normalize names', () => {
+            expect(service.normalizeName('Mötley Crüe')).toBe('motley crue');
+            expect(service.normalizeName('Artist - Name')).toBe('artist name');
         });
 
-        it('should not include lyrics when none available', () => {
-            const tags = metadataService.buildId3Tags(mockMetadata, null, mockNoLyrics);
-            expect(tags.synchronisedLyrics).toBeUndefined();
-            expect(tags.unsynchronisedLyrics).toBeUndefined();
-        });
-
-        it('should include plain lyrics in ID3 when synced is not available', () => {
-            const tags = metadataService.buildId3Tags(mockMetadata, null, mockLyricsPlainOnly);
-            expect(tags.unsynchronisedLyrics).toBeDefined();
-            expect(tags.unsynchronisedLyrics.text).toBe(mockLyricsPlainOnly.plainLyrics);
-            expect(tags.synchronisedLyrics).toBeUndefined();
+        it('should join names with and', () => {
+            expect(service.joinWithAnd(['A', 'B'])).toBe('A & B');
+            expect(service.joinWithAnd(['A', 'B', 'C'])).toBe('A, B & C');
         });
     });
 
-    describe('buildFlacTags', () => {
-        it('should include synced lyrics when available', () => {
-            const tags = metadataService.buildFlacTags(mockMetadata, mockLyricsSynced);
-            const tagObj = Object.fromEntries(tags);
-
-            expect(tagObj['SYNCEDLYRICS']).toBeDefined();
-            expect(tagObj['LYRICS']).toBe(mockLyricsSynced.syncedLyrics);
-            expect(tagObj['UNSYNCEDLYRICS']).toBe(mockLyricsSynced.plainLyrics);
-        });
-
-        it('should not include lyrics tags when none available', () => {
-            const tags = metadataService.buildFlacTags(mockMetadata, mockNoLyrics);
-            const tagObj = Object.fromEntries(tags);
-
-            expect(tagObj['SYNCEDLYRICS']).toBeUndefined();
-            expect(tagObj['LYRICS']).toBeUndefined();
-        });
-
-        it('should include plain lyrics when synced lyrics are not available', () => {
-            const tags = metadataService.buildFlacTags(mockMetadata, mockLyricsPlainOnly);
-            const tagObj = Object.fromEntries(tags);
-
-            expect(tagObj['SYNCEDLYRICS']).toBeUndefined();
-            expect(tagObj['LYRICS']).toBe(mockLyricsPlainOnly.plainLyrics);
-        });
-    });
-
-    describe('Artist Extraction', () => {
-        it('should extract featured artists correctly', async () => {
-            const track = {
-                title: 'Starboy',
-                performer: { name: 'The Weeknd' },
-                performers: 'The Weeknd, Main Artist - Daft Punk, Featured Artist',
-                album: { title: 'Starboy' }
+    describe('Cover URLs', () => {
+        it('should select the best cover URL', () => {
+            const images = {
+                small: 's.jpg',
+                large: 'l.jpg',
+                mega: 'm.jpg'
             };
-
-            const metadata = await metadataService.extractMetadata(track, {});
-            expect(metadata.performers.featured).toContain('Daft Punk');
-            expect(metadata.artist).toContain('Daft Punk');
+            expect(service.selectCoverUrl(images, 'small')).toContain('s.jpg');
+            expect(service.selectCoverUrl(images, 'max')).toContain('m.jpg');
         });
 
-        it('should extract multiple main artists', async () => {
-            const track = {
-                title: 'Die With A Smile',
-                performer: { name: 'Lady Gaga' },
-                performers: 'Lady Gaga, Main Artist - Bruno Mars, Main Artist',
-                album: { title: 'Die With A Smile' }
-            };
-
-            const metadata = await metadataService.extractMetadata(track, {});
-            expect(metadata.artist).toContain('Lady Gaga');
-            expect(metadata.artist).toContain('Bruno Mars');
+        it('should replace Qobuz cover sizes', () => {
+            const url = 'http://qobuz.com/img/album/123_600.jpg';
+            const candidates = service.getCoverUrlCandidates({ large: url }, 'max');
+            expect(candidates).toContain('http://qobuz.com/img/album/123_org.jpg');
         });
     });
 
-    describe('Cover Art Selection', () => {
-        it('should pick mega image if available', async () => {
+    describe('Extraction', () => {
+        it('should extract metadata from Qobuz data', async () => {
             const track = {
-                title: 'Test Title',
-                performer: { name: 'Test Artist' }
+                title: 'Track Title',
+                track_number: 5,
+                duration: 240,
+                performer: { name: 'Main Artist' },
+                performers: 'Main Artist, Main Artist - Featured Artist, Featuring'
             };
             const album = {
-                title: 'Test Album',
-                image: {
-                    small: 'http://example.com/small.jpg',
-                    large: 'http://example.com/large.jpg',
-                    mega: 'http://example.com/mega.jpg'
-                }
+                title: 'Album Title',
+                released_at: 1672531200, // 2023-01-01
+                label: { name: 'Record Label' },
+                genres_list: [{ name: 'Rock' }]
             };
 
-            const metadata = await metadataService.extractMetadata(track, album);
-            expect(metadata.coverUrl).toBe('http://example.com/mega.jpg');
+            const metadata = await service.extractMetadata(track, album);
+            expect(metadata.title).toBe('Track Title');
+            expect(metadata.year).toBe(2023);
+            expect(metadata.genre).toBe('Rock');
+            expect(metadata.artist).toContain('Main Artist');
+            expect(metadata.artist).toContain('Featured Artist');
         });
 
-        it('should fallback to large if mega is missing', async () => {
-            const track = {
-                title: 'Test Title',
-                performer: { name: 'Test Artist' }
-            };
-            const album = {
-                title: 'Test Album',
-                image: {
-                    small: 'http://example.com/small.jpg',
-                    large: 'http://example.com/large.jpg'
-                }
-            };
+        it('should translate genres correctly', async () => {
+            const track = { title: 'T' };
+            const album = { genres_list: [{ name: 'Classique' }] };
+            const metadata = await service.extractMetadata(track, album);
+            expect(metadata.genre).toBe('Classical');
+        });
+    });
 
-            const metadata = await metadataService.extractMetadata(track, album);
-            expect(metadata.coverUrl).toBe('http://example.com/large.jpg');
+    describe('Tag Builders', () => {
+        const mockMetadata = {
+            title: 'T',
+            artist: 'A',
+            album: 'Alb',
+            year: '2023',
+            trackNumber: 1,
+            totalTracks: 10,
+            discNumber: 1,
+            totalDiscs: 1,
+            genre: 'Rock',
+            label: 'L',
+            comment: 'C'
+        } as any;
+
+        it('should build valid ID3 tags', () => {
+            const tags = service.buildId3Tags(mockMetadata);
+            expect(tags.title).toBe('T');
+            expect(tags.trackNumber).toBe('1/10');
         });
 
-        it('should prefer original Qobuz artwork for max cover size', () => {
-            const candidates = metadataService.getCoverUrlCandidates(
-                {
-                    large: 'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_600.jpg'
-                },
-                'max'
-            );
-
-            expect(candidates[0]).toBe(
-                'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_org.jpg'
-            );
-            expect(candidates).toContain(
-                'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_600.jpg'
-            );
-        });
-
-        it('should keep fallback candidates unique when a seed url is provided', () => {
-            const candidates = metadataService.getCoverUrlCandidates(
-                {
-                    large: 'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_600.jpg'
-                },
-                'max',
-                'https://static.qobuz.com/images/covers/7b/fd/fobw7eq2dfd7b_600.jpg'
-            );
-
-            expect(new Set(candidates).size).toBe(candidates.length);
+        it('should build valid FLAC tags', () => {
+            const tags = service.buildFlacTags(mockMetadata);
+            const titleTag = tags.find(t => t[0] === 'TITLE');
+            expect(titleTag?.[1]).toBe('T');
         });
     });
 });

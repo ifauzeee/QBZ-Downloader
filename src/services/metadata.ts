@@ -70,7 +70,8 @@ export interface Metadata {
 
     replayGain?: string;
 }
-class MetadataService {
+export class MetadataService {
+
     supportedFormats: string[];
 
     constructor() {

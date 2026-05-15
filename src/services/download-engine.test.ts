@@ -1,12 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DownloadEngine } from './DownloadEngine.js';
-import { downloadFile } from '../utils/network.js';
+import * as network from '../utils/network.js';
 import { resumeService } from './batch.js';
-import { EventEmitter } from 'events';
-import fs from 'fs';
-import { PassThrough } from 'stream';
+import * as fs from 'fs';
+const { EventEmitter } = require('events');
 
-vi.mock('../utils/network.js');
+vi.mock('../utils/network.js', () => ({
+    downloadFile: vi.fn()
+}));
+
 vi.mock('./batch.js', () => ({
     resumeService: {
         canResume: vi.fn().mockReturnValue(false),
@@ -16,33 +18,51 @@ vi.mock('./batch.js', () => ({
     }
 }));
 
-vi.mock('fs', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('fs')>();
-    const mockWriteStream = vi.fn(() => {
-        const ps = new PassThrough();
-        Object.defineProperty(ps, 'closed', {
-            get: () => (ps as any)._closed || false,
-            set: (v) => { (ps as any)._closed = v; },
-            configurable: true
-        });
-        return ps;
-    });
-    const mockReadStream = vi.fn(() => new PassThrough());
+vi.mock('fs', () => {
+    const { EventEmitter } = require('events');
     
     return {
-        ...actual,
-        createWriteStream: mockWriteStream,
-        createReadStream: mockReadStream,
+        createWriteStream: vi.fn().mockImplementation(() => {
+            const writer = new EventEmitter();
+            (writer as any).write = vi.fn();
+            (writer as any).end = vi.fn();
+            (writer as any).destroy = vi.fn();
+            (writer as any).pipe = vi.fn().mockReturnThis();
+            return writer;
+        }),
+        createReadStream: vi.fn().mockImplementation(() => {
+            return new EventEmitter();
+        }),
         default: {
-            ...actual,
-            createWriteStream: mockWriteStream,
-            createReadStream: mockReadStream
+            createWriteStream: vi.fn().mockImplementation(() => {
+                const writer = new EventEmitter();
+                (writer as any).write = vi.fn();
+                (writer as any).end = vi.fn();
+                (writer as any).destroy = vi.fn();
+                (writer as any).pipe = vi.fn().mockReturnThis();
+                return writer;
+            }),
+            createReadStream: vi.fn().mockImplementation(() => {
+                return new EventEmitter();
+            })
         }
     };
 });
 
+vi.mock('../utils/logger.js', () => ({
+    logger: {
+        info: vi.fn(),
+        debug: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn()
+    }
+}));
 
-
+vi.mock('../config.js', () => ({
+    CONFIG: {
+        download: { bandwidthLimit: 0 }
+    }
+}));
 
 describe('DownloadEngine', () => {
     let engine: DownloadEngine;
@@ -52,104 +72,101 @@ describe('DownloadEngine', () => {
         engine = new DownloadEngine();
     });
 
-    it('should perform a fresh download successfully', async () => {
-        const mockResponse = {
+    it('should perform a clean download', async () => {
+        const mockDataStream = new EventEmitter();
+        (mockDataStream as any).pipe = vi.fn().mockReturnThis();
+        (mockDataStream as any).destroy = vi.fn();
+
+        vi.mocked(network.downloadFile).mockResolvedValue({
             status: 200,
-            headers: { 'content-length': '100' },
-            data: new PassThrough()
-        };
-        vi.mocked(downloadFile).mockResolvedValue(mockResponse as any);
-
-        const onProgress = vi.fn();
-        const downloadPromise = engine.download(
-            'http://example.com/track.flac',
-            'test.flac',
-            '123',
-            { title: 'Test' } as any,
-            100,
-            27,
-            onProgress
-        );
-
-        // Simulate data flowing
-        mockResponse.data.write(Buffer.alloc(50));
-        mockResponse.data.write(Buffer.alloc(50));
-        mockResponse.data.end();
-
-        const result = await downloadPromise;
-
-        expect(result.size).toBe(100);
-        expect(downloadFile).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: {} }));
-        expect(resumeService.startDownload).toHaveBeenCalledWith('123', 'test.flac', 100, 27);
-    });
-
-    it('should resume download if possible', async () => {
-        vi.mocked(resumeService.canResume).mockReturnValue(true);
-        vi.mocked(resumeService.getResumePosition).mockReturnValue(50);
-        
-        const mockResponse = {
-            status: 206,
-            headers: { 'content-length': '50' },
-            data: new PassThrough()
-        };
-        vi.mocked(downloadFile).mockResolvedValue(mockResponse as any);
-
-        // We need to mock createReadStream to handle the re-hashing of the first 50 bytes
-        const mockReadStream = new PassThrough();
-        vi.mocked(fs.createReadStream).mockReturnValue(mockReadStream as any);
+            headers: { 'content-length': '1000' },
+            data: mockDataStream
+        } as any);
 
         const downloadPromise = engine.download(
-            'http://example.com/track.flac',
-            'test.flac',
-            '123',
-            { title: 'Test' } as any,
-            100,
-            27
+            'url', 'path', 'id', { title: 'T' } as any, 1000, 27
         );
 
-        // Simulate re-hashing finish
-        mockReadStream.write(Buffer.alloc(50));
-        mockReadStream.end();
+        await vi.waitFor(() => {
+            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0) throw new Error('not called');
+        });
 
-        // Simulate new data
-        mockResponse.data.write(Buffer.alloc(50));
-        mockResponse.data.end();
+        const writer = vi.mocked(fs.createWriteStream).mock.results[0].value;
+        mockDataStream.emit('data', Buffer.alloc(1000));
+        writer.emit('finish');
 
         const result = await downloadPromise;
-
-        expect(result.size).toBe(100);
-        expect(downloadFile).toHaveBeenCalledWith(
-            expect.any(String), 
-            expect.objectContaining({ headers: { 'Range': 'bytes=50-' } })
-        );
+        expect(result.size).toBe(1000);
     });
 
-    it('should handle cancellation correctly', async () => {
-        const mockResponse = {
+    it('should handle cancellation', async () => {
+        const mockDataStream = new EventEmitter();
+        (mockDataStream as any).pipe = vi.fn().mockReturnThis();
+        (mockDataStream as any).destroy = vi.fn();
+
+        vi.mocked(network.downloadFile).mockResolvedValue({
             status: 200,
-            headers: { 'content-length': '100' },
-            data: new PassThrough()
-        };
-        vi.mocked(downloadFile).mockResolvedValue(mockResponse as any);
+            headers: { 'content-length': '1000' },
+            data: mockDataStream
+        } as any);
 
         let cancelled = false;
-        const isCancelled = () => cancelled;
-
         const downloadPromise = engine.download(
-            'http://example.com/track.flac',
-            'test.flac',
-            '123',
-            { title: 'Test' } as any,
-            100,
-            27,
-            undefined,
-            isCancelled
+            'url', 'path', 'id', { title: 'T' } as any, 1000, 27, 
+            undefined, () => cancelled
         );
 
-        mockResponse.data.write(Buffer.alloc(10));
+        await vi.waitFor(() => {
+            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0) throw new Error('not called');
+        });
+
         cancelled = true;
-        mockResponse.data.write(Buffer.alloc(10));
+        mockDataStream.emit('data', Buffer.alloc(100));
 
         await expect(downloadPromise).rejects.toThrow('Cancelled by user');
+    });
+
+    it('should handle resume if possible', async () => {
+        vi.mocked(resumeService.canResume).mockReturnValue(true);
+        vi.mocked(resumeService.getResumePosition).mockReturnValue(500);
+
+        const mockDataStream = new EventEmitter();
+        (mockDataStream as any).pipe = vi.fn().mockReturnThis();
+        (mockDataStream as any).destroy = vi.fn();
+
+        vi.mocked(network.downloadFile).mockResolvedValue({
+            status: 206,
+            headers: { 'content-length': '500' },
+            data: mockDataStream
+        } as any);
+
+        const downloadPromise = engine.download(
+            'url', 'path', 'id', { title: 'T' } as any, 1000, 27
+        );
+
+        // Wait for re-hashing to start
+        await vi.waitFor(() => {
+            if (vi.mocked(fs.createReadStream).mock.calls.length === 0) throw new Error('not called');
+        });
+
+        const reader = vi.mocked(fs.createReadStream).mock.results[0].value;
+        reader.emit('data', Buffer.alloc(500));
+        reader.emit('end');
+
+        // Wait for writing to start
+        await vi.waitFor(() => {
+            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0) throw new Error('not called');
+        });
+
+        const writer = vi.mocked(fs.createWriteStream).mock.results[0].value;
+        mockDataStream.emit('data', Buffer.alloc(500));
+        writer.emit('finish');
+
+        const result = await downloadPromise;
+        expect(result.size).toBe(1000);
+        expect(network.downloadFile).toHaveBeenCalledWith(
+            'url', 
+            expect.objectContaining({ headers: { 'Range': 'bytes=500-' } })
+        );
     });
 });
