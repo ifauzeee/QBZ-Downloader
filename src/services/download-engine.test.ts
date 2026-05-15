@@ -73,17 +73,17 @@ describe('DownloadEngine', () => {
 
     it('should perform a clean download', async () => {
         const mockDataStream = new EventEmitter();
-        (mockDataStream as any).pipe = vi.fn().mockReturnThis();
-        (mockDataStream as any).destroy = vi.fn();
+        (mockDataStream as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
+        (mockDataStream as unknown as Record<string, unknown>).destroy = vi.fn();
 
         vi.mocked(network.downloadFile).mockResolvedValue({
             status: 200,
             headers: { 'content-length': '1000' },
             data: mockDataStream
-        } as any);
+        } as unknown as any);
 
         const downloadPromise = engine.download(
-            'url', 'path', 'id', { title: 'T' } as any, 1000, 27
+            'url', 'path', 'id', { title: 'T' } as unknown as any, 1000, 27
         );
 
         await vi.waitFor(() => {
@@ -100,18 +100,18 @@ describe('DownloadEngine', () => {
 
     it('should handle cancellation', async () => {
         const mockDataStream = new EventEmitter();
-        (mockDataStream as any).pipe = vi.fn().mockReturnThis();
-        (mockDataStream as any).destroy = vi.fn();
+        (mockDataStream as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
+        (mockDataStream as unknown as Record<string, unknown>).destroy = vi.fn();
 
         vi.mocked(network.downloadFile).mockResolvedValue({
             status: 200,
             headers: { 'content-length': '1000' },
             data: mockDataStream
-        } as any);
+        } as unknown as any);
 
         let cancelled = false;
         const downloadPromise = engine.download(
-            'url', 'path', 'id', { title: 'T' } as any, 1000, 27, 
+            'url', 'path', 'id', { title: 'T' } as unknown as any, 1000, 27, 
             undefined, () => cancelled
         );
 
@@ -130,17 +130,17 @@ describe('DownloadEngine', () => {
         vi.mocked(resumeService.getResumePosition).mockReturnValue(500);
 
         const mockDataStream = new EventEmitter();
-        (mockDataStream as any).pipe = vi.fn().mockReturnThis();
-        (mockDataStream as any).destroy = vi.fn();
+        (mockDataStream as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
+        (mockDataStream as unknown as Record<string, unknown>).destroy = vi.fn();
 
         vi.mocked(network.downloadFile).mockResolvedValue({
             status: 206,
             headers: { 'content-length': '500' },
             data: mockDataStream
-        } as any);
+        } as unknown as any);
 
         const downloadPromise = engine.download(
-            'url', 'path', 'id', { title: 'T' } as any, 1000, 27
+            'url', 'path', 'id', { title: 'T' } as unknown as any, 1000, 27
         );
 
         // Wait for re-hashing to start

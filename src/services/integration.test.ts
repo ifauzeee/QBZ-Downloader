@@ -45,7 +45,8 @@ vi.mock('../utils/network.js', () => ({
                     return writer;
                 }),
                 on: vi.fn(),
-                destroy: vi.fn()
+                destroy: vi.fn(),
+                destroyed: false
             }
         });
     })
