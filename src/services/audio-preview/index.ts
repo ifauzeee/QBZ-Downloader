@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { LRUCache } from 'lru-cache';
 import QobuzAPI from '../../api/qobuz.js';
 import { logger } from '../../utils/logger.js';
 import { cacheService } from '../../utils/cache.js';
@@ -38,7 +39,11 @@ const QUALITY_LABELS: Record<number, string> = {
 class AudioPreviewService extends EventEmitter {
     private api: QobuzAPI;
     private currentTrack: PreviewInfo | null = null;
-    private previewCache: Map<string, PreviewInfo> = new Map();
+    private previewCache = new LRUCache<string, PreviewInfo>({
+        max: 200,
+        ttl: 30 * 60 * 1000,
+        updateAgeOnGet: true
+    });
     private cacheExpiry = 30 * 60 * 1000;
 
     constructor() {
