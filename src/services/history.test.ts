@@ -83,7 +83,7 @@ describe('HistoryService', () => {
         history.add('t1', { filename: 'existing.flac', quality: 27, title: 'T1' });
         history.add('t2', { filename: 'missing.flac', quality: 27, title: 'T2' });
         
-        vi.mocked(fs.existsSync).mockImplementation((p: string) => p === 'existing.flac');
+        vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) => p.toString() === 'existing.flac');
         
         const cleaned = history.cleanup();
         expect(cleaned).toBe(1);

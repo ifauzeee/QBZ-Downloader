@@ -5,6 +5,7 @@ import { resumeService } from './batch.js';
 import { Metadata } from './metadata.js';
 import * as fs from 'fs';
 import { EventEmitter } from 'events';
+import { AxiosResponse } from 'axios';
 
 vi.mock('../utils/network.js', () => ({
     downloadFile: vi.fn()
@@ -81,7 +82,7 @@ describe('DownloadEngine', () => {
             status: 200,
             headers: { 'content-length': '1000' },
             data: mockDataStream
-        } as unknown as { status: number; headers: Record<string, string>; data: EventEmitter });
+        } as unknown as AxiosResponse);
 
         const downloadPromise = engine.download(
             'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27
@@ -108,7 +109,7 @@ describe('DownloadEngine', () => {
             status: 200,
             headers: { 'content-length': '1000' },
             data: mockDataStream
-        } as unknown as { status: number; headers: Record<string, string>; data: EventEmitter });
+        } as unknown as AxiosResponse);
 
         let cancelled = false;
         const downloadPromise = engine.download(
@@ -138,7 +139,7 @@ describe('DownloadEngine', () => {
             status: 206,
             headers: { 'content-length': '500' },
             data: mockDataStream
-        } as unknown as { status: number; headers: Record<string, string>; data: EventEmitter });
+        } as unknown as AxiosResponse);
 
         const downloadPromise = engine.download(
             'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27
