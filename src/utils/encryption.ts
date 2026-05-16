@@ -6,24 +6,31 @@ const ALGORITHM = 'aes-256-cbc';
 const ENCRYPTION_KEY_FILE = path.join(process.cwd(), 'data', '.secret.key');
 const IV_LENGTH = 16;
 
-// Try to get safeStorage from Electron
-let safeStorage: any = null;
-if (process.versions.electron) {
-    try {
-        const electron = await import('electron');
-        safeStorage = electron.safeStorage || (electron.default && (electron.default as any).safeStorage);
-    } catch {
-        // Fallback to node-only mode
+let _safeStorage: any = null;
+async function getSafeStorage() {
+    if (_safeStorage !== null) return _safeStorage;
+    if (process.versions?.electron) {
+        try {
+            const electron = await import('electron');
+            _safeStorage = electron.safeStorage || (electron.default && (electron.default as any).safeStorage);
+        } catch {
+            _safeStorage = undefined;
+        }
+    } else {
+        _safeStorage = undefined;
     }
+    return _safeStorage;
 }
 
-const ENCRYPTION_KEY = safeStorage?.isEncryptionAvailable() ? null : getOrGenerateKey();
-
+let ENCRYPTION_KEY: Buffer | null = null;
 function getOrGenerateKey(): Buffer {
+    if (ENCRYPTION_KEY) return ENCRYPTION_KEY;
+
     if (fs.existsSync(ENCRYPTION_KEY_FILE)) {
         try {
             const keyHex = fs.readFileSync(ENCRYPTION_KEY_FILE, 'utf8');
-            return Buffer.from(keyHex, 'hex');
+            ENCRYPTION_KEY = Buffer.from(keyHex, 'hex');
+            return ENCRYPTION_KEY;
         } catch {
             console.error(
                 'Failed to read encryption key, generating new one. Warning: Old encrypted data will be unreadable.'
@@ -41,12 +48,15 @@ function getOrGenerateKey(): Buffer {
     } catch (error) {
         console.error('Failed to save encryption key:', error);
     }
+    ENCRYPTION_KEY = key;
     return key;
 }
 
 export const encryptionService = {
-    encrypt(text: string): string {
+    async encrypt(text: string): Promise<string> {
         if (!text) return text;
+        
+        const safeStorage = await getSafeStorage();
         
         // Use safeStorage if available
         if (safeStorage?.isEncryptionAvailable()) {
@@ -60,8 +70,9 @@ export const encryptionService = {
 
         // Fallback to legacy encryption
         try {
+            const key = getOrGenerateKey();
             const iv = crypto.randomBytes(IV_LENGTH);
-            const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY!, iv);
+            const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
             let encrypted = cipher.update(text);
             encrypted = Buffer.concat([encrypted, cipher.final()]);
             return iv.toString('hex') + ':' + encrypted.toString('hex');
@@ -71,8 +82,10 @@ export const encryptionService = {
         }
     },
 
-    decrypt(text: string): string {
+    async decrypt(text: string): Promise<string> {
         if (!text) return text;
+
+        const safeStorage = await getSafeStorage();
 
         // Handle safeStorage decryption
         if (text.startsWith('safe:') && safeStorage?.isEncryptionAvailable()) {
@@ -90,9 +103,10 @@ export const encryptionService = {
             const textParts = text.split(':');
             if (textParts.length < 2) return text;
 
+            const key = getOrGenerateKey();
             const iv = Buffer.from(textParts.shift()!, 'hex');
             const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-            const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY!, iv);
+            const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
             let decrypted = decipher.update(encryptedText);
             decrypted = Buffer.concat([decrypted, decipher.final()]);
             return decrypted.toString();
