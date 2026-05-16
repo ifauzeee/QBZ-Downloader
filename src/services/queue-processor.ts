@@ -236,31 +236,31 @@ export class QueueProcessor {
 
         logger.error(`Processor Error [${category.toUpperCase()}]: ${err.message}`, 'ERROR');
 
+        // Always fail first (increments retryCount)
+        downloadQueue.fail(item.id, err.message);
+
         if (!isRetryable) {
-            downloadQueue.fail(item.id, `${err.message} (non-retryable)`);
-            notifyDownloadError(item.title || 'Item', err.message);
+            notifyDownloadError(item.title || 'Item', `${err.message} (non-retryable)`);
             return;
         }
 
         const currentItem = downloadQueue.get(item.id);
-        if (currentItem && currentItem.retryCount < currentItem.maxRetries) {
-            const delay = calculateRetryDelay(currentItem.retryCount, category);
+        if (currentItem && currentItem.retryCount <= currentItem.maxRetries) {
+            const delay = calculateRetryDelay(currentItem.retryCount - 1, category);
             const nextTime = Math.round(delay / 1000);
 
             logger.warn(
-                `Retry scheduled in ${nextTime}s (Attempt ${currentItem.retryCount + 1}/${currentItem.maxRetries})`,
+                `Retry scheduled in ${nextTime}s (Attempt ${currentItem.retryCount}/${currentItem.maxRetries})`,
                 'RETRY'
             );
 
-            downloadQueue.fail(item.id, err.message);
-
-            await sleep(delay);
+            setTimeout(() => {
+                downloadQueue.requeue(item.id);
+            }, delay);
         } else {
-            downloadQueue.fail(item.id, err.message);
             logger.error(`Max retries reached for item: ${item.title}`, 'QUEUE');
             notifyDownloadError(item.title || 'Item', err.message);
         }
-
     }
 
     private async processTrack(item: QueueItem): Promise<void> {

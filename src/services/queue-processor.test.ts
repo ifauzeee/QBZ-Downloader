@@ -15,7 +15,8 @@ vi.mock('./queue/queue.js', () => ({
         complete: vi.fn(),
         get: vi.fn(),
         updateProgress: vi.fn(),
-        updateQuality: vi.fn()
+        updateQuality: vi.fn(),
+        requeue: vi.fn()
     }
 }));
 
@@ -162,7 +163,7 @@ describe('QueueProcessor', () => {
     });
 
     it('should retry item on retryable error', async () => {
-        const mockItem = { id: '1', type: 'track', contentId: 't1', title: 'T1', retryCount: 0, maxRetries: 3 };
+        const mockItem = { id: '1', type: 'track', contentId: 't1', title: 'T1', retryCount: 1, maxRetries: 3 };
         vi.mocked(downloadQueue.get).mockReturnValue(mockItem as any);
         
         const error = new Error('Network timeout');
@@ -170,11 +171,12 @@ describe('QueueProcessor', () => {
 
         const handlePromise = (processor as any).handleError(mockItem, error);
         
-        // Advance timers to trigger the sleep inside handleError
+        // Advance timers to trigger the setTimeout inside handleError
         await vi.advanceTimersByTimeAsync(5000);
         await handlePromise;
 
         expect(downloadQueue.fail).toHaveBeenCalledWith('1', 'Network timeout');
+        expect(downloadQueue.requeue).toHaveBeenCalledWith('1');
     });
 
 
@@ -186,6 +188,6 @@ describe('QueueProcessor', () => {
 
         await (processor as any).handleError(mockItem, error);
 
-        expect(downloadQueue.fail).toHaveBeenCalledWith('1', 'Not found (non-retryable)');
+        expect(downloadQueue.fail).toHaveBeenCalledWith('1', 'Not found');
     });
 });

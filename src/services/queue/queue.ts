@@ -174,22 +174,31 @@ export class DownloadQueue {
         if (!item) return;
 
         item.error = error;
+        item.retryCount++;
+        item.status = 'failed';
+        item.completedAt = new Date();
 
-        if (item.retryCount < item.maxRetries) {
-            item.retryCount++;
-            item.status = 'pending';
-            item.progress = 0;
-            logger.debug(`Queue: Retry ${item.retryCount}/${item.maxRetries} for ${id}`);
-        } else {
-            item.status = 'failed';
-            item.completedAt = new Date();
+        this.emit('item:failed', item, error);
+        logger.error(`Queue: Failed ${id}: ${error}`);
 
-            this.emit('item:failed', item, error);
-            logger.error(`Queue: Failed ${id}: ${error}`);
-        }
         databaseService.addQueueItem(item);
         this.processing.delete(id);
         this.checkQueueEmpty();
+    }
+
+    requeue(id: string): boolean {
+        const item = this.items.get(id);
+        if (!item) return false;
+
+        item.status = 'pending';
+        item.progress = 0;
+        item.error = undefined;
+        item.completedAt = undefined;
+
+        databaseService.addQueueItem(item);
+        this.emit('item:added', item);
+        logger.debug(`Queue: Re-queued ${id} (Retry ${item.retryCount}/${item.maxRetries})`);
+        return true;
     }
 
     getPendingItems(): QueueItem[] {
