@@ -360,7 +360,7 @@ export class BatchImportService {
             }
 
             // Find URL and Quality column keys (case-insensitive)
-            const firstRecord = records[0];
+            const firstRecord = records[0] as any;
             const keys = Object.keys(firstRecord);
             const urlKey = keys.find((k) => k.toLowerCase() === 'url' || k.toLowerCase() === 'link');
             const qualityKey = keys.find((k) => k.toLowerCase() === 'quality' || k.toLowerCase() === 'format');
