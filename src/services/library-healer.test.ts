@@ -77,9 +77,9 @@ describe('LibraryHealerService', () => {
         vi.mocked(fs.promises.access).mockRejectedValue(new Error('no access'));
         
         // Mock recursive search
-        vi.mocked(fs.promises.readdir).mockResolvedValueOnce(['subdir'] as unknown as string[]);
+        vi.mocked(fs.promises.readdir).mockResolvedValueOnce(['subdir'] as any);
         vi.mocked(fs.promises.stat).mockResolvedValueOnce({ isDirectory: () => true } as any);
-        vi.mocked(fs.promises.readdir).mockResolvedValueOnce(['p1.flac'] as unknown as string[]);
+        vi.mocked(fs.promises.readdir).mockResolvedValueOnce(['p1.flac'] as any);
         vi.mocked(fs.promises.stat).mockResolvedValueOnce({ isDirectory: () => false } as any);
 
         const report = await service.performFullHeal();
