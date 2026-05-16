@@ -48,6 +48,7 @@ export class DashboardService {
     }
 
     private setupMiddleware(): void {
+        this.app.use((_req: Request, res: Response, next: NextFunction) => {
             res.setHeader(
                 'Content-Security-Policy',
                 "default-src 'self'; " +
