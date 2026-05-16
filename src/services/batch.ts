@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import archiver from 'archiver';
+import { parse } from 'csv-parse/sync';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../config.js';
 import { downloadQueue } from './queue/queue.js';
@@ -24,6 +25,7 @@ interface ResumeData {
 
 const RESUME_VERSION = 1;
 const DEFAULT_RESUME_PATH = './data/resume.json';
+const MAX_IMPORT_URLS = 1000;
 
 export class ResumeService {
     private partials: Map<string, PartialDownload> = new Map();
@@ -331,67 +333,75 @@ export class BatchImportService {
             return { success: false, imported: 0, failed: 0, errors: ['File not found'] };
         }
 
-        const content = fs.readFileSync(filePath, 'utf8');
-        const lines = content
-            .split('\n')
-            .map((l) => l.trim())
-            .filter((l) => l);
+        try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            const records = parse(content, {
+                columns: true,
+                skip_empty_lines: true,
+                trim: true
+            });
 
-        if (lines.length < 2) {
+            if (records.length === 0) {
+                return {
+                    success: false,
+                    imported: 0,
+                    failed: 0,
+                    errors: ['CSV file is empty or has no data rows']
+                };
+            }
+
+            if (records.length > MAX_IMPORT_URLS) {
+                return {
+                    success: false,
+                    imported: 0,
+                    failed: 0,
+                    errors: [`Import exceeds maximum limit of ${MAX_IMPORT_URLS} URLs`]
+                };
+            }
+
+            // Find URL and Quality column keys (case-insensitive)
+            const firstRecord = records[0];
+            const keys = Object.keys(firstRecord);
+            const urlKey = keys.find((k) => k.toLowerCase() === 'url' || k.toLowerCase() === 'link');
+            const qualityKey = keys.find((k) => k.toLowerCase() === 'quality' || k.toLowerCase() === 'format');
+
+            if (!urlKey) {
+                return {
+                    success: false,
+                    imported: 0,
+                    failed: 0,
+                    errors: ['CSV must have a "url" or "link" column']
+                };
+            }
+
+            const urlsWithQuality: { url: string; quality: number }[] = records.map((row: any) => ({
+                url: row[urlKey],
+                quality: qualityKey ? parseInt(row[qualityKey]) || defaultQuality : defaultQuality
+            })).filter(item => item.url);
+
+            let imported = 0;
+            let failed = 0;
+            const errors: string[] = [];
+
+            for (const { url, quality } of urlsWithQuality) {
+                try {
+                    await this.addToQueue(url, quality);
+                    imported++;
+                } catch (error: unknown) {
+                    failed++;
+                    errors.push(`${url}: ${(error as Error).message}`);
+                }
+            }
+
+            return { success: failed === 0, imported, failed, errors };
+        } catch (error: any) {
             return {
                 success: false,
                 imported: 0,
                 failed: 0,
-                errors: ['CSV file is empty or has no data rows']
+                errors: [`Failed to parse CSV: ${error.message}`]
             };
         }
-
-        const headers = lines[0]
-            .toLowerCase()
-            .split(',')
-            .map((h) => h.trim());
-        const urlIndex = headers.findIndex((h) => h === 'url' || h === 'link');
-        const qualityIndex = headers.findIndex((h) => h === 'quality' || h === 'format');
-
-        if (urlIndex === -1) {
-            return {
-                success: false,
-                imported: 0,
-                failed: 0,
-                errors: ['CSV must have a "url" column']
-            };
-        }
-
-        const urlsWithQuality: { url: string; quality: number }[] = [];
-
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',').map((c) => c.trim());
-            const url = cols[urlIndex];
-            const quality =
-                qualityIndex !== -1
-                    ? parseInt(cols[qualityIndex]) || defaultQuality
-                    : defaultQuality;
-
-            if (url) {
-                urlsWithQuality.push({ url, quality });
-            }
-        }
-
-        let imported = 0;
-        let failed = 0;
-        const errors: string[] = [];
-
-        for (const { url, quality } of urlsWithQuality) {
-            try {
-                await this.addToQueue(url, quality);
-                imported++;
-            } catch (error: unknown) {
-                failed++;
-                errors.push(`${url}: ${(error as Error).message}`);
-            }
-        }
-
-        return { success: failed === 0, imported, failed, errors };
     }
 
     async importUrls(
@@ -404,6 +414,15 @@ export class BatchImportService {
         failed: number;
         errors: string[];
     }> {
+        if (urls.length > MAX_IMPORT_URLS) {
+            return {
+                success: false,
+                imported: 0,
+                failed: 0,
+                errors: [`Import exceeds maximum limit of ${MAX_IMPORT_URLS} URLs`]
+            };
+        }
+
         let imported = 0;
         let failed = 0;
         const errors: string[] = [];
