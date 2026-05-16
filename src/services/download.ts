@@ -280,6 +280,15 @@ export default class DownloadService {
                 options.isCancelled
             );
 
+            if (fileUrlData.md5_hash && md5) {
+                if (fileUrlData.md5_hash.toLowerCase() !== md5.toLowerCase()) {
+                    logger.error(`MD5 verification failed for ${metadata.title}. Expected: ${fileUrlData.md5_hash}, Got: ${md5}`, 'DOWNLOAD');
+                    throw new Error('MD5 checksum mismatch - file is corrupted');
+                } else {
+                    logger.success(`MD5 verification passed for ${metadata.title}`, 'DOWNLOAD');
+                }
+            }
+
             let lyricsResult = null;
             if (CONFIG.metadata.downloadLyrics) {
                 logger.debug(`Starting lyrics acquisition for: ${metadata.title}`, 'LYRICS');
