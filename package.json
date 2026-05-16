@@ -17,6 +17,7 @@
     "copy-assets": "copyfiles -u 1 \"src/services/dashboard/public/**/*\" dist",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
+    "sync-version": "node scripts/sync-version.js",
     "test": "npx vitest run",
     "test:watch": "npx vitest",
     "test:coverage": "npx vitest run --coverage",
