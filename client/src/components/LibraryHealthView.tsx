@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { smartFetch } from '../utils/api';
 import { Icons } from './Icons';
-import { motion } from 'framer-motion';
 
 interface HealthData {
     totalTracks: number;
@@ -62,27 +61,9 @@ export const LibraryHealthView: React.FC = () => {
         return 'var(--danger)';
     };
 
-    const containerVariants: any = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
-            }
-        }
-    };
-
-    const itemVariants: any = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.19, 1, 0.22, 1] } }
-    };
-
     return (
-        <motion.div 
-            className="view-section active library-health-view" 
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
+        <div 
+            className="view-section active library-health-view animate-fade-in" 
             style={{ padding: '32px', overflowY: 'auto', height: '100%' }}
         >
             <div className="header-row" style={{ marginBottom: '40px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
@@ -106,22 +87,19 @@ export const LibraryHealthView: React.FC = () => {
                         Deep intelligence analysis of your <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{data.totalTracks}</span> local tracks
                     </p>
                 </div>
-                <motion.button 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="btn secondary" 
+                <button 
+                    className="btn secondary hover-scale" 
                     onClick={loadHealth}
                     style={{ height: '44px', padding: '0 24px', borderRadius: '14px', gap: '10px' }}
                 >
                     <Icons.Refresh width={16} height={16} /> Refresh Scan
-                </motion.button>
+                </button>
             </div>
 
             <div className="main-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', marginBottom: '32px' }}>
                 {/* Health Score Card */}
-                <motion.div 
-                    variants={itemVariants}
-                    className="premium-card health-score-card"
+                <div 
+                    className="premium-card health-score-card animate-slide-up"
                     style={{ 
                         background: 'var(--gradient-card)', 
                         backdropFilter: 'blur(24px)',
@@ -150,26 +128,23 @@ export const LibraryHealthView: React.FC = () => {
                                     stroke="rgba(255,255,255,0.03)"
                                     strokeWidth="2.5"
                                 />
-                                <motion.circle
+                                <circle
                                     cx="18" cy="18" r="15.915"
                                     fill="none"
                                     stroke={getScoreColor(data.healthScore)}
                                     strokeWidth="2.5"
                                     strokeDasharray={`${data.healthScore}, 100`}
                                     strokeLinecap="round"
-                                    initial={{ strokeDasharray: "0, 100" }}
-                                    animate={{ strokeDasharray: `${data.healthScore}, 100` }}
-                                    transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
+                                    className="progress-circle-anim"
                                 />
                             </svg>
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                <motion.span 
-                                    initial={{ scale: 0.5, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
+                                <span 
+                                    className="animate-scale-in"
                                     style={{ fontSize: '42px', fontWeight: 900, letterSpacing: '-2px', color: 'var(--text-primary)' }}
                                 >
                                     {data.healthScore}%
-                                </motion.span>
+                                </span>
                                 <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-secondary)', marginTop: '-4px' }}>Health</span>
                             </div>
                         </div>
@@ -198,12 +173,11 @@ export const LibraryHealthView: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                </motion.div>
+                </div>
 
                 {/* Quality Profile Card */}
-                <motion.div 
-                    variants={itemVariants}
-                    className="premium-card profile-card"
+                <div 
+                    className="premium-card profile-card animate-slide-up"
                     style={{ 
                         background: 'var(--gradient-card)', 
                         backdropFilter: 'blur(24px)',
@@ -225,11 +199,9 @@ export const LibraryHealthView: React.FC = () => {
                                 <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '14px' }}>{data.hiRes} tracks</span>
                             </div>
                             <div className="progress-bar-wrap" style={{ height: '8px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                                <motion.div 
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${(data.hiRes/data.totalTracks)*100}%` }}
-                                    transition={{ duration: 1, delay: 0.5 }}
-                                    style={{ height: '100%', background: 'linear-gradient(90deg, #f59e0b, #fbbf24)', borderRadius: '4px', boxShadow: '0 0 10px rgba(245, 158, 11, 0.3)' }} 
+                                <div 
+                                    className="progress-bar-anim"
+                                    style={{ width: `${(data.hiRes/data.totalTracks)*100}%`, height: '100%', background: 'linear-gradient(90deg, #f59e0b, #fbbf24)', borderRadius: '4px', boxShadow: '0 0 10px rgba(245, 158, 11, 0.3)' }} 
                                 />
                             </div>
                         </div>
@@ -239,11 +211,9 @@ export const LibraryHealthView: React.FC = () => {
                                 <span style={{ fontWeight: 700, color: 'var(--success)', fontSize: '14px' }}>{data.totalTracks - data.hiRes - data.lowQuality} tracks</span>
                             </div>
                             <div className="progress-bar-wrap" style={{ height: '8px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                                <motion.div 
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${((data.totalTracks - data.hiRes - data.lowQuality)/data.totalTracks)*100}%` }}
-                                    transition={{ duration: 1, delay: 0.6 }}
-                                    style={{ height: '100%', background: 'linear-gradient(90deg, #10b981, #34d399)', borderRadius: '4px', boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)' }} 
+                                <div 
+                                    className="progress-bar-anim"
+                                    style={{ width: `${((data.totalTracks - data.hiRes - data.lowQuality)/data.totalTracks)*100}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, #34d399)', borderRadius: '4px', boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)' }} 
                                 />
                             </div>
                         </div>
@@ -253,16 +223,14 @@ export const LibraryHealthView: React.FC = () => {
                                 <span style={{ fontWeight: 700, color: 'var(--danger)', fontSize: '14px' }}>{data.lowQuality} tracks</span>
                             </div>
                             <div className="progress-bar-wrap" style={{ height: '8px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                                <motion.div 
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${(data.lowQuality/data.totalTracks)*100}%` }}
-                                    transition={{ duration: 1, delay: 0.7 }}
-                                    style={{ height: '100%', background: 'linear-gradient(90deg, #ef4444, #f87171)', borderRadius: '4px', boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)' }} 
+                                <div 
+                                    className="progress-bar-anim"
+                                    style={{ width: `${(data.lowQuality/data.totalTracks)*100}%`, height: '100%', background: 'linear-gradient(90deg, #ef4444, #f87171)', borderRadius: '4px', boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)' }} 
                                 />
                             </div>
                         </div>
                     </div>
-                </motion.div>
+                </div>
             </div>
 
             <div className="insights-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '40px' }}>
@@ -300,9 +268,8 @@ export const LibraryHealthView: React.FC = () => {
                 />
             </div>
 
-            <motion.div 
-                variants={itemVariants}
-                className="action-banner-premium"
+            <div 
+                className="action-banner-premium animate-slide-up"
                 style={{ 
                     position: 'relative',
                     background: 'linear-gradient(135deg, #2dd4bf 0%, #06b6d4 50%, #6366f1 100%)', 
@@ -334,10 +301,8 @@ export const LibraryHealthView: React.FC = () => {
                     </p>
                 </div>
                 
-                <motion.button 
-                    whileHover={{ scale: 1.05, boxShadow: '0 0 25px rgba(255,255,255,0.4)' }}
-                    whileTap={{ scale: 0.95 }}
-                    className="btn" 
+                <button 
+                    className="btn hover-scale-bright" 
                     style={{ 
                         background: 'white', 
                         color: '#0f172a', 
@@ -350,21 +315,59 @@ export const LibraryHealthView: React.FC = () => {
                         alignItems: 'center',
                         gap: '12px',
                         position: 'relative',
-                        zIndex: 1
+                        zIndex: 1,
+                        cursor: 'pointer'
                     }}
                 >
                     <Icons.Settings width={20} height={20} /> Start Auto-Heal
-                </motion.button>
-            </motion.div>
+                </button>
+            </div>
 
             <style>{`
                 .library-health-view .flex-between { display: flex; align-items: center; justify-content: space-between; }
                 .library-health-view::-webkit-scrollbar { width: 6px; }
                 .library-health-view::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-                .library-health-view .premium-card { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+                .library-health-view .premium-card { transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
                 .library-health-view .premium-card:hover { transform: translateY(-4px); border-color: rgba(var(--accent-rgb), 0.4) !important; }
+                
+                .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+                .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
+                .animate-scale-in { animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+                
+                .progress-circle-anim {
+                    transition: stroke-dasharray 1.5s ease-out 0.2s;
+                }
+                
+                .progress-bar-anim {
+                    animation: growWidth 1s ease-out 0.5s forwards;
+                    transform-origin: left;
+                    width: 0;
+                }
+                
+                .hover-scale { transition: transform 0.2s; }
+                .hover-scale:hover { transform: scale(1.05); }
+                .hover-scale:active { transform: scale(0.95); }
+                
+                .hover-scale-bright { transition: all 0.2s; }
+                .hover-scale-bright:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(255,255,255,0.4); }
+                .hover-scale-bright:active { transform: scale(0.95); }
+
+                @keyframes growWidth {
+                    from { width: 0; }
+                    to { width: var(--final-width); }
+                }
+
+                @keyframes scaleIn {
+                    from { opacity: 0; transform: scale(0.5); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
             `}</style>
-        </motion.div>
+        </div>
     );
 };
 
@@ -378,12 +381,8 @@ interface InsightCardProps {
 }
 
 const InsightCard: React.FC<InsightCardProps> = ({ icon, label, count, subtext, color, delay }) => (
-    <motion.div 
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay, duration: 0.4, ease: [0.23, 1, 0.32, 1] as any }}
-        whileHover={{ y: -5, background: 'rgba(255,255,255,0.03)' }}
-        className="insight-card" 
+    <div 
+        className="insight-card animate-scale-in" 
         style={{ 
             background: 'rgba(255,255,255,0.02)', 
             border: '1px solid var(--border)', 
@@ -392,7 +391,8 @@ const InsightCard: React.FC<InsightCardProps> = ({ icon, label, count, subtext, 
             display: 'flex',
             flexDirection: 'column',
             gap: '12px',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            animationDelay: `${delay}s`
         }}
     >
         <div style={{ 
@@ -427,5 +427,5 @@ const InsightCard: React.FC<InsightCardProps> = ({ icon, label, count, subtext, 
                 Requires Attention
             </div>
         )}
-    </motion.div>
+    </div>
 );

@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { Icons } from './Icons';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface NotificationsPanelProps {
@@ -26,11 +25,8 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
 
     return (
         <div className="notifications-overlay" onClick={onClose}>
-            <motion.div 
+            <div 
                 className="notifications-panel"
-                initial={{ opacity: 0, x: 300 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 300 }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="notifications-header">
@@ -49,45 +45,40 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
                 </div>
 
                 <div className="notifications-list">
-                    <AnimatePresence initial={false}>
-                        {notifications.length === 0 ? (
-                            <div className="empty-notifications">
-                                <span className="empty-icon">🔔</span>
-                                <p>{t('msg_no_notifications')}</p>
-                            </div>
-                        ) : (
-                            notifications.map((notif) => (
-                                <motion.div 
-                                    key={notif.id}
-                                    className={`notification-item ${notif.read ? 'read' : 'unread'}`}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, x: 50 }}
-                                    onClick={() => !notif.read && markAsRead(notif.id)}
+                    {notifications.length === 0 ? (
+                        <div className="empty-notifications">
+                            <span className="empty-icon">🔔</span>
+                            <p>{t('msg_no_notifications')}</p>
+                        </div>
+                    ) : (
+                        notifications.map((notif) => (
+                            <div 
+                                key={notif.id}
+                                className={`notification-item ${notif.read ? 'read' : 'unread'}`}
+                                onClick={() => !notif.read && markAsRead(notif.id)}
+                            >
+                                <div className="notification-icon">
+                                    {getIcon(notif.type)}
+                                </div>
+                                <div className="notification-content">
+                                    <div className="notification-title">{notif.title}</div>
+                                    <div className="notification-message">{notif.message}</div>
+                                    <div className="notification-time">
+                                        {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                </div>
+                                <button 
+                                    className="delete-btn" 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteNotification(notif.id);
+                                    }}
                                 >
-                                    <div className="notification-icon">
-                                        {getIcon(notif.type)}
-                                    </div>
-                                    <div className="notification-content">
-                                        <div className="notification-title">{notif.title}</div>
-                                        <div className="notification-message">{notif.message}</div>
-                                        <div className="notification-time">
-                                            {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                    </div>
-                                    <button 
-                                        className="delete-btn" 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            deleteNotification(notif.id);
-                                        }}
-                                    >
-                                        <Icons.Close width={14} height={14} />
-                                    </button>
-                                </motion.div>
-                            ))
-                        )}
-                    </AnimatePresence>
+                                    <Icons.Close width={14} height={14} />
+                                </button>
+                            </div>
+                        ))
+                    )}
                 </div>
 
                 {notifications.length > 0 && (
@@ -97,7 +88,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
                         </button>
                     </div>
                 )}
-            </motion.div>
+            </div>
 
             <style>{`
                 .notifications-overlay {

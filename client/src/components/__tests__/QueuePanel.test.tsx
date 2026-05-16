@@ -2,12 +2,27 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueuePanel } from '../QueuePanel';
 
-// Mock Framer Motion to avoid animation issues in tests
-vi.mock('framer-motion', () => ({
-  Reorder: {
-    Group: ({ children }: any) => <div>{children}</div>,
-    Item: ({ children, className }: any) => <div className={className}>{children}</div>
-  }
+// Mock dnd-kit
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children }: any) => <div>{children}</div>,
+  closestCenter: vi.fn(),
+  KeyboardSensor: vi.fn(),
+  PointerSensor: vi.fn(),
+  useSensor: vi.fn(),
+  useSensors: vi.fn(),
+}));
+
+vi.mock('@dnd-kit/sortable', () => ({
+  SortableContext: ({ children }: any) => <div>{children}</div>,
+  verticalListSortingStrategy: vi.fn(),
+  sortableKeyboardCoordinates: vi.fn(),
+  useSortable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: vi.fn(),
+    transform: null,
+    transition: null,
+  }),
 }));
 
 const mockClearQueue = vi.fn();

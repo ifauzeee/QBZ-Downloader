@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { smartFetch } from '../utils/api';
 import { Icons } from './Icons';
 
@@ -194,15 +193,9 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                         </div>
                     )}
 
-                    <AnimatePresence mode="wait">
+                    <div className="wizard-content-wrap">
                         {wizardStep === 'welcome' && (
-                            <motion.div 
-                                key="welcome"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="onboarding-v2-card welcome"
-                            >
+                            <div className="onboarding-v2-card welcome animate-slide-up">
                                 <div className="welcome-hero-icon">
                                     <Icons.Library size={64} />
                                 </div>
@@ -217,19 +210,13 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                     <Icons.ArrowRight size={18} />
                                 </button>
                                 <div className="welcome-footer">
-                                    <span>Version 5.1.3 Stable</span>
+                                    <span>Version 5.2.0 Stable</span>
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
 
                         {wizardStep === 'api' && (
-                            <motion.div 
-                                key="api"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="onboarding-v2-card"
-                            >
+                            <div className="onboarding-v2-card animate-slide-right">
                                 <div className="card-header">
                                     <Icons.Resolve size={32} color="var(--accent)" />
                                     <h2>API Credentials</h2>
@@ -269,17 +256,11 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                         {saving ? 'Saving...' : 'Next'}
                                     </button>
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
 
                         {wizardStep === 'auth' && (
-                            <motion.div 
-                                key="auth"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="onboarding-v2-card"
-                            >
+                            <div className="onboarding-v2-card animate-slide-right">
                                 <div className="card-header">
                                     <Icons.Batch size={32} color="var(--accent)" />
                                     <h2>User Session</h2>
@@ -319,17 +300,11 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                         {saving ? 'Saving...' : 'Next'}
                                     </button>
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
 
                         {wizardStep === 'storage' && (
-                            <motion.div 
-                                key="storage"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="onboarding-v2-card"
-                            >
+                            <div className="onboarding-v2-card animate-slide-right">
                                 <div className="card-header">
                                     <Icons.Download size={32} color="var(--accent)" />
                                     <h2>Library Storage</h2>
@@ -366,17 +341,11 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                         {saving ? 'Saving...' : 'Next'}
                                     </button>
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
 
                         {wizardStep === 'finish' && (
-                            <motion.div 
-                                key="finish"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="onboarding-v2-card finish"
-                            >
+                            <div className="onboarding-v2-card finish animate-slide-right">
                                 <div className="card-header">
                                     <div className="finish-check">
                                         <Icons.Check size={40} />
@@ -387,17 +356,13 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
 
                                 <div className="onboarding-v2-form">
                                     {verifiedAccount ? (
-                                        <motion.div 
-                                            initial={{ opacity: 0, scale: 0.9 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            className="account-preview"
-                                        >
+                                        <div className="account-preview animate-scale-in">
                                             <img src={verifiedAccount.avatar || "https://api.dicebear.com/7.x/bottts/svg?seed=qbz"} alt="Avatar" />
                                             <div className="account-info">
                                                 <strong>{verifiedAccount.email}</strong>
                                                 <span>{verifiedAccount.country_code} • {verifiedAccount.subscription?.offer || 'Standard'}</span>
                                             </div>
-                                        </motion.div>
+                                        </div>
                                     ) : (
                                         <div className="verify-placeholder">
                                             <p>All credentials saved. Click below to verify.</p>
@@ -408,7 +373,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
 
                                 <div className="card-footer centered">
                                     {!verifiedAccount ? (
-                                        <>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                                             {(!remoteCompletion.app_id || !remoteCompletion.app_secret || !remoteCompletion.token || !remoteCompletion.user_id) && (
                                                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', textAlign: 'center' }}>
                                                     Go back and complete all required fields before verifying.
@@ -421,7 +386,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                             >
                                                 {verifying ? 'Verifying...' : 'Verify & Launch'}
                                             </button>
-                                        </>
+                                        </div>
                                     ) : (
                                         <button className="btn primary hero success" onClick={() => handleSave(true)}>
                                             Enter Dashboard
@@ -429,9 +394,9 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                         </button>
                                     )}
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
-                    </AnimatePresence>
+                    </div>
                 </div>
             </div>
 
@@ -740,6 +705,25 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                 .btn.hero.success:hover {
                     box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
                     transform: translateY(-2px);
+                }
+
+                .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
+                .animate-slide-right { animation: slideRight 0.4s ease-out forwards; }
+                .animate-scale-in { animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+                @keyframes slideRight {
+                    from { opacity: 0; transform: translateX(-20px); }
+                    to { opacity: 1; transform: translateX(0); }
+                }
+
+                @keyframes scaleIn {
+                    from { opacity: 0; transform: scale(0.9); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
             `}</style>
         </section>

@@ -6,7 +6,6 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { PlayerProvider } from './contexts/PlayerContext';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { motion, AnimatePresence } from 'framer-motion';
 import { QueueView } from './components/QueueView';
 import { BatchImportView } from './components/BatchImportView';
 import { SearchView } from './components/SearchView';
@@ -563,15 +562,11 @@ function AppContent() {
                   </div>
                 </header>
 
-                <AnimatePresence mode="wait">
-                  <motion.div
+                <div
                     key={activeTab}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    className="view-transition-container"
                     style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-                  >
+                >
                     {activeTab === 'queue' && <QueueView />}
                     {activeTab === 'search' && <SearchView />}
                     {activeTab === 'batch' && <BatchImportView />}
@@ -587,8 +582,7 @@ function AppContent() {
                     {activeTab === 'history' && <HistoryView />}
                     {activeTab === 'logs' && <LogView />}
                     {activeTab === 'settings' && <SettingsView />}
-                  </motion.div>
-                </AnimatePresence>
+                </div>
 
                 <Player sidebarCollapsed={sidebarCollapsed} />
               </main>
