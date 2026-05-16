@@ -1,5 +1,5 @@
 import { spotifyApi, SpotifyTrack } from '../api/spotify.js';
-import QobuzAPI from '../api/qobuz.js';
+import qobuzApi from '../api/qobuz.js';
 import { logger } from '../utils/logger.js';
 import { downloadQueue } from './queue/queue.js';
 import { globalApiLimit } from '../utils/limit.js';
@@ -14,10 +14,9 @@ export interface MigrationResult {
 
 export class MigrationService {
 
-    private qobuzApi: QobuzAPI;
+    private qobuzApi = qobuzApi;
 
-    constructor(qobuzApi: QobuzAPI) {
-        this.qobuzApi = qobuzApi;
+    constructor() {
     }
 
     async migrateFromSpotify(url: string, _quality: number = 27): Promise<{
@@ -138,4 +137,4 @@ export class MigrationService {
     }
 }
 
-export const createMigrationService = (qobuzApi: QobuzAPI) => new MigrationService(qobuzApi);
+export const migrationService = new MigrationService();

@@ -2,13 +2,13 @@ import { Router, Request, Response } from 'express';
 import { downloadQueue } from '../../queue/queue.js';
 import { historyService } from '../../history.js';
 import { databaseService } from '../../database/index.js';
-import { createMigrationService } from '../../migration.js';
-import QobuzAPI from '../../../api/qobuz.js';
+import { migrationService } from '../../migration.js';
+import qobuzApi from '../../../api/qobuz.js';
 import { logger } from '../../../utils/logger.js';
 import { CONFIG, normalizeDownloadQuality } from '../../../config.js';
 
 const router = Router();
-const api = new QobuzAPI();
+const api = qobuzApi;
 
 const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
 
@@ -350,7 +350,6 @@ router.post('/migrate/spotify', async (req: Request, res: Response) => {
     try {
         const { url, quality, download } = req.body;
         const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
-        const migrationService = createMigrationService(api);
         const results = await migrationService.migrateFromSpotify(url, q);
         
         if (download && results.results.length > 0) {

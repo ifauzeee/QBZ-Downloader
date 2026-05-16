@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import QobuzAPI from '../../../api/qobuz.js';
+import qobuzApi from '../../../api/qobuz.js';
 import { databaseService } from '../../database/index.js';
 import { normalizeDownloadQuality } from '../../../config.js';
 import { RecommendationService } from '../../RecommendationService.js';
 import { historyService } from '../../history.js';
 
 const router = Router();
-const api = new QobuzAPI();
+const api = qobuzApi;
 
 const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
 
@@ -266,7 +266,7 @@ router.delete('/playlists/watch/:id', async (req: Request, res: Response) => {
 router.get('/recommendations', async (req: Request, res: Response) => {
     try {
         const limit = parseInt(getParam(req.query.limit)) || 10;
-        const recommendationService = new RecommendationService(api);
+        const recommendationService = new RecommendationService();
         const albums = await recommendationService.getRecommendations(limit);
         res.json(albums);
     } catch (error: any) {

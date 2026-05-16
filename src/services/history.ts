@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger.js';
+import { databaseService } from './database/index.js';
 
 export interface HistoryEntry {
     downloadedAt: string;
@@ -19,162 +20,97 @@ export interface HistoryEntry {
     };
 }
 
-interface HistoryData {
-    version: number;
-    entries: Record<string, HistoryEntry>;
-}
-
-const HISTORY_VERSION = 1;
 const DEFAULT_HISTORY_PATH = './data/history.json';
 
 export class HistoryService {
-    private entries: Map<string, HistoryEntry> = new Map();
-    private filePath: string;
-    private saveTimeout: NodeJS.Timeout | null = null;
-    private isDirty: boolean = false;
+    private jsonPath: string;
 
     constructor(historyPath?: string) {
-        this.filePath = historyPath || DEFAULT_HISTORY_PATH;
-        this.load();
+        this.jsonPath = historyPath || DEFAULT_HISTORY_PATH;
+        this.migrateFromJson();
     }
 
-    private load(): void {
+    private migrateFromJson(): void {
         try {
-            if (fs.existsSync(this.filePath)) {
-                const content = fs.readFileSync(this.filePath, 'utf8');
-                const data: HistoryData = JSON.parse(content);
+            if (fs.existsSync(this.jsonPath)) {
+                const content = fs.readFileSync(this.jsonPath, 'utf8');
+                const data = JSON.parse(content);
 
-                if (data.version === HISTORY_VERSION && data.entries) {
+                if (data.entries && Object.keys(data.entries).length > 0) {
+                    logger.info(`History: Migrating ${Object.keys(data.entries).length} entries to SQLite...`, 'HISTORY');
                     for (const [id, entry] of Object.entries(data.entries)) {
-                        this.entries.set(id, entry);
+                        databaseService.addHistoryEntry(id, entry);
                     }
-                    logger.debug(`History: Loaded ${this.entries.size} entries`);
+                    
+                    // Backup and remove JSON
+                    const backupPath = this.jsonPath + '.bak';
+                    fs.renameSync(this.jsonPath, backupPath);
+                    logger.success(`History: Migration complete. JSON backed up to ${backupPath}`, 'HISTORY');
                 }
             }
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
-            logger.warn(`History: Failed to load (${message}), starting fresh`);
-        }
-    }
-
-    private save(): void {
-        this.isDirty = true;
-
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
-        }
-
-        this.saveTimeout = setTimeout(() => {
-            this.saveNow();
-        }, 1000);
-    }
-
-    private saveNow(): void {
-        if (!this.isDirty) return;
-
-        try {
-            const dir = path.dirname(this.filePath);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-
-            const data: HistoryData = {
-                version: HISTORY_VERSION,
-                entries: Object.fromEntries(this.entries)
-            };
-
-            fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf8');
-            this.isDirty = false;
-            logger.debug(`History: Saved ${this.entries.size} entries`);
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`History: Failed to save (${message})`);
+            logger.warn(`History: Migration failed (${message})`);
         }
     }
 
     has(trackId: string | number): boolean {
-        return this.entries.has(trackId.toString());
+        return !!databaseService.getHistory(trackId.toString());
     }
 
     get(trackId: string | number): HistoryEntry | undefined {
-        return this.entries.get(trackId.toString());
+        return databaseService.getHistory(trackId.toString());
     }
 
     getAll(): Record<string, HistoryEntry> {
-        const result: Record<string, HistoryEntry> = {};
-        for (const [id, entry] of this.entries.entries()) {
-            result[id] = entry;
-        }
-        return result;
+        return databaseService.getHistoryAll();
     }
 
     getSorted(limit?: number): Array<{ id: string } & HistoryEntry> {
-        const sorted = Array.from(this.entries.entries())
-            .map(([id, entry]) => ({ id, ...entry }))
-            .sort(
-                (a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime()
-            );
-
-        return limit ? sorted.slice(0, limit) : sorted;
+        return databaseService.getHistorySorted(limit);
     }
 
     add(trackId: string | number, entry: Omit<HistoryEntry, 'downloadedAt'>): void {
-        this.entries.set(trackId.toString(), {
+        databaseService.addHistoryEntry(trackId.toString(), {
             downloadedAt: new Date().toISOString(),
             ...entry
         });
-        this.save();
     }
 
     remove(trackId: string | number): boolean {
-        const deleted = this.entries.delete(trackId.toString());
-        if (deleted) {
-            this.save();
-        }
-        return deleted;
+        return databaseService.removeHistoryEntry(trackId.toString());
     }
 
     clearAll(): void {
-        this.entries.clear();
-        this.save();
+        databaseService.clearHistory();
     }
 
     count(): number {
-        return this.entries.size;
+        const all = databaseService.getHistoryAll();
+        return Object.keys(all).length;
     }
 
     search(query: string): Array<{ id: string } & HistoryEntry> {
-        const lowerQuery = query.toLowerCase();
-        return Array.from(this.entries.entries())
-            .filter(
-                ([, entry]) =>
-                    entry.title?.toLowerCase().includes(lowerQuery) ||
-                    entry.artist?.toLowerCase().includes(lowerQuery) ||
-                    entry.album?.toLowerCase().includes(lowerQuery)
-            )
-            .map(([id, entry]) => ({ id, ...entry }));
+        return databaseService.searchHistory(query);
     }
 
     cleanup(): number {
         let cleaned = 0;
-        for (const [id, entry] of this.entries.entries()) {
+        const all = databaseService.getHistoryAll();
+        for (const [id, entry] of Object.entries(all)) {
             if (entry.filename && !fs.existsSync(entry.filename)) {
-                this.entries.delete(id);
+                databaseService.removeHistoryEntry(id);
                 cleaned++;
             }
         }
         if (cleaned > 0) {
-            this.save();
             logger.info(`History: Cleaned ${cleaned} entries with missing files`);
         }
         return cleaned;
     }
 
     flush(): void {
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
-        }
-        this.saveNow();
+        // No-op for SQLite
     }
 }
 

@@ -3,39 +3,43 @@ import { QueueProcessor } from './queue-processor.js';
 import { downloadQueue } from './queue/queue.js';
 
 // This is a high-level integration test
-vi.mock('../api/qobuz.js', () => ({
-    default: vi.fn().mockImplementation(function() {
-        return {
-            getTrack: vi.fn().mockResolvedValue({
-                success: true,
-                data: {
-                    id: 'track1',
-                    title: 'Integrasi Test',
-                    performer: { name: 'Antigravity' },
-                    album: { id: 'album1', title: 'Deepmind Album' }
+vi.mock('../api/qobuz.js', () => {
+    const mockApi = {
+        getTrack: vi.fn().mockResolvedValue({
+            success: true,
+            data: {
+                id: 'track1',
+                title: 'Integrasi Test',
+                performer: { name: 'Antigravity' },
+                album: { id: 'album1', title: 'Deepmind Album' }
+            }
+        }),
+        getAlbum: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: 'album1', title: 'Deepmind Album' }
+        }),
+        getFileUrl: vi.fn().mockResolvedValue({
+            success: true,
+            data: { url: 'http://mock/stream', format_id: 27 }
+        }),
+        search: vi.fn().mockResolvedValue({
+            success: true,
+            data: {
+                tracks: {
+                    items: [
+                        { id: 'track1', title: 'Integrasi Test', artist: { name: 'Antigravity' } }
+                    ]
                 }
-            }),
-            getAlbum: vi.fn().mockResolvedValue({
-                success: true,
-                data: { id: 'album1', title: 'Deepmind Album' }
-            }),
-            getFileUrl: vi.fn().mockResolvedValue({
-                success: true,
-                data: { url: 'http://mock/stream', format_id: 27 }
-            }),
-            search: vi.fn().mockResolvedValue({
-                success: true,
-                data: {
-                    tracks: {
-                        items: [
-                            { id: 'track1', title: 'Integrasi Test', artist: { name: 'Antigravity' } }
-                        ]
-                    }
-                }
-            })
-        };
-    })
-}));
+            }
+        })
+    };
+    return {
+        qobuzApi: mockApi,
+        default: mockApi
+    };
+});
+
+import qobuzApi from '../api/qobuz.js';
 
 vi.mock('../utils/network.js', () => ({
     createAxiosInstance: vi.fn().mockReturnValue({
@@ -233,9 +237,6 @@ describe('Download Integration Flow', () => {
 
     it('should execute full E2E flow: search -> queue -> download -> metadata -> library scan', async () => {
         // 1. Search (Mock API)
-        const qobuzApiModule = await import('../api/qobuz.js');
-        const QobuzAPI = qobuzApiModule.default;
-        const qobuzApi = new QobuzAPI();
         const searchResult = await qobuzApi.search('Integrasi Test');
         
         expect(searchResult.success).toBe(true);

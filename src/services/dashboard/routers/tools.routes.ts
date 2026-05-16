@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import QobuzAPI from '../../../api/qobuz.js';
+import qobuzApi from '../../../api/qobuz.js';
 import path from 'path';
 import axios from 'axios';
 import { logger } from '../../../utils/logger.js';
 import { CONFIG } from '../../../config.js';
 
 const router = Router();
-const api = new QobuzAPI();
+const api = qobuzApi;
 
 router.post('/identify', async (req: Request, res: Response) => {
     try {

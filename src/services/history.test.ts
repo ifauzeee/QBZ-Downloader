@@ -2,33 +2,44 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HistoryService } from './history.js';
 import fs from 'fs';
 
+// Mock fs
+vi.mock('fs', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('fs')>();
+    return {
+        ...actual,
+        existsSync: vi.fn(),
+        default: {
+            ...actual,
+            existsSync: vi.fn()
+        }
+    };
+});
+
+import { databaseService } from './database/index.js';
+
 // Mock logger
 vi.mock('../utils/logger.js', () => ({
     logger: {
         info: vi.fn(),
         debug: vi.fn(),
         warn: vi.fn(),
-        error: vi.fn()
-    }
-}));
-
-// Mock fs
-vi.mock('fs', () => ({
-    default: {
-        existsSync: vi.fn().mockReturnValue(false),
-        readFileSync: vi.fn(),
-        writeFileSync: vi.fn(),
-        mkdirSync: vi.fn()
+        error: vi.fn(),
+        success: vi.fn(),
+        system: vi.fn()
     }
 }));
 
 describe('HistoryService', () => {
     let history: HistoryService;
-    const testPath = './data/test-history.json';
+    const testJsonPath = './data/test-history.json';
 
     beforeEach(() => {
         vi.clearAllMocks();
-        history = new HistoryService(testPath);
+        // Initialize in-memory DB for testing
+        (databaseService as any).dbPath = ':memory:';
+        (databaseService as any).initialized = false;
+        databaseService.initialize();
+        history = new HistoryService(testJsonPath);
     });
 
     it('should add entries and save', () => {
@@ -41,8 +52,6 @@ describe('HistoryService', () => {
 
         expect(history.count()).toBe(1);
         expect(history.has('track1')).toBe(true);
-        history.flush();
-        expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
     it('should retrieve entries correctly', () => {

@@ -5,14 +5,14 @@ import { APP_VERSION } from '../../../constants.js';
 import { settingsService } from '../../settings.js';
 import { tokenManager } from '../../../utils/token.js';
 import { AuthenticationError, APIError } from '../../../utils/errors.js';
-import QobuzAPI from '../../../api/qobuz.js';
+import qobuzApi from '../../../api/qobuz.js';
 import { databaseService } from '../../database/index.js';
 import { historyService } from '../../history.js';
 import { logger } from '../../../utils/logger.js';
 import { formatConverterService } from '../../FormatConverterService.js';
 
 const router = Router();
-const api = new QobuzAPI();
+const api = qobuzApi;
 
 const APP_SETTING_KEYS = new Set([
     'QOBUZ_APP_ID',

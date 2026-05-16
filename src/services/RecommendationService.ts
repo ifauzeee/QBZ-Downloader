@@ -1,13 +1,12 @@
-import QobuzAPI from '../api/qobuz.js';
+import qobuzApi from '../api/qobuz.js';
 import { historyService } from './history.js';
 import { Album } from '../types/qobuz.js';
 import { logger } from '../utils/logger.js';
 
 export class RecommendationService {
-    private api: QobuzAPI;
+    private api = qobuzApi;
 
-    constructor(api: QobuzAPI) {
-        this.api = api;
+    constructor() {
     }
 
     async getRecommendations(limit = 10): Promise<Album[]> {

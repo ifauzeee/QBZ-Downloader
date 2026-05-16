@@ -21,7 +21,7 @@ export class MetadataProcessor {
         const qualityName = CONFIG.quality.formats[quality]?.name || 'FLAC';
         let result = template;
 
-        logger.info(
+        logger.debug(
             `Processing template: "${template}" for ${metadata.artist} - ${metadata.title}`,
             'DEBUG'
         );

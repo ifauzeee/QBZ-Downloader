@@ -15,23 +15,29 @@ vi.mock('../api/spotify.js', () => ({
 }));
 
 vi.mock('../api/qobuz.js', () => {
+    const mockApi = {
+        search: vi.fn().mockResolvedValue({
+            success: true,
+            data: {
+                tracks: {
+                    items: [
+                        { id: 'q1', title: 'Song Title', artist: { name: 'Artist Name' }, duration: 200 }
+                    ]
+                }
+            }
+        }),
+        getTrack: vi.fn(),
+        getAlbum: vi.fn(),
+        getPlaylist: vi.fn(),
+        getArtist: vi.fn()
+    };
     return {
-        default: vi.fn().mockImplementation(function() {
-            return {
-                search: vi.fn().mockResolvedValue({
-                    success: true,
-                    data: {
-                        tracks: {
-                            items: [
-                                { id: 'q1', title: 'Song Title', artist: { name: 'Artist Name' }, duration: 200 }
-                            ]
-                        }
-                    }
-                })
-            };
-        })
+        qobuzApi: mockApi,
+        default: mockApi
     };
 });
+
+import qobuzApi from '../api/qobuz.js';
 
 vi.mock('./queue/queue.js', () => ({
     downloadQueue: {
@@ -56,8 +62,8 @@ describe('MigrationService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        mockApi = new QobuzAPI();
-        service = new MigrationService(mockApi);
+        mockApi = qobuzApi;
+        service = new MigrationService();
     });
 
     describe('Spotify Migration', () => {

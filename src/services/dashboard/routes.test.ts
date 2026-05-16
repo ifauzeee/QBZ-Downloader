@@ -87,39 +87,43 @@ vi.mock('../../utils/validator.js', () => {
 });
 
 vi.mock('../../api/qobuz.js', () => {
+    const mockApi = {
+        getTrack: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: '67890', title: 'Test Track', performer: { name: 'Artist' } }
+        }),
+        getAlbum: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: '12345', title: 'Test Album', artist: { name: 'Artist' } }
+        }),
+        search: vi.fn().mockResolvedValue({
+            success: true,
+            data: { albums: { items: [{ id: '1', title: 'Album 1' }] } }
+        }),
+        getArtist: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: '1', name: 'Artist', albums: { items: [] } }
+        }),
+        getArtistAlbums: vi.fn().mockResolvedValue({
+            success: true,
+            data: { items: [] }
+        }),
+        getUserInfo: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: '12345', subscription: { offer: 'Studio' } }
+        }),
+        getFileUrl: vi.fn().mockResolvedValue({
+            success: true,
+            data: { url: 'https://test.com/stream.flac' }
+        }),
+        getPlaylist: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: '1', title: 'Playlist' }
+        })
+    };
     return {
-        default: class MockQobuzAPI {
-            getTrack() {
-                return Promise.resolve({
-                    success: true,
-                    data: { id: '67890', title: 'Test Track', performer: { name: 'Artist' } }
-                });
-            }
-            getAlbum() {
-                return Promise.resolve({
-                    success: true,
-                    data: { id: '12345', title: 'Test Album', artist: { name: 'Artist' } }
-                });
-            }
-            search() {
-                return Promise.resolve({
-                    success: true,
-                    data: { albums: { items: [{ id: '1', title: 'Album 1' }] } }
-                });
-            }
-            getArtist() {
-                return Promise.resolve({
-                    success: true,
-                    data: { id: '1', name: 'Artist', albums: { items: [] } }
-                });
-            }
-            getUserInfo() {
-                return Promise.resolve({
-                    success: true,
-                    data: { id: '12345', subscription: { offer: 'Studio' } }
-                });
-            }
-        }
+        qobuzApi: mockApi,
+        default: mockApi
     };
 });
 

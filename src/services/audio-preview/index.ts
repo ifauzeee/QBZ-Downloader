@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import QobuzAPI from '../../api/qobuz.js';
+import qobuzApi from '../../api/qobuz.js';
 import { logger } from '../../utils/logger.js';
 import { cacheService } from '../../utils/cache.js';
 import { CONFIG, normalizeDownloadQuality } from '../../config.js';
@@ -37,7 +37,7 @@ const QUALITY_LABELS: Record<number, string> = {
 };
 
 class AudioPreviewService extends EventEmitter {
-    private api: QobuzAPI;
+    private api = qobuzApi;
     private currentTrack: PreviewInfo | null = null;
     private previewCache = new LRUCache<string, PreviewInfo>({
         max: 200,
@@ -47,7 +47,6 @@ class AudioPreviewService extends EventEmitter {
 
     constructor() {
         super();
-        this.api = new QobuzAPI();
     }
 
     async getPreviewInfo(trackId: string): Promise<PreviewInfo | null> {

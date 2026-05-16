@@ -327,6 +327,20 @@ export class DatabaseService {
                 value TEXT NOT NULL,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS history (
+                id TEXT PRIMARY KEY,
+                downloaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                filename TEXT NOT NULL,
+                quality INTEGER,
+                title TEXT NOT NULL,
+                artist TEXT,
+                album_artist TEXT,
+                artist_image_url TEXT,
+                album TEXT,
+                type TEXT,
+                quality_scan TEXT -- JSON string
+            );
         `);
 
         try {
@@ -1136,6 +1150,91 @@ export class DatabaseService {
                 );
             })();
         }
+    }
+    addHistoryEntry(id: string, entry: any): void {
+        const db = this.getDb();
+        db.prepare(`
+            INSERT OR REPLACE INTO history (id, downloaded_at, filename, quality, title, artist, album_artist, artist_image_url, album, type, quality_scan)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            id,
+            entry.downloadedAt || new Date().toISOString(),
+            entry.filename,
+            entry.quality,
+            entry.title,
+            entry.artist || null,
+            entry.albumArtist || null,
+            entry.artistImageUrl || null,
+            entry.album || null,
+            entry.type || null,
+            entry.qualityScan ? JSON.stringify(entry.qualityScan) : null
+        );
+    }
+
+    getHistory(id: string): any | undefined {
+        const db = this.getDb();
+        const row = db.prepare('SELECT * FROM history WHERE id = ?').get(id) as any;
+        if (!row) return undefined;
+        return {
+            ...row,
+            downloadedAt: row.downloaded_at,
+            artistImageUrl: row.artist_image_url,
+            qualityScan: row.quality_scan ? JSON.parse(row.quality_scan) : undefined
+        };
+    }
+
+    getHistoryAll(): Record<string, any> {
+        const db = this.getDb();
+        const rows = db.prepare('SELECT * FROM history').all() as any[];
+        const result: Record<string, any> = {};
+        for (const row of rows) {
+            result[row.id] = {
+                ...row,
+                downloadedAt: row.downloaded_at,
+                artistImageUrl: row.artist_image_url,
+                qualityScan: row.quality_scan ? JSON.parse(row.quality_scan) : undefined
+            };
+        }
+        return result;
+    }
+
+    getHistorySorted(limit?: number): any[] {
+        const db = this.getDb();
+        const query = 'SELECT * FROM history ORDER BY downloaded_at DESC' + (limit ? ` LIMIT ${limit}` : '');
+        const rows = db.prepare(query).all() as any[];
+        return rows.map(row => ({
+            ...row,
+            downloadedAt: row.downloaded_at,
+            artistImageUrl: row.artist_image_url,
+            qualityScan: row.quality_scan ? JSON.parse(row.quality_scan) : undefined
+        }));
+    }
+
+    searchHistory(query: string): any[] {
+        const db = this.getDb();
+        const searchQuery = `%${query}%`;
+        const rows = db.prepare(`
+            SELECT * FROM history 
+            WHERE title LIKE ? OR artist LIKE ? OR album LIKE ? 
+            ORDER BY downloaded_at DESC
+        `).all(searchQuery, searchQuery, searchQuery) as any[];
+        return rows.map(row => ({
+            ...row,
+            downloadedAt: row.downloaded_at,
+            artistImageUrl: row.artist_image_url,
+            qualityScan: row.quality_scan ? JSON.parse(row.quality_scan) : undefined
+        }));
+    }
+
+    removeHistoryEntry(id: string): boolean {
+        const db = this.getDb();
+        const result = db.prepare('DELETE FROM history WHERE id = ?').run(id);
+        return result.changes > 0;
+    }
+
+    clearHistory(): void {
+        const db = this.getDb();
+        db.prepare('DELETE FROM history').run();
     }
 }
 

@@ -32,17 +32,20 @@ vi.mock('./download.js', () => {
 });
 
 vi.mock('../api/qobuz.js', () => {
+    const mockApi = {
+        getTrack: vi.fn(),
+        getAlbum: vi.fn(),
+        getPlaylist: vi.fn(),
+        getArtist: vi.fn(),
+        getFileUrl: vi.fn()
+    };
     return {
-        default: vi.fn().mockImplementation(function() {
-            return {
-                getTrack: vi.fn(),
-                getAlbum: vi.fn(),
-                getPlaylist: vi.fn(),
-                getArtist: vi.fn()
-            };
-        })
+        qobuzApi: mockApi,
+        default: mockApi
     };
 });
+
+import qobuzApi from '../api/qobuz.js';
 
 vi.mock('./lyrics.js', () => ({
     default: vi.fn().mockImplementation(function() {

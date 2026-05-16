@@ -8,7 +8,7 @@ import { databaseService } from '../database/index.js';
 import { historyService } from '../history.js';
 import { logger } from '../../utils/logger.js';
 import { CONFIG } from '../../config.js';
-import QobuzAPI from '../../api/qobuz.js';
+import qobuzApi from '../../api/qobuz.js';
 
 export interface LibraryFile {
     filePath: string;
@@ -66,13 +66,12 @@ export class LibraryScannerService extends EventEmitter {
     private isScanning = false;
     private scanAborted = false;
     private supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
-    private api: QobuzAPI;
+    private api = qobuzApi;
     private static fpcalcAvailable: boolean | null = null;
     private currentProgress: ScanProgress | null = null;
 
     constructor() {
         super();
-        this.api = new QobuzAPI();
     }
 
     private async checkFpcalc(): Promise<boolean> {

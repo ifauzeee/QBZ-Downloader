@@ -66,7 +66,8 @@ export type KnownSettingKey = (typeof KNOWN_SETTING_KEYS)[number];
 export class SettingsService {
 
     private initialized = false;
-    private cache = new Map<string, string>();
+    private cache = new Map<string, { value: string; timestamp: number }>();
+    private readonly CACHE_TTL = 5000; // 5 seconds
 
     private ensureInitialized() {
         if (this.initialized) return;
@@ -87,9 +88,10 @@ export class SettingsService {
             }>;
 
             this.cache.clear();
+            const now = Date.now();
             for (const row of rows) {
                 const value = SENSITIVE_KEYS.includes(row.key) ? decrypt(row.value) : row.value;
-                this.cache.set(row.key, value);
+                this.cache.set(row.key, { value, timestamp: now });
             }
 
             if (this.cache.size > 0) {
@@ -110,7 +112,7 @@ export class SettingsService {
                     const value = process.env[key];
                     if (value !== undefined && value !== '') {
                         upsert.run(key, value);
-                        this.cache.set(key, value);
+                        this.cache.set(key, { value, timestamp: Date.now() });
                         seeded++;
                     }
                 }
@@ -128,14 +130,35 @@ export class SettingsService {
 
     get(key: string): string | undefined {
         this.ensureInitialized();
-        return this.cache.get(key);
+        const cached = this.cache.get(key);
+        const now = Date.now();
+
+        if (cached && now - cached.timestamp < this.CACHE_TTL) {
+            return cached.value;
+        }
+
+        try {
+            const db = databaseService.getDb();
+            const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined;
+            
+            if (row) {
+                const value = SENSITIVE_KEYS.includes(key) ? decrypt(row.value) : row.value;
+                this.cache.set(key, { value, timestamp: now });
+                return value;
+            }
+        } catch (error) {
+            // Fallback to cache even if expired if DB fails
+            if (cached) return cached.value;
+        }
+
+        return undefined;
     }
 
     getMany(keys: string[]): Record<string, string | undefined> {
         this.ensureInitialized();
         const result: Record<string, string | undefined> = {};
         for (const key of keys) {
-            result[key] = this.cache.get(key);
+            result[key] = this.get(key);
         }
         return result;
     }
@@ -155,7 +178,7 @@ export class SettingsService {
                     updated_at = CURRENT_TIMESTAMP`
             ).run(key, valueToStore);
 
-            this.cache.set(key, value);
+            this.cache.set(key, { value, timestamp: Date.now() });
             process.env[key] = value;
         } catch (error: any) {
             logger.error(`Failed to save setting ${key}: ${error.message}`, 'SETTINGS');
@@ -180,7 +203,7 @@ export class SettingsService {
                 for (const [key, value] of entries) {
                     const valueToStore = SENSITIVE_KEYS.includes(key) ? encrypt(value) : value;
                     stmt.run(key, valueToStore);
-                    this.cache.set(key, value);
+                    this.cache.set(key, { value, timestamp: Date.now() });
                     process.env[key] = value;
                 }
             });

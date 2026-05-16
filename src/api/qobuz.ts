@@ -459,4 +459,6 @@ class QobuzAPI {
     }
 }
 
-export default QobuzAPI;
+export const qobuzApi = new QobuzAPI();
+export default qobuzApi;
+

@@ -1,6 +1,6 @@
 import { downloadQueue } from './queue/queue.js';
 import DownloadService from './download.js';
-import QobuzAPI from '../api/qobuz.js';
+import qobuzApi from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import MetadataService from './metadata.js';
 import { logger } from '../utils/logger.js';
@@ -76,7 +76,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 export class QueueProcessor {
-    private api: QobuzAPI;
+    private api = qobuzApi;
     private downloadService: DownloadService;
     private lastErrorTime: number = 0;
     private consecutiveErrors: number = 0;
@@ -84,7 +84,6 @@ export class QueueProcessor {
     private isHydrationRunning: boolean = false;
 
     constructor() {
-        this.api = new QobuzAPI();
         const lyricsProvider = new LyricsProvider();
         const metadataService = new MetadataService();
         this.downloadService = new DownloadService(this.api, lyricsProvider, metadataService);

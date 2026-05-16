@@ -5,26 +5,28 @@ import { historyService } from './history.js';
 
 // Mock dependencies
 vi.mock('../api/qobuz.js', () => {
-    return {
-        default: vi.fn().mockImplementation(function() {
-            return {
-                search: vi.fn().mockResolvedValue({
-                    success: true,
-                    data: {
-                        artists: { items: [{ id: 'art1' }] },
-                        albums: { items: [{ id: 'alb_gen', title: 'General Album', hires: true }] }
-                    }
-                }),
-                getArtist: vi.fn().mockResolvedValue({
-                    success: true,
-                    data: {
-                        albums: { items: [{ id: 'alb_art1', title: 'Artist Album', hires: true }] }
-                    }
-                })
-            };
+    const mockApi = {
+        search: vi.fn().mockResolvedValue({
+            success: true,
+            data: {
+                artists: { items: [{ id: 'art1' }] },
+                albums: { items: [{ id: 'alb_gen', title: 'General Album', hires: true }] }
+            }
+        }),
+        getArtist: vi.fn().mockResolvedValue({
+            success: true,
+            data: {
+                albums: { items: [{ id: 'alb_art1', title: 'Artist Album', hires: true }] }
+            }
         })
     };
+    return {
+        qobuzApi: mockApi,
+        default: mockApi
+    };
 });
+
+import qobuzApi from '../api/qobuz.js';
 
 vi.mock('./history.js', () => ({
     historyService: {
@@ -44,8 +46,8 @@ describe('RecommendationService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        mockApi = new QobuzAPI();
-        service = new RecommendationService(mockApi);
+        mockApi = qobuzApi;
+        service = new RecommendationService();
     });
 
     it('should return general recommendations when history is empty', async () => {
