@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { QueueItem, QueueItemStatus, QueuePriority, QueueStats, DownloadType } from './types.js';
+import { QueueItem, QueueItemStatus, QueuePriority, QueueStats, DownloadType, QueueItemMetadata } from './types.js';
 import { generateQueueId } from './utils.js';
 import { logger } from '../../utils/logger.js';
 import { databaseService } from '../database/index.js';
@@ -130,17 +130,31 @@ export class DownloadQueue {
     }
 
 
-    updateMetadata(id: string, metadata: { title?: string; artist?: any; album?: any }): void {
+    updateItemDetails(id: string, details: { title?: string; artist?: string; album?: string }): void {
         const item = this.items.get(id);
         if (!item) return;
 
-        if (metadata.title) item.title = metadata.title;
-        if (metadata.artist) item.artist = metadata.artist;
-        if (metadata.album) item.album = metadata.album;
+        if (details.title) item.title = details.title;
+        if (details.artist) item.artist = details.artist;
+        if (details.album) item.album = details.album;
 
         databaseService.addQueueItem(item);
         this.emit('item:progress', item, item.progress);
     }
+
+    updateMetadata(id: string, metadata: Partial<QueueItemMetadata>): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        item.metadata = {
+            ...(item.metadata || {}),
+            ...metadata
+        } as QueueItemMetadata;
+
+        databaseService.addQueueItem(item);
+        this.emit('item:progress', item, item.progress);
+    }
+
 
     updateQuality(id: string, quality: number | string): void {
         const item = this.items.get(id);

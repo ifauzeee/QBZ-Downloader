@@ -8,6 +8,7 @@ vi.mock('./queue/queue.js', () => ({
     downloadQueue: {
         getPendingItems: vi.fn(),
         updateMetadata: vi.fn(),
+        updateItemDetails: vi.fn(),
         on: vi.fn(),
         isPaused: vi.fn().mockReturnValue(false),
         dequeue: vi.fn(),
@@ -131,7 +132,7 @@ describe('QueueProcessor', () => {
         // Wait for one loop
         await vi.advanceTimersByTimeAsync(500);
 
-        expect(downloadQueue.updateMetadata).toHaveBeenCalledWith('1', {
+        expect(downloadQueue.updateItemDetails).toHaveBeenCalledWith('1', {
             title: 'Real Title',
             artist: 'Real Artist',
             album: 'Real Album'

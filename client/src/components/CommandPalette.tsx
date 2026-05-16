@@ -82,9 +82,9 @@ export const CommandPalette: React.FC = () => {
                         category: 'Search Results',
                         action: () => {
                             if (s.type === 'artist') {
-                                navigate('artist', s.id);
+                                navigate('artist', { id: s.id });
                             } else if (s.type === 'album') {
-                                navigate('album', s.id);
+                                navigate('album', { id: s.id });
                             } else if (s.type === 'track') {
                                 setActiveTab('search');
                             }

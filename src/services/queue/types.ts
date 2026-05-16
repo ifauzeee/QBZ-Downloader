@@ -16,6 +16,16 @@ export type QueueItemStatus =
 
 export type QueuePriority = 'low' | 'normal' | 'high';
 
+export interface QueueItemMetadata {
+    source?: string;
+    batchId?: string;
+    albumId?: string;
+    artistId?: string;
+    batchFiles?: string[];
+    [key: string]: string | number | boolean | string[] | undefined | null;
+}
+
+
 export interface QueueItem {
     id: string;
     type: DownloadType;
@@ -25,8 +35,8 @@ export interface QueueItem {
     priority: QueuePriority;
     progress: number;
     title?: string;
-    artist?: any;
-    album?: any;
+    artist?: string;
+    album?: string;
     error?: string;
     filePath?: string;
     addedAt: Date;
@@ -34,7 +44,7 @@ export interface QueueItem {
     completedAt?: Date;
     retryCount: number;
     maxRetries: number;
-    metadata?: any;
+    metadata?: QueueItemMetadata;
 }
 
 export interface QueueStats {

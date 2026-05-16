@@ -5,16 +5,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { playTrack } from './Player';
 import { Icons } from './Icons';
-interface ArtistData {
-    id: string;
-    name: string;
-    image: { large: string; medium: string; small: string };
-    biography?: { en?: string; id?: string;[key: string]: string | undefined } | string;
-    albums?: { items: any[] };
-    tracks?: { items: any[] };
-    similar_artists?: { items: any[] };
-    already_downloaded?: boolean;
-}
+import { ArtistData, Album, Track } from '../types/qobuz';
+
 
 export const ArtistDetailView: React.FC = () => {
     const { navData, setActiveTab, navigate } = useNavigation();

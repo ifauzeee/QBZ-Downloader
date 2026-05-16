@@ -86,3 +86,8 @@ export function handleError(error: Error | QobuzError, display: any) {
         logger.info(`💡 ${friendlyError.suggestion}`, 'HELP');
     }
 }
+
+export function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
+}

@@ -3,6 +3,7 @@ import { downloadQueue } from '../../queue/queue.js';
 import QobuzAPI from '../../../api/qobuz.js';
 import { logger } from '../../../utils/logger.js';
 import { CONFIG, normalizeDownloadQuality } from '../../../config.js';
+import { getErrorMessage } from '../../../utils/errors.js';
 
 const router = Router();
 const api = new QobuzAPI();
@@ -27,8 +28,8 @@ router.post('/import/direct', async (req: Request, res: Response) => {
             message: `Processed ${urls.length} URLs. ${result.imported} added to queue.`
         });
 
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: getErrorMessage(error) });
     }
 });
 

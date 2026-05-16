@@ -34,12 +34,18 @@ export interface SearchState {
     page: number;
 }
 
+export interface NavigationData {
+    id?: string;
+    [key: string]: any;
+}
+
+
 interface NavigationContextType {
     activeTab: Tab;
     setActiveTab: (tab: Tab) => void;
-    navData: any;
-    setNavData: (data: any) => void;
-    navigate: (tab: Tab, data?: any) => void;
+    navData: NavigationData | null;
+    setNavData: (data: NavigationData | null) => void;
+    navigate: (tab: Tab, data?: NavigationData) => void;
     searchState: SearchState;
     setSearchState: (state: SearchState | ((prev: SearchState) => SearchState)) => void;
 }
@@ -56,7 +62,7 @@ const NavigationContext = createContext<NavigationContextType>({
 
 export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [activeTab, setActiveTabState] = useState<Tab>('queue');
-    const [navData, setNavData] = useState<any>(null);
+    const [navData, setNavData] = useState<NavigationData | null>(null);
     const [searchState, setSearchState] = useState<SearchState>({
         query: '',
         type: 'albums',
@@ -95,7 +101,7 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, []);
 
-    const updateUrl = (tab: Tab, data?: any) => {
+    const updateUrl = (tab: Tab, data?: NavigationData | null) => {
         let path = '/';
         if (tab === 'artist' && data?.id) path = `/artist/${data.id}`;
         else if (tab === 'album' && data?.id) path = `/album/${data.id}`;
@@ -118,7 +124,7 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     };
 
-    const navigate = (tab: Tab, data?: any) => {
+    const navigate = (tab: Tab, data?: NavigationData) => {
         if (data) setNavData(data);
         setActiveTabStateUnchecked(tab);
         updateUrl(tab, data);

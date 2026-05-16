@@ -142,7 +142,7 @@ export class QueueProcessor {
                         }
 
                         if (title !== item.title) {
-                            downloadQueue.updateMetadata(item.id, { title, artist, album });
+                            downloadQueue.updateItemDetails(item.id, { title, artist, album });
                             logger.debug(
                                 `Hydrated metadata for ${item.type} ${item.contentId}: ${title}`,
                                 'META'
@@ -284,7 +284,7 @@ export class QueueProcessor {
                 return !currentItem;
             },
             onMetadata: (meta) => {
-                downloadQueue.updateMetadata(item.id, {
+                downloadQueue.updateItemDetails(item.id, {
                     title: meta.title,
                     artist: meta.artist,
                     album: meta.album
@@ -305,16 +305,17 @@ export class QueueProcessor {
                 downloadQueue.updateQuality(item.id, result.quality);
             }
             
-            if (item.metadata?.isUpgrade && item.metadata?.oldFilePath && item.metadata.oldFilePath !== result.filePath) {
+            if (item.metadata?.isUpgrade && typeof item.metadata?.oldFilePath === 'string' && item.metadata.oldFilePath !== result.filePath) {
+                const oldPath = item.metadata.oldFilePath;
                 try {
                     const { existsSync, unlinkSync } = await import('fs');
-                    if (existsSync(item.metadata.oldFilePath)) {
-                        unlinkSync(item.metadata.oldFilePath);
-                        logger.info(`Deleted old file for upgrade: ${item.metadata.oldFilePath}`, 'UPGRADE');
+                    if (existsSync(oldPath)) {
+                        unlinkSync(oldPath);
+                        logger.info(`Deleted old file for upgrade: ${oldPath}`, 'UPGRADE');
                         
                         // Let database know we deleted the old file
                         const { databaseService } = await import('./database/index.js');
-                        databaseService.deleteTrackByPath(item.metadata.oldFilePath);
+                        databaseService.deleteTrackByPath(oldPath);
                     }
                 } catch (e: unknown) {
                     const message = e instanceof Error ? e.message : String(e);
@@ -353,7 +354,7 @@ export class QueueProcessor {
             },
             skipExisting: true,
             onMetadata: (meta: { title?: string; artist?: string; album?: string }) => {
-                downloadQueue.updateMetadata(item.id, {
+                downloadQueue.updateItemDetails(item.id, {
                     title: meta.title,
                     artist: meta.artist,
                     album: meta.album
@@ -387,7 +388,6 @@ export class QueueProcessor {
             }
 
             downloadQueue.updateMetadata(item.id, {
-                ...item.metadata,
                 batchFiles: files
             });
 
