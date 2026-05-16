@@ -4,6 +4,7 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { playTrack } from './Player';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { Icons } from './Icons';
 interface Track {
     id: string;
@@ -36,6 +37,7 @@ export const AlbumDetailView: React.FC = () => {
     const { navData, setActiveTab } = useNavigation();
     const { showToast } = useToast();
     const { t } = useLanguage();
+    const { addToStaging, settings } = useSettings();
 
     const [album, setAlbum] = useState<AlbumData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -96,11 +98,14 @@ export const AlbumDetailView: React.FC = () => {
         }
     };
 
-    const addToBatchStaging = (type: string, id: string) => {
+    const addToBatchStaging = async (type: string, id: string) => {
         const url = `https://open.qobuz.com/${type}/${id}`;
-        const existing = localStorage.getItem('batch_staging_urls') || '';
-        const separator = existing ? '\n' : '';
-        localStorage.setItem('batch_staging_urls', existing + separator + url);
+        const existing = settings.UI_BATCH_STAGING_URLS || '';
+        if (existing.includes(url)) {
+            showToast('Already in Batch Staging', 'info');
+            return;
+        }
+        await addToStaging(url);
         showToast('Added to Batch Staging', 'success');
     };
 

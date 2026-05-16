@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { useSettings } from './SettingsContext';
 
 import en from '../locales/en.json';
 import id from '../locales/id.json';
@@ -33,13 +34,20 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { settings, updateSetting } = useSettings();
     const [language, setLanguageState] = useState<Language>(
-        (localStorage.getItem('language') as Language) || 'id'
+        (settings.UI_LANGUAGE as Language) || 'id'
     );
+
+    useEffect(() => {
+        if (settings.UI_LANGUAGE) {
+            setLanguageState(settings.UI_LANGUAGE as Language);
+        }
+    }, [settings.UI_LANGUAGE]);
 
     const setLanguage = (lang: Language) => {
         setLanguageState(lang);
-        localStorage.setItem('language', lang);
+        updateSetting('ui_language', lang);
     };
 
     const t = (key: string): string => {

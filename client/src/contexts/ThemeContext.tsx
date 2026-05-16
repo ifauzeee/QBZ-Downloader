@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useSettings } from './SettingsContext';
 
 export interface Theme {
     id: string;
@@ -40,12 +41,15 @@ const defaultTheme: Theme = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { settings, updateSetting, loading: settingsLoading } = useSettings();
     const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
     const [themes, setThemes] = useState<Theme[]>([]);
 
     useEffect(() => {
-        fetchThemes();
-    }, []);
+        if (!settingsLoading) {
+            fetchThemes();
+        }
+    }, [settingsLoading, settings.UI_ACTIVE_THEME_ID]);
 
     const fetchThemes = async () => {
         try {
@@ -53,7 +57,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const data = await res.json();
             if (Array.isArray(data)) {
                 setThemes(data);
-                const savedThemeId = localStorage.getItem('activeThemeId');
+                const savedThemeId = settings.UI_ACTIVE_THEME_ID;
                 if (savedThemeId) {
                     const found = data.find((t: Theme) => t.id === savedThemeId);
                     if (found) {
@@ -88,9 +92,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         setCurrentTheme(theme);
         if (theme.id !== 'default') {
-            localStorage.setItem('activeThemeId', theme.id);
+            updateSetting('ui_active_theme_id', theme.id);
         } else {
-            localStorage.removeItem('activeThemeId');
+            updateSetting('ui_active_theme_id', '');
         }
     };
 

@@ -3,6 +3,7 @@ import { smartFetch } from '../utils/api';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { playTrack } from './Player';
 import { Icons } from './Icons';
 
@@ -26,6 +27,7 @@ type ViewMode = 'list' | 'grid';
 
 export const SearchView: React.FC = () => {
     const { t } = useLanguage();
+    const { addToStaging, settings } = useSettings();
     const { navigate, searchState, setSearchState } = useNavigation();
     const { showToast } = useToast();
     const searchBoxRef = useRef<HTMLDivElement>(null);
@@ -194,15 +196,14 @@ export const SearchView: React.FC = () => {
         }
     };
 
-    const addToBatchStaging = (itemType: string, id: string) => {
+    const addToBatchStaging = async (itemType: string, id: string) => {
         const url = `https://open.qobuz.com/${itemType}/${id}`;
-        const existing = localStorage.getItem('batch_staging_urls') || '';
-        const separator = existing ? '\n' : '';
+        const existing = settings.UI_BATCH_STAGING_URLS || '';
         if (existing.includes(url)) {
             showToast('Already in Batch Staging', 'info');
             return;
         }
-        localStorage.setItem('batch_staging_urls', existing + separator + url);
+        await addToStaging(url);
         showToast('Added to Batch Staging', 'success');
     };
 

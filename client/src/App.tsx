@@ -6,6 +6,7 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { PlayerProvider } from './contexts/PlayerContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { QueueView } from './components/QueueView';
 import { BatchImportView } from './components/BatchImportView';
 import { SearchView } from './components/SearchView';
@@ -51,12 +52,13 @@ type OnboardingStatusResponse = {
 };
 
 function AppContent() {
+  const { settings, updateSetting } = useSettings();
   const { activeTab, setActiveTab } = useNavigation();
   const { connected } = useSocket();
   const { t, language, setLanguage } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [theme, setThemeState] = useState(settings.UI_THEME || 'dark');
   const [isMaximized, setIsMaximized] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -74,10 +76,15 @@ function AppContent() {
   const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
+    if (settings.UI_THEME) {
+      setThemeState(settings.UI_THEME);
+    }
+  }, [settings.UI_THEME]);
+
+  useEffect(() => {
     document.body.classList.remove('dark-theme', 'light-theme');
     document.body.classList.add(`${theme}-theme`);
     document.body.classList.toggle('desktop-mode', isDesktop);
-    localStorage.setItem('theme', theme);
 
     return () => {
       document.body.classList.remove('desktop-mode');
@@ -85,9 +92,9 @@ function AppContent() {
   }, [theme, isDesktop]);
 
   useEffect(() => {
-    const accent = localStorage.getItem('accent') || '#2dd4bf';
+    const accent = settings.UI_ACCENT || '#2dd4bf';
     applyAccent(accent);
-  }, []);
+  }, [settings.UI_ACCENT]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -181,7 +188,10 @@ function AppContent() {
       setSidebarCollapsed(!sidebarCollapsed);
     }
   };
-  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const toggleTheme = () => {
+    const nextTheme = settings.UI_THEME === 'dark' ? 'light' : 'dark';
+    updateSetting('ui_theme', nextTheme);
+  };
   const handleOpenGithub = () => {
     window.open('https://github.com/ifauzeee/QBZ-Downloader', '_blank', 'noopener,noreferrer');
   };
@@ -611,19 +621,21 @@ function AppContent() {
 function App() {
   return (
     <SocketProvider>
-      <LanguageProvider>
-        <NavigationProvider>
-            <ThemeProvider>
-              <ToastProvider>
-                <NotificationProvider>
-                  <PlayerProvider>
-                    <AppContent />
-                  </PlayerProvider>
-                </NotificationProvider>
-              </ToastProvider>
-            </ThemeProvider>
-        </NavigationProvider>
-      </LanguageProvider>
+      <SettingsProvider>
+        <LanguageProvider>
+          <NavigationProvider>
+              <ThemeProvider>
+                <ToastProvider>
+                  <NotificationProvider>
+                    <PlayerProvider>
+                      <AppContent />
+                    </PlayerProvider>
+                  </NotificationProvider>
+                </ToastProvider>
+              </ThemeProvider>
+          </NavigationProvider>
+        </LanguageProvider>
+      </SettingsProvider>
     </SocketProvider>
   );
 }

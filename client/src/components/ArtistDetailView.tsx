@@ -3,14 +3,16 @@ import { smartFetch } from '../utils/api';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { playTrack } from './Player';
 import { Icons } from './Icons';
-import { ArtistData, Album, Track } from '../types/qobuz';
+import type { ArtistData, Album, Track } from '../types/qobuz';
 
 
 export const ArtistDetailView: React.FC = () => {
     const { navData, setActiveTab, navigate } = useNavigation();
     const { t } = useLanguage();
+    const { addToStaging, settings } = useSettings();
     const { showToast } = useToast();
     const [artist, setArtist] = useState<ArtistData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -20,12 +22,16 @@ export const ArtistDetailView: React.FC = () => {
 
 
     const [showFullBio, setShowFullBio] = useState(false);
+    const toggleTheme = () => {
+        const nextTheme = settings.UI_THEME === 'dark' ? 'light' : 'dark';
+        updateSetting('ui_theme', nextTheme);
+    };
     const [viewModeTracks, setViewModeTracks] = useState<'list' | 'grid'>('list');
     const [viewModeAlbums, setViewModeAlbums] = useState<'list' | 'grid'>('list');
 
     useEffect(() => {
         if (navData && navData.id) {
-            fetchArtist(navData.id);
+            fetchArtist(String(navData.id));
         }
     }, [navData]);
 
@@ -70,11 +76,14 @@ export const ArtistDetailView: React.FC = () => {
         }
     };
 
-    const addToBatchStaging = (type: string, id: string) => {
+    const addToBatchStaging = async (type: string, id: string) => {
         const url = `https://open.qobuz.com/${type}/${id}`;
-        const existing = localStorage.getItem('batch_staging_urls') || '';
-        const separator = existing ? '\n' : '';
-        localStorage.setItem('batch_staging_urls', existing + separator + url);
+        const existing = settings.UI_BATCH_STAGING_URLS || '';
+        if (existing.includes(url)) {
+            showToast('Already in Batch Staging', 'info');
+            return;
+        }
+        await addToStaging(url);
         showToast('Added to Batch Staging', 'success');
     };
 
@@ -222,7 +231,7 @@ export const ArtistDetailView: React.FC = () => {
                                     <Icons.Grid width={14} height={14} />
                                 </button>
                             </div>
-                            <button className="btn secondary" onClick={() => navigate('artist_tracks', { id: artist.id })} style={{ padding: '6px 12px', fontSize: '13px' }}>View All</button>
+                            <button className="btn secondary" onClick={() => navigate('artist_tracks', { id: String(artist.id) })} style={{ padding: '6px 12px', fontSize: '13px' }}>View All</button>
                         </div>
                     </div>
                     <div className={viewModeTracks === 'list' ? 'track-list' : 'track-grid'}>
@@ -238,7 +247,7 @@ export const ArtistDetailView: React.FC = () => {
                                         <div className="card-image">
                                             <img src={albumImage} loading="lazy" />
                                             <div className="card-overlay">
-                                                <button onClick={() => playTrack(track.id, track.title, artist.name, cover, track.album?.id, artist.tracks?.items)} className="play-btn">
+                                                <button onClick={() => playTrack(String(track.id), track.title, artist.name, cover, track.album?.id ? String(track.album.id) : undefined, artist.tracks?.items)} className="play-btn">
                                                     <Icons.Play width={20} height={20} fill="currentColor" />
                                                 </button>
                                             </div>
@@ -260,8 +269,8 @@ export const ArtistDetailView: React.FC = () => {
                                                 >
                                                     {track.already_downloaded ? <Icons.Check width={12} height={12} /> : <Icons.Download width={12} height={12} />}
                                                 </button>
-                                                <button className="btn-icon-tiny" onClick={() => addToBatchStaging('track', track.id)} title={t('menu_batch')}><Icons.Batch width={12} height={12} /></button>
-                                                <button className="btn-icon-tiny" onClick={() => downloadLyrics(track.id)} title="Download Lyrics"><Icons.Mic width={12} height={12} /></button>
+                                                <button className="btn-icon-tiny" onClick={() => addToBatchStaging('track', String(track.id))} title={t('menu_batch')}><Icons.Batch width={12} height={12} /></button>
+                                                <button className="btn-icon-tiny" onClick={() => downloadLyrics(String(track.id))} title="Download Lyrics"><Icons.Mic width={12} height={12} /></button>
                                             </div>
                                         </div>
                                     </div>
@@ -305,9 +314,9 @@ export const ArtistDetailView: React.FC = () => {
                                         >
                                             <Icons.Download width={14} height={14} />
                                         </button>
-                                        <button className="btn-track-dl" onClick={() => addToBatchStaging('track', track.id)} title={t('menu_batch')}><Icons.Batch width={14} height={14} /></button>
-                                        <button className="btn-track-dl" onClick={() => downloadLyrics(track.id)} title="Download Lyrics"><Icons.Mic width={14} height={14} /></button>
-                                        <button className="btn-track-dl" onClick={() => playTrack(track.id, track.title, artist.name, cover, track.album?.id, artist.tracks?.items)} title={t('action_play')}><Icons.Play width={14} height={14} /></button>
+                                        <button className="btn-track-dl" onClick={() => addToBatchStaging('track', String(track.id))} title={t('menu_batch')}><Icons.Batch width={14} height={14} /></button>
+                                        <button className="btn-track-dl" onClick={() => downloadLyrics(String(track.id))} title="Download Lyrics"><Icons.Mic width={14} height={14} /></button>
+                                        <button className="btn-track-dl" onClick={() => playTrack(String(track.id), track.title, artist.name, cover, track.album?.id ? String(track.album.id) : undefined, artist.tracks?.items)} title={t('action_play')}><Icons.Play width={14} height={14} /></button>
                                     </div>
                                 </div>
                             );
@@ -355,7 +364,7 @@ export const ArtistDetailView: React.FC = () => {
                                     <Icons.Grid width={14} height={14} />
                                 </button>
                             </div>
-                            <button className="btn secondary" onClick={() => navigate('artist_albums', { id: artist.id })} style={{ padding: '6px 12px', fontSize: '13px' }}>View All</button>
+                            <button className="btn secondary" onClick={() => navigate('artist_albums', { id: String(artist.id) })} style={{ padding: '6px 12px', fontSize: '13px' }}>View All</button>
                         </div>
                     </div>
                     <div className={viewModeAlbums === 'list' ? 'track-list' : 'track-grid'}>
@@ -369,7 +378,7 @@ export const ArtistDetailView: React.FC = () => {
 
                             if (viewModeAlbums === 'grid') {
                                 return (
-                                    <div key={album.id} className="track-card-grid" onClick={() => navigate('album', { id: album.id })}>
+                                    <div key={album.id} className="track-card-grid" onClick={() => navigate('album', { id: String(album.id) })}>
                                         <div className="card-image">
                                             <img src={album.image?.medium || album.image?.large || album.image?.small || ''} loading="lazy" />
                                             <div className="card-overlay">
@@ -395,7 +404,7 @@ export const ArtistDetailView: React.FC = () => {
                                                 >
                                                     {album.already_downloaded ? <Icons.Check width={12} height={12} /> : <Icons.Download width={12} height={12} />}
                                                 </button>
-                                                <button className="btn-icon-tiny" onClick={(e) => { e.stopPropagation(); addToBatchStaging('album', album.id); }} title={t('menu_batch')}><Icons.Batch width={12} height={12} /></button>
+                                                <button className="btn-icon-tiny" onClick={(e) => { e.stopPropagation(); addToBatchStaging('album', String(album.id)); }} title={t('menu_batch')}><Icons.Batch width={12} height={12} /></button>
                                             </div>
                                         </div>
                                     </div>
@@ -403,7 +412,7 @@ export const ArtistDetailView: React.FC = () => {
                             }
 
                             return (
-                                <div key={album.id} className="track-item" onClick={() => navigate('album', { id: album.id })} style={{ cursor: 'pointer', alignItems: 'flex-start' }}>
+                                <div key={album.id} className="track-item" onClick={() => navigate('album', { id: String(album.id) })} style={{ cursor: 'pointer', alignItems: 'flex-start' }}>
                                     <img src={album.image?.small || album.image?.thumbnail || ''} style={{ width: '60px', height: '60px', borderRadius: '4px', marginRight: '16px', objectFit: 'cover' }} loading="lazy" />
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                         <div style={{ fontWeight: '600', fontSize: '15px' }}>{album.title}</div>
@@ -432,7 +441,7 @@ export const ArtistDetailView: React.FC = () => {
                                         >
                                             <Icons.Download width={14} height={14} />
                                         </button>
-                                        <button className="btn-track-dl" onClick={(e) => { e.stopPropagation(); addToBatchStaging('album', album.id); }} title={t('menu_batch')}><Icons.Batch width={14} height={14} /></button>
+                                        <button className="btn-track-dl" onClick={(e) => { e.stopPropagation(); addToBatchStaging('album', String(album.id)); }} title={t('menu_batch')}><Icons.Batch width={14} height={14} /></button>
                                     </div>
                                 </div>
                             );
@@ -446,8 +455,8 @@ export const ArtistDetailView: React.FC = () => {
                     <h2 style={{ marginBottom: '20px', fontSize: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>Similar Artists</h2>
                     <div className="track-list">
                         {artist.similar_artists.items.map(sim => (
-                            <div key={sim.id} className="track-item" onClick={() => navigate('artist', { id: sim.id })} style={{ cursor: 'pointer' }}>
-                                <img src={sim.image?.small || sim.image?.thumbnail || ''} style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '16px', objectFit: 'cover' }} loading="lazy" />
+                            <div key={sim.id} className="track-item" onClick={() => navigate('artist', { id: String(sim.id) })} style={{ cursor: 'pointer' }}>
+                                <img src={sim.image?.small || (sim.image as any)?.thumbnail || ''} style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '16px', objectFit: 'cover' }} loading="lazy" />
                                 <div style={{ flex: 1, fontWeight: '500' }}>{sim.name}</div>
                                 <div className="track-actions">
                                     <button className="btn-track-dl" style={{ fontSize: '12px', padding: '4px 12px' }}>View</button>

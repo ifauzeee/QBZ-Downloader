@@ -52,7 +52,13 @@ const KNOWN_SETTING_KEYS = [
     'AI_PROVIDER',
     'AI_API_KEY',
     'AI_MODEL',
-    'BANDWIDTH_LIMIT'
+    'BANDWIDTH_LIMIT',
+    'UI_BATCH_STAGING_URLS',
+    'UI_LAST_TAB',
+    'UI_ACTIVE_THEME_ID',
+    'UI_LANGUAGE',
+    'UI_THEME',
+    'UI_ACCENT'
 ] as const;
 
 export type KnownSettingKey = (typeof KNOWN_SETTING_KEYS)[number];

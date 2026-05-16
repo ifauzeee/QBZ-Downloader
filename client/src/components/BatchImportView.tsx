@@ -4,10 +4,12 @@ import { useToast } from '../contexts/ToastContext';
 import { Icons } from './Icons';
 import { ConfirmModal } from './Modals';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSettings } from '../contexts/SettingsContext';
 
 export const BatchImportView: React.FC = () => {
     const { t } = useLanguage();
     const { showToast } = useToast();
+    const { settings, clearStaging: executeBackendClearStaging, loading: settingsLoading } = useSettings();
 
     const [directInput, setDirectInput] = useState('');
     const [quality, setQuality] = useState(27);
@@ -22,9 +24,11 @@ export const BatchImportView: React.FC = () => {
     const [parsedUrls, setParsedUrls] = useState<string[]>([]);
 
     React.useEffect(() => {
-        const staged = localStorage.getItem('batch_staging_urls');
+        if (settingsLoading) return;
+
+        const staged = settings.UI_BATCH_STAGING_URLS;
         if (staged) {
-            const lines = staged.split('\n').filter(l => l.trim());
+            const lines = staged.split('\n').filter((l: string) => l.trim());
             setStagedCount(lines.length);
 
             if (!directInput && lines.length > 0 && mode === 'direct') {
@@ -40,7 +44,7 @@ export const BatchImportView: React.FC = () => {
             setParsedUrls([]);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
-    }, [mode]);
+    }, [mode, settingsLoading, settings.UI_BATCH_STAGING_URLS]);
 
     const parseFileContent = (content: string, type: 'file' | 'm3u8' | 'csv') => {
         const lines = content.split(/\r?\n/);
@@ -147,8 +151,8 @@ export const BatchImportView: React.FC = () => {
 
                     if (mode === 'direct') {
                         setDirectInput('');
-                        if (localStorage.getItem('batch_staging_urls')) {
-                            localStorage.removeItem('batch_staging_urls');
+                        if (settings.UI_BATCH_STAGING_URLS) {
+                            executeBackendClearStaging();
                             setStagedCount(0);
                         }
                     } else {
@@ -171,11 +175,11 @@ export const BatchImportView: React.FC = () => {
     };
 
     const loadFromStaging = () => {
-        const staged = localStorage.getItem('batch_staging_urls');
+        const staged = settings.UI_BATCH_STAGING_URLS;
         if (staged) {
             const current = directInput ? directInput + (directInput.endsWith('\n') ? '' : '\n') : '';
             setDirectInput(current + staged);
-            const lines = staged.split('\n').filter(l => l.trim());
+            const lines = staged.split('\n').filter((l: string) => l.trim());
             showToast(`Loaded ${lines.length} URLs from Staging`, 'success');
         } else {
             showToast('No staged URLs found', 'info');
@@ -190,7 +194,7 @@ export const BatchImportView: React.FC = () => {
     };
 
     const executeClearStaging = () => {
-        localStorage.removeItem('batch_staging_urls');
+        executeBackendClearStaging();
         setStagedCount(0);
         setDirectInput('');
         showToast('Staging and input cleared', 'success');

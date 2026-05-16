@@ -52,7 +52,13 @@ const APP_SETTING_KEYS = new Set([
     'EXPORT_BITRATE',
     'EXPORT_KEEP_ORIGINAL',
     'EXPORT_PATH',
-    'BANDWIDTH_LIMIT'
+    'BANDWIDTH_LIMIT',
+    'UI_BATCH_STAGING_URLS',
+    'UI_LAST_TAB',
+    'UI_ACTIVE_THEME_ID',
+    'UI_LANGUAGE',
+    'UI_THEME',
+    'UI_ACCENT'
 ]);
 
 router.get('/status', (req: Request, res: Response) => {
@@ -135,7 +141,13 @@ router.get('/settings', async (req: Request, res: Response) => {
         EXPORT_KEEP_ORIGINAL: CONFIG.export.keepOriginal,
         EXPORT_PATH: CONFIG.export.outputDir,
         BANDWIDTH_LIMIT: CONFIG.download.bandwidthLimit,
-        FFMPEG_AVAILABLE: await formatConverterService.isAvailable()
+        FFMPEG_AVAILABLE: await formatConverterService.isAvailable(),
+        UI_BATCH_STAGING_URLS: settingsService.get('UI_BATCH_STAGING_URLS') || '',
+        UI_LAST_TAB: settingsService.get('UI_LAST_TAB') || 'search',
+        UI_ACTIVE_THEME_ID: settingsService.get('UI_ACTIVE_THEME_ID') || 'default',
+        UI_LANGUAGE: settingsService.get('UI_LANGUAGE') || 'id',
+        UI_THEME: settingsService.get('UI_THEME') || 'dark',
+        UI_ACCENT: settingsService.get('UI_ACCENT') || '#2dd4bf'
     });
 });
 
@@ -193,6 +205,12 @@ router.post('/settings/update', async (req: Request, res: Response) => {
         setIfDefined('EXPORT_KEEP_ORIGINAL', body.export_keep_original);
         setIfDefined('EXPORT_PATH', body.export_path);
         setIfDefined('BANDWIDTH_LIMIT', body.bandwidth_limit);
+        setIfDefined('UI_BATCH_STAGING_URLS', body.ui_batch_staging_urls);
+        setIfDefined('UI_LAST_TAB', body.ui_last_tab);
+        setIfDefined('UI_ACTIVE_THEME_ID', body.ui_active_theme_id);
+        setIfDefined('UI_LANGUAGE', body.ui_language);
+        setIfDefined('UI_THEME', body.ui_theme);
+        setIfDefined('UI_ACCENT', body.ui_accent);
 
         if (body.settings && typeof body.settings === 'object') {
             for (const [key, value] of Object.entries(body.settings)) {

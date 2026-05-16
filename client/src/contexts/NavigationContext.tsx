@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useSettings } from './SettingsContext';
 
 export type Tab =
     | 'queue'
@@ -61,6 +62,7 @@ const NavigationContext = createContext<NavigationContextType>({
 });
 
 export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { settings, updateSetting, loading: settingsLoading } = useSettings();
     const [activeTab, setActiveTabState] = useState<Tab>('queue');
     const [navData, setNavData] = useState<NavigationData | null>(null);
     const [searchState, setSearchState] = useState<SearchState>({
@@ -74,9 +76,11 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     useEffect(() => {
         const path = window.location.pathname;
         if (path === '/') {
-            const last = localStorage.getItem('lastTab') as Tab;
-            if (last && ALLOWED_TABS.includes(last)) {
-                setActiveTabState(last);
+            if (!settingsLoading) {
+                const last = settings.UI_LAST_TAB as Tab;
+                if (last && ALLOWED_TABS.includes(last)) {
+                    setActiveTabState(last);
+                }
             }
             return;
         }
@@ -99,7 +103,7 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 setActiveTabState(tab);
             }
         }
-    }, []);
+    }, [settingsLoading, settings.UI_LAST_TAB]);
 
     const updateUrl = (tab: Tab, data?: NavigationData | null) => {
         let path = '/';
@@ -117,7 +121,7 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const setActiveTab = (tab: Tab) => {
         setActiveTabState(tab);
-        localStorage.setItem('lastTab', tab);
+        updateSetting('ui_last_tab', tab);
         if (!['artist', 'album', 'artist_albums', 'artist_tracks'].includes(tab)) {
             setNavData(null);
             updateUrl(tab, null);
@@ -132,7 +136,7 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const setActiveTabStateUnchecked = (tab: Tab) => {
         setActiveTabState(tab);
-        localStorage.setItem('lastTab', tab);
+        updateSetting('ui_last_tab', tab);
     }
 
     useEffect(() => {
