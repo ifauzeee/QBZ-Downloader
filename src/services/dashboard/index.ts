@@ -262,8 +262,9 @@ export class DashboardService {
 
     public start(port?: number): void {
         if (port) this.port = port;
+        const host = CONFIG.dashboard.host || '127.0.0.1';
         try {
-            this.httpServer.listen(this.port, '127.0.0.1', async () => {
+            this.httpServer.listen(this.port, host, async () => {
 
                 try {
                     const message = `
@@ -285,6 +286,7 @@ Mode:    ${CONFIG.dashboard.password ? chalk.red('Protected') : chalk.yellow('Pu
                     logger.info('Access Control: Password protection enabled.', 'WEB');
                 } else {
                     logger.warn('Access Control: Password protection disabled (Public)', 'WEB');
+                    logger.warn('Dashboard password not set — access is unrestricted!', 'SECURITY');
                 }
             });
         } catch (error) {

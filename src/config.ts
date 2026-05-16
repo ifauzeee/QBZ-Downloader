@@ -91,6 +91,7 @@ export interface Config {
     dashboard: {
         port: number;
         password?: string;
+        host?: string;
     };
     mediaServer: {
         enabled: boolean;
@@ -248,7 +249,8 @@ export const CONFIG: Config = {
     get dashboard() {
         return {
             port: getInt('DASHBOARD_PORT', 3000),
-            password: getStr('DASHBOARD_PASSWORD', '')
+            password: getStr('DASHBOARD_PASSWORD', ''),
+            host: getStr('DASHBOARD_HOST', '127.0.0.1')
         };
     },
 
