@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
-import { LRUCache } from 'lru-cache';
 import QobuzAPI from '../../api/qobuz.js';
 import { logger } from '../../utils/logger.js';
 import { cacheService } from '../../utils/cache.js';
 import { CONFIG, normalizeDownloadQuality } from '../../config.js';
+import { LRUCache } from 'lru-cache';
 
 export interface PreviewInfo {
     trackId: string;
@@ -44,7 +44,6 @@ class AudioPreviewService extends EventEmitter {
         ttl: 30 * 60 * 1000,
         updateAgeOnGet: true
     });
-    private cacheExpiry = 30 * 60 * 1000;
 
     constructor() {
         super();
@@ -87,7 +86,7 @@ class AudioPreviewService extends EventEmitter {
                 coverUrl: this.getCoverUrl(track.album?.image || {}),
                 waveform: this.generateWaveform(track.duration || 180),
                 isSample: !!(streamData.sample || (streamData.duration && streamData.duration <= 30)),
-                expiresAt: Date.now() + this.cacheExpiry
+                expiresAt: Date.now() + 30 * 60 * 1000
             };
 
             this.previewCache.set(trackId, previewInfo);
@@ -132,7 +131,7 @@ class AudioPreviewService extends EventEmitter {
                                     `Quality ${data.format_id}`,
                                 coverUrl: this.getCoverUrl(track.album?.image || {}),
                                 isSample: !!(data.sample || (data.duration && data.duration <= 30)),
-                                expiresAt: Date.now() + this.cacheExpiry
+                                expiresAt: Date.now() + 30 * 60 * 1000
                             };
                             this.previewCache.set(trackId, meta as PreviewInfo);
                         }
