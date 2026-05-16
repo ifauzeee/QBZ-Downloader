@@ -22,6 +22,16 @@ vi.mock('../api/qobuz.js', () => ({
             getFileUrl: vi.fn().mockResolvedValue({
                 success: true,
                 data: { url: 'http://mock/stream', format_id: 27 }
+            }),
+            search: vi.fn().mockResolvedValue({
+                success: true,
+                data: {
+                    tracks: {
+                        items: [
+                            { id: 'track1', title: 'Integrasi Test', artist: { name: 'Antigravity' } }
+                        ]
+                    }
+                }
             })
         };
     })
@@ -176,28 +186,38 @@ vi.mock('../config.js', () => {
 // Partially mock fs
 vi.mock('fs', async (importOriginal) => {
     const actual = await importOriginal<typeof import('fs')>();
+    
+    const mockExistsSync = vi.fn().mockReturnValue(false);
+    const mockMkdirSync = vi.fn();
+    const mockWriteFileSync = vi.fn();
+    const mockCreateWriteStream = vi.fn().mockReturnValue({
+        on: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }, event, cb) {
+            if (event === 'finish') setTimeout(cb, 10);
+            return this;
+        }),
+        once: vi.fn(),
+        emit: vi.fn(),
+        write: vi.fn().mockReturnValue(true),
+        end: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }) {
+            this.emit('finish');
+            return this;
+        }),
+        destroy: vi.fn(),
+        closed: false
+    });
+
     return {
         ...actual,
+        existsSync: mockExistsSync,
+        mkdirSync: mockMkdirSync,
+        writeFileSync: mockWriteFileSync,
+        createWriteStream: mockCreateWriteStream,
         default: {
             ...actual,
-            existsSync: vi.fn().mockReturnValue(false),
-            mkdirSync: vi.fn(),
-            writeFileSync: vi.fn(),
-            createWriteStream: vi.fn().mockReturnValue({
-                on: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }, event, cb) {
-                    if (event === 'finish') setTimeout(cb, 10);
-                    return this;
-                }),
-                once: vi.fn(),
-                emit: vi.fn(),
-                write: vi.fn().mockReturnValue(true),
-                end: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }) {
-                    this.emit('finish');
-                    return this;
-                }),
-                destroy: vi.fn(),
-                closed: false
-            })
+            existsSync: mockExistsSync,
+            mkdirSync: mockMkdirSync,
+            writeFileSync: mockWriteFileSync,
+            createWriteStream: mockCreateWriteStream
         }
     };
 });
@@ -211,27 +231,39 @@ describe('Download Integration Flow', () => {
         processor = new QueueProcessor();
     });
 
-    it('should process a track from addition to completion', async () => {
-        // 1. Start processor first so it listens to events
-        processor.start();
-
-        // 2. Add track to queue
-        const item = downloadQueue.add('track', 'track1', 27, { title: 'Initial' } as Metadata);
-
-        // 3. Wait for processing
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // 4. Verify results
-        const updatedItem = downloadQueue.get(item.id);
-        console.log('ITEM STATUS:', updatedItem?.status, 'ERROR:', updatedItem?.error);
+    it('should execute full E2E flow: search -> queue -> download -> metadata -> library scan', async () => {
+        // 1. Search (Mock API)
+        const qobuzApiModule = await import('../api/qobuz.js');
+        const QobuzAPI = qobuzApiModule.default;
+        const qobuzApi = new QobuzAPI();
+        const searchResult = await qobuzApi.search('Integrasi Test');
         
-        // The most important thing is that it finished successfully
+        expect(searchResult.success).toBe(true);
+        const trackToDownload = searchResult.data?.tracks?.items[0];
+        expect(trackToDownload).toBeDefined();
+
+        // 2. Add to Queue
+        processor.start();
+        const item = downloadQueue.add('track', trackToDownload!.id, 27, { title: trackToDownload!.title } as any);
+
+        // 3. Wait for Queue and Download to process
+        await new Promise(resolve => setTimeout(resolve, 600));
+
+        // Verify queue status
+        const updatedItem = downloadQueue.get(item.id);
         expect(updatedItem?.status).toBe('completed');
         expect(updatedItem?.progress).toBe(100);
         expect(updatedItem?.error).toBeUndefined();
+
+        // 4. Verify Database & Library Scan triggers (with polling for async operation)
+        for (let i = 0; i < 10; i++) {
+            if (mockDatabaseService.addTrack.mock.calls.length > 0) break;
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        expect(mockDatabaseService.addTrack).toHaveBeenCalled();
+        
+        const mediaServerModule = await import('./MediaServerService.js');
+        expect(mediaServerModule.mediaServerService.notifyNewContent).toHaveBeenCalled();
     });
-
-
-
-
 });
