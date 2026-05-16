@@ -66,7 +66,7 @@
     "desc_update_creds": "留空以保留当前值。",
     "action_update_creds": "更新",
     "sec_config": "当前配置",
-    "desc_config": "Settings disimpan di database lokal aplikasi.",
+    "desc_config": "设置保存在应用程序的本地数据库中。",
     "sec_appearance": "外观",
     "label_theme": "主题",
     "default_theme": "默认主题",
