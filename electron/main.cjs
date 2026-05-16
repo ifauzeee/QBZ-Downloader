@@ -458,7 +458,7 @@ function setupSecurityHeaders() {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
         "img-src 'self' data: https: http: blob:; " +
         "media-src 'self' data: blob: https: http:; " +
-        "connect-src 'self' ws: wss: http: https:; " +
+        "connect-src 'self' ws://localhost:* http://localhost:* wss://*.qobuz.com https://*.qobuz.com https://www.qobuz.com; " +
         "font-src 'self' data: https: https://fonts.gstatic.com;"
       ];
     }
