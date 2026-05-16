@@ -7,6 +7,8 @@ const changelogPath = 'CHANGELOG.md';
 
 const { version } = JSON.parse(readFileSync(packagePath, 'utf-8'));
 
+const clientPackagePath = 'client/package.json';
+
 // 1. Update manifest.json
 try {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
@@ -15,6 +17,16 @@ try {
     console.log(`✅ Updated ${manifestPath} to v${version}`);
 } catch (e) {
     console.error(`Failed to update ${manifestPath}:`, e.message);
+}
+
+// 1.5 Update client/package.json
+try {
+    const clientPackage = JSON.parse(readFileSync(clientPackagePath, 'utf-8'));
+    clientPackage.version = version;
+    writeFileSync(clientPackagePath, JSON.stringify(clientPackage, null, 2) + '\n');
+    console.log(`✅ Updated ${clientPackagePath} to v${version}`);
+} catch (e) {
+    console.error(`Failed to update ${clientPackagePath}:`, e.message);
 }
 
 // 2. Update README.md badge
