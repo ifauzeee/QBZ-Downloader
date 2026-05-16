@@ -582,7 +582,7 @@ export default class DownloadService {
             .filter((item) => !item.res.success);
 
         if (failedItems.length > 0) {
-            const foldersMap = new Map<string, { res: DownloadResult; track: any }[]>();
+            const foldersMap = new Map<string, { res: DownloadResult; track: Track }[]>();
             for (const item of failedItems) {
                 let folder = '';
                 try {

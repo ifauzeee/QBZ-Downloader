@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DownloadEngine } from './DownloadEngine.js';
 import * as network from '../utils/network.js';
 import { resumeService } from './batch.js';
+import { Metadata } from './metadata.js';
 import * as fs from 'fs';
 import { EventEmitter } from 'events';
 
@@ -80,10 +81,10 @@ describe('DownloadEngine', () => {
             status: 200,
             headers: { 'content-length': '1000' },
             data: mockDataStream
-        } as unknown as any);
+        } as unknown as { status: number; headers: Record<string, string>; data: EventEmitter });
 
         const downloadPromise = engine.download(
-            'url', 'path', 'id', { title: 'T' } as unknown as any, 1000, 27
+            'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27
         );
 
         await vi.waitFor(() => {
@@ -107,11 +108,11 @@ describe('DownloadEngine', () => {
             status: 200,
             headers: { 'content-length': '1000' },
             data: mockDataStream
-        } as unknown as any);
+        } as unknown as { status: number; headers: Record<string, string>; data: EventEmitter });
 
         let cancelled = false;
         const downloadPromise = engine.download(
-            'url', 'path', 'id', { title: 'T' } as unknown as any, 1000, 27, 
+            'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27, 
             undefined, () => cancelled
         );
 
@@ -137,10 +138,10 @@ describe('DownloadEngine', () => {
             status: 206,
             headers: { 'content-length': '500' },
             data: mockDataStream
-        } as unknown as any);
+        } as unknown as { status: number; headers: Record<string, string>; data: EventEmitter });
 
         const downloadPromise = engine.download(
-            'url', 'path', 'id', { title: 'T' } as unknown as any, 1000, 27
+            'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27
         );
 
         // Wait for re-hashing to start

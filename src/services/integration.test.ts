@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueueProcessor } from './queue-processor.js';
 import { downloadQueue } from './queue/queue.js';
-import QobuzAPI from '../api/qobuz.js';
-import { databaseService } from './database/index.js';
-import { historyService } from './history.js';
-import fs from 'fs';
 
 // This is a high-level integration test
 vi.mock('../api/qobuz.js', () => ({
@@ -36,7 +32,7 @@ vi.mock('../utils/network.js', () => ({
         get: vi.fn().mockResolvedValue({ data: Buffer.alloc(10), headers: {} }),
         interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } }
     }),
-    downloadFile: vi.fn().mockImplementation((url, opts) => {
+    downloadFile: vi.fn().mockImplementation((_url, _opts) => {
         return Promise.resolve({
             status: 200,
             data: {
@@ -138,10 +134,18 @@ vi.mock('../utils/logger.js', () => ({
     }
 }));
 
-vi.mock('../config.js', () => ({
-    CONFIG: {
-        ai: { enabled: false },
-        download: { outputDir: './downloads', folderStructure: '{artist}/{album}', fileNaming: '{track_number}. {title}', retryDelay: 100 },
+vi.mock('../config.js', () => {
+    const configMock = {
+        ai: { enabled: false, provider: 'none', apiKey: '', model: '' },
+        download: { 
+            outputDir: './downloads', 
+            folderStructure: '{artist}/{album}', 
+            fileNaming: '{track_number}. {title}', 
+            retryDelay: 100,
+            bandwidthLimit: 0,
+            retryAttempts: 3,
+            concurrent: 2
+        },
         quality: { 
             default: 27,
             formats: {
@@ -149,10 +153,25 @@ vi.mock('../config.js', () => ({
                 5: { name: 'MP3', extension: 'mp3' }
             }
         },
-        metadata: { downloadLyrics: false, embedCover: false, saveCoverFile: false, embedLyrics: false }
-    },
-    normalizeDownloadQuality: vi.fn((q) => q)
-}));
+        metadata: { 
+            downloadLyrics: false, 
+            embedCover: false, 
+            saveCoverFile: false, 
+            embedLyrics: false,
+            tags: { basic: [], extended: [], credits: [] }
+        },
+        credentials: { appId: '', appSecret: '', token: '', userId: '' },
+        api: { baseUrl: '', endpoints: {} },
+        export: { enabled: false },
+        dashboard: { port: 3000 },
+        mediaServer: { enabled: false }
+    };
+    return {
+        CONFIG: configMock,
+        default: configMock,
+        normalizeDownloadQuality: vi.fn((q) => q)
+    };
+});
 
 // Partially mock fs
 vi.mock('fs', async (importOriginal) => {
@@ -165,16 +184,14 @@ vi.mock('fs', async (importOriginal) => {
             mkdirSync: vi.fn(),
             writeFileSync: vi.fn(),
             createWriteStream: vi.fn().mockReturnValue({
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                on: vi.fn().mockImplementation(function(this: any, event, cb) {
+                on: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }, event, cb) {
                     if (event === 'finish') setTimeout(cb, 10);
                     return this;
                 }),
                 once: vi.fn(),
                 emit: vi.fn(),
                 write: vi.fn().mockReturnValue(true),
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                end: vi.fn().mockImplementation(function(this: any) {
+                end: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }) {
                     this.emit('finish');
                     return this;
                 }),
@@ -199,7 +216,7 @@ describe('Download Integration Flow', () => {
         processor.start();
 
         // 2. Add track to queue
-        const item = downloadQueue.add('track', 'track1', 27, { title: 'Initial' });
+        const item = downloadQueue.add('track', 'track1', 27, { title: 'Initial' } as Metadata);
 
         // 3. Wait for processing
         await new Promise(resolve => setTimeout(resolve, 500));

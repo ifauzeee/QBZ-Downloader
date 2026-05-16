@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HistoryService } from './history.js';
 import fs from 'fs';
 
@@ -83,7 +83,7 @@ describe('HistoryService', () => {
         history.add('t1', { filename: 'existing.flac', quality: 27, title: 'T1' });
         history.add('t2', { filename: 'missing.flac', quality: 27, title: 'T2' });
         
-        (fs.existsSync as any).mockImplementation((p: string) => p === 'existing.flac');
+        vi.mocked(fs.existsSync).mockImplementation((p: string) => p === 'existing.flac');
         
         const cleaned = history.cleanup();
         expect(cleaned).toBe(1);
