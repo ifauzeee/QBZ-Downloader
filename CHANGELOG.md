@@ -25,6 +25,13 @@ All notable changes to this project will be documented in this file.
     - `LibraryHealerService`, `AIMetadataService`, `LibraryStatisticsService`, `FormatConverterService`, `MediaServerService`, `RecommendationService`, `NotificationService`, and `ThemeService`.
 - **Infrastructure Stability** — Resolved critical race conditions and timing issues in asynchronous tests using `vi.waitFor` and robust stream mocks.
 - **Full Type Safety** — Audited and fixed all TypeScript errors in the test suite, achieving zero `tsc` errors across the project.
+- **Frontend Component Testing** — Initialized `@testing-library/react` for the dashboard UI, adding test suites for critical components like `Player` and `QueuePanel`.
+- **E2E Integration Flow** — Added full end-to-end simulation covering the entire lifecycle: Search → Queue → Download → Metadata writing → Library Scan.
+
+### 🛠️ DevOps & Security
+
+- **Cross-Platform CI Matrix** — Upgraded `.github/workflows/test.yml` to automatically run tests across `ubuntu-latest`, `windows-latest`, and `macos-latest` on both Node.js 20.x and 22.x.
+- **Electron & Security Upgrade** — Bumped `electron` to `^33.0.0` (from 32.0.0) to include critical security patches. Audited and updated all vulnerable NPM dependencies to ensure a secure build environment.
 
 ---
 
