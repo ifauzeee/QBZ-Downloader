@@ -7,7 +7,31 @@ import MetadataService, { Metadata } from './metadata.js';
 vi.mock('../api/qobuz.js');
 vi.mock('../api/lyrics.js');
 vi.mock('./metadata.js');
-vi.mock('fs');
+vi.mock('../utils/network.js', () => ({
+    createAxiosInstance: vi.fn().mockReturnValue({
+        interceptors: {
+            request: { use: vi.fn() },
+            response: { use: vi.fn() }
+        }
+    })
+}));
+
+vi.mock('fs', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('fs')>();
+    return {
+        ...actual,
+        readFileSync: vi.fn().mockImplementation((path, options) => {
+            if (path.toString().includes('package.json')) {
+                return JSON.stringify({ version: '5.2.0' });
+            }
+            return actual.readFileSync(path, options);
+        }),
+        existsSync: vi.fn().mockReturnValue(true),
+        mkdirSync: vi.fn(),
+        unlinkSync: vi.fn(),
+        writeFileSync: vi.fn()
+    };
+});
 vi.mock('axios');
 vi.mock('./history.js', () => ({
     historyService: {

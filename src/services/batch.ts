@@ -374,10 +374,13 @@ export class BatchImportService {
                 };
             }
 
-            const urlsWithQuality: { url: string; quality: number }[] = records.map((row: any) => ({
-                url: row[urlKey],
-                quality: qualityKey ? parseInt(row[qualityKey]) || defaultQuality : defaultQuality
-            })).filter(item => item.url);
+            const urlsWithQuality: { url: string; quality: number }[] = records.map((row) => {
+                const r = row as Record<string, string>;
+                return {
+                    url: r[urlKey],
+                    quality: qualityKey ? parseInt(r[qualityKey]) || defaultQuality : defaultQuality
+                };
+            }).filter(item => item.url);
 
             let imported = 0;
             let failed = 0;
@@ -394,12 +397,12 @@ export class BatchImportService {
             }
 
             return { success: failed === 0, imported, failed, errors };
-        } catch (error: any) {
+        } catch (error: unknown) {
             return {
                 success: false,
                 imported: 0,
                 failed: 0,
-                errors: [`Failed to parse CSV: ${error.message}`]
+                errors: [(error as Error).message]
             };
         }
     }

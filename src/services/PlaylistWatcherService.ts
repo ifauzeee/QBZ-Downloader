@@ -1,4 +1,4 @@
-import QobuzAPI from '../api/qobuz.js';
+import { qobuzApi, QobuzAPI } from '../api/qobuz.js';
 import { databaseService } from './database/index.js';
 import { downloadQueue } from './queue/queue.js';
 import { logger } from '../utils/logger.js';
@@ -11,7 +11,7 @@ export class PlaylistWatcherService {
     private timer: NodeJS.Timeout | null = null;
     private isScanning = false;
 
-    constructor(api: QobuzAPI) {
+    constructor(api: QobuzAPI = qobuzApi) {
         this.api = api;
     }
 
@@ -104,4 +104,4 @@ export class PlaylistWatcherService {
     }
 }
 
-export const playlistWatcherService = new PlaylistWatcherService(new QobuzAPI());
+export const playlistWatcherService = new PlaylistWatcherService(qobuzApi);

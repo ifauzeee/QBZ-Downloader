@@ -17,7 +17,7 @@ interface ApiResponse<T = unknown> {
     error?: string;
 }
 
-class QobuzAPI {
+export class QobuzAPI {
     baseUrl: string;
     client: AxiosInstance;
 

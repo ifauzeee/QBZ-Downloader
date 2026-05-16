@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { logger } from '../utils/logger.js';
 import { retryOperation } from '../utils/async.js';
 import { CONFIG, normalizeDownloadQuality } from '../config.js';
-import QobuzAPI from '../api/qobuz.js';
+import { qobuzApi, QobuzAPI } from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import MetadataService, { Metadata } from './metadata.js';
 import { Album, FileUrlData, Track, LyricsResult } from '../types/qobuz.js';
@@ -83,7 +83,7 @@ export default class DownloadService {
     engine: DownloadEngine;
     processor: MetadataProcessor;
 
-    constructor(api: QobuzAPI, lyricsProvider: LyricsProvider, metadataService: MetadataService) {
+    constructor(api: QobuzAPI = qobuzApi, lyricsProvider: LyricsProvider, metadataService: MetadataService) {
         this.api = api;
         this.lyricsProvider = lyricsProvider;
         this.metadataService = metadataService;
@@ -505,15 +505,15 @@ export default class DownloadService {
         })));
  
         const results = await Promise.all(promises);
-        const completed = results.filter((r) => r.success).length;
+        const completed = results.filter((r: DownloadResult) => r.success).length;
 
         const failedItems = results
-            .map((res, index) => ({ res, track: tracks[index] }))
-            .filter((item) => !item.res.success);
+            .map((res: DownloadResult, index: number) => ({ res, track: tracks[index] as Track }))
+            .filter((item: { res: DownloadResult; track: Track }) => !item.res.success);
 
         if (failedItems.length > 0) {
             let albumFolderPath = '';
-            const firstSuccess = results.find((r) => r.success && r.filePath);
+            const firstSuccess = results.find((r: DownloadResult) => r.success && r.filePath);
             if (firstSuccess && firstSuccess.filePath) {
                 albumFolderPath = path.dirname(firstSuccess.filePath);
             } else {
@@ -584,11 +584,11 @@ export default class DownloadService {
         })));
  
         const results = await Promise.all(promises);
-        const completed = results.filter((r) => r.success).length;
+        const completed = results.filter((r: DownloadResult) => r.success).length;
 
         const failedItems = results
-            .map((res, index) => ({ res, track: tracks[index] }))
-            .filter((item) => !item.res.success);
+            .map((res: DownloadResult, index: number) => ({ res, track: tracks[index] as Track }))
+            .filter((item: { res: DownloadResult; track: Track }) => !item.res.success);
 
         if (failedItems.length > 0) {
             const foldersMap = new Map<string, { res: DownloadResult; track: Track }[]>();

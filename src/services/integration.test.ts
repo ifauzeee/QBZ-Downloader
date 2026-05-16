@@ -245,7 +245,7 @@ describe('Download Integration Flow', () => {
 
         // 2. Add to Queue
         processor.start();
-        const item = downloadQueue.add('track', trackToDownload!.id, 27, { title: trackToDownload!.title } as any);
+        const item = downloadQueue.add('track', trackToDownload!.id, 27, { title: trackToDownload!.title } as Record<string, string>);
 
         // 3. Wait for Queue and Download to process
         await new Promise(resolve => setTimeout(resolve, 600));

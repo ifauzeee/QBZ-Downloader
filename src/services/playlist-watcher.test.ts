@@ -8,24 +8,29 @@ import { notificationService } from './notifications.js';
 
 // Mock dependencies
 vi.mock('../api/qobuz.js', () => {
+    const mockApi = {
+        getPlaylist: vi.fn().mockResolvedValue({
+            success: true,
+            data: {
+                tracks: {
+                    items: [
+                        { id: 'new1', title: 'New Track 1' },
+                        { id: 'old1', title: 'Old Track 1' }
+                    ]
+                }
+            }
+        }),
+        getTrack: vi.fn(),
+        getAlbum: vi.fn(),
+        getArtist: vi.fn()
+    };
     return {
-        default: vi.fn().mockImplementation(function() {
-            return {
-                getPlaylist: vi.fn().mockResolvedValue({
-                    success: true,
-                    data: {
-                        tracks: {
-                            items: [
-                                { id: 'new1', title: 'New Track 1' },
-                                { id: 'old1', title: 'Old Track 1' }
-                            ]
-                        }
-                    }
-                })
-            };
-        })
+        qobuzApi: mockApi,
+        default: mockApi
     };
 });
+
+import qobuzApi from '../api/qobuz.js';
 
 vi.mock('./database/index.js', () => ({
     databaseService: {
@@ -70,7 +75,7 @@ describe('PlaylistWatcherService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        mockApi = new QobuzAPI();
+        mockApi = qobuzApi;
         service = new PlaylistWatcherService(mockApi);
     });
 
