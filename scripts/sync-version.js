@@ -20,10 +20,10 @@ try {
 // 2. Update README.md badge
 try {
     let readme = readFileSync(readmePath, 'utf-8');
-    // Match the shields.io version badge
+    // Match the shields.io version badge, keeping the color code
     readme = readme.replace(
-        /https:\/\/img\.shields\.io\/badge\/version-\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?/g,
-        `https://img.shields.io/badge/version-${version}`
+        /https:\/\/img\.shields\.io\/badge\/version-\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?-([A-Fa-f0-9]+)/g,
+        `https://img.shields.io/badge/version-${version}-$2`
     );
     // Match the highlight text (e.g. "> **🚀 v5.2.0:")
     readme = readme.replace(
