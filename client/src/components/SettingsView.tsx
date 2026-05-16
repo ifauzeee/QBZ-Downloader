@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { ConfirmModal } from './Modals';
 import { Icons } from './Icons';
+import { sha256 } from '../utils/crypto';
 
 interface AppSettings {
     QOBUZ_APP_ID: string;
@@ -271,6 +272,10 @@ export const SettingsView: React.FC = () => {
             });
 
             if (res && res.ok) {
+                if (settingsForm.dashboardPassword.trim()) {
+                    const hash = await sha256(settingsForm.dashboardPassword.trim());
+                    sessionStorage.setItem('dashboard_password', hash);
+                }
                 showToast('Settings saved', 'success');
                 await loadSettings();
                 return;

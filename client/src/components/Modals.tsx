@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { smartFetch } from '../utils/api';
 import { useToast } from '../contexts/ToastContext';
+import { sha256 } from '../utils/crypto';
 
 interface AddUrlModalProps {
     onClose: () => void;
@@ -99,7 +100,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
             });
 
             if (res.ok) {
-                sessionStorage.setItem('dashboard_password', password);
+                const hash = await sha256(password);
+                sessionStorage.setItem('dashboard_password', hash);
                 onSuccess();
             } else {
                 setError('Invalid password');

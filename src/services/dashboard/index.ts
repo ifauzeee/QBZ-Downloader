@@ -48,15 +48,14 @@ export class DashboardService {
     }
 
     private setupMiddleware(): void {
-        this.app.use((_req: Request, res: Response, next: NextFunction) => {
             res.setHeader(
                 'Content-Security-Policy',
                 "default-src 'self'; " +
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                "script-src 'self' 'unsafe-inline'; " +
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                 "img-src 'self' data: https: http: blob:; " +
                 "media-src 'self' data: blob: https: http:; " +
-                "connect-src 'self' ws: wss: http: https:; " +
+                "connect-src 'self' ws://localhost:* http://localhost:* wss://*.qobuz.com https://*.qobuz.com https://www.qobuz.com; " +
                 "font-src 'self' data: https: https://fonts.gstatic.com;"
             );
             next();
@@ -99,17 +98,20 @@ export class DashboardService {
 
             const providedPassword = req.headers['x-password'] || req.query.pw;
 
-            if (
-                providedPassword &&
-                typeof providedPassword === 'string' &&
-                password &&
-                providedPassword.length === password.length
-            ) {
+            if (providedPassword && typeof providedPassword === 'string' && password) {
                 try {
-                    const a = Buffer.from(providedPassword);
-                    const b = Buffer.from(password);
-                    if (crypto.timingSafeEqual(a, b)) {
-                        return next();
+                    // Check plaintext
+                    const isPlainMatch = providedPassword.length === password.length && 
+                                       crypto.timingSafeEqual(Buffer.from(providedPassword), Buffer.from(password));
+                    
+                    if (isPlainMatch) return next();
+
+                    // Check SHA-256 hash (64 chars)
+                    if (providedPassword.length === 64) {
+                        const expectedHash = crypto.createHash('sha256').update(password).digest('hex');
+                        if (crypto.timingSafeEqual(Buffer.from(providedPassword), Buffer.from(expectedHash))) {
+                            return next();
+                        }
                     }
                 } catch (err) {
                     logger.error(`Auth check error: ${err}`, 'AUTH');
@@ -157,17 +159,17 @@ export class DashboardService {
 
             const providedPassword = socket.handshake.auth?.password || socket.handshake.query?.pw;
 
-            if (
-                providedPassword &&
-                typeof providedPassword === 'string' &&
-                password &&
-                providedPassword.length === password.length
-            ) {
+            if (providedPassword && typeof providedPassword === 'string' && password) {
                 try {
-                    const a = Buffer.from(providedPassword);
-                    const b = Buffer.from(password);
-                    if (crypto.timingSafeEqual(a, b)) {
-                        return next();
+                    const isPlainMatch = providedPassword.length === password.length && 
+                                       crypto.timingSafeEqual(Buffer.from(providedPassword), Buffer.from(password));
+                    if (isPlainMatch) return next();
+
+                    if (providedPassword.length === 64) {
+                        const expectedHash = crypto.createHash('sha256').update(password).digest('hex');
+                        if (crypto.timingSafeEqual(Buffer.from(providedPassword), Buffer.from(expectedHash))) {
+                            return next();
+                        }
                     }
                 } catch {
                     return next(new Error('Internal authentication error'));
