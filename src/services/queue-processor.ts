@@ -82,6 +82,7 @@ export class QueueProcessor {
     private consecutiveErrors: number = 0;
     private runningTasks: Set<string> = new Set();
     private isHydrationRunning: boolean = false;
+    private isStarted: boolean = false;
 
     constructor() {
         const lyricsProvider = new LyricsProvider();
@@ -90,12 +91,21 @@ export class QueueProcessor {
     }
 
     start(): void {
+        if (this.isStarted) {
+            void this.processNext();
+            return;
+        }
+
+        this.isStarted = true;
         this.setupEvents();
-        this.startMetadataHydration();
+        void this.startMetadataHydration();
+        void this.processNext();
         logger.info('Queue Processor active: Error Recovery & Smart Retry enabled', 'QUEUE');
     }
 
     private async startMetadataHydration(): Promise<void> {
+        if (this.isHydrationRunning) return;
+
         logger.info('Starting background metadata hydration service...', 'QUEUE');
         this.isHydrationRunning = true;
         while (this.isHydrationRunning) {

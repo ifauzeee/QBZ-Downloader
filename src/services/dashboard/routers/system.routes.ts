@@ -10,6 +10,9 @@ import { databaseService } from '../../database/index.js';
 import { historyService } from '../../history.js';
 import { logger } from '../../../utils/logger.js';
 import { formatConverterService } from '../../FormatConverterService.js';
+import { validateEnvironment } from '../../../utils/env.js';
+import { queueProcessor } from '../../queue-processor.js';
+import { playlistWatcherService } from '../../PlaylistWatcherService.js';
 
 const router = Router();
 const api = qobuzApi;
@@ -141,6 +144,15 @@ function getCredentialStatus() {
     };
 }
 
+function startBackgroundServicesIfReady(): boolean {
+    const { valid } = validateEnvironment(false);
+    if (!valid) return false;
+
+    queueProcessor.start();
+    playlistWatcherService.start();
+    return true;
+}
+
 router.get('/status', (_req: Request, res: Response) => {
     res.json({
         ok: true,
@@ -253,6 +265,8 @@ router.post('/settings/update', async (req: Request, res: Response) => {
             tokenManager.markInvalid();
         }
 
+        startBackgroundServicesIfReady();
+
         res.json({ success: true, message: 'Settings updated successfully' });
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });
@@ -300,6 +314,7 @@ router.post('/login', async (req: Request, res: Response) => {
             }
 
             tokenManager.markValid();
+            startBackgroundServicesIfReady();
             res.json({ success: true, user: result.data });
         } else {
             tokenManager.markInvalid();

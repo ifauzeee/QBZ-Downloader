@@ -38,6 +38,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 ### Backend Reliability
 
 - **Queue processor race fixes** - Replaced the re-entrant processing guard with running task tracking, separated fail/requeue responsibilities, removed recursive `processNext()` scheduling from task finalizers, and guarded delayed retry requeues against stale queue items.
+- **Queue startup recovery** - Queue additions now require complete Qobuz credentials and wake the queue processor when credentials become valid, preventing new downloads from staying `pending` forever after first-run setup.
 - **Library healer safety** - Added bounded recursive lookup and `lstat()`-based symlink avoidance to prevent runaway scans.
 - **Qobuz API singleton cleanup** - Consolidated Qobuz API usage behind the singleton path and updated dashboard routes/tests around the new access pattern.
 - **Database and history stability** - Tightened database initialization, settings/history persistence, and test isolation around `better-sqlite3`.

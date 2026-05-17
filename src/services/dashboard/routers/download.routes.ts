@@ -6,11 +6,26 @@ import { migrationService } from '../../migration.js';
 import qobuzApi from '../../../api/qobuz.js';
 import { logger } from '../../../utils/logger.js';
 import { CONFIG, normalizeDownloadQuality } from '../../../config.js';
+import { validateEnvironment } from '../../../utils/env.js';
+import { queueProcessor } from '../../queue-processor.js';
 
 const router = Router();
 const api = qobuzApi;
 
 const getParam = (p: unknown): string => (Array.isArray(p) ? String(p[0]) : String(p ?? ''));
+
+function ensureQueueReady(res: Response): boolean {
+    const { valid, missing } = validateEnvironment(false);
+    if (!valid) {
+        res.status(400).json({
+            error: `Missing required credentials: ${missing?.join(', ')}. Please complete setup in Settings first.`
+        });
+        return false;
+    }
+
+    queueProcessor.start();
+    return true;
+}
 
 router.get('/queue', (req: Request, res: Response) => {
     res.json(downloadQueue.getAll());
@@ -22,6 +37,7 @@ router.post('/queue/add', async (req: Request, res: Response) => {
         res.status(400).json({ error: 'type and id are required' });
         return;
     }
+    if (!ensureQueueReady(res)) return;
 
     const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
     const item = downloadQueue.add(type, id, q, { title, priority, metadata });
@@ -71,6 +87,7 @@ router.post('/item/:id/:action', (req: Request, res: Response) => {
 router.post('/download/track', (req: Request, res: Response) => {
     const { id, quality } = req.body;
     if (!id) return res.status(400).json({ error: 'ID is required' });
+    if (!ensureQueueReady(res)) return;
     const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
     downloadQueue.add('track', id, q);
     res.json({ success: true });
@@ -79,6 +96,7 @@ router.post('/download/track', (req: Request, res: Response) => {
 router.post('/download/album', async (req: Request, res: Response) => {
     const { id, quality, indices } = req.body;
     if (!id) return res.status(400).json({ error: 'ID is required' });
+    if (!ensureQueueReady(res)) return;
     const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
 
     const result = await api.getAlbum(id);
@@ -102,6 +120,7 @@ router.post('/download/album', async (req: Request, res: Response) => {
 router.post('/download/artist', async (req: Request, res: Response) => {
     const { id, quality } = req.body;
     if (!id) return res.status(400).json({ error: 'ID is required' });
+    if (!ensureQueueReady(res)) return;
     const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
 
     const { downloadService } = await import('../../queue-processor.js');

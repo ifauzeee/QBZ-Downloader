@@ -16,14 +16,14 @@ vi.mock('../queue/queue.js', () => {
                 { id: '1', type: 'track', status: 'pending', title: 'Test Track' },
                 { id: '2', type: 'album', status: 'downloading', title: 'Test Album' }
             ],
-            add: (_type: string, _id: string, _quality: number, opts?: Record<string, unknown>) => ({
+            add: vi.fn((_type: string, _id: string, _quality: number, opts?: Record<string, unknown>) => ({
                 id: 'new-id',
                 type: _type,
                 contentId: _id,
                 quality: _quality,
                 status: 'pending',
                 title: String(opts?.title || 'New Item')
-            }),
+            })),
             getAll: () => [
                 { id: '1', type: 'track', status: 'pending', title: 'Test Track' },
                 { id: '2', type: 'album', status: 'downloading', title: 'Test Album' }
@@ -70,6 +70,26 @@ vi.mock('../history.js', () => {
     };
 });
 
+vi.mock('../queue-processor.js', () => ({
+    queueProcessor: {
+        start: vi.fn()
+    },
+    downloadService: {
+        downloadArtist: vi.fn().mockResolvedValue({ success: true, completedTracks: 0 }),
+        lyricsProvider: {
+            parseLrc: vi.fn(),
+            getLyrics: vi.fn()
+        }
+    }
+}));
+
+vi.mock('../PlaylistWatcherService.js', () => ({
+    playlistWatcherService: {
+        start: vi.fn(),
+        stop: vi.fn()
+    }
+}));
+
 vi.mock('../settings.js', () => {
     return {
         settingsService: {
@@ -87,6 +107,12 @@ vi.mock('../settings.js', () => {
         }
     };
 });
+
+vi.mock('../../utils/env.js', () => ({
+    validateEnvironment: vi.fn().mockReturnValue({ valid: true, warnings: [] }),
+    displayEnvWarnings: vi.fn(),
+    getEnvSummary: vi.fn()
+}));
 
 vi.mock('../../utils/validator.js', () => {
     return {
@@ -247,6 +273,9 @@ vi.mock('../../config.js', () => ({
 }));
 
 import { registerRoutes } from './routes.js';
+import { downloadQueue } from '../queue/queue.js';
+import { queueProcessor } from '../queue-processor.js';
+import { validateEnvironment } from '../../utils/env.js';
 
 describe('Dashboard API Routes', () => {
     let app: Express;
@@ -364,6 +393,23 @@ describe('Dashboard API Routes', () => {
             expect(res.status).toBe(200);
             expect(res.body.success).toBeUndefined();
             expect(res.body.id).toBe('new-id');
+            expect(queueProcessor.start).toHaveBeenCalled();
+        });
+
+        it('should reject queue additions when credentials are missing', async () => {
+            vi.mocked(validateEnvironment).mockReturnValueOnce({
+                valid: false,
+                warnings: [],
+                missing: ['QOBUZ_APP_ID']
+            });
+
+            const res = await request(app)
+                .post('/api/queue/add')
+                .send({ type: 'track', id: '12345', quality: 27 });
+
+            expect(res.status).toBe(400);
+            expect(res.body.error).toContain('Missing required credentials');
+            expect(downloadQueue.add).not.toHaveBeenCalled();
         });
 
         it('should return error for invalid payload', async () => {

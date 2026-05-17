@@ -136,6 +136,19 @@ describe('QueueProcessor', () => {
         (processor as unknown as { isHydrationRunning: boolean }).isHydrationRunning = false;
     });
 
+    it('should start idempotently and process pending items when woken again', () => {
+        vi.mocked(downloadQueue.getPendingItems).mockReturnValue([]);
+        vi.mocked(downloadQueue.dequeue).mockReturnValue(null);
+
+        processor.start();
+        processor.start();
+
+        expect(downloadQueue.on).toHaveBeenCalledTimes(3);
+        expect(downloadQueue.dequeue).toHaveBeenCalledTimes(2);
+
+        (processor as unknown as { isHydrationRunning: boolean }).isHydrationRunning = false;
+    });
+
     it('should activate circuit breaker after consecutive errors', async () => {
         const mockItem = { id: '1', type: 'track', contentId: 't1', title: 'T1' };
         vi.mocked(downloadQueue.dequeue)
