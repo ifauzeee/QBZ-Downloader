@@ -70,6 +70,24 @@ vi.mock('../history.js', () => {
     };
 });
 
+vi.mock('../settings.js', () => {
+    return {
+        settingsService: {
+            get: vi.fn((key: string) => {
+                const values: Record<string, string> = {
+                    UI_THEME: 'dark',
+                    UI_LANGUAGE: 'id',
+                    UI_ACCENT: '#2dd4bf',
+                    UI_LAST_TAB: 'search',
+                    UI_ACTIVE_THEME_ID: 'default'
+                };
+                return values[key];
+            }),
+            setMany: vi.fn()
+        }
+    };
+});
+
 vi.mock('../../utils/validator.js', () => {
     return {
         inputValidator: {
@@ -263,6 +281,67 @@ describe('Dashboard API Routes', () => {
             expect(res.status).toBe(200);
             expect(res.body.VERSION).toBe('2.0.0');
             expect(res.body.DOWNLOADS_PATH).toBe('./downloads');
+        });
+    });
+
+    describe('GET /api/settings', () => {
+        it('should return dashboard settings expected by the client', async () => {
+            const res = await request(app).get('/api/settings');
+
+            expect(res.status).toBe(200);
+            expect(res.body.VERSION).toBe('2.0.0');
+            expect(res.body.DOWNLOADS_PATH).toBe('./downloads');
+            expect(res.body.UI_THEME).toBe('dark');
+            expect(res.body.SPOTIFY_CLIENT_ID).toBe('');
+        });
+    });
+
+    describe('GET /api/onboarding', () => {
+        it('should return onboarding completion steps', async () => {
+            const res = await request(app).get('/api/onboarding');
+
+            expect(res.status).toBe(200);
+            expect(res.body.configured).toBe(true);
+            expect(res.body.steps).toEqual([
+                { id: 'app_id', completed: true },
+                { id: 'app_secret', completed: true },
+                { id: 'token', completed: true },
+                { id: 'user_id', completed: true }
+            ]);
+        });
+    });
+
+    describe('GET /api/credentials/status', () => {
+        it('should return credential flags', async () => {
+            const res = await request(app).get('/api/credentials/status');
+
+            expect(res.status).toBe(200);
+            expect(res.body.configured).toEqual({
+                appId: true,
+                appSecret: true,
+                token: true,
+                userId: true
+            });
+        });
+    });
+
+    describe('POST /api/settings/update', () => {
+        it('should accept nested settings payloads from SettingsContext', async () => {
+            const res = await request(app)
+                .post('/api/settings/update')
+                .send({ settings: { ui_theme: 'light' } });
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+        });
+
+        it('should accept token alias from desktop onboarding', async () => {
+            const res = await request(app)
+                .post('/api/settings/update')
+                .send({ token: 'user-token' });
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
         });
     });
 

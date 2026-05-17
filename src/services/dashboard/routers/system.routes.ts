@@ -61,15 +61,7 @@ const APP_SETTING_KEYS = new Set([
     'UI_ACCENT'
 ]);
 
-router.get('/status', (_req: Request, res: Response) => {
-    res.json({
-        ok: true,
-        status: 'running',
-        version: APP_VERSION
-    });
-});
-
-router.get('/system/status', async (_req: Request, res: Response) => {
+async function getSettingsPayload() {
     let qobuz_valid = false;
     let username = '';
 
@@ -85,7 +77,7 @@ router.get('/system/status', async (_req: Request, res: Response) => {
         qobuz_valid = false;
     }
 
-    res.json({
+    return {
         VERSION: APP_VERSION,
         QOBUZ_APP_ID_CONFIGURED: !!CONFIG.credentials.appId,
         QOBUZ_APP_SECRET_CONFIGURED: !!CONFIG.credentials.appSecret,
@@ -93,6 +85,7 @@ router.get('/system/status', async (_req: Request, res: Response) => {
         QOBUZ_USER_ID_CONFIGURED: !!CONFIG.credentials.userId,
         QOBUZ_CREDENTIALS_VALID: qobuz_valid,
         QOBUZ_USERNAME: username,
+        SPOTIFY_CLIENT_ID: CONFIG.spotify.clientId,
         SPOTIFY_CLIENT_ID_CONFIGURED: !!CONFIG.spotify.clientId,
         SPOTIFY_CLIENT_SECRET_CONFIGURED: !!CONFIG.spotify.clientSecret,
         DOWNLOADS_PATH: CONFIG.download.outputDir,
@@ -134,12 +127,63 @@ router.get('/system/status', async (_req: Request, res: Response) => {
         UI_LANGUAGE: settingsService.get('UI_LANGUAGE') || 'id',
         UI_THEME: settingsService.get('UI_THEME') || 'dark',
         UI_ACCENT: settingsService.get('UI_ACCENT') || '#2dd4bf'
+    };
+}
+
+function getCredentialStatus() {
+    return {
+        configured: {
+            appId: !!CONFIG.credentials.appId,
+            appSecret: !!CONFIG.credentials.appSecret,
+            token: !!CONFIG.credentials.token,
+            userId: !!CONFIG.credentials.userId
+        }
+    };
+}
+
+router.get('/status', (_req: Request, res: Response) => {
+    res.json({
+        ok: true,
+        status: 'running',
+        version: APP_VERSION
     });
+});
+
+router.get('/onboarding', (_req: Request, res: Response) => {
+    const credentials = getCredentialStatus().configured;
+    const steps = [
+        { id: 'app_id', completed: credentials.appId },
+        { id: 'app_secret', completed: credentials.appSecret },
+        { id: 'token', completed: credentials.token },
+        { id: 'user_id', completed: credentials.userId }
+    ];
+
+    res.json({
+        configured: steps.every((step) => step.completed),
+        steps
+    });
+});
+
+router.get('/credentials/status', (_req: Request, res: Response) => {
+    res.json(getCredentialStatus());
+});
+
+router.get('/settings', async (_req: Request, res: Response) => {
+    res.json(await getSettingsPayload());
+});
+
+router.get('/system/status', async (_req: Request, res: Response) => {
+    res.json(await getSettingsPayload());
 });
 
 router.post('/settings/update', async (req: Request, res: Response) => {
     try {
-        const body = (req.body || {}) as Record<string, unknown>;
+        const requestBody = (req.body || {}) as Record<string, unknown>;
+        const nestedSettings =
+            requestBody.settings && typeof requestBody.settings === 'object'
+                ? (requestBody.settings as Record<string, unknown>)
+                : {};
+        const body = { ...requestBody, ...nestedSettings };
         const updates: Record<string, string> = {};
 
         const setIfDefined = (key: string, value: unknown) => {
@@ -155,6 +199,7 @@ router.post('/settings/update', async (req: Request, res: Response) => {
         setIfDefined('QOBUZ_APP_ID', body.app_id);
         setIfDefined('QOBUZ_APP_SECRET', body.app_secret);
         setIfDefined('QOBUZ_USER_AUTH_TOKEN', body.user_auth_token);
+        setIfDefined('QOBUZ_USER_AUTH_TOKEN', body.token);
         setIfDefined('QOBUZ_USER_ID', body.user_id);
         setIfDefined('DOWNLOADS_PATH', body.downloads_path);
         setIfDefined('DEFAULT_QUALITY', body.default_quality);
