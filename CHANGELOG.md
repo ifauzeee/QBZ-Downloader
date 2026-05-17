@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.2.1] - 2026-05-17
+
+### Critical Fixes
+
+- **Queue Processor Race Condition** - Replaced the re-entrant `isProcessingNext` guard with running task tracking, removed recursive `processNext()` scheduling from task finalizers, and guarded delayed retry requeues against stale items.
+- **Desktop Startup Stability** - Added a lightweight `/api/status` health endpoint used by the Electron shell so the dashboard is loaded only after the local server is actually reachable.
+- **Electron Native Module Rebuild** - Updated `desktop:start` to force-rebuild `better-sqlite3` for the installed Electron ABI before launching, fixing `NODE_MODULE_VERSION` mismatches after the Electron 33 upgrade.
+
+### Security
+
+- **Dashboard Auth Handoff** - Normalized dashboard passwords to SHA-256 before socket and fetch authentication while avoiding double-hashing values that are already stored as hashes.
+- **Token Update Events** - Removed token suffix fragments from `token:updated` event payloads so credential material is not leaked to event listeners.
+
+### Reliability & Release Prep
+
+- **Library Healing Safety** - Added bounded recursive search and `lstat()`-based symlink avoidance to prevent runaway scans.
+- **Release Version Guard** - Added a desktop release workflow check that fails CI when root, client, and manifest versions diverge.
+- **Version Sync Build Flow** - Ensured `build:full` runs `sync-version` before producing client and backend artifacts.
+- **Friendly Errors** - Added bilingual `id/en` friendly error support and localized the remaining backend help hints.
+- **Log Noise Reduction** - Moved metadata template replacement logs to the `META` debug channel.
+
+---
+
 ## [5.2.0] - 2026-05-15
 
 ### 🚀 Technical Foundation (Roadmap Phase 1)
