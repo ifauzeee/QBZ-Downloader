@@ -569,6 +569,7 @@ export class LibraryScannerService extends EventEmitter {
             audio_fingerprint?: string | null;
             title?: string | null;
             artist?: string | null;
+            album?: string | null;
         }[];
         logger.debug(
             `[DUPLICATE_CHECK] Analyzing ${files.length} items for duplicates...`,
@@ -576,7 +577,7 @@ export class LibraryScannerService extends EventEmitter {
         );
 
         const fingerprintGroups = new Map<string, string[]>();
-        const titleGroups = new Map<string, { filePath: string; artist: string }[]>();
+        const titleGroups = new Map<string, { filePath: string; title: string; artist: string; album: string }[]>();
 
         for (const file of files) {
             if (file.audio_fingerprint) {
@@ -593,7 +594,9 @@ export class LibraryScannerService extends EventEmitter {
 
                 titleGroups.get(normTitle)!.push({
                     filePath: file.file_path,
-                    artist: file.artist || ''
+                    title: file.title || '',
+                    artist: file.artist || '',
+                    album: file.album || ''
                 });
 
                 if (normTitle.includes('stereo love')) {
@@ -654,6 +657,14 @@ export class LibraryScannerService extends EventEmitter {
                     const artist1 = this.normalizeString(item1.artist);
                     const artist2 = this.normalizeString(item2.artist);
 
+                    if (this.hasDistinctVersionContext(item1, item2)) {
+                        logger.debug(
+                            `[DUPLICATE_CHECK] Skipped version/remix pair: ${path.basename(item1.filePath)} != ${path.basename(item2.filePath)}`,
+                            'SCANNER'
+                        );
+                        continue;
+                    }
+
                     if (artist1 === artist2) {
                         registerDuplicate(item1.filePath, item2.filePath, 'similar', 0.95);
                         continue;
@@ -673,6 +684,54 @@ export class LibraryScannerService extends EventEmitter {
         }
 
         return duplicateCount;
+    }
+
+    private hasDistinctVersionContext(
+        item1: { filePath: string; title: string; album: string },
+        item2: { filePath: string; title: string; album: string }
+    ): boolean {
+        const signature1 = this.getVersionSignature(item1);
+        const signature2 = this.getVersionSignature(item2);
+
+        if (!signature1.hasVariant && !signature2.hasVariant) return false;
+        if (signature1.markers !== signature2.markers) return true;
+
+        return Boolean(
+            signature1.album &&
+            signature2.album &&
+            signature1.album !== signature2.album
+        );
+    }
+
+    private getVersionSignature(item: { filePath: string; title: string; album: string }): {
+        hasVariant: boolean;
+        markers: string;
+        album: string;
+    } {
+        const source = this.normalizeString(`${item.title} ${item.album} ${item.filePath}`);
+        const variantMarkers: [string, RegExp][] = [
+            ['remix', /\b(remix|rework|refix|mashup)\b/],
+            ['featured', /\b(feat|ft|featuring|with)\b/],
+            ['live', /\blive\b/],
+            ['acoustic', /\bacoustic\b/],
+            ['instrumental', /\b(instrumental|karaoke)\b/],
+            ['edit', /\b(radio edit|single edit|edit)\b/],
+            ['extended', /\b(extended|club|vip)\b/],
+            ['demo', /\bdemo\b/],
+            ['remaster', /\b(remaster|remastered)\b/],
+            ['tempo', /\b(sped up|slowed|nightcore)\b/]
+        ];
+
+        const markers = variantMarkers
+            .filter(([, pattern]) => pattern.test(source))
+            .map(([marker]) => marker)
+            .join('|');
+
+        return {
+            hasVariant: markers.length > 0,
+            markers,
+            album: this.normalizeString(item.album)
+        };
     }
 
     private normalizeString(str: string): string {
@@ -777,8 +836,14 @@ export class LibraryScannerService extends EventEmitter {
 
     async resolveDuplicate(id: number): Promise<void> {
         const db = databaseService.getDb();
-        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as { file_path_1: string; file_path_2: string } | undefined;
+        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as { file_path_1: string; file_path_2: string; match_type?: string } | undefined;
         if (!duplicate) return;
+        if (duplicate.match_type !== 'exact') {
+            databaseService.resolveDuplicate(id);
+            logger.info(`Dismissed non-exact duplicate candidate #${id} without deleting files`, 'SCANNER');
+            return;
+        }
+
         const file1 = db
             .prepare('SELECT * FROM library_files WHERE file_path = ?')
             .get(duplicate.file_path_1) as { quality?: number; file_path: string; file_size?: number } | undefined;

@@ -51,6 +51,7 @@ describe('LibraryScannerService', () => {
     let scanner: LibraryScannerService;
 
     beforeEach(() => {
+        vi.clearAllMocks();
         scanner = new LibraryScannerService();
     });
 
@@ -98,6 +99,30 @@ describe('LibraryScannerService', () => {
                 'similar', 
                 expect.any(Number)
             );
+        });
+
+        it('should not flag remix releases as duplicates based on title only', async () => {
+            vi.mocked(databaseService.getLibraryFiles).mockReturnValue([
+                {
+                    file_path: 'Music/The Weeknd/After Hours (Explicit)/11. Save Your Tears.flac',
+                    audio_fingerprint: null,
+                    title: 'Save Your Tears',
+                    artist: 'The Weeknd',
+                    album: 'After Hours (Explicit)'
+                },
+                {
+                    file_path: 'Music/The Weeknd/Save Your Tears (Remix with Ariana Grande)/01. Save Your Tears.flac',
+                    audio_fingerprint: null,
+                    title: 'Save Your Tears',
+                    artist: 'The Weeknd',
+                    album: 'Save Your Tears (Remix with Ariana Grande)'
+                }
+            ]);
+
+            const count = await scanner.detectDuplicates();
+
+            expect(count).toBe(0);
+            expect(databaseService.addDuplicate).not.toHaveBeenCalled();
         });
     });
 

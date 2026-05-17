@@ -85,6 +85,21 @@ router.get('/duplicates', (req: Request, res: Response) => {
     }
 });
 
+router.post('/duplicates/:id/resolve', async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || id <= 0) {
+            res.status(400).json({ error: 'Valid duplicate id is required' });
+            return;
+        }
+
+        await libraryScannerService.resolveDuplicate(id);
+        res.json({ success: true });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
 router.get('/integrity', (req: Request, res: Response) => {
     try {
         const issues = databaseService.getDuplicates();
