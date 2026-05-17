@@ -19,6 +19,7 @@ enum ErrorCategory {
 
 interface NetworkError {
     message?: string;
+    code?: string;
     statusCode?: number;
     response?: { status?: number };
 }
@@ -28,6 +29,9 @@ function categorizeError(error: unknown): ErrorCategory {
     const message = (err?.message || '').toLowerCase();
     const statusCode = err?.statusCode || err?.response?.status || 0;
 
+    if (err?.code === 'QOBUZ_STREAM_UNAVAILABLE') {
+        return ErrorCategory.NOT_FOUND;
+    }
     if (statusCode === 401 || statusCode === 403 || message.includes('auth')) {
         return ErrorCategory.AUTH;
     }
@@ -43,7 +47,11 @@ function categorizeError(error: unknown): ErrorCategory {
     if (
         message.includes('network') ||
         message.includes('timeout') ||
-        message.includes('econnrefused')
+        message.includes('econnrefused') ||
+        message.includes('econnreset') ||
+        message.includes('aborted') ||
+        message.includes('premature close') ||
+        message.includes('socket hang up')
     ) {
         return ErrorCategory.NETWORK;
     }

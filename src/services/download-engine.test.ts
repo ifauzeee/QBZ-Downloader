@@ -127,6 +127,35 @@ describe('DownloadEngine', () => {
         await expect(downloadPromise).rejects.toThrow('Cancelled by user');
     });
 
+    it('should explain aborted streams as unavailable candidates', async () => {
+        const mockDataStream = new EventEmitter();
+        (mockDataStream as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
+        (mockDataStream as unknown as Record<string, unknown>).destroy = vi.fn();
+
+        vi.mocked(network.downloadFile).mockResolvedValue({
+            status: 200,
+            headers: { 'content-length': '1000' },
+            data: mockDataStream
+        } as unknown as AxiosResponse);
+
+        const downloadPromise = engine.download(
+            'url',
+            'path',
+            'id',
+            { title: 'T' } as unknown as Metadata,
+            1000,
+            27
+        );
+
+        await vi.waitFor(() => {
+            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0) throw new Error('not called');
+        });
+
+        mockDataStream.emit('aborted');
+
+        await expect(downloadPromise).rejects.toThrow('selected Hi-Res candidate is likely unavailable');
+    });
+
     it('should handle resume if possible', async () => {
         vi.mocked(resumeService.canResume).mockReturnValue(true);
         vi.mocked(resumeService.getResumePosition).mockReturnValue(500);

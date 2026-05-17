@@ -482,6 +482,7 @@ export default class DownloadService {
             if (existsSync(cleanupPath) && (!this.pathsEqual(cleanupPath, filePath) || !shouldReplaceExisting)) {
                 unlinkSync(cleanupPath);
             }
+            resumeService.completeDownload(trackId.toString());
             return { success: false, error: message };
         }
     }

@@ -645,7 +645,24 @@ export class LibraryScannerService extends EventEmitter {
             try {
                 const result = await this.api.getFileUrl(String(trackId), quality);
                 if (result.success && result.data) {
-                    const formatId = (result.data as { format_id: number }).format_id;
+                    const data = result.data as {
+                        url?: string;
+                        format_id?: number;
+                        quality_verified?: boolean;
+                        sample?: boolean;
+                        duration?: number;
+                    };
+                    const formatId = data.format_id || 0;
+                    if (!data.url || data.sample || (data.duration && data.duration <= 30)) {
+                        continue;
+                    }
+                    if (quality >= 7 && data.quality_verified === false) {
+                        logger.debug(
+                            `Skipping unverified Hi-Res candidate ${trackId} for requested quality ${quality}`,
+                            'SCANNER'
+                        );
+                        continue;
+                    }
                     if (formatId && formatId >= quality) {
                         return formatId;
                     }

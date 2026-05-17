@@ -168,6 +168,7 @@ export interface LyricsResult {
 export interface FileUrlData {
     url: string;
     format_id: number;
+    quality_verified?: boolean;
     bit_depth?: number;
     sampling_rate?: number;
     mime_type?: string;

@@ -168,7 +168,7 @@ describe('LibraryScannerService', () => {
                 }),
                 getFileUrl: vi.fn().mockResolvedValue({
                     success: true,
-                    data: { format_id: 27 }
+                    data: { url: 'https://stream.example/track.flac', format_id: 27, quality_verified: true }
                 })
             };
 

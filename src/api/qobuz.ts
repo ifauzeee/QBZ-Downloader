@@ -314,22 +314,33 @@ export class QobuzAPI {
             });
 
             if (response.data) {
-                let detectedFormat = requestedFormatId;
+                const rawFormatId = Number(response.data.format_id || 0);
+                let detectedFormat = rawFormatId > 0 ? rawFormatId : requestedFormatId;
+                let qualityVerified = rawFormatId > 0;
                 const { bit_depth, sampling_rate, mime_type } = response.data;
 
                 if (mime_type === 'audio/mpeg' || mime_type === 'audio/mp3') {
                     detectedFormat = 5;
+                    qualityVerified = true;
                 } else if (bit_depth === 16) {
                     detectedFormat = 6;
+                    qualityVerified = true;
                 } else if (bit_depth === 24) {
                     if (sampling_rate >= 176.4) {
                         detectedFormat = 27;
                     } else {
                         detectedFormat = 7;
                     }
+                    qualityVerified = true;
+                } else if (!rawFormatId) {
+                    logger.warn(
+                        `Track ${trackId} did not return quality metadata for requested format ${requestedFormatId}`,
+                        'API'
+                    );
                 }
 
                 response.data.format_id = detectedFormat;
+                response.data.quality_verified = qualityVerified;
 
                 if (
                     response.data.sample ||
@@ -461,4 +472,3 @@ export class QobuzAPI {
 
 export const qobuzApi = new QobuzAPI();
 export default qobuzApi;
-
