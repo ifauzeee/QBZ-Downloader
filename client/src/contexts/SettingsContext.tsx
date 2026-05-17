@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { smartFetch } from '../utils/api';
 
 export interface Settings {
@@ -17,9 +17,20 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+const normalizeSettingKeys = (values: Record<string, any>): Settings =>
+    Object.entries(values).reduce<Settings>((normalized, [key, value]) => {
+        normalized[key.toUpperCase()] = value;
+        return normalized;
+    }, {});
+
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [settings, setSettings] = useState<Settings>({});
     const [loading, setLoading] = useState(true);
+    const settingsRef = useRef<Settings>({});
+
+    useEffect(() => {
+        settingsRef.current = settings;
+    }, [settings]);
 
     const refreshSettings = async () => {
         try {
@@ -27,6 +38,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             if (res && res.ok) {
                 const data = await res.json();
                 setSettings(data);
+                settingsRef.current = data;
             }
         } catch (error) {
             console.error('Failed to fetch settings', error);
@@ -52,7 +64,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             });
 
             if (res && res.ok) {
-                setSettings(prev => ({ ...prev, ...values }));
+                const normalizedValues = normalizeSettingKeys(values);
+                setSettings(prev => {
+                    const next = { ...prev, ...normalizedValues };
+                    settingsRef.current = next;
+                    return next;
+                });
                 return true;
             }
             return false;
@@ -63,9 +80,17 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
 
     const addToStaging = async (url: string) => {
-        const current = settings.UI_BATCH_STAGING_URLS || '';
+        const current = settingsRef.current.UI_BATCH_STAGING_URLS || '';
+        const stagedUrls = current.split('\n').map((line: string) => line.trim()).filter(Boolean);
+        if (stagedUrls.includes(url)) return;
+
         const separator = current ? '\n' : '';
         const updated = current + separator + url;
+        settingsRef.current = {
+            ...settingsRef.current,
+            UI_BATCH_STAGING_URLS: updated
+        };
+        setSettings(prev => ({ ...prev, UI_BATCH_STAGING_URLS: updated }));
         await updateSetting('ui_batch_staging_urls', updated);
     };
 

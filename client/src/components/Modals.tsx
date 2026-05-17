@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { smartFetch } from '../utils/api';
 import { useToast } from '../contexts/ToastContext';
 import { sha256 } from '../utils/crypto';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface AddUrlModalProps {
     onClose: () => void;
@@ -12,16 +13,71 @@ export const AddUrlModal: React.FC<AddUrlModalProps> = ({ onClose, onSuccess }) 
     const [url, setUrl] = useState('');
     const [quality, setQuality] = useState('27');
     const { showToast } = useToast();
+    const { addToStaging } = useSettings();
     const [loading, setLoading] = useState(false);
+
+    const parseQobuzTarget = (rawUrl: string): { type: string; id: string; url: string } | null => {
+        const cleaned = rawUrl.trim().replace(/[),.;]+$/, '');
+        if (!cleaned) return null;
+
+        try {
+            const parsed = new URL(cleaned);
+            if (!parsed.hostname.toLowerCase().includes('qobuz.com')) return null;
+
+            const segments = parsed.pathname.split('/').filter(Boolean);
+            const typeIndex = segments.findIndex((segment) =>
+                ['track', 'album', 'artist', 'interpreter', 'playlist'].includes(segment.toLowerCase())
+            );
+            if (typeIndex === -1 || typeIndex === segments.length - 1) return null;
+
+            const rawType = segments[typeIndex].toLowerCase();
+            const type = rawType === 'interpreter' ? 'artist' : rawType;
+            const id = segments[segments.length - 1];
+            if (!id || !/^[a-zA-Z0-9_-]+$/.test(id)) return null;
+
+            return { type, id, url: cleaned };
+        } catch {
+            return null;
+        }
+    };
+
+    const extractQobuzTargets = (value: string) => {
+        const urlMatches = value.match(/https?:\/\/[^\s]+/g);
+        const candidates = urlMatches || value.split(/\r?\n/);
+        const targets = candidates
+            .map(parseQobuzTarget)
+            .filter((target): target is { type: string; id: string; url: string } => Boolean(target));
+
+        return targets.filter(
+            (target, index, list) => list.findIndex((item) => item.url === target.url) === index
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
+            const targets = extractQobuzTargets(url);
+            if (targets.length === 0) {
+                showToast('No valid Qobuz URLs found', 'error');
+                return;
+            }
+
+            if (targets.length > 1) {
+                for (const target of targets) {
+                    await addToStaging(target.url);
+                }
+                showToast(`${targets.length} URLs added to Batch Import`, 'success');
+                onSuccess();
+                onClose();
+                return;
+            }
+
+            const [target] = targets;
             const res = await smartFetch('/api/queue/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, quality: Number(quality) })
+                body: JSON.stringify({ type: target.type, id: target.id, quality: Number(quality) })
             });
 
             if (res && res.ok) {
