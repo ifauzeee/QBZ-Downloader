@@ -54,6 +54,58 @@ const QUALITY_LABELS: Record<number, string> = {
     27: 'FLAC 24/192'
 };
 
+const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value as T[] : []);
+
+const parseMissingTags = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.map(String);
+    if (typeof value !== 'string' || value.trim() === '') return [];
+
+    try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.map(String);
+    } catch {
+    }
+
+    return value
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+};
+
+const normalizeDuplicate = (raw: any): DuplicateGroup => {
+    const files = asArray<{ path: string; size: number; quality: number }>(raw?.files);
+    const fallbackFiles = [raw?.file_path_1, raw?.file_path_2]
+        .filter((path): path is string => typeof path === 'string' && path.length > 0)
+        .map((path) => ({ path, size: 0, quality: 0 }));
+
+    return {
+        id: Number(raw?.id || 0),
+        files: files.length > 0 ? files : fallbackFiles,
+        matchType: String(raw?.matchType || raw?.match_type || 'duplicate'),
+        recommendation: String(raw?.recommendation || '')
+    };
+};
+
+const normalizeUpgradeable = (raw: any): UpgradeableFile => ({
+    id: raw?.id,
+    filePath: String(raw?.filePath || raw?.file_path || ''),
+    title: String(raw?.title || ''),
+    artist: String(raw?.artist || ''),
+    album: String(raw?.album || ''),
+    quality: Number(raw?.quality || 0),
+    availableQuality: Number(raw?.availableQuality || raw?.available_quality || raw?.quality || 0),
+    trackId: String(raw?.trackId || raw?.track_id || raw?.id || '')
+});
+
+const normalizeMissingMetadata = (raw: any): ProcessingFile => ({
+    filePath: String(raw?.filePath || raw?.file_path || ''),
+    title: String(raw?.title || ''),
+    artist: String(raw?.artist || ''),
+    album: raw?.album ? String(raw.album) : undefined,
+    missingTags: parseMissingTags(raw?.missingTags || raw?.missing_tags),
+    status: 'pending'
+});
+
 export const LibraryView: React.FC = () => {
     const { socket } = useSocket();
     const { t } = useLanguage();
@@ -87,14 +139,20 @@ export const LibraryView: React.FC = () => {
     const loadDuplicates = useCallback(async () => {
         try {
             const res = await smartFetch('/api/library/duplicates');
-            if (res && res.ok) setDuplicates(await res.json());
+            if (res && res.ok) {
+                const data = await res.json();
+                setDuplicates(asArray(data).map(normalizeDuplicate));
+            }
         } catch (e) { console.error(e); }
     }, []);
 
     const loadUpgradeable = useCallback(async () => {
         try {
             const res = await smartFetch('/api/library/upgradeable');
-            if (res && res.ok) setUpgradeable(await res.json());
+            if (res && res.ok) {
+                const data = await res.json();
+                setUpgradeable(asArray(data).map(normalizeUpgradeable));
+            }
         } catch (e) { console.error(e); }
     }, []);
 
@@ -103,7 +161,7 @@ export const LibraryView: React.FC = () => {
             const res = await smartFetch('/api/library/missing-metadata');
             if (res && res.ok) {
                 const data = await res.json();
-                setMissingMetadata(data.map((f: any) => ({ ...f, status: 'pending' })));
+                setMissingMetadata(asArray(data).map(normalizeMissingMetadata));
             }
         } catch (e) { console.error(e); }
     }, []);
