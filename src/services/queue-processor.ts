@@ -80,7 +80,7 @@ export class QueueProcessor {
     private downloadService: DownloadService;
     private lastErrorTime: number = 0;
     private consecutiveErrors: number = 0;
-    private isProcessingNext: boolean = false;
+    private runningTasks: Set<string> = new Set();
     private isHydrationRunning: boolean = false;
 
     constructor() {
@@ -173,42 +173,40 @@ export class QueueProcessor {
     }
 
     private async processNext(): Promise<void> {
-        if (this.isProcessingNext) return;
-        this.isProcessingNext = true;
+        if (downloadQueue.isPaused()) return;
 
-
-        try {
-            if (downloadQueue.isPaused()) return;
-
-            if (this.consecutiveErrors >= 5) {
-                const timeSinceLastError = Date.now() - this.lastErrorTime;
-                if (timeSinceLastError < 60000) {
-                    logger.warn(
-                        `Circuit breaker active: ${this.consecutiveErrors} consecutive errors. Pausing execution...`,
-                        'SYSTEM'
-                    );
-                    await sleep(30000);
-                    this.consecutiveErrors = Math.max(0, this.consecutiveErrors - 2);
-                } else {
-                    this.consecutiveErrors = 0;
-                }
-            }
-
-            let item;
-            while ((item = downloadQueue.dequeue())) {
-                logger.info(
-                    `Processing item: ${item.title || item.contentId} (${item.type})`,
-                    'QUEUE'
+        if (this.consecutiveErrors >= 5) {
+            const timeSinceLastError = Date.now() - this.lastErrorTime;
+            if (timeSinceLastError < 60000) {
+                logger.warn(
+                    `Circuit breaker active: ${this.consecutiveErrors} consecutive errors. Pausing execution...`,
+                    'SYSTEM'
                 );
-                this.runTask(item).catch((err) => {
-                    logger.error(`Fatal task error: ${err.message}`, 'QUEUE');
-                });
+                await sleep(30000);
+                this.consecutiveErrors = Math.max(0, this.consecutiveErrors - 2);
+            } else {
+                this.consecutiveErrors = 0;
             }
-        } finally {
-            this.isProcessingNext = false;
+        }
+
+        let item: QueueItem | null;
+        while ((item = downloadQueue.dequeue())) {
+            const taskItem = item;
+            if (this.runningTasks.has(taskItem.id)) {
+                continue;
+            }
+
+            this.runningTasks.add(taskItem.id);
+            logger.info(
+                `Processing item: ${taskItem.title || taskItem.contentId} (${taskItem.type})`,
+                'QUEUE'
+            );
+            this.runTask(taskItem).catch((err) => {
+                const message = err instanceof Error ? err.message : String(err);
+                logger.error(`Fatal task error for ${taskItem.id}: ${message}`, 'QUEUE');
+            });
         }
     }
-
 
     private async runTask(item: QueueItem): Promise<void> {
         try {
@@ -221,7 +219,7 @@ export class QueueProcessor {
         } catch (error: unknown) {
             await this.handleError(item, error);
         } finally {
-            this.processNext();
+            this.runningTasks.delete(item.id);
         }
     }
 
@@ -254,7 +252,10 @@ export class QueueProcessor {
             );
 
             setTimeout(() => {
-                downloadQueue.requeue(item.id);
+                const stillExists = downloadQueue.get(item.id);
+                if (stillExists && stillExists.status === 'failed') {
+                    downloadQueue.requeue(item.id);
+                }
             }, delay);
         } else {
             logger.error(`Max retries reached for item: ${item.title}`, 'QUEUE');
@@ -303,15 +304,19 @@ export class QueueProcessor {
             if (result.quality) {
                 downloadQueue.updateQuality(item.id, result.quality);
             }
-            
-            if (item.metadata?.isUpgrade && typeof item.metadata?.oldFilePath === 'string' && item.metadata.oldFilePath !== result.filePath) {
+
+            if (
+                item.metadata?.isUpgrade &&
+                typeof item.metadata?.oldFilePath === 'string' &&
+                item.metadata.oldFilePath !== result.filePath
+            ) {
                 const oldPath = item.metadata.oldFilePath;
                 try {
                     const { existsSync, unlinkSync } = await import('fs');
                     if (existsSync(oldPath)) {
                         unlinkSync(oldPath);
                         logger.info(`Deleted old file for upgrade: ${oldPath}`, 'UPGRADE');
-                        
+
                         // Let database know we deleted the old file
                         const { databaseService } = await import('./database/index.js');
                         databaseService.deleteTrackByPath(oldPath);
@@ -321,7 +326,7 @@ export class QueueProcessor {
                     logger.warn(`Failed to delete old file during upgrade: ${message}`, 'UPGRADE');
                 }
             }
-            
+
             downloadQueue.complete(item.id, result.filePath);
             notifyDownloadComplete(item.title || 'Track', result.filePath);
         } else {
@@ -337,7 +342,10 @@ export class QueueProcessor {
 
         let result;
         const opts = {
-            onProgress: (_trackId: string, p: { phase?: string; loaded?: number; total?: number }) => {
+            onProgress: (
+                _trackId: string,
+                p: { phase?: string; loaded?: number; total?: number }
+            ) => {
                 if (!p) return;
                 const pct =
                     p.phase === 'download' && p.total && p.loaded !== undefined

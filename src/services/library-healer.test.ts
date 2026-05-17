@@ -9,7 +9,8 @@ vi.mock('fs', () => {
     const mockPromises = {
         access: vi.fn(),
         readdir: vi.fn(),
-        stat: vi.fn()
+        stat: vi.fn(),
+        lstat: vi.fn()
     };
     return {
         promises: mockPromises,
@@ -62,7 +63,9 @@ describe('LibraryHealerService', () => {
 
     it('should report missing files if they cannot be found', async () => {
         const track = { id: 't1', title: 'T1', file_path: '/missing/p1.flac' };
-        vi.mocked(databaseService.getAllTracks).mockReturnValue([track as unknown as ReturnType<typeof databaseService.getAllTracks>[number]]);
+        vi.mocked(databaseService.getAllTracks).mockReturnValue([
+            track as unknown as ReturnType<typeof databaseService.getAllTracks>[number]
+        ]);
         vi.mocked(fs.promises.access).mockRejectedValue(new Error('no access'));
         vi.mocked(fs.promises.readdir).mockResolvedValue([]);
 
@@ -73,25 +76,44 @@ describe('LibraryHealerService', () => {
 
     it('should relocate files if found in a different subdirectory', async () => {
         const track = { id: 't1', title: 'T1', file_path: '/old/p1.flac' };
-        vi.mocked(databaseService.getAllTracks).mockReturnValue([track as unknown as ReturnType<typeof databaseService.getAllTracks>[number]]);
+        vi.mocked(databaseService.getAllTracks).mockReturnValue([
+            track as unknown as ReturnType<typeof databaseService.getAllTracks>[number]
+        ]);
         vi.mocked(fs.promises.access).mockRejectedValue(new Error('no access'));
-        
+
         // Mock recursive search
         vi.mocked(fs.promises.readdir).mockResolvedValueOnce(['subdir'] as unknown as string[]);
-        vi.mocked(fs.promises.stat).mockResolvedValueOnce({ isDirectory: () => true } as unknown as import('fs').Stats);
+        vi.mocked(fs.promises.lstat).mockResolvedValueOnce({
+            isDirectory: () => true,
+            isSymbolicLink: () => false
+        } as unknown as import('fs').Stats);
         vi.mocked(fs.promises.readdir).mockResolvedValueOnce(['p1.flac'] as unknown as string[]);
-        vi.mocked(fs.promises.stat).mockResolvedValueOnce({ isDirectory: () => false } as unknown as import('fs').Stats);
+        vi.mocked(fs.promises.lstat).mockResolvedValueOnce({
+            isDirectory: () => false,
+            isSymbolicLink: () => false
+        } as unknown as import('fs').Stats);
 
         const report = await service.performFullHeal();
         expect(report.fixed).toBe(1);
-        expect(databaseService.updateTrackPath).toHaveBeenCalledWith('t1', expect.stringContaining('p1.flac'));
+        expect(databaseService.updateTrackPath).toHaveBeenCalledWith(
+            't1',
+            expect.stringContaining('p1.flac')
+        );
     });
 
     it('should repair metadata via AI if enabled and missing', async () => {
-        const track = { id: 't1', title: 'T1', artist: 'A1', file_path: '/ok/p1.flac', genre: 'Unknown' };
-        vi.mocked(databaseService.getAllTracks).mockReturnValue([track as unknown as ReturnType<typeof databaseService.getAllTracks>[number]]);
+        const track = {
+            id: 't1',
+            title: 'T1',
+            artist: 'A1',
+            file_path: '/ok/p1.flac',
+            genre: 'Unknown'
+        };
+        vi.mocked(databaseService.getAllTracks).mockReturnValue([
+            track as unknown as ReturnType<typeof databaseService.getAllTracks>[number]
+        ]);
         vi.mocked(fs.promises.access).mockResolvedValue(undefined); // File exists
-        
+
         vi.mocked(aiMetadataService.repairMetadata).mockResolvedValue({ genre: 'Rock' });
 
         const report = await service.performFullHeal();

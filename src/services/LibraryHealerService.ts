@@ -76,21 +76,38 @@ export class LibraryHealerService {
         }
     }
 
-    private async searchForFile(filename: string): Promise<string | null> {
+    private async searchForFile(filename: string, maxDepth: number = 10): Promise<string | null> {
         const root = CONFIG.download.outputDir;
         if (!existsSync(root)) return null;
 
-        return this.recursiveSearch(root, filename);
+        return this.recursiveSearch(root, filename, 0, maxDepth);
     }
 
-    private async recursiveSearch(dir: string, target: string): Promise<string | null> {
+    private async recursiveSearch(
+        dir: string,
+        target: string,
+        depth: number = 0,
+        maxDepth: number = 10
+    ): Promise<string | null> {
+        if (depth > maxDepth) {
+            logger.debug(`Max search depth (${maxDepth}) reached at: ${dir}`, 'HEALER');
+            return null;
+        }
+
         try {
             const files = await fs.readdir(dir);
             for (const file of files) {
                 const fullPath = path.join(dir, file);
-                const stats = await fs.stat(fullPath);
-                if (stats.isDirectory()) {
-                    const found = await this.recursiveSearch(fullPath, target);
+
+                let stats: Awaited<ReturnType<typeof fs.lstat>>;
+                try {
+                    stats = await fs.lstat(fullPath);
+                } catch {
+                    continue;
+                }
+
+                if (stats.isDirectory() && !stats.isSymbolicLink()) {
+                    const found = await this.recursiveSearch(fullPath, target, depth + 1, maxDepth);
                     if (found) return found;
                 } else if (file === target) {
                     return fullPath;

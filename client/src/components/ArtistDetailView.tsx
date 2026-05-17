@@ -6,7 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { playTrack } from './Player';
 import { Icons } from './Icons';
-import type { ArtistData, Album, Track } from '../types/qobuz';
+import type { ArtistData } from '../types/qobuz';
 
 
 export const ArtistDetailView: React.FC = () => {
@@ -22,10 +22,6 @@ export const ArtistDetailView: React.FC = () => {
 
 
     const [showFullBio, setShowFullBio] = useState(false);
-    const toggleTheme = () => {
-        const nextTheme = settings.UI_THEME === 'dark' ? 'light' : 'dark';
-        updateSetting('ui_theme', nextTheme);
-    };
     const [viewModeTracks, setViewModeTracks] = useState<'list' | 'grid'>('list');
     const [viewModeAlbums, setViewModeAlbums] = useState<'list' | 'grid'>('list');
 

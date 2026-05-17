@@ -23,7 +23,7 @@ export class MetadataProcessor {
 
         logger.debug(
             `Processing template: "${template}" for ${metadata.artist} - ${metadata.title}`,
-            'DEBUG'
+            'META'
         );
 
         const data: Record<string, string> = {
@@ -46,7 +46,7 @@ export class MetadataProcessor {
 
             const newResult = result.replace(regex, sanitizedValue);
             if (newResult !== result) {
-                logger.debug(`Replaced {${key}} with "${sanitizedValue}"`, 'DEBUG');
+                logger.debug(`Replaced {${key}} with "${sanitizedValue}"`, 'META');
                 result = newResult;
             }
         }
@@ -109,10 +109,7 @@ export class MetadataProcessor {
             newFolder = parts.join(path.sep);
         }
 
-        logger.warn(
-            `Path too long (${currentTotal} chars). Truncated to fit limit.`,
-            'PROCESSOR'
-        );
+        logger.warn(`Path too long (${currentTotal} chars). Truncated to fit limit.`, 'PROCESSOR');
         return { folder: newFolder, file: newFilename };
     }
 }

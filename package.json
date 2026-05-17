@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "tsc && npm run copy-assets",
-    "build:full": "cd client && npm install && npm run build && cd .. && npm run build",
+    "build:full": "npm run sync-version && cd client && npm install && npm run build && cd .. && npm run build",
     "clean": "rimraf dist coverage",
     "copy-assets": "copyfiles -u 1 \"src/services/dashboard/public/**/*\" dist",
     "start": "node dist/index.js",
@@ -156,7 +156,7 @@
     "@typescript-eslint/parser": "^8.59.3",
     "@vitest/coverage-v8": "^4.1.6",
     "copyfiles": "^2.4.1",
-    "electron": "^32.0.0",
+    "electron": "^33.4.11",
     "electron-builder": "^26.10.0",
     "eslint": "^8.57.1",
     "husky": "^9.1.7",

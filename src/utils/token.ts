@@ -40,9 +40,8 @@ class TokenManager extends EventEmitter {
 
         const val = value.trim();
         if (key === 'QOBUZ_USER_AUTH_TOKEN') {
-            const oldToken = this.token;
             this.token = val;
-            this.emit('token:updated', { oldToken: oldToken.slice(-4), newToken: val.slice(-4) });
+            this.emit('token:updated');
         }
 
         try {
@@ -62,7 +61,7 @@ class TokenManager extends EventEmitter {
     }
 
     markInvalid(): void {
-        if (!this.token) return; 
+        if (!this.token) return;
         const previouslyValid = this.isValid !== false;
         this.isValid = false;
         if (previouslyValid) {
@@ -97,13 +96,16 @@ export async function refreshUserToken(): Promise<string | null> {
     const status = tokenManager.getStatus();
 
     if (!status.configured) {
-        logger.warn('No token configured. Please set QOBUZ_USER_AUTH_TOKEN in Settings.');
+        logger.warn('No token configured. Please set QOBUZ_USER_AUTH_TOKEN in Settings.', 'AUTH');
         return null;
     }
 
     // Only mark invalid and notify if we haven't already marked it as invalid
     if (status.valid !== false) {
-        logger.warn('Token expired or invalid. Please update via Dashboard Settings.');
+        logger.warn(
+            'Qobuz token is expired or invalid. Please go to Settings > Update Credentials to enter a new token.',
+            'AUTH'
+        );
         tokenManager.markInvalid();
     }
 
