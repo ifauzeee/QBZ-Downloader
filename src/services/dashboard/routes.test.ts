@@ -243,6 +243,19 @@ describe('Dashboard API Routes', () => {
         vi.clearAllMocks();
     });
 
+    describe('GET /api/status', () => {
+        it('should return a lightweight dashboard health response', async () => {
+            const res = await request(app).get('/api/status');
+
+            expect(res.status).toBe(200);
+            expect(res.body).toEqual({
+                ok: true,
+                status: 'running',
+                version: '2.0.0'
+            });
+        });
+    });
+
     describe('GET /api/system/status', () => {
         it('should return system status, version and config', async () => {
             const res = await request(app).get('/api/system/status');

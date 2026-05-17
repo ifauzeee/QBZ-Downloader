@@ -61,6 +61,14 @@ const APP_SETTING_KEYS = new Set([
     'UI_ACCENT'
 ]);
 
+router.get('/status', (_req: Request, res: Response) => {
+    res.json({
+        ok: true,
+        status: 'running',
+        version: APP_VERSION
+    });
+});
+
 router.get('/system/status', async (_req: Request, res: Response) => {
     let qobuz_valid = false;
     let username = '';
