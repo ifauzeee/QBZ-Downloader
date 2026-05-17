@@ -43,6 +43,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 - **Queue startup recovery** - Queue additions now require complete Qobuz credentials and wake the queue processor when credentials become valid, preventing new downloads from staying `pending` forever after first-run setup.
 - **Library healer safety** - Added bounded recursive lookup and `lstat()`-based symlink avoidance to prevent runaway scans.
 - **Safer library upgrades** - Stored upgrade candidate metadata in the library database, flagged remix/variant candidates instead of auto-selecting them silently, and protected same-path upgrades with temporary replacement files.
+- **Unavailable stream handling** - Treats early-closed Qobuz Hi-Res streams as unavailable candidates instead of retrying them as unknown failures.
 - **Qobuz API singleton cleanup** - Consolidated Qobuz API usage behind the singleton path and updated dashboard routes/tests around the new access pattern.
 - **Database and history stability** - Tightened database initialization, settings/history persistence, and test isolation around `better-sqlite3`.
 - **Friendly errors** - Added bilingual Indonesian/English friendly error support and localized remaining backend help hints.

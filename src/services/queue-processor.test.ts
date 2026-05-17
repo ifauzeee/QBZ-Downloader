@@ -234,6 +234,30 @@ describe('QueueProcessor', () => {
         expect(downloadQueue.fail).toHaveBeenCalledWith('1', 'Not found');
     });
 
+    it('should not retry unavailable Hi-Res stream candidates', async () => {
+        const mockItem = {
+            id: '1',
+            type: 'track',
+            contentId: 't1',
+            title: 'Team',
+            retryCount: 0,
+            maxRetries: 3
+        };
+
+        const error = new Error(
+            'Qobuz closed the stream after only 1 byte(s). The selected Hi-Res candidate is likely unavailable or blocked; rescan the library and choose another candidate.'
+        );
+
+        await (
+            processor as unknown as {
+                handleError: (item: unknown, err: Error) => Promise<void>;
+            }
+        ).handleError(mockItem, error);
+
+        expect(downloadQueue.fail).toHaveBeenCalledWith('1', error.message);
+        expect(downloadQueue.requeue).not.toHaveBeenCalled();
+    });
+
     it('should pass upgrade source path so same-path upgrades are written safely', async () => {
         const mockItem = {
             id: 'upgrade-1',

@@ -32,6 +32,12 @@ function categorizeError(error: unknown): ErrorCategory {
     if (err?.code === 'QOBUZ_STREAM_UNAVAILABLE') {
         return ErrorCategory.NOT_FOUND;
     }
+    if (
+        message.includes('qobuz closed the stream after only') ||
+        message.includes('selected hi-res candidate is likely unavailable')
+    ) {
+        return ErrorCategory.NOT_FOUND;
+    }
     if (statusCode === 401 || statusCode === 403 || message.includes('auth')) {
         return ErrorCategory.AUTH;
     }
