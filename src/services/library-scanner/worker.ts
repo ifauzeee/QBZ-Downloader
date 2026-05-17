@@ -24,8 +24,8 @@ function getAudioFingerprint(filePath: string): string | undefined {
 
 function hasLyricsMetadata(metadata: IAudioMetadata): boolean {
     if (
-        metadata.common.lyrics?.some((line: any) =>
-            String(typeof line === 'string' ? line : line?.text || '').trim()
+        metadata.common.lyrics?.some((line: unknown) =>
+            String(typeof line === 'string' ? line : (line as { text?: string })?.text || '').trim()
         )
     ) {
         return true;

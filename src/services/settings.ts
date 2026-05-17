@@ -123,8 +123,8 @@ export class SettingsService {
             }
 
             this.initialized = true;
-        } catch (error: any) {
-            logger.warn(`Settings service init failed: ${error.message}`, 'SETTINGS');
+        } catch (error: unknown) {
+            logger.warn(`Settings service init failed: ${(error as Error).message}`, 'SETTINGS');
         }
     }
 
@@ -146,7 +146,7 @@ export class SettingsService {
                 this.cache.set(key, { value, timestamp: now });
                 return value;
             }
-        } catch (error) {
+        } catch {
             // Fallback to cache even if expired if DB fails
             if (cached) return cached.value;
         }
@@ -180,8 +180,8 @@ export class SettingsService {
 
             this.cache.set(key, { value, timestamp: Date.now() });
             process.env[key] = value;
-        } catch (error: any) {
-            logger.error(`Failed to save setting ${key}: ${error.message}`, 'SETTINGS');
+        } catch (error: unknown) {
+            logger.error(`Failed to save setting ${key}: ${(error as Error).message}`, 'SETTINGS');
             throw error;
         }
     }
@@ -209,8 +209,8 @@ export class SettingsService {
             });
 
             tx(Object.entries(values));
-        } catch (error: any) {
-            logger.error(`Failed to save settings batch: ${error.message}`, 'SETTINGS');
+        } catch (error: unknown) {
+            logger.error(`Failed to save settings batch: ${(error as Error).message}`, 'SETTINGS');
             throw error;
         }
     }

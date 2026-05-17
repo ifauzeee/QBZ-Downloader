@@ -1,9 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { databaseService } from '../../database/index.js';
 import { libraryScannerService } from '../../library-scanner/index.js';
-import { RecommendationService } from '../../RecommendationService.js';
-import { historyService } from '../../history.js';
-import QobuzAPI from '../../../api/qobuz.js';
 import { libraryHealerService } from '../../LibraryHealerService.js';
 import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
 import { CONFIG } from '../../../config.js';
@@ -11,7 +8,7 @@ import { formatConverterService } from '../../FormatConverterService.js';
 
 const router = Router();
 
-const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
+const getParam = (p: unknown): string => (Array.isArray(p) ? String(p[0]) : String(p ?? ''));
 
 router.get('/scan/status', async (req: Request, res: Response) => {
     const stats = libraryScannerService.getScanStats();
@@ -38,8 +35,8 @@ router.post('/heal', async (req: Request, res: Response) => {
     try {
         const report = await libraryHealerService.performFullHeal();
         res.json(report);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -47,8 +44,8 @@ router.get('/statistics', async (req: Request, res: Response) => {
     try {
         const stats = await libraryStatisticsService.getLibraryStats();
         res.json(stats);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -58,24 +55,24 @@ router.get('/files', (req: Request, res: Response) => {
         const offset = parseInt(getParam(req.query.offset)) || 0;
         const files = databaseService.getLibraryFiles(limit, offset);
         res.json(files);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
 router.get('/upgradeable', (req: Request, res: Response) => {
     try {
         res.json(libraryScannerService.getUpgradeableFiles());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
 router.get('/missing-metadata', (req: Request, res: Response) => {
     try {
         res.json(libraryScannerService.getMissingMetadataFiles());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -83,8 +80,8 @@ router.get('/duplicates', (req: Request, res: Response) => {
     try {
         const duplicates = databaseService.getDuplicates();
         res.json(duplicates);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -92,8 +89,8 @@ router.get('/integrity', (req: Request, res: Response) => {
     try {
         const issues = databaseService.getDuplicates();
         res.json(issues);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -108,7 +105,7 @@ router.post('/metadata/edit', async (req: Request, res: Response) => {
         const { default: MetadataService } = await import('../../metadata.js');
         const metadataService = new MetadataService();
 
-        const targetMeta: any = {
+        const targetMeta = {
             title: metadata.title,
             artist: metadata.artist,
             album: metadata.album,
@@ -163,8 +160,8 @@ router.post('/metadata/edit', async (req: Request, res: Response) => {
                     });
                     coverBuffer = Buffer.from(response.data);
                     break;
-                } catch (e: any) {
-                    logger.debug(`Cover candidate failed (${candidate}): ${e.message}`, 'METADATA');
+                } catch (e: unknown) {
+                    logger.debug(`Cover candidate failed (${candidate}): ${(e as Error).message}`, 'METADATA');
                 }
             }
 
@@ -175,10 +172,10 @@ router.post('/metadata/edit', async (req: Request, res: Response) => {
 
         const lyrics = metadata.lyrics || null;
 
-        await metadataService.writeMetadata(filePath, targetMeta, 0, lyrics, coverBuffer);
+        await metadataService.writeMetadata(filePath, targetMeta as any, 0, lyrics, coverBuffer);
         res.json({ success: true });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -193,24 +190,24 @@ router.delete('/file', async (req: Request, res: Response) => {
 
         const success = await libraryScannerService.deleteFile(filePath);
         res.json({ success });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
 router.get('/health', async (req: Request, res: Response) => {
     try {
         res.json(databaseService.getLibraryHealth());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
 router.get('/database/stats', async (req: Request, res: Response) => {
     try {
         res.json(databaseService.getOverallStats());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -219,8 +216,8 @@ router.get('/database/tracks', async (req: Request, res: Response) => {
         const limit = parseInt(req.query.limit as string) || 100;
         const offset = parseInt(req.query.offset as string) || 0;
         res.json(databaseService.getAllTracks(limit, offset));
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -229,8 +226,8 @@ router.get('/database/albums', async (req: Request, res: Response) => {
         const limit = parseInt(req.query.limit as string) || 50;
         const offset = parseInt(req.query.offset as string) || 0;
         res.json(databaseService.getAllAlbums(limit, offset));
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -244,14 +241,9 @@ router.get('/database/search', async (req: Request, res: Response) => {
         }
 
         res.json(databaseService.searchTracks(query));
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
-
-// Migrated to catalog.routes.ts for path consistency
-
-// Moved to catalog.routes.ts for path consistency
-
 
 export default router;

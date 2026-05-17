@@ -35,9 +35,8 @@ describe('HistoryService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        // Initialize in-memory DB for testing
-        (databaseService as unknown as any).dbPath = ':memory:';
-        (databaseService as unknown as any).initialized = false;
+        (databaseService as unknown as { dbPath: string }).dbPath = ':memory:';
+        (databaseService as unknown as { initialized: boolean }).initialized = false;
         databaseService.initialize();
         history = new HistoryService(testJsonPath);
     });

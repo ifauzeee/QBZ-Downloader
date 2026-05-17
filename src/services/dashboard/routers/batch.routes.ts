@@ -1,12 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { downloadQueue } from '../../queue/queue.js';
-import qobuzApi from '../../../api/qobuz.js';
-import { logger } from '../../../utils/logger.js';
 import { CONFIG, normalizeDownloadQuality } from '../../../config.js';
 import { getErrorMessage } from '../../../utils/errors.js';
 
 const router = Router();
-const api = qobuzApi;
 
 router.post('/import/direct', async (req: Request, res: Response) => {
     try {

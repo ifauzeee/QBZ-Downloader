@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { QueueProcessor } from './queue-processor.js';
 import { downloadQueue } from './queue/queue.js';
-import DownloadService from './download.js';
-import QobuzAPI from '../api/qobuz.js';
 
 vi.mock('./queue/queue.js', () => ({
     downloadQueue: {
@@ -45,8 +43,6 @@ vi.mock('../api/qobuz.js', () => {
     };
 });
 
-import qobuzApi from '../api/qobuz.js';
-
 vi.mock('./lyrics.js', () => ({
     default: vi.fn().mockImplementation(function() {
         return {
@@ -67,7 +63,6 @@ vi.mock('./metadata.js', () => ({
     })
 }));
 
-
 vi.mock('../utils/logger.js', () => ({
     logger: {
         info: vi.fn(),
@@ -77,17 +72,6 @@ vi.mock('../utils/logger.js', () => ({
         success: vi.fn()
     }
 }));
-
-// Mock sleep to be instant
-vi.mock('./queue-processor.js', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('./queue-processor.js')>();
-    return {
-        ...actual,
-        // We can't easily mock the private sleep function if it's not exported
-        // But it's used inside the class.
-    };
-});
-
 
 vi.mock('./notifications.js', () => ({
     notifyDownloadComplete: vi.fn(),
@@ -122,15 +106,15 @@ describe('QueueProcessor', () => {
             title: 'track: track1'
         };
 
-        vi.mocked(downloadQueue.getPendingItems).mockReturnValue([mockItem as any]);
-        const mockApi = (processor as any).api;
+        vi.mocked(downloadQueue.getPendingItems).mockReturnValue([mockItem as unknown as ReturnType<typeof downloadQueue.getPendingItems>[number]]);
+        const mockApi = (processor as unknown as { api: { getTrack: ReturnType<typeof vi.fn> } }).api;
         mockApi.getTrack.mockResolvedValue({
             success: true,
             data: { title: 'Real Title', performer: { name: 'Real Artist' }, album: { title: 'Real Album' } }
         });
 
         // Start hydration in background
-        (processor as any).startMetadataHydration();
+        (processor as unknown as { startMetadataHydration: () => void }).startMetadataHydration();
         
         // Wait for one loop
         await vi.advanceTimersByTimeAsync(500);
@@ -142,38 +126,43 @@ describe('QueueProcessor', () => {
         });
 
         // Stop hydration for cleanup
-        (processor as any).isHydrationRunning = false;
+        (processor as unknown as { isHydrationRunning: boolean }).isHydrationRunning = false;
     });
 
     it('should activate circuit breaker after consecutive errors', async () => {
         const mockItem = { id: '1', type: 'track', contentId: 't1', title: 'T1' };
-        vi.mocked(downloadQueue.dequeue).mockReturnValue(mockItem as any).mockReturnValueOnce(mockItem as any).mockReturnValue(null);
-        vi.mocked(downloadQueue.get).mockReturnValue(mockItem as any);
+        vi.mocked(downloadQueue.dequeue)
+            .mockReturnValue(mockItem as unknown as ReturnType<typeof downloadQueue.dequeue>)
+            .mockReturnValueOnce(mockItem as unknown as ReturnType<typeof downloadQueue.dequeue>)
+            .mockReturnValue(null);
+        vi.mocked(downloadQueue.get).mockReturnValue(mockItem as unknown as ReturnType<typeof downloadQueue.get>);
 
-        const mockDownloadService = (processor as any).downloadService;
+        const mockDownloadService = (processor as unknown as { downloadService: { downloadTrack: ReturnType<typeof vi.fn> } }).downloadService;
         mockDownloadService.downloadTrack.mockRejectedValue(new Error('Network Error'));
 
         // Manually set consecutive errors to trigger circuit breaker
-        (processor as any).consecutiveErrors = 5;
-        (processor as any).lastErrorTime = Date.now();
+        (processor as unknown as { consecutiveErrors: number }).consecutiveErrors = 5;
+        (processor as unknown as { lastErrorTime: number }).lastErrorTime = Date.now();
 
-        const processPromise = (processor as any).processNext();
+        const processPromise = (processor as unknown as { processNext: () => Promise<void> }).processNext();
         
         // Should trigger sleep
         await vi.advanceTimersByTimeAsync(30000);
         await processPromise;
 
-        expect((processor as any).consecutiveErrors).toBeLessThan(5);
+        expect((processor as unknown as { consecutiveErrors: number }).consecutiveErrors).toBeLessThan(5);
     });
 
     it('should retry item on retryable error', async () => {
         const mockItem = { id: '1', type: 'track', contentId: 't1', title: 'T1', retryCount: 1, maxRetries: 3 };
-        vi.mocked(downloadQueue.get).mockReturnValue(mockItem as any);
+        vi.mocked(downloadQueue.get).mockReturnValue(mockItem as unknown as ReturnType<typeof downloadQueue.get>);
         
         const error = new Error('Network timeout');
-        (error as any).statusCode = 503;
+        Object.assign(error, { statusCode: 503 });
 
-        const handlePromise = (processor as any).handleError(mockItem, error);
+        const handlePromise = (processor as unknown as {
+            handleError: (item: unknown, err: Error) => Promise<void>;
+        }).handleError(mockItem, error);
         
         // Advance timers to trigger the setTimeout inside handleError
         await vi.advanceTimersByTimeAsync(5000);
@@ -183,14 +172,15 @@ describe('QueueProcessor', () => {
         expect(downloadQueue.requeue).toHaveBeenCalledWith('1');
     });
 
-
     it('should fail item immediately on non-retryable error', async () => {
         const mockItem = { id: '1', type: 'track', contentId: 't1', title: 'T1', retryCount: 0, maxRetries: 3 };
         
         const error = new Error('Not found');
-        (error as any).statusCode = 404;
+        Object.assign(error, { statusCode: 404 });
 
-        await (processor as any).handleError(mockItem, error);
+        await (processor as unknown as {
+            handleError: (item: unknown, err: Error) => Promise<void>;
+        }).handleError(mockItem, error);
 
         expect(downloadQueue.fail).toHaveBeenCalledWith('1', 'Not found');
     });

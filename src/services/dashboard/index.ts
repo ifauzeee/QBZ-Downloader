@@ -1,4 +1,4 @@
-import express, { Express, Request, Response, NextFunction } from 'express';
+import express, { Express, Request, Response, NextFunction, RequestHandler } from 'express';
 import chalk from 'chalk';
 import { Server as HttpServer, createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
@@ -34,8 +34,6 @@ export class DashboardService {
         this.port = port;
         this.app = express();
         this.httpServer = createServer(this.app);
-        const allowedOrigins = ['http://localhost:' + this.port, 'http://127.0.0.1:' + this.port];
-        
         this.io = new SocketServer(this.httpServer, {
             transports: ['websocket', 'polling'],
             allowEIO3: true
@@ -125,7 +123,7 @@ export class DashboardService {
         this.app.use(express.static(path.join(__dirname, 'public')));
 
         let activeDownloadsDir = '';
-        let activeDownloadsStatic: any = null;
+        let activeDownloadsStatic: RequestHandler | null = null;
         this.app.use('/downloads', (req: Request, res: Response, next: NextFunction) => {
             const currentDownloadsDir = path.resolve(CONFIG.download.outputDir || './downloads');
             if (!activeDownloadsStatic || activeDownloadsDir !== currentDownloadsDir) {
@@ -134,7 +132,7 @@ export class DashboardService {
                 logger.info(`Downloads route updated: ${activeDownloadsDir}`, 'WEB');
             }
 
-            return activeDownloadsStatic(req, res, next);
+            return (activeDownloadsStatic as RequestHandler)(req, res, next);
         });
     }
 
@@ -211,7 +209,7 @@ export class DashboardService {
         downloadQueue.on('item:failed', (item, error) =>
             this.io.emit('item:failed', { item, error })
         );
-        downloadQueue.on('item:progress', (item, _progress) => {
+        downloadQueue.on('item:progress', (item: any, _progress) => {
             this.io.emit('item:progress', {
                 id: item.id,
                 progress: item.progress,

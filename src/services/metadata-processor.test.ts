@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MetadataProcessor } from './MetadataProcessor.js';
-import { CONFIG } from '../config.js';
 
 vi.mock('../config.js', () => ({
     CONFIG: {
@@ -54,7 +53,7 @@ describe('MetadataProcessor', () => {
     });
 
     describe('applyTemplate', () => {
-        const metadata: any = {
+        const metadata = {
             artist: 'Artist',
             album: 'Album',
             title: 'Track',
@@ -64,18 +63,18 @@ describe('MetadataProcessor', () => {
 
         it('should replace placeholders correctly', () => {
             const template = '{artist} - {album} - {title} - {track_number} ({year})';
-            const result = processor.applyTemplate(template, metadata, 27);
+            const result = processor.applyTemplate(template, metadata as unknown as Record<string, unknown>, 27);
             expect(result).toBe('Artist - Album - Track - 05 (2024)');
         });
 
         it('should use quality name', () => {
-            const result = processor.applyTemplate('{quality}', metadata, 5);
+            const result = processor.applyTemplate('{quality}', metadata as unknown as Record<string, unknown>, 5);
             expect(result).toBe('MP3 320');
         });
 
         it('should handle missing metadata gracefully', () => {
-            const emptyMeta: any = {};
-            const result = processor.applyTemplate('{artist} - {title}', emptyMeta, 27);
+            const emptyMeta = {};
+            const result = processor.applyTemplate('{artist} - {title}', emptyMeta as unknown as Record<string, unknown>, 27);
             expect(result).toBe('Unknown Artist - Unknown Title');
         });
     });

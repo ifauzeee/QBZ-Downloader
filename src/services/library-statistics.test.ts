@@ -29,7 +29,7 @@ describe('LibraryStatisticsService', () => {
             { id: '2', title: 'T2', artist: 'A1', album: 'Alb1', quality: 6, file_size: 500, genre: 'Rock' },
             { id: '3', title: 'T3', artist: 'A2', album: 'Alb2', quality: 5, file_size: 200, genre: 'Pop' }
         ];
-        vi.mocked(databaseService.getAllTracks).mockReturnValue(mockTracks as any);
+        vi.mocked(databaseService.getAllTracks).mockReturnValue(mockTracks as unknown as ReturnType<typeof databaseService.getAllTracks>);
 
         const stats = await service.getLibraryStats();
 
@@ -54,7 +54,7 @@ describe('LibraryStatisticsService', () => {
             { id: '1', downloaded_at: `${now} 12:00:00` },
             { id: '2', downloaded_at: `${now} 13:00:00` }
         ];
-        vi.mocked(databaseService.getAllTracks).mockReturnValue(mockTracks as any);
+        vi.mocked(databaseService.getAllTracks).mockReturnValue(mockTracks as unknown as ReturnType<typeof databaseService.getAllTracks>);
 
         const stats = await service.getLibraryStats();
         
@@ -64,9 +64,10 @@ describe('LibraryStatisticsService', () => {
     });
 
     it('should return correct labels for qualities', () => {
-        expect((service as any).getQualityLabel(27)).toBe('Hi-Res');
-        expect((service as any).getQualityLabel(6)).toBe('FLAC');
-        expect((service as any).getQualityLabel(5)).toBe('MP3');
-        expect((service as any).getQualityLabel(1)).toBe('Other');
+        const target = service as unknown as { getQualityLabel: (q: number) => string };
+        expect(target.getQualityLabel(27)).toBe('Hi-Res');
+        expect(target.getQualityLabel(6)).toBe('FLAC');
+        expect(target.getQualityLabel(5)).toBe('MP3');
+        expect(target.getQualityLabel(1)).toBe('Other');
     });
 });

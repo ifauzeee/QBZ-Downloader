@@ -100,8 +100,8 @@ export class DatabaseService {
 
             this.initialized = true;
             logger.success(`Database initialized: ${this.dbPath}`, 'DB');
-        } catch (error: any) {
-            logger.error(`Database init failed: ${error.message}`, 'DB');
+        } catch (error: unknown) {
+            logger.error(`Database init failed: ${(error as Error).message}`, 'DB');
             throw error;
         }
     }
@@ -352,8 +352,8 @@ export class DatabaseService {
                 this.db!.exec('ALTER TABLE library_files ADD COLUMN audio_fingerprint TEXT');
                 logger.info('Migration: Added audio_fingerprint to library_files', 'DB');
             }
-        } catch (error: any) {
-            logger.warn(`Migration fingerprint error: ${error.message}`, 'DB');
+        } catch (error: unknown) {
+            logger.warn(`Migration fingerprint error: ${(error as Error).message}`, 'DB');
         }
 
         logger.debug('Database schema created', 'DB');
@@ -380,8 +380,8 @@ export class DatabaseService {
                     );
                     logger.info('Migration: Added album_artist column to tracks table', 'DB');
                 }
-            } catch (error: any) {
-                logger.warn(`Migration v2 partial: ${error.message}`, 'DB');
+            } catch (error: unknown) {
+                logger.warn(`Migration v2 partial: ${(error as Error).message}`, 'DB');
             }
         }
 
@@ -401,8 +401,8 @@ export class DatabaseService {
                         'DB'
                     );
                 }
-            } catch (error: any) {
-                logger.warn(`Migration v3 partial: ${error.message}`, 'DB');
+            } catch (error: unknown) {
+                logger.warn(`Migration v3 partial: ${(error as Error).message}`, 'DB');
             }
         }
 
@@ -419,8 +419,8 @@ export class DatabaseService {
                         );
                         logger.info('Migration v7: Added missing_metadata column', 'DB');
                     }
-                } catch (error: any) {
-                    logger.warn(`Migration v7 partial: ${error.message}`, 'DB');
+                } catch (error: unknown) {
+                    logger.warn(`Migration v7 partial: ${(error as Error).message}`, 'DB');
                 }
             }
 
@@ -437,8 +437,8 @@ export class DatabaseService {
                             'DB'
                         );
                     }
-                } catch (error: any) {
-                    logger.warn(`Migration v8 partial: ${error.message}`, 'DB');
+                } catch (error: unknown) {
+                    logger.warn(`Migration v8 partial: ${(error as Error).message}`, 'DB');
                 }
             }
 
@@ -455,8 +455,8 @@ export class DatabaseService {
                             'DB'
                         );
                     }
-                } catch (error: any) {
-                    logger.warn(`Migration v9 partial: ${error.message}`, 'DB');
+                } catch (error: unknown) {
+                    logger.warn(`Migration v9 partial: ${(error as Error).message}`, 'DB');
                 }
             }
 
@@ -681,7 +681,7 @@ export class DatabaseService {
             HAVING currentCount < trackCount
         `
             )
-            .all() as any[];
+            .all() as { id: string; title: string; trackCount: number; currentCount: number }[];
     }
 
     getGenreStats(limit = 5): { genre: string; count: number; total_size: number }[] {
@@ -702,7 +702,7 @@ export class DatabaseService {
         }[];
     }
 
-    getTopArtists(limit = 5): any[] {
+    getTopArtists(limit = 5): Record<string, unknown>[] {
         const db = this.getDb();
         return db
             .prepare(
@@ -721,10 +721,10 @@ export class DatabaseService {
                 ORDER BY track_count DESC 
                 LIMIT ?`
             )
-            .all(limit);
+            .all(limit) as Record<string, unknown>[];
     }
 
-    getOverallStats(): any {
+    getOverallStats(): { totalTracks: number; totalDuration: number; totalSize: number; uniqueArtists: number; totalAlbums: number } {
         const db = this.getDb();
 
         const counts = db
@@ -739,7 +739,17 @@ export class DatabaseService {
             FROM library_files
         `
             )
-            .get() as any;
+            .get() as { totalTracks?: number; totalDuration?: number; totalSize?: number; uniqueArtists?: number; totalAlbums?: number } | undefined;
+
+        if (!counts) {
+            return {
+                totalTracks: 0,
+                totalDuration: 0,
+                totalSize: 0,
+                uniqueArtists: 0,
+                totalAlbums: 0
+            };
+        }
 
         return {
             totalTracks: counts.totalTracks || 0,
@@ -802,14 +812,14 @@ export class DatabaseService {
         );
     }
 
-    getLibraryFiles(limit = 100, offset = 0): any[] {
+    getLibraryFiles(limit = 100, offset = 0): Record<string, unknown>[] {
         const db = this.getDb();
         return db
             .prepare('SELECT * FROM library_files ORDER BY scanned_at DESC LIMIT ? OFFSET ?')
-            .all(limit, offset);
+            .all(limit, offset) as Record<string, unknown>[];
     }
 
-    getUpgradeableFiles(): any[] {
+    getUpgradeableFiles(): Record<string, unknown>[] {
         const db = this.getDb();
         return db
             .prepare(
@@ -822,10 +832,10 @@ export class DatabaseService {
                 ORDER BY artist, album
             `
             )
-            .all();
+            .all() as Record<string, unknown>[];
     }
 
-    getMissingMetadataFiles(): any[] {
+    getMissingMetadataFiles(): Record<string, unknown>[] {
         const db = this.getDb();
         return db
             .prepare(
@@ -835,7 +845,7 @@ export class DatabaseService {
                 ORDER BY file_path ASC
             `
             )
-            .all();
+            .all() as Record<string, unknown>[];
     }
 
     addDuplicate(path1: string, path2: string, matchType: string, confidence: number): void {
@@ -848,14 +858,25 @@ export class DatabaseService {
         ).run(path1, path2, matchType, confidence);
     }
 
-    getDuplicates(): any[] {
+    getDuplicates(): Record<string, unknown>[] {
         const db = this.getDb();
         return db
             .prepare('SELECT * FROM duplicates WHERE resolved = 0 ORDER BY confidence DESC')
-            .all();
+            .all() as Record<string, unknown>[];
     }
 
-    getLibraryHealth(): any {
+    getLibraryHealth(): { 
+        totalTracks: number; 
+        healthScore: number; 
+        missingCovers: number; 
+        missingLyrics: number; 
+        lowQuality: number; 
+        hiRes: number; 
+        duplicates: number; 
+        missingTags: number; 
+        avgQuality: number; 
+        commonFormat: string; 
+    } {
         try {
             const db = this.getDb();
             
@@ -939,7 +960,7 @@ export class DatabaseService {
     deleteTrackByPath(filePath: string): void {
         const db = this.getDb();
 
-        let track = db.prepare('SELECT * FROM tracks WHERE file_path = ?').get(filePath) as any;
+        let track = db.prepare('SELECT * FROM tracks WHERE file_path = ?').get(filePath) as { file_path: string; album_artist?: string; artist?: string; quality?: number; file_size?: number; genre?: string } | undefined;
 
         if (!track) {
             const filename = path.basename(filePath);
@@ -950,7 +971,7 @@ export class DatabaseService {
 
             track = db
                 .prepare('SELECT * FROM tracks WHERE file_path LIKE ? OR file_path LIKE ?')
-                .get(`%${suffixUnix}`, `%${suffixWin}`) as any;
+                .get(`%${suffixUnix}`, `%${suffixWin}`) as { file_path: string; album_artist?: string; artist?: string; quality?: number; file_size?: number; genre?: string } | undefined;
         }
 
         if (track) {
@@ -1001,14 +1022,33 @@ export class DatabaseService {
                 const db = this.getDb();
                 const row = db
                     .prepare('SELECT checksum FROM library_files WHERE file_path = ?')
-                    .get(filePath) as any;
+                    .get(filePath) as { checksum?: string } | undefined;
                 resolve(row?.checksum === checksum);
             });
             stream.on('error', () => resolve(false));
         });
     }
 
-    addQueueItem(item: any): void {
+    addQueueItem(item: {
+        id: string;
+        type: string;
+        contentId: string | number;
+        quality: number;
+        status: string;
+        priority: string;
+        progress: number;
+        title?: string;
+        artist?: unknown;
+        album?: unknown;
+        error?: string | null;
+        filePath?: string | null;
+        addedAt: Date;
+        startedAt?: Date | null;
+        completedAt?: Date | null;
+        retryCount?: number;
+        maxRetries?: number;
+        metadata?: unknown;
+    }): void {
         const db = this.getDb();
         db.prepare(
             `
@@ -1040,9 +1080,28 @@ export class DatabaseService {
         );
     }
 
-    getQueueItems(): any[] {
+    getQueueItems(): Record<string, unknown>[] {
         const db = this.getDb();
-        const items = db.prepare('SELECT * FROM queue_items ORDER BY added_at ASC').all() as any[];
+        const items = db.prepare('SELECT * FROM queue_items ORDER BY added_at ASC').all() as {
+            id: string;
+            type: string;
+            content_id: string | number;
+            quality: number;
+            status: string;
+            priority: string;
+            progress: number;
+            title?: string;
+            artist_data?: string;
+            album_data?: string;
+            error?: string;
+            file_path?: string;
+            added_at: string;
+            started_at?: string;
+            completed_at?: string;
+            retry_count: number;
+            max_retries: number;
+            metadata?: string;
+        }[];
         return items.map((item) => ({
             id: item.id,
             type: item.type,
@@ -1065,7 +1124,7 @@ export class DatabaseService {
         }));
     }
 
-    updateQueueItemStatus(id: string, status: string, progressOrError?: any): void {
+    updateQueueItemStatus(id: string, status: string, progressOrError?: number | string): void {
         const db = this.getDb();
         const now = new Date().toISOString();
         if (status === 'downloading' || status === 'pending') {
@@ -1094,9 +1153,9 @@ export class DatabaseService {
         db.prepare('DELETE FROM queue_items WHERE id = ?').run(id);
     }
 
-    getWatchedPlaylists(): any[] {
+    getWatchedPlaylists(): Record<string, unknown>[] {
         const db = this.getDb();
-        return db.prepare('SELECT * FROM watched_playlists ORDER BY created_at DESC').all();
+        return db.prepare('SELECT * FROM watched_playlists ORDER BY created_at DESC').all() as Record<string, unknown>[];
     }
 
     addWatchedPlaylist(p: {
@@ -1151,7 +1210,18 @@ export class DatabaseService {
             })();
         }
     }
-    addHistoryEntry(id: string, entry: any): void {
+    addHistoryEntry(id: string, entry: {
+        downloadedAt?: string;
+        filename?: string;
+        quality?: number;
+        title?: string;
+        artist?: string;
+        albumArtist?: string;
+        artistImageUrl?: string;
+        album?: string;
+        type?: string;
+        qualityScan?: unknown;
+    }): void {
         const db = this.getDb();
         db.prepare(`
             INSERT OR REPLACE INTO history (id, downloaded_at, filename, quality, title, artist, album_artist, artist_image_url, album, type, quality_scan)
@@ -1171,9 +1241,14 @@ export class DatabaseService {
         );
     }
 
-    getHistory(id: string): any | undefined {
+    getHistory(id: string): Record<string, unknown> | undefined {
         const db = this.getDb();
-        const row = db.prepare('SELECT * FROM history WHERE id = ?').get(id) as any;
+        const row = db.prepare('SELECT * FROM history WHERE id = ?').get(id) as {
+            downloaded_at?: string;
+            artist_image_url?: string;
+            quality_scan?: string;
+            [key: string]: unknown;
+        } | undefined;
         if (!row) return undefined;
         return {
             ...row,
@@ -1183,10 +1258,16 @@ export class DatabaseService {
         };
     }
 
-    getHistoryAll(): Record<string, any> {
+    getHistoryAll(): Record<string, Record<string, unknown>> {
         const db = this.getDb();
-        const rows = db.prepare('SELECT * FROM history').all() as any[];
-        const result: Record<string, any> = {};
+        const rows = db.prepare('SELECT * FROM history').all() as {
+            id: string;
+            downloaded_at?: string;
+            artist_image_url?: string;
+            quality_scan?: string;
+            [key: string]: unknown;
+        }[];
+        const result: Record<string, Record<string, unknown>> = {};
         for (const row of rows) {
             result[row.id] = {
                 ...row,
@@ -1198,10 +1279,15 @@ export class DatabaseService {
         return result;
     }
 
-    getHistorySorted(limit?: number): any[] {
+    getHistorySorted(limit?: number): Record<string, unknown>[] {
         const db = this.getDb();
         const query = 'SELECT * FROM history ORDER BY downloaded_at DESC' + (limit ? ` LIMIT ${limit}` : '');
-        const rows = db.prepare(query).all() as any[];
+        const rows = db.prepare(query).all() as {
+            downloaded_at?: string;
+            artist_image_url?: string;
+            quality_scan?: string;
+            [key: string]: unknown;
+        }[];
         return rows.map(row => ({
             ...row,
             downloadedAt: row.downloaded_at,
@@ -1210,14 +1296,19 @@ export class DatabaseService {
         }));
     }
 
-    searchHistory(query: string): any[] {
+    searchHistory(query: string): Record<string, unknown>[] {
         const db = this.getDb();
         const searchQuery = `%${query}%`;
         const rows = db.prepare(`
             SELECT * FROM history 
             WHERE title LIKE ? OR artist LIKE ? OR album LIKE ? 
             ORDER BY downloaded_at DESC
-        `).all(searchQuery, searchQuery, searchQuery) as any[];
+        `).all(searchQuery, searchQuery, searchQuery) as {
+            downloaded_at?: string;
+            artist_image_url?: string;
+            quality_scan?: string;
+            [key: string]: unknown;
+        }[];
         return rows.map(row => ({
             ...row,
             downloadedAt: row.downloaded_at,

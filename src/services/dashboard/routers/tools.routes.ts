@@ -13,8 +13,8 @@ router.post('/identify', async (req: Request, res: Response) => {
         const { filePath } = req.body;
         if (!filePath) return res.status(400).json({ error: 'filePath is required' });
 
-        const filename = path.basename(filePath, path.extname(filePath));
-        const parts = filePath.split(path.sep);
+        const filename = path.basename(filePath as string, path.extname(filePath as string));
+        const parts = (filePath as string).split(path.sep);
         
         // Extract context from folder structure (e.g., downloads/Artist/Album/File)
         const artistFromFolder = parts.length >= 3 ? parts[parts.length - 3] : '';
@@ -62,7 +62,7 @@ router.post('/identify', async (req: Request, res: Response) => {
                     track.duration
                 );
                 if (lyricsRes.success) {
-                    (track as any).lyrics = lyricsRes; // Use any to bypass strict Track.lyrics typing
+                    Object.assign(track, { lyrics: lyricsRes });
                 }
             } catch {
                 // Ignore lyrics errors
@@ -72,8 +72,8 @@ router.post('/identify', async (req: Request, res: Response) => {
         } else {
             res.status(404).json({ error: 'No match found' });
         }
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -88,13 +88,18 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
         const metadataService = new MetadataService();
 
         // Use the centralized extraction logic for perfect consistency
-        const targetMeta = await metadataService.extractMetadata(metadata, metadata.album || {});
+        const targetMeta = await metadataService.extractMetadata(
+            metadata as any,
+            (metadata as any).album || {}
+        );
         
         let coverBuffer: Buffer | null = null;
         const coverCandidates = metadataService.getCoverUrlCandidates(
-            metadata.album?.image || metadata.image || {},
+            ((metadata as any).album)?.image || (metadata as any).image || {} as any,
             CONFIG.metadata.coverSize,
-            typeof metadata.image === 'string' ? metadata.image : metadata.coverUrl
+            typeof (metadata as Record<string, unknown>).image === 'string'
+                ? ((metadata as Record<string, unknown>).image as string)
+                : ((metadata as Record<string, unknown>).coverUrl as string)
         );
 
         for (const imageUrl of coverCandidates) {
@@ -105,8 +110,8 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
                 });
                 coverBuffer = Buffer.from(response.data);
                 break;
-            } catch (e: any) {
-                logger.debug(`Cover candidate failed for heal (${imageUrl}): ${e.message}`, 'TOOLS');
+            } catch (e: unknown) {
+                logger.debug(`Cover candidate failed for heal (${imageUrl}): ${(e as Error).message}`, 'TOOLS');
             }
         }
 
@@ -115,12 +120,12 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
         }
 
         // Pass lyrics if found
-        const lyrics = metadata.lyrics || null;
+        const lyrics = (metadata as Record<string, unknown>).lyrics || null;
 
-        await metadataService.writeMetadata(filePath, targetMeta, 0, lyrics, coverBuffer);
+        await metadataService.writeMetadata(filePath as string, targetMeta as any, 0, lyrics as any, coverBuffer);
         res.json({ success: true });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 

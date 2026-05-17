@@ -91,10 +91,11 @@ const QUALITY_LABELS: Record<number, string> = {
 class AdvancedAnalyticsService {
     getDashboard(): AnalyticsDashboard {
         const overall = databaseService.getOverallStats();
-        const dailyStats = databaseService.getDailyStats(30);
+        const health = databaseService.getLibraryHealth();
+        const dailyStats = databaseService.getDailyStats(30) as { date: string; downloads: number; tracks: number; albums: number; total_size?: number }[];
         const genreStats = databaseService.getGenreStats(5);
         const qualityStats = databaseService.getQualityStats();
-        const topArtists = databaseService.getTopArtists(5);
+        const topArtists = databaseService.getTopArtists(5) as { name: string; track_count?: number; album_count?: number; total_size?: number; avg_quality?: number; image_url?: string; first_download?: string; last_download?: string }[];
 
         const today = new Date().toISOString().split('T')[0];
         const todayStats = dailyStats.find((s) => s.date === today);
@@ -107,7 +108,7 @@ class AdvancedAnalyticsService {
                 totalDuration: this.formatDuration(overall.totalDuration || 0),
                 totalArtists: overall.uniqueArtists,
                 totalSize: this.formatBytes(overall.totalSize),
-                avgQuality: overall.avgQuality,
+                avgQuality: health.avgQuality || 0,
                 downloadsToday: todayStats?.downloads || 0,
                 downloadsThisWeek: weekStats.downloads,
                 downloadsThisMonth: monthStats.downloads
@@ -132,7 +133,9 @@ class AdvancedAnalyticsService {
         return `${hours}h ${minutes}m`;
     }
 
-    private calculateDailyTrends(dailyStats: any[]): DownloadTrend[] {
+    private calculateDailyTrends(
+        dailyStats: { date: string; downloads: number; tracks: number; albums: number; total_size?: number }[]
+    ): DownloadTrend[] {
         return dailyStats.map((stat, index) => {
             const previous = dailyStats[index + 1];
             const change = previous
@@ -150,7 +153,9 @@ class AdvancedAnalyticsService {
         });
     }
 
-    private calculateWeeklyTrends(dailyStats: any[]): DownloadTrend[] {
+    private calculateWeeklyTrends(
+        dailyStats: { date: string; downloads: number; tracks: number; albums: number; total_size?: number }[]
+    ): DownloadTrend[] {
         const weeks: DownloadTrend[] = [];
 
         for (let i = 0; i < dailyStats.length; i += 7) {
@@ -183,8 +188,8 @@ class AdvancedAnalyticsService {
 
     private calculateMonthlyTrends(): DownloadTrend[] {
         try {
-            const stats = databaseService.getDailyStats(180);
-            const monthsMap = new Map<string, any[]>();
+            const stats = databaseService.getDailyStats(180) as { date: string; downloads: number; tracks: number; albums: number; total_size?: number }[];
+            const monthsMap = new Map<string, { date: string; downloads: number; tracks: number; albums: number; total_size?: number }[]>();
 
             for (const stat of stats) {
                 const month = stat.date.substring(0, 7); // YYYY-MM
@@ -226,13 +231,13 @@ class AdvancedAnalyticsService {
             }
 
             return trends.slice(0, 6);
-        } catch (error) {
+        } catch {
             return [];
         }
     }
 
     private getQualityDistribution(
-        qualityStats: any[],
+        qualityStats: { quality: number; count: number; total_size?: number }[],
         totalTracks: number
     ): QualityDistribution[] {
         return qualityStats.map((stat) => ({
@@ -244,7 +249,10 @@ class AdvancedAnalyticsService {
         }));
     }
 
-    private getGenreBreakdown(genreStats: any[], totalTracks: number): GenreBreakdown[] {
+    private getGenreBreakdown(
+        genreStats: { genre: string; count: number; total_size?: number }[],
+        totalTracks: number
+    ): GenreBreakdown[] {
         return genreStats.slice(0, 15).map((stat) => ({
             genre: stat.genre,
             count: stat.count,
@@ -253,7 +261,9 @@ class AdvancedAnalyticsService {
         }));
     }
 
-    private getTopArtistInsights(artists: any[]): ArtistInsight[] {
+    private getTopArtistInsights(
+        artists: { name: string; track_count?: number; album_count?: number; total_size?: number; avg_quality?: number; image_url?: string; first_download?: string; last_download?: string }[]
+    ): ArtistInsight[] {
         return artists.map((artist) => ({
             name: artist.name,
             trackCount: artist.track_count || 0,
@@ -266,7 +276,10 @@ class AdvancedAnalyticsService {
         }));
     }
 
-    private getStorageAnalytics(totalSize: number, qualityStats: any[]): StorageAnalytics {
+    private getStorageAnalytics(
+        totalSize: number,
+        qualityStats: { quality: number; count: number; total_size?: number }[]
+    ): StorageAnalytics {
         const byQuality = qualityStats.map((stat) => ({
             quality: stat.quality,
             size: stat.total_size || 0,
@@ -312,10 +325,10 @@ class AdvancedAnalyticsService {
     }
 
     private generateInsights(
-        overall: any,
-        dailyStats: any[],
-        qualityStats: any[],
-        genreStats: any[]
+        overall: { totalTracks: number; totalSize: number; uniqueArtists: number },
+        dailyStats: { downloads: number }[],
+        qualityStats: { quality: number; count: number }[],
+        genreStats: { genre: string }[]
     ): string[] {
         const insights: string[] = [];
 
@@ -365,7 +378,9 @@ class AdvancedAnalyticsService {
         return insights;
     }
 
-    private aggregateStats(stats: any[]): {
+    private aggregateStats(
+        stats: { downloads?: number; tracks?: number; albums?: number; total_size?: number }[]
+    ): {
         downloads: number;
         tracks: number;
         albums: number;
@@ -378,7 +393,7 @@ class AdvancedAnalyticsService {
                 albums: acc.albums + (stat.albums || 0),
                 size: acc.size + (stat.total_size || 0)
             }),
-            { downloads: 0, tracks: 0, albums: 0, size: 0 }
+            { downloads: 0, tracks: 0, albums: 0, size: 0 } as { downloads: number; tracks: number; albums: number; size: number }
         );
     }
 
@@ -427,22 +442,22 @@ class AdvancedAnalyticsService {
         missingFromAlbums: { albumId: string; albumTitle: string; missingCount: number }[];
         suggestedArtists: string[];
     } {
-        const upgradeable = databaseService.getUpgradeableFiles();
+        const upgradeable = databaseService.getUpgradeableFiles() as { track_id?: string; title?: string; quality?: number }[];
         const incomplete = databaseService.getIncompleteAlbums();
-        const topArtists = databaseService.getTopArtists(10);
+        const topArtists = databaseService.getTopArtists(10) as { name: string }[];
 
         return {
-            upgradeableTracks: upgradeable.slice(0, 10).map((f: any) => ({
-                id: f.track_id,
-                title: f.title,
-                currentQuality: f.quality
+            upgradeableTracks: upgradeable.slice(0, 10).map((f: { track_id?: string; title?: string; quality?: number }) => ({
+                id: f.track_id || '',
+                title: f.title || '',
+                currentQuality: f.quality || 0
             })),
-            missingFromAlbums: incomplete.slice(0, 10).map((a: any) => ({
+            missingFromAlbums: incomplete.slice(0, 10).map((a: { id: string; title: string; trackCount: number; currentCount: number }) => ({
                 albumId: a.id,
                 albumTitle: a.title,
                 missingCount: a.trackCount - a.currentCount
             })),
-            suggestedArtists: topArtists.slice(0, 5).map((a: any) => a.name)
+            suggestedArtists: topArtists.slice(0, 5).map((a: { name: string }) => a.name)
         };
     }
 }

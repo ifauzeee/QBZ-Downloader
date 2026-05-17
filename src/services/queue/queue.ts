@@ -25,7 +25,7 @@ export class DownloadQueue {
             title?: string;
             priority?: QueuePriority;
             maxRetries?: number;
-            metadata?: any;
+            metadata?: QueueItemMetadata;
         } = {}
     ): QueueItem {
         const id = generateQueueId();
@@ -391,17 +391,17 @@ export class DownloadQueue {
         eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, averageProgress);
     }
 
-    on(event: string, listener: (...args: any[]) => void): this {
-        this.eventEmitter.on(event, listener);
+    on(event: string, listener: (...args: unknown[]) => void): this {
+        this.eventEmitter.on(event, listener as (...args: unknown[]) => void);
         return this;
     }
 
-    emit(event: string, ...args: any[]): boolean {
+    emit(event: string, ...args: unknown[]): boolean {
         return this.eventEmitter.emit(event, ...args);
     }
 
-    off(event: string, listener: (...args: any[]) => void): this {
-        this.eventEmitter.off(event, listener);
+    off(event: string, listener: (...args: unknown[]) => void): this {
+        this.eventEmitter.off(event, listener as (...args: unknown[]) => void);
         return this;
     }
 
@@ -411,7 +411,7 @@ export class DownloadQueue {
 
     async load(): Promise<void> {
         try {
-            const persistedItems = databaseService.getQueueItems();
+            const persistedItems = databaseService.getQueueItems() as unknown as QueueItem[];
             for (const item of persistedItems) {
                 if (
                     item.status === 'downloading' ||

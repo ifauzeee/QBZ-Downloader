@@ -53,7 +53,7 @@ export class ConfigurationError extends QobuzError {
 import { humanizeError } from './friendly-errors.js';
 import { logger } from './logger.js';
 
-export function handleError(error: Error | QobuzError, display: any) {
+export function handleError(error: Error | QobuzError, display: { displayError: (msg: string) => void }) {
     const friendlyError = humanizeError(error);
 
     if (error instanceof ValidationError) {

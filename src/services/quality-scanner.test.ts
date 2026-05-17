@@ -3,11 +3,13 @@ import { QualityScannerService } from './QualityScannerService.js';
 import { exec } from 'child_process';
 import { checkBinaryAvailability } from '../utils/binaries.js';
 
+type ExecMockCallback = (err: Error | null, result: { stderr: string }) => void;
+
 // Mock dependencies
 vi.mock('child_process', () => ({
-    exec: vi.fn((cmd, cb) => {
+    exec: vi.fn((cmd: string, cb?: ExecMockCallback) => {
         if (cb) cb(null, { stderr: 'mean_volume: -50.0 dB' });
-        return { on: vi.fn() } as any;
+        return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
     })
 }));
 
@@ -40,16 +42,17 @@ describe('QualityScannerService', () => {
         vi.clearAllMocks();
         service = new QualityScannerService();
         // Reset static flags
-        (QualityScannerService as any).ffmpegAvailable = null;
-        (QualityScannerService as any).ffmpegPath = null;
+        const TargetService = QualityScannerService as unknown as { ffmpegAvailable: boolean | null; ffmpegPath: string | null };
+        TargetService.ffmpegAvailable = null;
+        TargetService.ffmpegPath = null;
     });
 
     it('should identify true lossless files', async () => {
         // Mock ffmpeg output showing high energy above thresholds
-        vi.mocked(exec).mockImplementation((cmd, cb: any) => {
+        vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
             if (cb) cb(null, { stderr: 'mean_volume: -30.0 dB' });
-            return { on: vi.fn() } as any;
-        });
+            return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
+        }) as unknown as typeof exec);
 
         const report = await service.scanFile('test.flac');
         expect(report.isTrueLossless).toBe(true);
@@ -58,7 +61,7 @@ describe('QualityScannerService', () => {
 
     it('should detect fake lossless (16kHz cutoff)', async () => {
         // Mock ffmpeg output showing very low energy above 16kHz
-        vi.mocked(exec).mockImplementation((cmd, cb: any) => {
+        vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
             if (cb) {
                 if (cmd.includes('f=16000')) {
                     cb(null, { stderr: 'mean_volume: -85.0 dB' });
@@ -66,8 +69,8 @@ describe('QualityScannerService', () => {
                     cb(null, { stderr: 'mean_volume: -95.0 dB' });
                 }
             }
-            return { on: vi.fn() } as any;
-        });
+            return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
+        }) as unknown as typeof exec);
 
         const report = await service.scanFile('fake.flac');
         expect(report.isTrueLossless).toBe(false);
@@ -76,7 +79,7 @@ describe('QualityScannerService', () => {
 
     it('should detect likely upsampled files (20kHz cutoff)', async () => {
         // Mock ffmpeg output: 16k is fine (-50), 20k is low (-90)
-        vi.mocked(exec).mockImplementation((cmd, cb: any) => {
+        vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
             if (cb) {
                 if (cmd.includes('f=16000')) {
                     cb(null, { stderr: 'mean_volume: -50.0 dB' });
@@ -84,8 +87,8 @@ describe('QualityScannerService', () => {
                     cb(null, { stderr: 'mean_volume: -90.0 dB' });
                 }
             }
-            return { on: vi.fn() } as any;
-        });
+            return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
+        }) as unknown as typeof exec);
 
         const report = await service.scanFile('upsampled.flac');
         expect(report.isTrueLossless).toBe(false);
@@ -103,11 +106,13 @@ describe('QualityScannerService', () => {
     describe('parseMeanVolume', () => {
         it('should correctly parse volume from ffmpeg output', () => {
             const output = '... [volumedetect] mean_volume: -45.2 dB ...';
-            expect((service as any).parseMeanVolume(output)).toBe(-45.2);
+            const target = service as unknown as { parseMeanVolume: (out: string) => number };
+            expect(target.parseMeanVolume(output)).toBe(-45.2);
         });
 
         it('should return -100 if no volume found', () => {
-            expect((service as any).parseMeanVolume('garbage')).toBe(-100);
+            const target = service as unknown as { parseMeanVolume: (out: string) => number };
+            expect(target.parseMeanVolume('garbage')).toBe(-100);
         });
     });
 });

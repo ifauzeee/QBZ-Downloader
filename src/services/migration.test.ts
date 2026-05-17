@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MigrationService } from './migration.js';
-import QobuzAPI from '../api/qobuz.js';
 import { spotifyApi } from '../api/spotify.js';
 import { downloadQueue } from './queue/queue.js';
 
@@ -46,7 +45,7 @@ vi.mock('./queue/queue.js', () => ({
 }));
 
 vi.mock('../utils/limit.js', () => ({
-    globalApiLimit: vi.fn((fn) => fn())
+    globalApiLimit: vi.fn((fn: () => unknown) => fn())
 }));
 
 vi.mock('../utils/logger.js', () => ({
@@ -58,7 +57,7 @@ vi.mock('../utils/logger.js', () => ({
 
 describe('MigrationService', () => {
     let service: MigrationService;
-    let mockApi: any;
+    let mockApi: typeof qobuzApi;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -82,10 +81,12 @@ describe('MigrationService', () => {
         });
 
         it('should handle track matches correctly based on score', () => {
-            const sTrack = { title: 'Hello', artist: 'Adele', duration_ms: 295000 } as any;
-            const qTrack = { title: 'Hello', artist: { name: 'Adele' }, duration: 295 } as any;
+            const sTrack = { title: 'Hello', artist: 'Adele', duration_ms: 295000 };
+            const qTrack = { title: 'Hello', artist: { name: 'Adele' }, duration: 295 };
             
-            const score = (service as any).calculateMatchScore(sTrack, qTrack);
+            const score = (service as unknown as {
+                calculateMatchScore: (s: unknown, q: unknown) => number;
+            }).calculateMatchScore(sTrack, qTrack);
             expect(score).toBeGreaterThan(0.9);
         });
 
@@ -94,12 +95,12 @@ describe('MigrationService', () => {
                 { 
                     found: true, 
                     qobuzTrackId: 'q1', 
-                    spotifyTrack: { title: 'S1', artist: 'A1' } as any,
+                    spotifyTrack: { title: 'S1', artist: 'A1' } as unknown as { title: string; artist: string },
                     matchScore: 1.0
                 },
                 { 
                     found: false, 
-                    spotifyTrack: { title: 'S2', artist: 'A2' } as any,
+                    spotifyTrack: { title: 'S2', artist: 'A2' } as unknown as { title: string; artist: string },
                     matchScore: 0
                 }
             ];

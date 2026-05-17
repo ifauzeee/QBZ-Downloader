@@ -16,13 +16,13 @@ vi.mock('../queue/queue.js', () => {
                 { id: '1', type: 'track', status: 'pending', title: 'Test Track' },
                 { id: '2', type: 'album', status: 'downloading', title: 'Test Album' }
             ],
-            add: (_type: string, _id: string, _quality: number, opts: any) => ({
+            add: (_type: string, _id: string, _quality: number, opts?: Record<string, unknown>) => ({
                 id: 'new-id',
                 type: _type,
                 contentId: _id,
                 quality: _quality,
                 status: 'pending',
-                title: opts?.title || 'New Item'
+                title: String(opts?.title || 'New Item')
             }),
             getAll: () => [
                 { id: '1', type: 'track', status: 'pending', title: 'Test Track' },
@@ -243,34 +243,13 @@ describe('Dashboard API Routes', () => {
         vi.clearAllMocks();
     });
 
-    describe('GET /api/status', () => {
-        it('should return online status and version', async () => {
-            const res = await request(app).get('/api/status');
+    describe('GET /api/system/status', () => {
+        it('should return system status, version and config', async () => {
+            const res = await request(app).get('/api/system/status');
 
             expect(res.status).toBe(200);
-            expect(res.body.online).toBe(true);
-            expect(res.body.version).toBe('2.0.0');
-            expect(res.body.stats).toBeDefined();
-        });
-    });
-
-    describe('GET /api/credentials/status', () => {
-        it('should return credentials configuration status', async () => {
-            const res = await request(app).get('/api/credentials/status');
-
-            expect(res.status).toBe(200);
-            expect(res.body.allConfigured).toBe(true);
-            expect(res.body.configured.appId).toBe(true);
-        });
-    });
-
-    describe('GET /api/onboarding', () => {
-        it('should return onboarding status', async () => {
-            const res = await request(app).get('/api/onboarding');
-
-            expect(res.status).toBe(200);
-            expect(res.body.configured).toBe(true);
-            expect(res.body.steps).toBeInstanceOf(Array);
+            expect(res.body.VERSION).toBe('2.0.0');
+            expect(res.body.DOWNLOADS_PATH).toBe('./downloads');
         });
     });
 
@@ -281,17 +260,6 @@ describe('Dashboard API Routes', () => {
             expect(res.status).toBe(200);
             expect(res.body).toBeInstanceOf(Array);
             expect(res.body.length).toBe(2);
-        });
-    });
-
-    describe('GET /api/settings', () => {
-        it('should return masked settings', async () => {
-            const res = await request(app).get('/api/settings');
-
-            expect(res.status).toBe(200);
-            expect(res.body.QOBUZ_APP_ID).toBe('test-app-id');
-            expect(res.body.QOBUZ_APP_SECRET).toContain('****');
-            expect(res.body.DOWNLOADS_PATH).toBe('./downloads');
         });
     });
 

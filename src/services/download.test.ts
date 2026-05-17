@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DownloadService from './download.js';
-import { qobuzApi, QobuzAPI } from '../api/qobuz.js';
+import { QobuzAPI } from '../api/qobuz.js';
 import LyricsProvider from '../api/lyrics.js';
 import MetadataService, { Metadata } from './metadata.js';
 

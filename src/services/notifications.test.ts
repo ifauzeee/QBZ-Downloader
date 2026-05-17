@@ -31,7 +31,7 @@ describe('NotificationService', () => {
 
     it('should limit the number of notifications', () => {
         // Set maxNotifications to 3 for testing (private but we can cast or just use the default 100)
-        (service as any).maxNotifications = 3;
+        (service as unknown as { maxNotifications: number }).maxNotifications = 3;
         
         service.info('1', 'M');
         service.info('2', 'M');

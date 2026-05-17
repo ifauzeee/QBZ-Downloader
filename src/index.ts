@@ -1,22 +1,18 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { dirname } from 'path';
 import { dashboardService } from './services/dashboard/index.js';
 import { downloadQueue } from './services/queue/queue.js';
 import { queueProcessor } from './services/queue-processor.js';
 import { historyService } from './services/history.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
 import { logger } from './utils/logger.js';
-import figlet from 'figlet';
 import { playlistWatcherService } from './services/PlaylistWatcherService.js';
 import { printLogo } from './utils/ui.js';
 import { CONFIG } from './config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf-8'));
-const version = pkg.version;
 
 async function gracefulShutdown(signal: string) {
     console.log('');
@@ -55,15 +51,15 @@ async function main() {
         try {
             const { databaseService } = await import('./services/database/index.js');
             databaseService.initialize();
-            logger.success(`Database service initialized.`, 'DB');
+            logger.success('Database service initialized.', 'DB');
 
             const { settingsService } = await import('./services/settings.js');
             // Force initialization to log setting count
-            (settingsService as any).ensureInitialized();
+            (settingsService as unknown as { ensureInitialized: () => void }).ensureInitialized();
             
             await downloadQueue.load();
-        } catch (error: any) {
-            logger.warn(`Database init failed: ${error.message}`, 'DB');
+        } catch (error: unknown) {
+            logger.warn(`Database init failed: ${(error as Error).message}`, 'DB');
         }
 
         logger.info('Validating application settings...', 'CONFIG');

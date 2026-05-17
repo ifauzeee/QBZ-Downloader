@@ -38,7 +38,7 @@ export class PlaylistWatcherService {
         this.isScanning = true;
 
         try {
-            const watched = databaseService.getWatchedPlaylists();
+            const watched = databaseService.getWatchedPlaylists() as unknown as { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }[];
             logger.debug(`PlaylistWatcher: Scanning ${watched.length} playlists`, 'WATCHER');
 
             for (const playlist of watched) {

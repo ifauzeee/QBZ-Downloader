@@ -162,7 +162,7 @@ export class BatchImportService {
     }
 
     private setupListeners() {
-        downloadQueue.on('item:completed', (item: { metadata?: Record<string, unknown>; filePath?: string }) => {
+        downloadQueue.on('item:completed', (item: any) => {
             if (item.metadata && item.metadata.batchId) {
                 const batchId = String(item.metadata.batchId);
                 if (item.metadata.batchFiles && Array.isArray(item.metadata.batchFiles)) {
@@ -178,7 +178,7 @@ export class BatchImportService {
             }
         });
 
-        downloadQueue.on('item:failed', (item: { metadata?: Record<string, unknown> }) => {
+        downloadQueue.on('item:failed', (item: any) => {
             if (item.metadata && item.metadata.batchId) {
                 this.updateBatchProgress(String(item.metadata.batchId), 'failed');
             }
@@ -360,7 +360,7 @@ export class BatchImportService {
             }
 
             // Find URL and Quality column keys (case-insensitive)
-            const firstRecord = records[0] as any;
+            const firstRecord = records[0] as Record<string, unknown>;
             const keys = Object.keys(firstRecord);
             const urlKey = keys.find((k) => k.toLowerCase() === 'url' || k.toLowerCase() === 'link');
             const qualityKey = keys.find((k) => k.toLowerCase() === 'quality' || k.toLowerCase() === 'format');

@@ -70,7 +70,7 @@ class AudioPreviewService extends EventEmitter {
                 return null;
             }
 
-            const streamData = urlResult.data as any;
+            const streamData = urlResult.data as { url: string; format_id?: number; sample?: boolean; duration?: number };
             const quality = streamData.format_id || streamQuality;
 
             const previewInfo: PreviewInfo = {
@@ -92,8 +92,8 @@ class AudioPreviewService extends EventEmitter {
             await cacheService.set(`preview:${trackId}`, previewInfo, 1800);
 
             return previewInfo;
-        } catch (error: any) {
-            logger.error(`Failed to get preview info: ${error.message}`, 'PREVIEW');
+        } catch (error: unknown) {
+            logger.error(`Failed to get preview info: ${(error as Error).message}`, 'PREVIEW');
             return null;
         }
     }
@@ -107,7 +107,7 @@ class AudioPreviewService extends EventEmitter {
             const result = await this.api.getFileUrl(trackId, preferredQuality);
 
             if (result.success && result.data) {
-                const data = result.data as any;
+                const data = result.data as { url: string; format_id?: number; sample?: boolean; duration?: number };
 
                 let meta = this.previewCache.get(trackId);
 
@@ -150,8 +150,8 @@ class AudioPreviewService extends EventEmitter {
             }
 
             return null;
-        } catch (error: any) {
-            logger.error(`Failed to get stream URL: ${error.message}`, 'PREVIEW');
+        } catch (error: unknown) {
+            logger.error(`Failed to get stream URL: ${(error as Error).message}`, 'PREVIEW');
             return null;
         }
     }
@@ -186,12 +186,13 @@ class AudioPreviewService extends EventEmitter {
         this.currentTrack = null;
     }
 
-    private getCoverUrl(image: any): string {
+    private getCoverUrl(image: string | Record<string, unknown> | null | undefined): string {
+        if (!image) return '';
         if (typeof image === 'string') return image;
 
         const sizes = ['mega', 'extralarge', 'large', 'medium', 'small', 'thumbnail'];
         for (const size of sizes) {
-            if (image[size]) return image[size];
+            if (typeof image[size] === 'string') return image[size] as string;
         }
 
         return '';

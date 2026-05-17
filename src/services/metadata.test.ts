@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { MetadataService } from './metadata.js';
+import { MetadataService, Metadata } from './metadata.js';
 
 // Mock dependencies
 vi.mock('node-id3', () => ({
@@ -109,8 +109,7 @@ describe('MetadataService', () => {
             totalDiscs: 1,
             genre: 'Rock',
             label: 'L',
-            comment: 'C'
-        } as any;
+        } as unknown as Metadata;
 
         it('should build valid ID3 tags', () => {
             const tags = service.buildId3Tags(mockMetadata);

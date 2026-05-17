@@ -27,6 +27,26 @@ export interface LibraryFile {
     missingTags?: string[];
 }
 
+export interface WorkerResult {
+    filePath: string;
+    title?: string;
+    artist?: string;
+    albumArtist?: string;
+    album?: string;
+    duration?: number;
+    quality?: number;
+    fileSize?: number;
+    format?: string;
+    bitDepth?: number;
+    sampleRate?: number;
+    needsUpgrade?: boolean;
+    audioFingerprint?: string;
+    checksum?: string;
+    missingInternalTags?: boolean;
+    missingTags?: string[];
+    error?: string;
+}
+
 export interface DuplicateGroup {
     id: number;
     files: {
@@ -59,7 +79,7 @@ export interface ScanProgress {
     status: 'scanning' | 'analyzing' | 'checking_upgrades' | 'complete' | 'error';
 }
 
-import { checkBinaryAvailability, resolveBinaryPath } from '../../utils/binaries.js';
+import { checkBinaryAvailability } from '../../utils/binaries.js';
 
 export class LibraryScannerService extends EventEmitter {
 
@@ -160,7 +180,7 @@ export class LibraryScannerService extends EventEmitter {
             const filesToProcess = [...allFiles];
             let processedCount = 0;
 
-            const processResult = (fileInfo: any) => {
+            const processResult = (fileInfo: WorkerResult) => {
                 if (fileInfo.error) {
                     result.errors++;
                     logger.debug(
@@ -169,10 +189,14 @@ export class LibraryScannerService extends EventEmitter {
                     );
                 } else if (fileInfo) {
                     result.scannedFiles++;
-                    result.totalSize += fileInfo.fileSize;
-                    result.byFormat[fileInfo.format] = (result.byFormat[fileInfo.format] || 0) + 1;
-                    result.byQuality[fileInfo.quality] =
-                        (result.byQuality[fileInfo.quality] || 0) + 1;
+                    result.totalSize += fileInfo.fileSize || 0;
+                    if (fileInfo.format) {
+                        result.byFormat[fileInfo.format] = (result.byFormat[fileInfo.format] || 0) + 1;
+                    }
+                    if (fileInfo.quality !== undefined) {
+                        result.byQuality[fileInfo.quality] =
+                            (result.byQuality[fileInfo.quality] || 0) + 1;
+                    }
 
                     if (fileInfo.needsUpgrade) result.upgradeableFiles++;
                     if (fileInfo.missingInternalTags) result.missingMetadata++;
@@ -339,14 +363,22 @@ export class LibraryScannerService extends EventEmitter {
 
     private async checkQobuzUpgrades(): Promise<number> {
         const db = databaseService.getDb();
-        const files = databaseService.getLibraryFiles(10000, 0);
+        const files = databaseService.getLibraryFiles(10000, 0) as unknown as {
+            file_path: string;
+            track_id?: string | null;
+            available_quality?: number | null;
+            quality: number;
+            artist?: string | null;
+            title?: string | null;
+            album?: string | null;
+        }[];
         let upgradeCount = 0;
         let processed = 0;
 
         for (const file of files) {
             if (this.scanAborted) break;
 
-            if (file.track_id && file.available_quality !== null) {
+            if (file.track_id && file.available_quality !== undefined && file.available_quality !== null) {
                 if (file.available_quality > file.quality) upgradeCount++;
                 processed++;
                 continue;
@@ -374,7 +406,7 @@ export class LibraryScannerService extends EventEmitter {
                     file.title || '',
                     file.artist || '',
                     file.album || '',
-                    searchResult.data.tracks.items
+                    searchResult.data.tracks.items as unknown as { id: string | number; title?: string; performer?: { name?: string }; album?: { artist?: { name?: string }; title?: string } }[]
                 );
 
                 if (matches.length === 0) {
@@ -383,7 +415,7 @@ export class LibraryScannerService extends EventEmitter {
                 }
 
                 let maxQualityFound = 0;
-                let bestTrackId = null;
+                let bestTrackId: string | number | null = null;
 
                 for (const track of matches.slice(0, 5)) {
                     const quality = await this.getHighestAvailableQuality(track.id);
@@ -424,9 +456,9 @@ export class LibraryScannerService extends EventEmitter {
                 this.currentProgress = progress;
                 this.emit('scan:progress', progress);
                 await this.delay(process.env.NODE_ENV === 'test' ? 0 : 50);
-            } catch (error: any) {
+            } catch (error: unknown) {
                 logger.debug(
-                    `Error checking upgrade for ${file.file_path}: ${error.message}`,
+                    `Error checking upgrade for ${file.file_path}: ${(error as Error).message}`,
                     'SCANNER'
                 );
                 processed++;
@@ -435,11 +467,16 @@ export class LibraryScannerService extends EventEmitter {
         return upgradeCount;
     }
 
-    private findAllMatches(title: string, artist: string, album: string, tracks: any[]): any[] {
+    private findAllMatches(
+        title: string,
+        artist: string,
+        album: string,
+        tracks: { id: string | number; title?: string; performer?: { name?: string }; album?: { artist?: { name?: string }; title?: string } }[]
+    ): { id: string | number; title?: string; performer?: { name?: string }; album?: { artist?: { name?: string }; title?: string } }[] {
         const normalizedTitle = this.normalizeString(title);
         const normalizedArtist = this.normalizeString(artist);
         const normalizedAlbum = this.normalizeString(album);
-        const matches: any[] = [];
+        const matches: { id: string | number; title?: string; performer?: { name?: string }; album?: { artist?: { name?: string }; title?: string } }[] = [];
 
         for (const track of tracks) {
             const trackTitle = this.normalizeString(track.title || '');
@@ -462,13 +499,13 @@ export class LibraryScannerService extends EventEmitter {
         return matches;
     }
 
-    private async getHighestAvailableQuality(trackId: number): Promise<number | null> {
+    private async getHighestAvailableQuality(trackId: string | number): Promise<number | null> {
         const qualities = [27, 7, 6, 5];
         for (const quality of qualities) {
             try {
-                const result = await this.api.getFileUrl(trackId, quality);
+                const result = await this.api.getFileUrl(String(trackId), quality);
                 if (result.success && result.data) {
-                    const formatId = (result.data as any).format_id;
+                    const formatId = (result.data as { format_id: number }).format_id;
                     if (formatId && formatId >= quality) {
                         return formatId;
                     }
@@ -527,7 +564,12 @@ export class LibraryScannerService extends EventEmitter {
     }
 
     private async detectDuplicates(): Promise<number> {
-        const files = databaseService.getLibraryFiles(100000, 0);
+        const files = databaseService.getLibraryFiles(100000, 0) as unknown as {
+            file_path: string;
+            audio_fingerprint?: string | null;
+            title?: string | null;
+            artist?: string | null;
+        }[];
         logger.debug(
             `[DUPLICATE_CHECK] Analyzing ${files.length} items for duplicates...`,
             'SCANNER'
@@ -642,7 +684,7 @@ export class LibraryScannerService extends EventEmitter {
     }
 
     getDuplicates(): DuplicateGroup[] {
-        const rawDuplicates = databaseService.getDuplicates();
+        const rawDuplicates = databaseService.getDuplicates() as unknown as { id: number; file_path_1: string; file_path_2: string; match_type: string }[];
         const groups: Map<string, DuplicateGroup> = new Map();
         for (const dup of rawDuplicates) {
             const key = dup.file_path_1;
@@ -654,7 +696,7 @@ export class LibraryScannerService extends EventEmitter {
                         { path: dup.file_path_1, size: 0, quality: 0 },
                         { path: dup.file_path_2, size: 0, quality: 0 }
                     ],
-                    matchType: dup.match_type as any,
+                    matchType: dup.match_type as 'exact' | 'similar' | 'remaster',
                     recommendation: 'Keep the higher quality version'
                 });
             } else {
@@ -668,7 +710,20 @@ export class LibraryScannerService extends EventEmitter {
     }
 
     getUpgradeableFiles(): LibraryFile[] {
-        const files = databaseService.getUpgradeableFiles();
+        const files = databaseService.getUpgradeableFiles() as unknown as {
+            file_path: string;
+            track_id?: string | null;
+            title?: string | null;
+            artist?: string | null;
+            album?: string | null;
+            duration?: number | null;
+            quality: number;
+            available_quality?: number | null;
+            file_size?: number | null;
+            format?: string | null;
+            bit_depth?: number | null;
+            sample_rate?: number | null;
+        }[];
         return files.map((f) => ({
             filePath: f.file_path,
             trackId: f.track_id || undefined,
@@ -687,7 +742,21 @@ export class LibraryScannerService extends EventEmitter {
     }
 
     getMissingMetadataFiles(): LibraryFile[] {
-        const files = databaseService.getMissingMetadataFiles();
+        const files = databaseService.getMissingMetadataFiles() as unknown as {
+            file_path: string;
+            track_id?: string | null;
+            title?: string | null;
+            artist?: string | null;
+            album?: string | null;
+            duration?: number | null;
+            quality: number;
+            available_quality?: number | null;
+            file_size?: number | null;
+            format?: string | null;
+            bit_depth?: number | null;
+            sample_rate?: number | null;
+            missing_tags?: string | null;
+        }[];
         return files.map((f) => ({
             filePath: f.file_path,
             trackId: f.track_id || undefined,
@@ -708,14 +777,14 @@ export class LibraryScannerService extends EventEmitter {
 
     async resolveDuplicate(id: number): Promise<void> {
         const db = databaseService.getDb();
-        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as any;
+        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as { file_path_1: string; file_path_2: string } | undefined;
         if (!duplicate) return;
         const file1 = db
             .prepare('SELECT * FROM library_files WHERE file_path = ?')
-            .get(duplicate.file_path_1) as any;
+            .get(duplicate.file_path_1) as { quality?: number; file_path: string; file_size?: number } | undefined;
         const file2 = db
             .prepare('SELECT * FROM library_files WHERE file_path = ?')
-            .get(duplicate.file_path_2) as any;
+            .get(duplicate.file_path_2) as { quality?: number; file_path: string; file_size?: number } | undefined;
         if (!file1 || !file2) {
             databaseService.resolveDuplicate(id);
             return;
@@ -747,9 +816,9 @@ export class LibraryScannerService extends EventEmitter {
                     'SCANNER'
                 );
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             logger.error(
-                `Failed to delete duplicate file ${fileToDelete}: ${err.message}`,
+                `Failed to delete duplicate file ${fileToDelete}: ${(err as Error).message}`,
                 'SCANNER'
             );
         }
@@ -764,8 +833,8 @@ export class LibraryScannerService extends EventEmitter {
         try {
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
             return true;
-        } catch (error: any) {
-            logger.error(`Failed to delete file: ${error.message}`, 'SCANNER');
+        } catch (error: unknown) {
+            logger.error(`Failed to delete file: ${(error as Error).message}`, 'SCANNER');
             return false;
         }
     }
@@ -793,10 +862,10 @@ export class LibraryScannerService extends EventEmitter {
         const db = databaseService.getDb();
         const totalRow = db
             .prepare('SELECT COUNT(*) as count, SUM(file_size) as size FROM library_files')
-            .get() as any;
+            .get() as { count: number; size: number } | undefined;
         const missingRow = db
             .prepare('SELECT COUNT(*) as count FROM library_files WHERE missing_metadata = 1')
-            .get() as any;
+            .get() as { count: number } | undefined;
 
         const stats = {
             totalFiles: totalRow?.count || 0,
@@ -820,16 +889,21 @@ export class LibraryScannerService extends EventEmitter {
         return stats;
     }
 
-    async findMissingTracks(): Promise<any[]> {
-        const files = databaseService.getLibraryFiles(100000, 0);
-        const missing: any[] = [];
+    async findMissingTracks(): Promise<{ filePath: string; title: string; artist: string; album: string }[]> {
+        const files = databaseService.getLibraryFiles(100000, 0) as unknown as {
+            file_path: string;
+            title?: string | null;
+            artist?: string | null;
+            album?: string | null;
+        }[];
+        const missing: { filePath: string; title: string; artist: string; album: string }[] = [];
         for (const file of files) {
             if (!fs.existsSync(file.file_path)) {
                 missing.push({
                     filePath: file.file_path,
-                    title: file.title,
-                    artist: file.artist,
-                    album: file.album
+                    title: file.title || 'Unknown',
+                    artist: file.artist || 'Unknown',
+                    album: file.album || 'Unknown'
                 });
             }
         }

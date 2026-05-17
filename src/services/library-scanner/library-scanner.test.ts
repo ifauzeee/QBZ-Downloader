@@ -33,9 +33,11 @@ vi.mock('../../utils/logger.js', () => ({
 }));
 
 vi.mock('../../api/qobuz.js', () => {
-    const mock = vi.fn().mockImplementation(function(this: any) {
-        this.search = vi.fn().mockResolvedValue({ success: true, data: { tracks: { items: [] } } });
-        this.getFileUrl = vi.fn().mockResolvedValue({ success: true, data: { format_id: 6 } });
+    const mock = vi.fn().mockImplementation(() => {
+        return {
+            search: vi.fn().mockResolvedValue({ success: true, data: { tracks: { items: [] } } }),
+            getFileUrl: vi.fn().mockResolvedValue({ success: true, data: { format_id: 6 } })
+        };
     });
     return {
         default: mock,
@@ -46,7 +48,7 @@ vi.mock('../../api/qobuz.js', () => {
 
 
 describe('LibraryScannerService', () => {
-    let scanner: any;
+    let scanner: LibraryScannerService;
 
     beforeEach(() => {
         scanner = new LibraryScannerService();

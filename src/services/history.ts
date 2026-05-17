@@ -38,7 +38,7 @@ export class HistoryService {
                 if (data.entries && Object.keys(data.entries).length > 0) {
                     logger.info(`History: Migrating ${Object.keys(data.entries).length} entries to SQLite...`, 'HISTORY');
                     for (const [id, entry] of Object.entries(data.entries)) {
-                        databaseService.addHistoryEntry(id, entry);
+                        databaseService.addHistoryEntry(id, entry as any);
                     }
                     
                     // Backup and remove JSON
@@ -58,15 +58,15 @@ export class HistoryService {
     }
 
     get(trackId: string | number): HistoryEntry | undefined {
-        return databaseService.getHistory(trackId.toString());
+        return databaseService.getHistory(trackId.toString()) as unknown as HistoryEntry | undefined;
     }
 
     getAll(): Record<string, HistoryEntry> {
-        return databaseService.getHistoryAll();
+        return databaseService.getHistoryAll() as unknown as Record<string, HistoryEntry>;
     }
 
     getSorted(limit?: number): Array<{ id: string } & HistoryEntry> {
-        return databaseService.getHistorySorted(limit);
+        return databaseService.getHistorySorted(limit) as unknown as Array<{ id: string } & HistoryEntry>;
     }
 
     add(trackId: string | number, entry: Omit<HistoryEntry, 'downloadedAt'>): void {
@@ -85,17 +85,17 @@ export class HistoryService {
     }
 
     count(): number {
-        const all = databaseService.getHistoryAll();
+        const all = this.getAll();
         return Object.keys(all).length;
     }
 
     search(query: string): Array<{ id: string } & HistoryEntry> {
-        return databaseService.searchHistory(query);
+        return databaseService.searchHistory(query) as unknown as Array<{ id: string } & HistoryEntry>;
     }
 
     cleanup(): number {
         let cleaned = 0;
-        const all = databaseService.getHistoryAll();
+        const all = this.getAll();
         for (const [id, entry] of Object.entries(all)) {
             if (entry.filename && !fs.existsSync(entry.filename)) {
                 databaseService.removeHistoryEntry(id);

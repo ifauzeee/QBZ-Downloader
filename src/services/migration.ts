@@ -94,14 +94,17 @@ export class MigrationService {
                     };
                 }
             }
-        } catch (error: any) {
-            logger.error(`Migration Search Error: ${error.message}`, 'MIGRATION');
+        } catch (error: unknown) {
+            logger.error(`Migration Search Error: ${(error as Error).message}`, 'MIGRATION');
         }
 
         return null;
     }
 
-    private calculateMatchScore(sTrack: SpotifyTrack, qTrack: any): number {
+    private calculateMatchScore(
+        sTrack: SpotifyTrack,
+        qTrack: { title: string; duration: number; artist?: { name?: string } }
+    ): number {
         let score = 0;
 
         const sTitle = sTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();

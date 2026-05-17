@@ -28,7 +28,7 @@ describe('DatabaseService', () => {
         it('should initialize and create tables', () => {
             const db = dbService.getDb();
             const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-            const tableNames = tables.map((t: any) => t.name);
+            const tableNames = tables.map((t: unknown) => (t as { name: string }).name);
             
             expect(tableNames).toContain('tracks');
             expect(tableNames).toContain('albums');

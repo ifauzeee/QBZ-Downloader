@@ -10,8 +10,7 @@ import { CONFIG, normalizeDownloadQuality } from '../../../config.js';
 const router = Router();
 const api = qobuzApi;
 
-const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
-
+const getParam = (p: unknown): string => (Array.isArray(p) ? String(p[0]) : String(p ?? ''));
 
 router.get('/queue', (req: Request, res: Response) => {
     res.json(downloadQueue.getAll());
@@ -69,7 +68,6 @@ router.post('/item/:id/:action', (req: Request, res: Response) => {
     }
 });
 
-
 router.post('/download/track', (req: Request, res: Response) => {
     const { id, quality } = req.body;
     if (!id) return res.status(400).json({ error: 'ID is required' });
@@ -85,14 +83,14 @@ router.post('/download/album', async (req: Request, res: Response) => {
 
     const result = await api.getAlbum(id);
     if (result.success && result.data) {
-        const album = result.data as any;
-        const tracks = album.tracks.items;
+        const album = result.data as Record<string, unknown>;
+        const tracks = (album.tracks as { items: Record<string, unknown>[] })?.items || [];
         const toDownload = indices
-            ? tracks.filter((_: any, i: number) => indices.includes(i))
+            ? tracks.filter((_, i: number) => (indices as number[]).includes(i))
             : tracks;
 
-        toDownload.forEach((track: any) => {
-            downloadQueue.add('track', track.id, q, { metadata: { album } });
+        toDownload.forEach((track) => {
+            downloadQueue.add('track', String(track.id), q, { metadata: { album } } as any);
         });
 
         res.json({ success: true, count: toDownload.length });
@@ -115,7 +113,6 @@ router.post('/download/artist', async (req: Request, res: Response) => {
         res.status(500).json({ error: result.error || 'Failed to download artist discography' });
     }
 });
-
 
 router.get('/history', (req: Request, res: Response) => {
     res.json(Object.entries(historyService.getAll()).map(([id, data]) => ({ id, ...data })));
@@ -175,7 +172,6 @@ router.get('/download/:id', (req: Request, res: Response) => {
     }
 });
 
-
 router.get('/preview/:id', async (req: Request, res: Response) => {
     try {
         const { audioPreviewService } = await import('../../audio-preview/index.js');
@@ -187,8 +183,8 @@ router.get('/preview/:id', async (req: Request, res: Response) => {
         } else {
             res.status(404).json({ error: 'Preview info not found' });
         }
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -229,8 +225,8 @@ router.get('/lyrics/:id', async (req: Request, res: Response) => {
         );
 
         res.json(lyrics);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -249,8 +245,8 @@ router.post('/lyrics/:id/save', async (req: Request, res: Response) => {
         writeFileSync(lrcPath, content, 'utf8');
         logger.info(`Lyrics manually updated for track ${id}`, 'LYRICS');
         res.json({ success: true });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -259,7 +255,7 @@ router.post('/lyrics/download', async (req: Request, res: Response) => {
         const { trackId } = req.body;
         if (!trackId) return res.status(400).json({ error: 'trackId is required' });
 
-            const { downloadService } = await import('../../queue-processor.js');
+        const { downloadService } = await import('../../queue-processor.js');
         const trackRes = await api.getTrack(trackId);
         if (!trackRes.success || !trackRes.data) return res.status(404).json({ error: 'Track not found' });
 
@@ -282,8 +278,8 @@ router.post('/lyrics/download', async (req: Request, res: Response) => {
         } else {
             res.status(404).json({ error: 'Lyrics not found' });
         }
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -299,7 +295,7 @@ router.post('/lyrics/download-album-zip', async (req: Request, res: Response) =>
         const tracks = album.tracks?.items || [];
         if (tracks.length === 0) return res.status(404).json({ error: 'No tracks found for this album' });
 
-            const { downloadService } = await import('../../queue-processor.js');
+        const { downloadService } = await import('../../queue-processor.js');
         const { existsSync, mkdirSync, createWriteStream } = await import('fs');
         const { default: archiver } = await import('archiver');
         const path = await import('path');
@@ -333,18 +329,17 @@ router.post('/lyrics/download-album-zip', async (req: Request, res: Response) =>
                     const filename = `${track.track_number.toString().padStart(2, '0')}. ${track.title}.lrc`.replace(/[\\/:*?"<>|]/g, '_');
                     archive.append(content, { name: filename });
                 }
-            } catch (e) {
+            } catch {
                 logger.warn(`Failed to fetch lyrics for ZIP: ${track.title}`, 'LYRICS');
             }
         }
 
         await archive.finalize();
         res.json({ success: true, filePath: zipPath });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
-
 
 router.post('/migrate/spotify', async (req: Request, res: Response) => {
     try {
@@ -358,8 +353,8 @@ router.post('/migrate/spotify', async (req: Request, res: Response) => {
         }
         
         res.json(results);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 

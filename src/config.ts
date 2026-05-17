@@ -257,7 +257,7 @@ export const CONFIG: Config = {
     get export() {
         return {
             enabled: getBool('EXPORT_ENABLED', false),
-            format: getStr('EXPORT_FORMAT', 'mp3') as any,
+            format: getStr('EXPORT_FORMAT', 'mp3') as 'mp3' | 'aac' | 'opus',
             bitrate: getStr('EXPORT_BITRATE', '320k'),
             outputDir: getStr('EXPORT_PATH', ''),
             keepOriginal: getBool('EXPORT_KEEP_ORIGINAL', true)
@@ -267,7 +267,7 @@ export const CONFIG: Config = {
     get mediaServer() {
         return {
             enabled: getBool('MEDIA_SERVER_ENABLED', false),
-            type: getStr('MEDIA_SERVER_TYPE', 'none') as any,
+            type: getStr('MEDIA_SERVER_TYPE', 'none') as 'plex' | 'jellyfin' | 'webhook' | 'none',
             url: getStr('MEDIA_SERVER_URL', ''),
             token: getStr('MEDIA_SERVER_TOKEN', ''),
             libraryId: getStr('MEDIA_SERVER_LIBRARY_ID', '')
@@ -277,7 +277,7 @@ export const CONFIG: Config = {
     get ai() {
         return {
             enabled: getBool('AI_REPAIR_ENABLED', false),
-            provider: getStr('AI_PROVIDER', 'none') as any,
+            provider: getStr('AI_PROVIDER', 'none') as 'gemini' | 'openai' | 'none',
             apiKey: getStr('AI_API_KEY', ''),
             model: getStr('AI_MODEL', 'gemini-2.0-flash')
         };

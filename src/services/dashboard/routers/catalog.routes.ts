@@ -8,7 +8,7 @@ import { historyService } from '../../history.js';
 const router = Router();
 const api = qobuzApi;
 
-const getParam = (p: any) => (Array.isArray(p) ? p[0] : p);
+const getParam = (p: unknown): string => (Array.isArray(p) ? String(p[0]) : String(p ?? ''));
 
 router.get('/search', async (req: Request, res: Response) => {
     const query = getParam(req.query.query || req.query.q);
@@ -25,18 +25,21 @@ router.get('/search', async (req: Request, res: Response) => {
 
     if (result.success) {
         if (type === 'artists' && result.data?.artists?.items) {
-            const updates = result.data.artists.items.map(async (item: any) => {
+            const updates = result.data.artists.items.map(async (item: Record<string, unknown>) => {
                 if (!item.image && !item.picture) {
                     try {
-                        const detail = await api.getArtist(item.id, 0, 1);
+                        const detail = await api.getArtist(String(item.id), 0, 1);
+                        const detailData = detail.data as any;
                         if (
                             detail.success &&
-                            detail.data &&
-                            (detail.data as any).albums?.items?.length > 0
+                            detailData &&
+                            detailData.albums &&
+                            Array.isArray(detailData.albums.items) &&
+                            detailData.albums.items.length > 0
                         ) {
-                            const latestAlbum = (detail.data as any).albums.items[0];
-                            item.image = latestAlbum.image;
-                            item.picture = latestAlbum.image;
+                            const latestAlbum = detailData.albums.items[0];
+                            item.image = latestAlbum?.image;
+                            item.picture = latestAlbum?.image;
                         }
                     } catch { }
                 }
@@ -46,14 +49,16 @@ router.get('/search', async (req: Request, res: Response) => {
         }
 
         if (result.data) {
-            const data = result.data as any;
-            if (data.tracks?.items) {
-                data.tracks.items.forEach((item: any) => {
+            const data = result.data as Record<string, unknown>;
+            const tracks = data.tracks as { items: Record<string, unknown>[] } | undefined;
+            if (tracks?.items) {
+                tracks.items.forEach((item) => {
                     item.already_downloaded = databaseService.hasTrack(String(item.id));
                 });
             }
-            if (data.albums?.items) {
-                data.albums.items.forEach((item: any) => {
+            const albums = data.albums as { items: Record<string, unknown>[] } | undefined;
+            if (albums?.items) {
+                albums.items.forEach((item) => {
                     const dbAlbum = databaseService.getAlbum(String(item.id));
                     item.already_downloaded = !!dbAlbum;
                 });
@@ -70,12 +75,13 @@ router.get('/album/:id', async (req: Request, res: Response) => {
     const result = await api.getAlbum(id);
 
     if (result.success) {
-        const data = result.data as any;
+        const data = result.data as Record<string, unknown>;
         const dbAlbum = databaseService.getAlbum(String(data.id));
         data.already_downloaded = !!dbAlbum;
 
-        if (data.tracks?.items) {
-            data.tracks.items.forEach((item: any) => {
+        const tracks = data.tracks as { items: Record<string, unknown>[] } | undefined;
+        if (tracks?.items) {
+            tracks.items.forEach((item) => {
                 item.already_downloaded = databaseService.hasTrack(String(item.id));
             });
         }
@@ -97,9 +103,10 @@ router.get('/artist/:id', async (req: Request, res: Response) => {
     if (type === 'albums') {
         const result = await api.getArtistAlbums(id, lim, off);
         if (result.success) {
-            const data = result.data as any;
-            if (data.items) {
-                data.items.forEach((item: any) => {
+            const data = result.data as Record<string, unknown>;
+            const items = data.items as Record<string, unknown>[] | undefined;
+            if (items) {
+                items.forEach((item) => {
                     const dbAlbum = databaseService.getAlbum(String(item.id));
                     item.already_downloaded = !!dbAlbum;
                 });
@@ -111,14 +118,16 @@ router.get('/artist/:id', async (req: Request, res: Response) => {
     } else {
         const result = await api.getArtist(id, off, lim);
         if (result.success) {
-            const data = result.data as any;
-            if (data.tracks?.items) {
-                data.tracks.items.forEach((item: any) => {
+            const data = result.data as Record<string, unknown>;
+            const tracks = data.tracks as { items: Record<string, unknown>[] } | undefined;
+            if (tracks?.items) {
+                tracks.items.forEach((item) => {
                     item.already_downloaded = databaseService.hasTrack(String(item.id));
                 });
             }
-            if (data.albums?.items) {
-                data.albums.items.forEach((item: any) => {
+            const albums = data.albums as { items: Record<string, unknown>[] } | undefined;
+            if (albums?.items) {
+                albums.items.forEach((item) => {
                     const dbAlbum = databaseService.getAlbum(String(item.id));
                     item.already_downloaded = !!dbAlbum;
                 });
@@ -177,10 +186,10 @@ router.get('/search/suggestions', async (req: Request, res: Response) => {
 
         res.json({
             artists: artists.success
-                ? (artists.data as any)?.artists?.items.slice(0, 3) || []
+                ? (artists.data as any)?.artists?.items?.slice(0, 3) || []
                 : [],
-            albums: albums.success ? (albums.data as any)?.albums?.items.slice(0, 3) || [] : [],
-            tracks: tracks.success ? (tracks.data as any)?.tracks?.items.slice(0, 3) || [] : []
+            albums: albums.success ? (albums.data as any)?.albums?.items?.slice(0, 3) || [] : [],
+            tracks: tracks.success ? (tracks.data as any)?.tracks?.items?.slice(0, 3) || [] : []
         });
     } catch {
         res.json({ artists: [], albums: [], tracks: [] });
@@ -198,8 +207,8 @@ router.get('/preview/:id', async (req: Request, res: Response) => {
         } else {
             res.status(404).json({ error: 'Preview info not found' });
         }
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -215,16 +224,16 @@ router.get('/stream/:id', async (req: Request, res: Response) => {
         } else {
             res.status(404).json({ error: 'Stream URL not found' });
         }
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
 router.get('/playlists/watched', async (req: Request, res: Response) => {
     try {
         res.json(databaseService.getWatchedPlaylists());
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -243,14 +252,14 @@ router.post('/playlists/watch', async (req: Request, res: Response) => {
         databaseService.addWatchedPlaylist({
             id: playlistId,
             playlistId,
-            title: playlist.title,
+            title: String(playlist.title || playlist.name || ''),
             quality: normalizeDownloadQuality(quality, 27),
             intervalHours: intervalHours || 24
         });
 
         res.json({ success: true, message: 'Playlist added to watch list' });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -258,8 +267,8 @@ router.delete('/playlists/watch/:id', async (req: Request, res: Response) => {
     try {
         databaseService.removeWatchedPlaylist(getParam(req.params.id));
         res.json({ success: true });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -269,8 +278,8 @@ router.get('/recommendations', async (req: Request, res: Response) => {
         const recommendationService = new RecommendationService();
         const albums = await recommendationService.getRecommendations(limit);
         res.json(albums);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 
@@ -281,10 +290,10 @@ router.get('/quality-stats', (req: Request, res: Response) => {
             totalScanned: 0,
             trueLossless: 0,
             fakeLossless: 0,
-            issues: [] as any[]
+            issues: [] as Record<string, unknown>[]
         };
 
-        Object.values(history).forEach((entry: any) => {
+        Object.values(history).forEach((entry) => {
             if (entry.qualityScan) {
                 stats.totalScanned++;
                 if (entry.qualityScan.isTrueLossless) {
@@ -302,8 +311,8 @@ router.get('/quality-stats', (req: Request, res: Response) => {
         });
 
         res.json(stats);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 

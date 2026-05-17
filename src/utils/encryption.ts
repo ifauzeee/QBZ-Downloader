@@ -6,13 +6,19 @@ const ALGORITHM = 'aes-256-cbc';
 const ENCRYPTION_KEY_FILE = path.join(process.cwd(), 'data', '.secret.key');
 const IV_LENGTH = 16;
 
-let _safeStorage: any = null;
+interface ElectronSafeStorage {
+    isEncryptionAvailable: () => boolean;
+    encryptString: (text: string) => Buffer;
+    decryptString: (buffer: Buffer) => string;
+}
+
+let _safeStorage: ElectronSafeStorage | undefined | null = null;
 async function getSafeStorage() {
     if (_safeStorage !== null) return _safeStorage;
     if (process.versions?.electron) {
         try {
             const electron = await import('electron');
-            _safeStorage = electron.safeStorage || (electron.default && (electron.default as any).safeStorage);
+            _safeStorage = electron.safeStorage || (electron.default && (electron.default as unknown as { safeStorage: ElectronSafeStorage }).safeStorage);
         } catch {
             _safeStorage = undefined;
         }

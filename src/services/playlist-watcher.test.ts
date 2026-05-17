@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PlaylistWatcherService } from './PlaylistWatcherService.js';
-import QobuzAPI from '../api/qobuz.js';
 import { databaseService } from './database/index.js';
 import { downloadQueue } from './queue/queue.js';
 import { historyService } from './history.js';
@@ -71,7 +70,7 @@ vi.mock('../utils/logger.js', () => ({
 
 describe('PlaylistWatcherService', () => {
     let service: PlaylistWatcherService;
-    let mockApi: any;
+    let mockApi: typeof qobuzApi;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -92,7 +91,7 @@ describe('PlaylistWatcherService', () => {
 
     describe('Scanning Logic', () => {
         it('should skip scanning if already in progress', async () => {
-            (service as any).isScanning = true;
+            (service as unknown as { isScanning: boolean }).isScanning = true;
             await service.scanAllPlaylists();
             expect(databaseService.getWatchedPlaylists).not.toHaveBeenCalled();
         });

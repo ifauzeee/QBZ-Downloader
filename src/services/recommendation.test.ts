@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RecommendationService } from './RecommendationService.js';
-import QobuzAPI from '../api/qobuz.js';
 import { historyService } from './history.js';
 
 // Mock dependencies
@@ -42,7 +41,7 @@ vi.mock('../utils/logger.js', () => ({
 
 describe('RecommendationService', () => {
     let service: RecommendationService;
-    let mockApi: any;
+    let mockApi: typeof qobuzApi;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -61,7 +60,7 @@ describe('RecommendationService', () => {
 
     it('should return artist-based recommendations from history', async () => {
         vi.mocked(historyService.getSorted).mockReturnValue([
-            { id: '1', artist: 'Favorite Artist', downloadedAt: '2023-01-01' } as any
+            { id: '1', artist: 'Favorite Artist', downloadedAt: '2023-01-01', title: 'Song', filename: 'path', quality: 27 }
         ]);
 
         const recs = await service.getRecommendations(5);
@@ -73,7 +72,7 @@ describe('RecommendationService', () => {
 
     it('should fall back to general recommendations if artist results are insufficient', async () => {
         vi.mocked(historyService.getSorted).mockReturnValue([
-            { id: '1', artist: 'Artist A', downloadedAt: '2023-01-01' } as any
+            { id: '1', artist: 'Artist A', downloadedAt: '2023-01-01', title: 'Song', filename: 'path', quality: 27 }
         ]);
         
         // Mock artist details to return no albums
