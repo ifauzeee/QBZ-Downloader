@@ -9,6 +9,7 @@ import { historyService } from '../history.js';
 import { logger } from '../../utils/logger.js';
 import { CONFIG } from '../../config.js';
 import qobuzApi from '../../api/qobuz.js';
+import { downloadFile } from '../../utils/network.js';
 
 export interface LibraryFile {
     filePath: string;
@@ -663,6 +664,9 @@ export class LibraryScannerService extends EventEmitter {
                         );
                         continue;
                     }
+                    if (quality >= 7 && !(await this.canReadStreamStart(data.url, trackId, quality))) {
+                        continue;
+                    }
                     if (formatId && formatId >= quality) {
                         return formatId;
                     }
@@ -673,6 +677,78 @@ export class LibraryScannerService extends EventEmitter {
             } catch {}
         }
         return null;
+    }
+
+    private async canReadStreamStart(
+        url: string,
+        trackId: string | number,
+        quality: number
+    ): Promise<boolean> {
+        try {
+            const response = await downloadFile(url, {
+                headers: { Range: 'bytes=0-65535' },
+                timeout: 15000
+            });
+            const stream = response.data as NodeJS.ReadableStream & {
+                destroyed?: boolean;
+                destroy?: () => void;
+            };
+
+            return await new Promise<boolean>((resolve) => {
+                let settled = false;
+                let received = 0;
+
+                const cleanup = () => {
+                    stream.removeListener('data', onData);
+                    stream.removeListener('end', onEnd);
+                    stream.removeListener('aborted', onAborted);
+                    stream.removeListener('error', onError);
+                    clearTimeout(timeout);
+                };
+
+                const finish = (ok: boolean, reason?: string) => {
+                    if (settled) return;
+                    settled = true;
+                    cleanup();
+
+                    if (stream.destroy && !stream.destroyed) {
+                        stream.destroy();
+                    }
+
+                    if (!ok) {
+                        logger.debug(
+                            `Skipping unreadable Hi-Res candidate ${trackId} @ ${quality}: ${reason || 'stream probe failed'} (${received} byte(s))`,
+                            'SCANNER'
+                        );
+                    }
+
+                    resolve(ok);
+                };
+
+                const onData = (chunk: Buffer | string) => {
+                    received += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(chunk);
+                    if (received >= 1024) {
+                        finish(true);
+                    }
+                };
+                const onEnd = () => finish(received >= 1024, 'stream ended too early');
+                const onAborted = () => finish(false, 'stream aborted');
+                const onError = (error: Error) => finish(false, error.message);
+
+                const timeout = setTimeout(() => finish(false, 'stream probe timeout'), 15000);
+                stream.on('data', onData);
+                stream.once('end', onEnd);
+                stream.once('aborted', onAborted);
+                stream.once('error', onError);
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.debug(
+                `Skipping unreadable Hi-Res candidate ${trackId} @ ${quality}: ${message}`,
+                'SCANNER'
+            );
+            return false;
+        }
     }
 
     private similarity(str1: string, str2: string): number {

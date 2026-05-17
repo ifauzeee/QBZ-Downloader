@@ -29,9 +29,9 @@ function normalizeDownloadError(
         lower.includes('premature close') ||
         lower.includes('econnreset')
     ) {
-        if (downloaded === 0) {
+        if (downloaded < 1024) {
             const unavailable = new Error(
-                'Qobuz closed the stream before sending audio data. The selected Hi-Res candidate is likely unavailable or blocked; rescan the library and choose another candidate.'
+                `Qobuz closed the stream after only ${downloaded} byte(s). The selected Hi-Res candidate is likely unavailable or blocked; rescan the library and choose another candidate.`
             );
             (unavailable as Error & { code?: string }).code = 'QOBUZ_STREAM_UNAVAILABLE';
             return unavailable;

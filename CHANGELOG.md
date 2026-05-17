@@ -31,7 +31,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 - **Persistent UI settings** - Moved theme, language, navigation, and related UI state through backend settings instead of keeping them only in local frontend state.
 - **Local dashboard binding** - Binds the dashboard to `127.0.0.1` by default and warns when password protection is disabled.
 - **Hi-Res upgrade picker** - Library scans now show multiple Hi-Res candidate versions with album art, release details, match score, and variant warnings so users can choose the correct version before queueing an upgrade.
-- **Hi-Res candidate validation** - Scanner now ignores unverified/sample Hi-Res URLs and download errors identify unavailable Qobuz streams instead of surfacing only `aborted`.
+- **Hi-Res candidate validation** - Scanner now ignores unverified/sample Hi-Res URLs, probes early stream readability, and download errors identify unavailable Qobuz streams instead of surfacing only `aborted`.
 - **Frontend performance** - Replaced Framer Motion-heavy interactions with `dnd-kit` and CSS animation paths in key dashboard views.
 - **Queue panel stability** - Hardened queue rendering, drag/drop behavior, and progress updates with stronger state guards.
 - **Internationalization cleanup** - Corrected leaked Indonesian strings in Chinese locale data and fixed the Hindi `desc_config` translation.

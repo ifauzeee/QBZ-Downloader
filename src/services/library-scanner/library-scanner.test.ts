@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LibraryScannerService } from './index.js';
 import { databaseService } from '../database/index.js';
+import { EventEmitter } from 'events';
 
 // Mock dependencies
 vi.mock('../database/index.js', () => ({
@@ -30,6 +31,20 @@ vi.mock('../../utils/logger.js', () => ({
         error: vi.fn(),
         success: vi.fn()
     }
+}));
+
+vi.mock('../../utils/network.js', () => ({
+    downloadFile: vi.fn().mockImplementation(() => {
+        const stream = new EventEmitter();
+        (stream as unknown as { destroy: () => void; destroyed: boolean }).destroy = vi.fn(
+            () => {
+                (stream as unknown as { destroyed: boolean }).destroyed = true;
+            }
+        );
+        (stream as unknown as { destroyed: boolean }).destroyed = false;
+        setTimeout(() => stream.emit('data', Buffer.alloc(2048)), 0);
+        return Promise.resolve({ data: stream });
+    })
 }));
 
 vi.mock('../../api/qobuz.js', () => {
