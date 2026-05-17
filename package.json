@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "tsc && npm run copy-assets",
-    "build:full": "npm run sync-version && cd client && npm install && npm run build && cd .. && npm run build",
+    "build:full": "npm run sync-version && cd client && npm ci && npm run build && cd .. && npm run build",
     "clean": "rimraf dist coverage",
     "copy-assets": "copyfiles -u 1 \"src/services/dashboard/public/**/*\" dist",
     "start": "node dist/index.js",

@@ -21,6 +21,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -38,6 +41,13 @@ jobs:
             if(r!==c||r!==m){console.error('Version mismatch!');process.exit(1);}
             console.log('All versions consistent: '+r);
           "
+
+      - name: Run backend tests
+        run: npm test
+
+      - name: Run frontend tests
+        run: npm test
+        working-directory: client
 
       - name: Rebuild native modules for Electron
         run: npm run desktop:rebuild

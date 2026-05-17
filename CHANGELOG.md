@@ -24,6 +24,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 - **Desktop setup endpoints** - Restored `/api/onboarding`, `/api/settings`, and `/api/credentials/status` so the packaged dashboard no longer logs setup/status 404s during launch.
 - **Version synchronization** - Added `scripts/sync-version.js`, runs it automatically during `build:full`, and keeps root package, client package, manifest, README, and changelog versions aligned.
 - **Release CI guard** - Added a desktop release workflow step that fails if root, client, and manifest versions diverge after the full build.
+- **Deterministic release builds** - `build:full` now uses `npm ci` for the dashboard client so release builds respect the committed lockfile.
 - **Repository cleanup** - Removed generated `repomix-output.xml` from tracking and added it to `.gitignore`.
 
 ### Dashboard And Frontend
@@ -56,6 +57,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 - **End-to-end flow test** - Added an integration simulation covering search, queueing, download, metadata writing, and library scan flow.
 - **TypeScript stabilization** - Resolved strict TypeScript and lint failures across backend services, dashboard routes, and test mocks.
 - **Cross-platform CI matrix** - Updated the test workflow to run on Ubuntu, Windows, and macOS across Node.js 20.x and 22.x.
+- **Frontend CI coverage** - The test workflow now installs, builds, and tests the dashboard client, and desktop release publishing runs both backend and frontend tests before packaging.
 
 ### Dependency Changes
 
