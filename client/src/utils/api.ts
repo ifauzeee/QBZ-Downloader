@@ -1,5 +1,7 @@
+import { normalizePasswordForAuth } from './crypto';
+
 export const smartFetch = async (url: string, options: RequestInit = {}) => {
-    const password = sessionStorage.getItem('dashboard_password');
+    const password = await normalizePasswordForAuth(sessionStorage.getItem('dashboard_password'));
     if (password) {
         options.headers = {
             ...options.headers,

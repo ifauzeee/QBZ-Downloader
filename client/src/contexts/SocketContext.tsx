@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { normalizePasswordForAuth } from '../utils/crypto';
 
 interface SocketContextType {
     socket: Socket | null;
@@ -13,45 +14,55 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        const password = sessionStorage.getItem('dashboard_password') || '';
-        const socketInstance = io('/', {
-            auth: { password },
-            transports: ['websocket', 'polling'],
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000
-        });
+        let socketInstance: Socket | null = null;
+        let cancelled = false;
 
-        socketInstance.on('connect', () => {
-            setConnected(true);
-            console.log('Socket connected:', socketInstance.id);
-        });
+        const connect = async () => {
+            const password = await normalizePasswordForAuth(
+                sessionStorage.getItem('dashboard_password')
+            );
+            if (cancelled) return;
 
-        socketInstance.on('disconnect', (reason) => {
-            setConnected(false);
-            console.log('Socket disconnected:', reason);
-            if (reason === 'io server disconnect') {
-                socketInstance.connect();
-            }
-        });
+            socketInstance = io('/', {
+                auth: { password },
+                transports: ['websocket', 'polling'],
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000
+            });
 
-        socketInstance.on('connect_error', (err) => {
-            console.error('Socket connection error:', err.message);
-            if (err.message === 'Authentication failed') {
-                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-            }
-        });
+            socketInstance.on('connect', () => {
+                setConnected(true);
+                console.log('Socket connected:', socketInstance?.id);
+            });
 
-        setSocket(socketInstance);
+            socketInstance.on('disconnect', (reason) => {
+                setConnected(false);
+                console.log('Socket disconnected:', reason);
+                if (reason === 'io server disconnect') {
+                    socketInstance?.connect();
+                }
+            });
+
+            socketInstance.on('connect_error', (err) => {
+                console.error('Socket connection error:', err.message);
+                if (err.message === 'Authentication failed') {
+                    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                }
+            });
+
+            setSocket(socketInstance);
+        };
+
+        connect();
 
         return () => {
-            socketInstance.disconnect();
+            cancelled = true;
+            socketInstance?.disconnect();
         };
     }, []);
 
     return (
-        <SocketContext.Provider value={{ socket, connected }}>
-            {children}
-        </SocketContext.Provider>
+        <SocketContext.Provider value={{ socket, connected }}>{children}</SocketContext.Provider>
     );
 };
 

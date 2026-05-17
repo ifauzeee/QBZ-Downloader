@@ -1,4 +1,4 @@
-﻿name: Desktop Release
+name: Desktop Release
 
 on:
   push:
@@ -27,6 +27,10 @@ jobs:
 
       - name: Build full project
         run: npm run build:full
+
+      - name: Verify version consistency
+        run: |
+          node -e "const r=require('./package.json').version,c=require('./client/package.json').version,m=require('./client/public/manifest.json').version;if(r!==c||r!==m){console.error('Version mismatch:',r,c,m);process.exit(1);}console.log('Versions OK:',r);"
 
       - name: Publish to GitHub Releases (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
