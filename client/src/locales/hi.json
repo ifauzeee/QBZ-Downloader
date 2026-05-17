@@ -66,7 +66,7 @@
     "desc_update_creds": "वर्तमान मान रखने के लिए खाली छोड़ दें।",
     "action_update_creds": "अपडेट करें",
     "sec_config": "वर्तमान कॉन्फ़िगरेशन",
-    "desc_config": "Settings disimpan di database lokal aplikasi.",
+    "desc_config": "ये सेटिंग्स ऐप के स्थानीय डेटाबेस में संग्रहीत हैं।",
     "sec_appearance": "दिखावट",
     "label_theme": "थीम",
     "default_theme": "डिफ़ॉल्ट थीम",
