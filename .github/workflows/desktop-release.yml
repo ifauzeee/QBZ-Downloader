@@ -39,6 +39,9 @@ jobs:
             console.log('All versions consistent: '+r);
           "
 
+      - name: Rebuild native modules for Electron
+        run: npm run desktop:rebuild
+
       - name: Publish to GitHub Releases (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
         run: npx electron-builder --win nsis portable --publish always

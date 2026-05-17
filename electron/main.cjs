@@ -372,6 +372,7 @@ async function startBackend() {
     process.chdir(runtimeDir);
 
     process.env.DASHBOARD_PORT = String(DESKTOP_PORT);
+    process.env.DASHBOARD_HOST = '127.0.0.1';
     process.env.QBZ_DESKTOP = '1';
     process.env.NODE_ENV = process.env.NODE_ENV || (app.isPackaged ? 'production' : 'development');
     process.env.DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || path.join(app.getPath('downloads'), 'QBZ-Downloader');

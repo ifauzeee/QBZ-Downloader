@@ -20,6 +20,29 @@ const getInt = (key: string, def: number): number => {
     return val as number;
 };
 const getStr = (key: string, def: string): string => getSetting<string>(key, def);
+const getEnvStr = (key: string): string | undefined => {
+    const raw = process.env[key];
+    return raw === undefined || raw === '' ? undefined : raw;
+};
+const getDesktopInt = (key: string, def: number): number => {
+    if (process.env.QBZ_DESKTOP === '1') {
+        const raw = getEnvStr(key);
+        if (raw !== undefined) {
+            const parsed = parseInt(raw, 10);
+            if (!isNaN(parsed)) return parsed;
+        }
+    }
+
+    return getInt(key, def);
+};
+const getDesktopStr = (key: string, def: string): string => {
+    if (process.env.QBZ_DESKTOP === '1') {
+        const raw = getEnvStr(key);
+        if (raw !== undefined) return raw;
+    }
+
+    return getStr(key, def);
+};
 
 export interface Config {
     credentials: {
@@ -248,9 +271,9 @@ export const CONFIG: Config = {
 
     get dashboard() {
         return {
-            port: getInt('DASHBOARD_PORT', 3000),
+            port: getDesktopInt('DASHBOARD_PORT', 3000),
             password: getStr('DASHBOARD_PASSWORD', ''),
-            host: getStr('DASHBOARD_HOST', '127.0.0.1')
+            host: getDesktopStr('DASHBOARD_HOST', '127.0.0.1')
         };
     },
 

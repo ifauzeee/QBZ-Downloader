@@ -27,10 +27,10 @@
     "docs": "typedoc --out docs src/index.ts",
     "desktop:rebuild": "electron-rebuild -f -w better-sqlite3",
     "desktop:start": "npm run build:full && npm run desktop:rebuild && electron electron/main.cjs",
-    "desktop:pack": "npm run build:full && electron-builder --dir",
-    "desktop:dist": "npm run build:full && electron-builder --win nsis",
-    "desktop:dist:portable": "npm run build:full && electron-builder --win portable",
-    "desktop:dist:all": "npm run build:full && electron-builder --win nsis portable",
+    "desktop:pack": "npm run build:full && npm run desktop:rebuild && electron-builder --dir",
+    "desktop:dist": "npm run build:full && npm run desktop:rebuild && electron-builder --win nsis",
+    "desktop:dist:portable": "npm run build:full && npm run desktop:rebuild && electron-builder --win portable",
+    "desktop:dist:all": "npm run build:full && npm run desktop:rebuild && electron-builder --win nsis portable",
     "prepare": "husky"
   },
   "keywords": [

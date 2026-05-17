@@ -20,6 +20,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 - **Electron 33 upgrade** - Updated Electron to the `^33.0.0` release line and kept package metadata aligned with the changelog.
 - **Native module rebuilds** - Added `desktop:rebuild` and made `desktop:start` rebuild `better-sqlite3` for the active Electron ABI before launch.
 - **Startup health check** - Added `/api/status` so the Electron shell waits for the local dashboard server before loading the UI.
+- **Packaged dashboard startup** - Desktop mode now forces the runtime dashboard host/port from Electron so upgraded installs with old database settings still load `127.0.0.1:3210`, and release builds rebuild native modules before packaging.
 - **Version synchronization** - Added `scripts/sync-version.js`, runs it automatically during `build:full`, and keeps root package, client package, manifest, README, and changelog versions aligned.
 - **Release CI guard** - Added a desktop release workflow step that fails if root, client, and manifest versions diverge after the full build.
 - **Repository cleanup** - Removed generated `repomix-output.xml` from tracking and added it to `.gitignore`.
