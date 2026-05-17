@@ -155,6 +155,12 @@ describe('LibraryScannerService', () => {
                                     title: 'Same Song',
                                     performer: { name: 'Artist' },
                                     album: { title: 'Hi-Res Edition', artist: { name: 'Artist' } }
+                                },
+                                {
+                                    id: 456,
+                                    title: 'Same Song Remix',
+                                    performer: { name: 'Artist' },
+                                    album: { title: 'Remix Single', artist: { name: 'Artist' } }
                                 }
                             ]
                         }
@@ -169,7 +175,14 @@ describe('LibraryScannerService', () => {
             const count = await (scanner as any).checkQobuzUpgrades();
 
             expect(count).toBe(1);
-            expect(run).toHaveBeenCalledWith('123', 27, 'Music/Artist/CD Release/01. Same Song.flac');
+            expect(run).toHaveBeenCalledWith(
+                '123',
+                27,
+                expect.stringContaining('"trackId":"123"'),
+                'Music/Artist/CD Release/01. Same Song.flac'
+            );
+            expect(run.mock.calls[0][2]).toContain('"trackId":"456"');
+            expect(run.mock.calls[0][2]).toContain('"variantWarning":true');
         });
     });
 

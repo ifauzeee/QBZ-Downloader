@@ -4,7 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 const DEFAULT_DB_PATH = path.resolve(process.cwd(), 'data', 'qbz.db');
 
 export interface DbTrack {
@@ -253,6 +253,7 @@ export class DatabaseService {
                 sample_rate INTEGER,
                 scanned_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 needs_upgrade INTEGER DEFAULT 0,
+                upgrade_candidates TEXT,
                 audio_fingerprint TEXT,
                 missing_metadata INTEGER DEFAULT 0,
                 missing_tags TEXT,
@@ -460,10 +461,30 @@ export class DatabaseService {
                 }
             }
 
+            if (currentVersion < 10) {
+                try {
+                    const tableInfo = this.db!.prepare(
+                        'PRAGMA table_info(library_files)'
+                    ).all() as { name: string }[];
+                    const hasUpgradeCandidates = tableInfo.some(
+                        (col) => col.name === 'upgrade_candidates'
+                    );
+                    if (!hasUpgradeCandidates) {
+                        this.db!.exec('ALTER TABLE library_files ADD COLUMN upgrade_candidates TEXT');
+                        logger.info(
+                            'Migration v10: Added upgrade_candidates column to library_files',
+                            'DB'
+                        );
+                    }
+                } catch (error: unknown) {
+                    logger.warn(`Migration v10 partial: ${(error as Error).message}`, 'DB');
+                }
+            }
+
             this.db
                 .prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')
-                .run('db_version', String(9));
-            logger.info(`Database migrated to version ${9}`, 'DB');
+                .run('db_version', String(DB_VERSION));
+            logger.info(`Database migrated to version ${DB_VERSION}`, 'DB');
         }
     }
 
@@ -775,6 +796,7 @@ export class DatabaseService {
         bit_depth?: number;
         sample_rate?: number;
         needs_upgrade?: boolean;
+        upgrade_candidates?: unknown[];
         audio_fingerprint?: string;
         missing_metadata?: boolean;
         missing_tags?: string[];
@@ -785,8 +807,8 @@ export class DatabaseService {
         db.prepare(
             `
             INSERT OR REPLACE INTO library_files 
-            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, scanned_at, audio_fingerprint, missing_metadata, missing_tags, checksum, verification_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, upgrade_candidates, scanned_at, audio_fingerprint, missing_metadata, missing_tags, checksum, verification_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
             file.file_path,
@@ -803,6 +825,7 @@ export class DatabaseService {
             file.bit_depth || 0,
             file.sample_rate || 0,
             file.needs_upgrade ? 1 : 0,
+            file.upgrade_candidates ? JSON.stringify(file.upgrade_candidates) : null,
             new Date().toISOString(),
             file.audio_fingerprint || null,
             file.missing_metadata ? 1 : 0,
@@ -826,9 +849,14 @@ export class DatabaseService {
                 `
                 SELECT * FROM library_files 
                 WHERE needs_upgrade = 1 
-                AND track_id IS NOT NULL 
-                AND available_quality IS NOT NULL 
-                AND available_quality > quality
+                AND (
+                    (upgrade_candidates IS NOT NULL AND upgrade_candidates != '[]' AND upgrade_candidates != '')
+                    OR (
+                        track_id IS NOT NULL
+                        AND available_quality IS NOT NULL
+                        AND available_quality > quality
+                    )
+                )
                 ORDER BY artist, album
             `
             )

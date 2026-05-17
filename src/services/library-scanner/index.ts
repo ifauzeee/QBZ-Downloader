@@ -25,6 +25,51 @@ export interface LibraryFile {
     sampleRate: number;
     needsUpgrade: boolean;
     missingTags?: string[];
+    upgradeCandidates?: UpgradeCandidate[];
+}
+
+export interface UpgradeCandidate {
+    trackId: string;
+    title: string;
+    artist: string;
+    album: string;
+    quality: number;
+    qualityLabel: string;
+    albumId?: string;
+    coverUrl?: string;
+    duration?: number;
+    releaseDate?: string;
+    matchScore: number;
+    titleScore: number;
+    artistScore: number;
+    albumScore: number;
+    variantWarning: boolean;
+}
+
+type UpgradeSearchTrack = {
+    id: string | number;
+    title?: string;
+    duration?: number;
+    version?: string;
+    performer?: { name?: string };
+    artist?: { name?: string };
+    album?: {
+        id?: string | number;
+        title?: string;
+        released_at?: number;
+        release_date_original?: string;
+        release_date_download?: string;
+        artist?: { name?: string };
+        image?: {
+            small?: string;
+            thumbnail?: string;
+            medium?: string;
+            large?: string;
+            extralarge?: string;
+            mega?: string;
+            [key: string]: unknown;
+        };
+    };
 }
 
 export interface WorkerResult {
@@ -367,6 +412,7 @@ export class LibraryScannerService extends EventEmitter {
             file_path: string;
             track_id?: string | null;
             available_quality?: number | null;
+            upgrade_candidates?: string | null;
             quality: number;
             artist?: string | null;
             title?: string | null;
@@ -377,12 +423,6 @@ export class LibraryScannerService extends EventEmitter {
 
         for (const file of files) {
             if (this.scanAborted) break;
-
-            if (file.track_id && file.available_quality !== undefined && file.available_quality !== null) {
-                if (file.available_quality > file.quality) upgradeCount++;
-                processed++;
-                continue;
-            }
 
             if (file.quality >= 27) {
                 processed++;
@@ -406,42 +446,59 @@ export class LibraryScannerService extends EventEmitter {
                     file.title || '',
                     file.artist || '',
                     file.album || '',
-                    searchResult.data.tracks.items as unknown as { id: string | number; title?: string; performer?: { name?: string }; album?: { artist?: { name?: string }; title?: string } }[]
+                    searchResult.data.tracks.items as unknown as UpgradeSearchTrack[]
                 );
 
                 if (matches.length === 0) {
+                    db.prepare(
+                        'UPDATE library_files SET needs_upgrade = 0, upgrade_candidates = NULL WHERE file_path = ?'
+                    ).run(file.file_path);
                     processed++;
                     continue;
                 }
 
-                let maxQualityFound = 0;
-                let bestTrackId: string | number | null = null;
+                const candidates: UpgradeCandidate[] = [];
 
-                for (const track of matches.slice(0, 5)) {
+                for (const track of matches.slice(0, 8)) {
                     const quality = await this.getHighestAvailableQuality(track.id);
-                    if (quality !== null && quality > maxQualityFound) {
-                        maxQualityFound = quality;
-                        bestTrackId = track.id;
-                        if (maxQualityFound >= 27) break;
+                    if (quality !== null && quality > file.quality) {
+                        candidates.push(
+                            this.buildUpgradeCandidate(
+                                track,
+                                quality,
+                                file.title || '',
+                                file.artist || '',
+                                file.album || ''
+                            )
+                        );
                     }
                 }
 
-                if (bestTrackId && maxQualityFound > file.quality) {
+                candidates.sort((a, b) => {
+                    if (b.quality !== a.quality) return b.quality - a.quality;
+                    return b.matchScore - a.matchScore;
+                });
+
+                const uniqueCandidates = this.dedupeUpgradeCandidates(candidates).slice(0, 5);
+                const bestCandidate = uniqueCandidates[0];
+
+                if (bestCandidate) {
                     db.prepare(
-                        'UPDATE library_files SET track_id = ?, available_quality = ?, needs_upgrade = 1 WHERE file_path = ?'
-                    ).run(String(bestTrackId), maxQualityFound, file.file_path);
+                        'UPDATE library_files SET track_id = ?, available_quality = ?, upgrade_candidates = ?, needs_upgrade = 1 WHERE file_path = ?'
+                    ).run(
+                        bestCandidate.trackId,
+                        bestCandidate.quality,
+                        JSON.stringify(uniqueCandidates),
+                        file.file_path
+                    );
                     upgradeCount++;
                     logger.debug(
-                        `Upgrade available: ${file.artist} - ${file.title} (${this.getQualityLabel(file.quality)} -> ${this.getQualityLabel(maxQualityFound)})`,
+                        `Upgrade candidates available: ${file.artist} - ${file.title} (${uniqueCandidates.length} option(s), best ${this.getQualityLabel(bestCandidate.quality)})`,
                         'SCANNER'
                     );
-                } else if (bestTrackId) {
-                    db.prepare(
-                        'UPDATE library_files SET track_id = ?, available_quality = ?, needs_upgrade = 0 WHERE file_path = ?'
-                    ).run(String(bestTrackId), maxQualityFound || file.quality, file.file_path);
                 } else {
                     db.prepare(
-                        'UPDATE library_files SET needs_upgrade = 0 WHERE file_path = ?'
+                        'UPDATE library_files SET needs_upgrade = 0, upgrade_candidates = NULL WHERE file_path = ?'
                     ).run(file.file_path);
                 }
 
@@ -471,41 +528,115 @@ export class LibraryScannerService extends EventEmitter {
         title: string,
         artist: string,
         album: string,
-        tracks: { id: string | number; title?: string; performer?: { name?: string }; album?: { artist?: { name?: string }; title?: string } }[]
-    ): { id: string | number; title?: string; performer?: { name?: string }; album?: { artist?: { name?: string }; title?: string } }[] {
+        tracks: UpgradeSearchTrack[]
+    ): UpgradeSearchTrack[] {
         const normalizedTitle = this.normalizeString(title);
         const normalizedArtist = this.normalizeString(artist);
         const normalizedAlbum = this.normalizeString(album);
-        const matches: { id: string | number; title?: string; performer?: { name?: string }; album?: { artist?: { name?: string }; title?: string } }[] = [];
+        const matches: { track: UpgradeSearchTrack; score: number }[] = [];
 
         for (const track of tracks) {
             const trackTitle = this.normalizeString(track.title || '');
             const trackArtist = this.normalizeString(
-                track.performer?.name || track.album?.artist?.name || ''
+                track.performer?.name || track.artist?.name || track.album?.artist?.name || ''
             );
             const trackAlbum = this.normalizeString(track.album?.title || '');
 
             const titleScore = this.similarity(normalizedTitle, trackTitle);
             const artistScore = this.similarity(normalizedArtist, trackArtist);
             const albumScore = this.similarity(normalizedAlbum, trackAlbum);
+            const variantWarning = this.hasDistinctVersionContext(
+                { filePath: '', title, album },
+                { filePath: '', title: track.title || '', album: track.album?.title || '' }
+            );
 
-            if (titleScore > 0.8 && artistScore > 0.6) {
-                if (
-                    this.hasDistinctVersionContext(
-                        { filePath: '', title, album },
-                        { filePath: '', title: track.title || '', album: track.album?.title || '' }
-                    )
-                ) {
+            if (titleScore > 0.75 && artistScore > 0.55) {
+                const strongIdentityMatch = titleScore >= 0.95 && artistScore >= 0.8;
+                if (normalizedAlbum && albumScore < 0.5 && !strongIdentityMatch && !variantWarning) {
                     continue;
                 }
 
-                const strongIdentityMatch = titleScore >= 0.95 && artistScore >= 0.8;
-                if (normalizedAlbum && albumScore < 0.5 && !strongIdentityMatch) continue;
-
-                matches.push(track);
+                const variantPenalty = variantWarning ? 0.12 : 0;
+                const score = titleScore * 0.5 + artistScore * 0.3 + albumScore * 0.2 - variantPenalty;
+                matches.push({ track, score });
             }
         }
-        return matches;
+        return matches.sort((a, b) => b.score - a.score).map((match) => match.track);
+    }
+
+    private buildUpgradeCandidate(
+        track: UpgradeSearchTrack,
+        quality: number,
+        sourceTitle: string,
+        sourceArtist: string,
+        sourceAlbum: string
+    ): UpgradeCandidate {
+        const title = track.title || '';
+        const artist = track.performer?.name || track.artist?.name || track.album?.artist?.name || '';
+        const album = track.album?.title || '';
+        const titleScore = this.similarity(this.normalizeString(sourceTitle), this.normalizeString(title));
+        const artistScore = this.similarity(this.normalizeString(sourceArtist), this.normalizeString(artist));
+        const albumScore = this.similarity(this.normalizeString(sourceAlbum), this.normalizeString(album));
+        const variantWarning = this.hasDistinctVersionContext(
+            { filePath: '', title: sourceTitle, album: sourceAlbum },
+            { filePath: '', title, album }
+        );
+        const variantPenalty = variantWarning ? 0.12 : 0;
+
+        return {
+            trackId: String(track.id),
+            title,
+            artist,
+            album,
+            quality,
+            qualityLabel: this.getQualityLabel(quality),
+            albumId: track.album?.id ? String(track.album.id) : undefined,
+            coverUrl: this.getBestCoverUrl(track.album?.image),
+            duration: track.duration || undefined,
+            releaseDate: this.getReleaseDate(track),
+            matchScore: Math.max(
+                0,
+                Math.min(1, titleScore * 0.5 + artistScore * 0.3 + albumScore * 0.2 - variantPenalty)
+            ),
+            titleScore,
+            artistScore,
+            albumScore,
+            variantWarning
+        };
+    }
+
+    private dedupeUpgradeCandidates(candidates: UpgradeCandidate[]): UpgradeCandidate[] {
+        const seen = new Set<string>();
+        return candidates.filter((candidate) => {
+            if (seen.has(candidate.trackId)) return false;
+            seen.add(candidate.trackId);
+            return true;
+        });
+    }
+
+    private getBestCoverUrl(
+        image?: NonNullable<UpgradeSearchTrack['album']>['image']
+    ): string | undefined {
+        if (!image) return undefined;
+        return (
+            image.extralarge ||
+            image.mega ||
+            image.large ||
+            image.medium ||
+            image.thumbnail ||
+            image.small
+        ) as string | undefined;
+    }
+
+    private getReleaseDate(track: UpgradeSearchTrack): string | undefined {
+        const rawDate = track.album?.release_date_original || track.album?.release_date_download;
+        if (rawDate) return rawDate;
+
+        if (typeof track.album?.released_at === 'number' && track.album.released_at > 0) {
+            return new Date(track.album.released_at * 1000).toISOString().slice(0, 10);
+        }
+
+        return undefined;
     }
 
     private async getHighestAvailableQuality(trackId: string | number): Promise<number | null> {
@@ -787,26 +918,81 @@ export class LibraryScannerService extends EventEmitter {
             duration?: number | null;
             quality: number;
             available_quality?: number | null;
+            upgrade_candidates?: string | null;
             file_size?: number | null;
             format?: string | null;
             bit_depth?: number | null;
             sample_rate?: number | null;
         }[];
-        return files.map((f) => ({
-            filePath: f.file_path,
-            trackId: f.track_id || undefined,
-            title: f.title || '',
-            artist: f.artist || '',
-            album: f.album || '',
-            duration: f.duration || 0,
-            quality: f.quality || 0,
-            availableQuality: f.available_quality || undefined,
-            fileSize: f.file_size || 0,
-            format: f.format || '',
-            bitDepth: f.bit_depth || 0,
-            sampleRate: f.sample_rate || 0,
-            needsUpgrade: true
-        }));
+        return files.map((f) => {
+            const upgradeCandidates = this.parseUpgradeCandidates(f.upgrade_candidates);
+            const fallbackCandidate =
+                f.track_id && f.available_quality
+                    ? [
+                          {
+                              trackId: f.track_id,
+                              title: f.title || '',
+                              artist: f.artist || '',
+                              album: f.album || '',
+                              quality: f.available_quality,
+                              qualityLabel: this.getQualityLabel(f.available_quality),
+                              matchScore: 1,
+                              titleScore: 1,
+                              artistScore: 1,
+                              albumScore: 1,
+                              variantWarning: false
+                          }
+                      ]
+                    : [];
+
+            return {
+                filePath: f.file_path,
+                trackId: f.track_id || undefined,
+                title: f.title || '',
+                artist: f.artist || '',
+                album: f.album || '',
+                duration: f.duration || 0,
+                quality: f.quality || 0,
+                availableQuality: f.available_quality || undefined,
+                fileSize: f.file_size || 0,
+                format: f.format || '',
+                bitDepth: f.bit_depth || 0,
+                sampleRate: f.sample_rate || 0,
+                needsUpgrade: true,
+                upgradeCandidates: upgradeCandidates.length > 0 ? upgradeCandidates : fallbackCandidate
+            };
+        });
+    }
+
+    private parseUpgradeCandidates(value?: string | null): UpgradeCandidate[] {
+        if (!value) return [];
+        try {
+            const parsed = JSON.parse(value);
+            if (!Array.isArray(parsed)) return [];
+            return parsed
+                .map((candidate) => ({
+                    trackId: String(candidate?.trackId || candidate?.track_id || ''),
+                    title: String(candidate?.title || ''),
+                    artist: String(candidate?.artist || ''),
+                    album: String(candidate?.album || ''),
+                    quality: Number(candidate?.quality || 0),
+                    qualityLabel: String(
+                        candidate?.qualityLabel || this.getQualityLabel(Number(candidate?.quality || 0))
+                    ),
+                    albumId: candidate?.albumId ? String(candidate.albumId) : undefined,
+                    coverUrl: candidate?.coverUrl ? String(candidate.coverUrl) : undefined,
+                    duration: candidate?.duration ? Number(candidate.duration) : undefined,
+                    releaseDate: candidate?.releaseDate ? String(candidate.releaseDate) : undefined,
+                    matchScore: Number(candidate?.matchScore || 0),
+                    titleScore: Number(candidate?.titleScore || 0),
+                    artistScore: Number(candidate?.artistScore || 0),
+                    albumScore: Number(candidate?.albumScore || 0),
+                    variantWarning: Boolean(candidate?.variantWarning)
+                }))
+                .filter((candidate) => candidate.trackId && candidate.quality > 0);
+        } catch {
+            return [];
+        }
     }
 
     getMissingMetadataFiles(): LibraryFile[] {

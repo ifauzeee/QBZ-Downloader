@@ -40,7 +40,7 @@ describe('DatabaseService', () => {
         it('should store and retrieve database version', () => {
             const db = dbService.getDb();
             const version = db.prepare("SELECT value FROM meta WHERE key = 'db_version'").get();
-            expect(version.value).toBe('9');
+            expect(version.value).toBe('10');
         });
     });
 

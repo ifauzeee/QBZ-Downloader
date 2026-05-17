@@ -22,6 +22,21 @@ interface DuplicateGroup {
     recommendation: string;
 }
 
+interface UpgradeCandidate {
+    trackId: string;
+    title: string;
+    artist: string;
+    album: string;
+    quality: number;
+    qualityLabel?: string;
+    albumId?: string;
+    coverUrl?: string;
+    duration?: number;
+    releaseDate?: string;
+    matchScore?: number;
+    variantWarning?: boolean;
+}
+
 interface UpgradeableFile {
     id?: number;
     filePath: string;
@@ -31,6 +46,7 @@ interface UpgradeableFile {
     quality: number;
     availableQuality: number;
     trackId: string;
+    upgradeCandidates: UpgradeCandidate[];
 }
 
 
@@ -86,16 +102,55 @@ const normalizeDuplicate = (raw: any): DuplicateGroup => {
     };
 };
 
-const normalizeUpgradeable = (raw: any): UpgradeableFile => ({
-    id: raw?.id,
-    filePath: String(raw?.filePath || raw?.file_path || ''),
+const normalizeUpgradeCandidate = (raw: any): UpgradeCandidate => ({
+    trackId: String(raw?.trackId || raw?.track_id || raw?.id || ''),
     title: String(raw?.title || ''),
     artist: String(raw?.artist || ''),
     album: String(raw?.album || ''),
-    quality: Number(raw?.quality || 0),
-    availableQuality: Number(raw?.availableQuality || raw?.available_quality || raw?.quality || 0),
-    trackId: String(raw?.trackId || raw?.track_id || raw?.id || '')
+    quality: Number(raw?.quality || raw?.availableQuality || raw?.available_quality || 0),
+    qualityLabel: raw?.qualityLabel ? String(raw.qualityLabel) : undefined,
+    albumId: raw?.albumId ? String(raw.albumId) : undefined,
+    coverUrl: raw?.coverUrl ? String(raw.coverUrl) : undefined,
+    duration: raw?.duration ? Number(raw.duration) : undefined,
+    releaseDate: raw?.releaseDate ? String(raw.releaseDate) : undefined,
+    matchScore: raw?.matchScore !== undefined ? Number(raw.matchScore) : undefined,
+    variantWarning: Boolean(raw?.variantWarning)
 });
+
+const normalizeUpgradeable = (raw: any): UpgradeableFile => {
+    const fallbackTrackId = String(raw?.trackId || raw?.track_id || raw?.id || '');
+    const fallbackQuality = Number(raw?.availableQuality || raw?.available_quality || raw?.quality || 0);
+    const candidates = asArray(raw?.upgradeCandidates || raw?.upgrade_candidates)
+        .map(normalizeUpgradeCandidate)
+        .filter((candidate) => candidate.trackId && candidate.quality > 0);
+
+    return {
+        id: raw?.id,
+        filePath: String(raw?.filePath || raw?.file_path || ''),
+        title: String(raw?.title || ''),
+        artist: String(raw?.artist || ''),
+        album: String(raw?.album || ''),
+        quality: Number(raw?.quality || 0),
+        availableQuality: fallbackQuality,
+        trackId: fallbackTrackId,
+        upgradeCandidates: candidates.length > 0 && candidates[0]?.trackId
+            ? candidates
+            : fallbackTrackId
+              ? [
+                    {
+                        trackId: fallbackTrackId,
+                        title: String(raw?.title || ''),
+                        artist: String(raw?.artist || ''),
+                        album: String(raw?.album || ''),
+                        quality: fallbackQuality,
+                        qualityLabel: QUALITY_LABELS[fallbackQuality] || String(fallbackQuality),
+                        matchScore: 1,
+                        variantWarning: false
+                    }
+                ]
+              : []
+    };
+};
 
 const normalizeMissingMetadata = (raw: any): ProcessingFile => ({
     filePath: String(raw?.filePath || raw?.file_path || ''),
@@ -233,28 +288,34 @@ export const LibraryView: React.FC = () => {
         }
     };
 
-    const upgradeTrack = async (track: UpgradeableFile) => {
-        setUpgradingIds(prev => new Set(prev).add(track.trackId));
+    const upgradeTrack = async (track: UpgradeableFile, candidate: UpgradeCandidate) => {
+        const queueKey = `${track.filePath}:${candidate.trackId}`;
+        setUpgradingIds(prev => new Set(prev).add(queueKey));
         try {
             const res = await smartFetch('/api/queue/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: 'track',
-                    id: track.trackId,
-                    quality: track.availableQuality,
-                    metadata: { isUpgrade: true, oldFilePath: track.filePath }
+                    id: candidate.trackId,
+                    quality: candidate.quality,
+                    metadata: {
+                        isUpgrade: true,
+                        oldFilePath: track.filePath,
+                        selectedUpgradeTitle: candidate.title,
+                        selectedUpgradeAlbum: candidate.album
+                    }
                 })
             });
             if (res && res.ok) {
                 showToast(t('toast_upgrade_queued') || 'Added to download queue', 'success');
             } else {
                 showToast(t('toast_upgrade_failed') || 'Failed to queue upgrade', 'error');
-                setUpgradingIds(prev => { const s = new Set(prev); s.delete(track.trackId); return s; });
+                setUpgradingIds(prev => { const s = new Set(prev); s.delete(queueKey); return s; });
             }
         } catch {
             showToast(t('toast_upgrade_failed') || 'Failed to queue upgrade', 'error');
-            setUpgradingIds(prev => { const s = new Set(prev); s.delete(track.trackId); return s; });
+            setUpgradingIds(prev => { const s = new Set(prev); s.delete(queueKey); return s; });
         }
     };
 
@@ -330,6 +391,18 @@ export const LibraryView: React.FC = () => {
 
         if (missing.length > 0) return `Missing ${missing.join(', ')}`;
         return 'Incomplete Tags';
+    };
+
+    const formatMatchScore = (score?: number) => {
+        if (score === undefined || Number.isNaN(score)) return '';
+        return `${Math.round(Math.max(0, Math.min(1, score)) * 100)}%`;
+    };
+
+    const formatDuration = (seconds?: number) => {
+        if (!seconds || seconds <= 0) return '';
+        const minutes = Math.floor(seconds / 60);
+        const remainder = Math.floor(seconds % 60).toString().padStart(2, '0');
+        return `${minutes}:${remainder}`;
     };
 
     const progress = scanning
@@ -502,35 +575,61 @@ export const LibraryView: React.FC = () => {
                             <h3>No Upgrades Available</h3>
                         </div>
                     ) : (
-                        <div className="table-responsive">
-                            <table className="data-table">
-                                <thead>
-                                    <tr><th>Track</th><th>Current</th><th>Available</th><th>Action</th></tr>
-                                </thead>
-                                <tbody>
-                                    {upgradeable.map((file, i) => (
-                                        <tr key={file.id || i}>
-                                            <td>
-                                                <div className="track-title">{file.title || getFilename(file.filePath)}</div>
-                                                <div className="track-artist">{file.artist}</div>
-                                            </td>
-                                            <td><span className="quality-badge">{QUALITY_LABELS[file.quality] || file.quality}</span></td>
-                                            <td><span className="quality-badge high-res">{QUALITY_LABELS[file.availableQuality] || file.availableQuality}</span></td>
-                                            <td>
-                                                <button 
-                                                    className="btn small primary" 
-                                                    onClick={() => upgradeTrack(file)}
-                                                    disabled={upgradingIds.has(file.trackId)}
-                                                    title={upgradingIds.has(file.trackId) ? 'Queued for download' : 'Download Hi-Res'}
-                                                    style={upgradingIds.has(file.trackId) ? { opacity: 0.6, cursor: 'default' } : {}}
-                                                >
-                                                    <Icons.Download width={12} height={12} /> {upgradingIds.has(file.trackId) ? t('label_queued') || 'Queued ✓' : t('action_upgrade')}
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="upgrade-choice-list">
+                            {upgradeable.map((file, i) => (
+                                <section className="upgrade-choice-item" key={file.id || `${file.filePath}-${i}`}>
+                                    <div className="upgrade-source-row">
+                                        <div>
+                                            <div className="track-title">{file.title || getFilename(file.filePath)}</div>
+                                            <div className="track-artist">{file.artist}</div>
+                                            <div className="upgradeable-path">{getFilename(file.filePath)}</div>
+                                        </div>
+                                        <div className="upgradeable-quality">
+                                            <span className="current-quality">{QUALITY_LABELS[file.quality] || file.quality}</span>
+                                            <span className="upgrade-arrow">-&gt;</span>
+                                            <span className="available-quality">{file.upgradeCandidates.length} {t('label_upgrade_options') || 'options'}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="upgrade-candidate-grid">
+                                        {file.upgradeCandidates.map((candidate) => {
+                                            const queueKey = `${file.filePath}:${candidate.trackId}`;
+                                            const queued = upgradingIds.has(queueKey);
+                                            const qualityLabel = candidate.qualityLabel || QUALITY_LABELS[candidate.quality] || candidate.quality;
+                                            return (
+                                                <article className="upgrade-candidate-card" key={candidate.trackId}>
+                                                    {candidate.coverUrl ? (
+                                                        <img className="upgrade-candidate-cover" src={candidate.coverUrl} alt="" />
+                                                    ) : (
+                                                        <div className="upgrade-candidate-cover fallback"><Icons.Library width={22} height={22} /></div>
+                                                    )}
+                                                    <div className="upgrade-candidate-main">
+                                                        <div className="upgrade-candidate-title">{candidate.title || file.title}</div>
+                                                        <div className="upgrade-candidate-meta">{candidate.artist || file.artist}</div>
+                                                        <div className="upgrade-candidate-album">{candidate.album || t('label_unknown_album') || 'Unknown Album'}</div>
+                                                        <div className="upgrade-candidate-tags">
+                                                            <span className="quality-badge high-res">{qualityLabel}</span>
+                                                            {candidate.releaseDate && <span className="candidate-chip">{candidate.releaseDate}</span>}
+                                                            {formatDuration(candidate.duration) && <span className="candidate-chip">{formatDuration(candidate.duration)}</span>}
+                                                            {formatMatchScore(candidate.matchScore) && <span className="candidate-chip">{t('label_match') || 'Match'} {formatMatchScore(candidate.matchScore)}</span>}
+                                                            {candidate.variantWarning && <span className="candidate-chip warning">{t('label_variant') || 'Variant'}</span>}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        className="btn small primary upgrade-candidate-action"
+                                                        onClick={() => upgradeTrack(file, candidate)}
+                                                        disabled={queued}
+                                                        title={queued ? 'Queued for download' : 'Download this Hi-Res version'}
+                                                        style={queued ? { opacity: 0.6, cursor: 'default' } : {}}
+                                                    >
+                                                        <Icons.Download width={12} height={12} /> {queued ? t('label_queued') || 'Queued' : t('action_upgrade')}
+                                                    </button>
+                                                </article>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            ))}
                         </div>
                     )}
                 </div>

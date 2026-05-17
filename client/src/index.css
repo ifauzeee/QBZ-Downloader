@@ -2947,6 +2947,116 @@ body.desktop-mode {
     font-size: 20px;
 }
 
+.upgrade-choice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.upgrade-choice-item {
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.upgrade-source-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.upgrade-candidate-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.upgrade-candidate-card {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-areas:
+        "cover main"
+        "cover action";
+    gap: 10px 12px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.upgrade-candidate-cover {
+    grid-area: cover;
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--bg-hover);
+}
+
+.upgrade-candidate-cover.fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+}
+
+.upgrade-candidate-main {
+    grid-area: main;
+    min-width: 0;
+}
+
+.upgrade-candidate-title,
+.upgrade-candidate-meta,
+.upgrade-candidate-album {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upgrade-candidate-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.upgrade-candidate-meta,
+.upgrade-candidate-album {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.upgrade-candidate-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.candidate-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.candidate-chip.warning {
+    color: var(--warning);
+    background: rgba(245, 158, 11, 0.14);
+}
+
+.upgrade-candidate-action {
+    grid-area: action;
+    justify-self: start;
+}
+
 /* Quality Badges */
 .quality-badge {
     padding: 4px 12px;
