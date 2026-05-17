@@ -25,7 +25,7 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
     "docs": "typedoc --out docs src/index.ts",
-    "desktop:rebuild": "electron-builder install-app-deps",
+    "desktop:rebuild": "electron-rebuild -f -w better-sqlite3",
     "desktop:start": "npm run build:full && npm run desktop:rebuild && electron electron/main.cjs",
     "desktop:pack": "npm run build:full && electron-builder --dir",
     "desktop:dist": "npm run build:full && electron-builder --win nsis",
@@ -146,6 +146,7 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
     "@types/archiver": "^7.0.0",
     "@types/cheerio": "^0.22.35",
     "@types/express": "^5.0.6",
