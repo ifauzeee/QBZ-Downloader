@@ -1,5 +1,5 @@
 import path from 'path';
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 
 import { logger } from '../utils/logger.js';
 import { retryOperation } from '../utils/async.js';
@@ -29,6 +29,7 @@ interface DownloadOptions {
     onQuality?: (quality: number) => void;
     trackIndices?: number[];
     skipExisting?: boolean;
+    upgradeSourcePath?: string;
     album?: Album;
 }
 
@@ -106,6 +107,67 @@ export default class DownloadService {
     private getOutputDir(overrideDir?: string): string {
         const candidate = (overrideDir ?? CONFIG.download.outputDir ?? './downloads').trim();
         return path.resolve(candidate || './downloads');
+    }
+
+    private normalizeComparablePath(filePath: string): string {
+        const resolved = path.resolve(filePath);
+        return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    }
+
+    private pathsEqual(left: string, right: string): boolean {
+        return this.normalizeComparablePath(left) === this.normalizeComparablePath(right);
+    }
+
+    private buildReplacementPath(filePath: string): string {
+        const dir = path.dirname(filePath);
+        const ext = path.extname(filePath);
+        const base = path.basename(filePath, ext);
+        let attempt = 0;
+        let candidate = '';
+
+        do {
+            const suffix = attempt === 0 ? '' : `-${attempt}`;
+            candidate = path.join(dir, `${base}.qbz-replace-${Date.now()}${suffix}${ext}`);
+            attempt++;
+        } while (existsSync(candidate));
+
+        return candidate;
+    }
+
+    private replaceExistingFile(sourcePath: string, targetPath: string): void {
+        if (this.pathsEqual(sourcePath, targetPath)) return;
+
+        const targetExists = existsSync(targetPath);
+        const ext = path.extname(targetPath);
+        const backupPath = targetExists
+            ? path.join(
+                  path.dirname(targetPath),
+                  `${path.basename(targetPath, ext)}.qbz-backup-${Date.now()}${ext}`
+              )
+            : null;
+
+        try {
+            if (backupPath) {
+                renameSync(targetPath, backupPath);
+            }
+
+            renameSync(sourcePath, targetPath);
+
+            if (backupPath && existsSync(backupPath)) {
+                unlinkSync(backupPath);
+            }
+        } catch (error) {
+            try {
+                if (backupPath && existsSync(backupPath) && !existsSync(targetPath)) {
+                    renameSync(backupPath, targetPath);
+                }
+            } catch (restoreError) {
+                const message =
+                    restoreError instanceof Error ? restoreError.message : String(restoreError);
+                logger.error(`Failed to restore original file after replacement error: ${message}`, 'DOWNLOAD');
+            }
+            throw error;
+        }
     }
 
     private async fetchCoverBuffer(
@@ -265,13 +327,32 @@ export default class DownloadService {
             return { success: true, skipped: true, filePath, quality: actualQuality, metadata };
         }
 
+        const sourcePath = options.upgradeSourcePath?.trim();
+        const isSamePathUpgrade =
+            !!sourcePath && existsSync(sourcePath) && this.pathsEqual(sourcePath, filePath);
+        const shouldReplaceExisting = existsSync(filePath) && !options.skipExisting;
+        const workingFilePath = shouldReplaceExisting ? this.buildReplacementPath(filePath) : filePath;
+
+        if (isSamePathUpgrade) {
+            logger.info(
+                `Upgrade targets existing file; writing to temporary file before replacement: ${workingFilePath}`,
+                'UPGRADE'
+            );
+        } else if (shouldReplaceExisting) {
+            logger.info(
+                `Existing file will be replaced after successful download: ${workingFilePath}`,
+                'DOWNLOAD'
+            );
+        }
+
         if (options.onProgress) options.onProgress({ phase: 'download_start', loaded: 0, total: 0 });
 
         try {
+            let lrcContent: string | null = null;
             
             const { size, md5 } = await this.engine.download(
                 fileUrlData.url,
-                filePath,
+                workingFilePath,
                 trackId.toString(),
                 metadata,
                 0,
@@ -317,8 +398,7 @@ export default class DownloadService {
                     }
 
                     if (lyricsResult && CONFIG.metadata.saveLrcFile) {
-                        const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
-                        writeFileSync(lrcPath, (lyricsResult.synced || lyricsResult.plainLyrics || '') as string, 'utf8');
+                        lrcContent = (lyricsResult.synced || lyricsResult.plainLyrics || '') as string;
                     }
                 } catch (e: unknown) {
                     logger.error(`Lyrics acquisition error: ${(e as Error).message}`, 'LYRICS');
@@ -344,7 +424,7 @@ export default class DownloadService {
 
             if (options.onProgress) options.onProgress({ phase: 'tagging', loaded: 100 });
             await this.metadataService.writeMetadata(
-                filePath,
+                workingFilePath,
                 metadata,
                 actualQuality,
                 CONFIG.metadata.embedLyrics ? (lyricsResult as LyricsResult) : null,
@@ -355,7 +435,7 @@ export default class DownloadService {
             if (actualQuality >= 6) {
                 if (options.onProgress) options.onProgress({ phase: 'verifying', loaded: 0 });
                 try {
-                    scanResult = await qualityScannerService.scanFile(filePath);
+                    scanResult = await qualityScannerService.scanFile(workingFilePath);
                     if (!scanResult.isTrueLossless) {
                         logger.warn(`Quality Warning for ${metadata.title}: ${scanResult.details}`, 'SCANNER');
                     }
@@ -363,6 +443,16 @@ export default class DownloadService {
                     const message = e instanceof Error ? e.message : String(e);
                     logger.error(`Quality scan failed: ${message}`, 'SCANNER');
                 }
+            }
+
+            if (shouldReplaceExisting) {
+                this.replaceExistingFile(workingFilePath, filePath);
+                logger.info(`Replaced existing file after successful download: ${filePath}`, 'DOWNLOAD');
+            }
+
+            if (lrcContent !== null) {
+                const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
+                writeFileSync(lrcPath, lrcContent, 'utf8');
             }
 
             let finalFilePath = filePath;
@@ -388,7 +478,10 @@ export default class DownloadService {
             return { success: true, filePath, quality: actualQuality, metadata, lyrics: lyricsResult as LyricsResult };
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
-            if (existsSync(filePath)) unlinkSync(filePath);
+            const cleanupPath = shouldReplaceExisting ? workingFilePath : filePath;
+            if (existsSync(cleanupPath) && (!this.pathsEqual(cleanupPath, filePath) || !shouldReplaceExisting)) {
+                unlinkSync(cleanupPath);
+            }
             return { success: false, error: message };
         }
     }

@@ -432,7 +432,7 @@ export class LibraryScannerService extends EventEmitter {
                     ).run(String(bestTrackId), maxQualityFound, file.file_path);
                     upgradeCount++;
                     logger.debug(
-                        `Upgrade available: ${file.artist} - ${file.title} (${this.getQualityLabel(file.quality)} → ${this.getQualityLabel(maxQualityFound)})`,
+                        `Upgrade available: ${file.artist} - ${file.title} (${this.getQualityLabel(file.quality)} -> ${this.getQualityLabel(maxQualityFound)})`,
                         'SCANNER'
                     );
                 } else if (bestTrackId) {

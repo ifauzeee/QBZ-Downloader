@@ -304,7 +304,11 @@ export class QueueProcessor {
             onQuality: (quality) => {
                 downloadQueue.updateQuality(item.id, quality);
             },
-            skipExisting: !(item.metadata?.isUpgrade === true)
+            skipExisting: !(item.metadata?.isUpgrade === true),
+            upgradeSourcePath:
+                item.metadata?.isUpgrade && typeof item.metadata?.oldFilePath === 'string'
+                    ? item.metadata.oldFilePath
+                    : undefined
         });
 
         if (result.skipped) {

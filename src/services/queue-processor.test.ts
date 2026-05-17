@@ -233,4 +233,50 @@ describe('QueueProcessor', () => {
 
         expect(downloadQueue.fail).toHaveBeenCalledWith('1', 'Not found');
     });
+
+    it('should pass upgrade source path so same-path upgrades are written safely', async () => {
+        const mockItem = {
+            id: 'upgrade-1',
+            type: 'track',
+            contentId: 'track-1',
+            quality: 27,
+            title: 'Team',
+            metadata: {
+                isUpgrade: true,
+                oldFilePath: 'C:\\Music\\Lorde\\Pure Heroine\\06. Team.flac'
+            }
+        };
+
+        vi.mocked(downloadQueue.get).mockReturnValue(
+            mockItem as unknown as ReturnType<typeof downloadQueue.get>
+        );
+
+        const mockDownloadService = (
+            processor as unknown as { downloadService: { downloadTrack: ReturnType<typeof vi.fn> } }
+        ).downloadService;
+        mockDownloadService.downloadTrack.mockResolvedValue({
+            success: true,
+            filePath: mockItem.metadata.oldFilePath,
+            quality: 27
+        });
+
+        await (
+            processor as unknown as {
+                processTrack: (item: unknown) => Promise<void>;
+            }
+        ).processTrack(mockItem);
+
+        expect(mockDownloadService.downloadTrack).toHaveBeenCalledWith(
+            'track-1',
+            27,
+            expect.objectContaining({
+                skipExisting: false,
+                upgradeSourcePath: mockItem.metadata.oldFilePath
+            })
+        );
+        expect(downloadQueue.complete).toHaveBeenCalledWith(
+            mockItem.id,
+            mockItem.metadata.oldFilePath
+        );
+    });
 });
