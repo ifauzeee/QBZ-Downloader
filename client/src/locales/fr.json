@@ -129,6 +129,7 @@
     "label_select_file": "Sélectionner un fichier",
     "action_load_staged": "Charger par étapes",
     "action_start_import": "Démarrer l'importation",
+    "label_processing": "Traitement...",
     "msg_confirm_clear_staging": "Cela effacera toutes les URL mises en attente et l'entrée actuelle. Cette action est irréversible.",
     "sec_ai_metadata": "Réparation des métadonnées par IA",
     "desc_ai_metadata": "Configurez les services d'IA pour réparer automatiquement les métadonnées manquantes ou incorrectes.",

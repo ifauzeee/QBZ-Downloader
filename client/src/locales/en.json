@@ -157,6 +157,7 @@
     "label_select_file": "Select File",
     "action_load_staged": "Load Staged",
     "action_start_import": "Start Import",
+    "label_processing": "Processing...",
     "msg_confirm_clear_staging": "This will clear all staged URLs and current input. This action cannot be undone.",
     "title_notifications": "Notifications",
     "action_mark_all_read": "Mark all read",

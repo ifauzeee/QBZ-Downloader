@@ -73,6 +73,49 @@ export class DashboardService {
 
         this.app.use('/api', limiter);
 
+        this.app.get('/api/auth/verify', (req: Request, res: Response) => {
+            const password = CONFIG.dashboard.password;
+            const isDesktop = process.env.QBZ_DESKTOP === '1';
+
+            if (!password || isDesktop) {
+                res.json({ success: true });
+                return;
+            }
+
+            const providedPassword = req.headers['x-password'] || req.query.pw;
+            if (providedPassword && typeof providedPassword === 'string') {
+                try {
+                    const provided = Buffer.from(providedPassword);
+                    const plain = Buffer.from(password);
+                    if (
+                        provided.length === plain.length &&
+                        crypto.timingSafeEqual(provided, plain)
+                    ) {
+                        res.json({ success: true });
+                        return;
+                    }
+
+                    if (providedPassword.length === 64) {
+                        const expectedHash = crypto
+                            .createHash('sha256')
+                            .update(password)
+                            .digest('hex');
+                        const expected = Buffer.from(expectedHash);
+                        if (
+                            provided.length === expected.length &&
+                            crypto.timingSafeEqual(provided, expected)
+                        ) {
+                            res.json({ success: true });
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    logger.error(`Auth verify error: ${err}`, 'AUTH');
+                }
+            }
+
+            res.status(401).json({ error: 'Invalid password' });
+        });
 
         this.app.use((req: Request, res: Response, next: NextFunction) => {
             const password = CONFIG.dashboard.password;

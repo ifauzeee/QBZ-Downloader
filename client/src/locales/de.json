@@ -129,6 +129,7 @@
     "label_select_file": "Datei auswählen",
     "action_load_staged": "Gereitit laden",
     "action_start_import": "Import starten",
+    "label_processing": "Wird verarbeitet...",
     "msg_confirm_clear_staging": "Dadurch werden alle bereitgestellten URLs und die aktuelle Eingabe gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "sec_ai_metadata": "KI-Metadaten-Reparatur",
     "desc_ai_metadata": "KI-Dienste konfigurieren, um fehlende oder falsche Metadaten automatisch zu reparieren.",

@@ -129,6 +129,7 @@
     "label_select_file": "选择文件",
     "action_load_staged": "加载暂存",
     "action_start_import": "开始导入",
+    "label_processing": "处理中...",
     "msg_confirm_clear_staging": "这将清除所有暂存的 URL 和当前输入。此操作无法撤销。",
     "sec_ai_metadata": "AI 元数据修复",
     "desc_ai_metadata": "配置 AI 服务以自动修复缺失或不正确的元数据。",

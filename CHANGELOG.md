@@ -17,7 +17,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 
 ### Desktop And Release
 
-- **Electron 33 upgrade** - Updated Electron to the `^33.0.0` release line and kept package metadata aligned with the changelog.
+- **Electron 40 upgrade** - Updated Electron to the `^40.10.0` release line and kept package metadata aligned with the changelog.
 - **Native module rebuilds** - Added `desktop:rebuild` and made `desktop:start` rebuild `better-sqlite3` for the active Electron ABI before launch.
 - **Startup health check** - Added `/api/status` so the Electron shell waits for the local dashboard server before loading the UI.
 - **Packaged dashboard startup** - Desktop mode now forces the runtime dashboard host/port from Electron so upgraded installs with old database settings still load `127.0.0.1:3210`, and release builds rebuild native modules before packaging.
@@ -58,7 +58,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 - **Runtime dependencies** - Added `lru-cache` and `csv-parse`.
 - **Desktop dependencies** - Added `@electron/rebuild` for native module rebuild support.
 - **Frontend test dependencies** - Added React Testing Library and related test setup for component coverage.
-- **Frontend runtime alignment** - Settled the desktop dashboard stack on React 18.3.1, Vite 6.2.0, and Electron 33.x for the release build.
+- **Frontend runtime alignment** - Settled the desktop dashboard stack on React 18.3.1, Vite 6.x, and Electron 40.x for the release build.
 
 ---
 

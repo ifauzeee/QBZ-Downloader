@@ -129,6 +129,7 @@
     "label_select_file": "Dosya Seç",
     "action_load_staged": "Aşamalı Yükle",
     "action_start_import": "İçeri Aktarmayı Başlat",
+    "label_processing": "İşleniyor...",
     "msg_confirm_clear_staging": "Bu işlem tüm aşamalı URL'leri ve mevcut girdiyi temizleyecektir. Bu işlem geri alınamaz.",
     "sec_ai_metadata": "Yapay Zeka Metadata Onarımı",
     "desc_ai_metadata": "Eksik veya yanlış metadataları otomatik olarak onarmak için yapay zeka servislerini yapılandırın.",

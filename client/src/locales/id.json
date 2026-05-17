@@ -157,6 +157,7 @@
     "label_select_file": "Pilih File",
     "action_load_staged": "Muat Aşamalı",
     "action_start_import": "Mulai Impor",
+    "label_processing": "Memproses...",
     "msg_confirm_clear_staging": "Ini akan menghapus semua URL yang dipentaskan dan input saat ini. Tindakan ini tidak dapat dibatalkan.",
     "title_notifications": "Notifikasi",
     "action_mark_all_read": "Tandai semua dibaca",

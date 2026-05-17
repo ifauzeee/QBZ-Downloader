@@ -174,18 +174,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
             <div className="amoled-login-card">
                 <div className="login-side-info">
                     <div className="login-brand">
-                        <span className="brand-icon">✨</span>
+                        <span className="brand-icon">QBZ</span>
                         <span className="brand-name">QBZ-DL</span>
                     </div>
                     <div className="security-badge">
-                        <span className="badge-icon">🔐</span>
+                        <span className="badge-icon">LOCK</span>
                         <h3>Access Restricted</h3>
                     </div>
                     <p className="login-desc">
                         Dashboard is currently locked for security. Please provide your administrative password to proceed and manage your high-res audio library.
                     </p>
                     <div className="login-footer-meta">
-                        <span>v5.1.6</span>
+                        <span>v5.2.0</span>
 
                         <span className="dot"></span>
                         <span>This application uses the Qobuz API but is not certified by Qobuz.</span>
@@ -204,7 +204,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                             <input
                                 ref={inputRef}
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder="Password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className={error ? 'input-error' : ''}
@@ -222,7 +222,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                             ) : (
                                 <>
                                     <span>Unlock Now</span>
-                                    <span className="btn-arrow">→</span>
+                                    <span className="btn-arrow">-&gt;</span>
                                 </>
                             )}
                         </button>

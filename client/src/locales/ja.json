@@ -129,6 +129,7 @@
     "label_select_file": "ファイルを選択",
     "action_load_staged": "ステージ済みの読み込み",
     "action_start_import": "インポート開始",
+    "label_processing": "処理中...",
     "msg_confirm_clear_staging": "これにより、すべてのステージングされたURLと現在の入力がクリアされます。この操作は取り消せません。",
     "sec_ai_metadata": "AI メタデータ修復",
     "desc_ai_metadata": "不足しているメタデータや不正確なメタデータを自動的に修復するために AI サービスを設定します。",

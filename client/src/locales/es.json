@@ -129,6 +129,7 @@
     "label_select_file": "Seleccionar Archivo",
     "action_load_staged": "Cargar Gradual",
     "action_start_import": "Iniciar importación",
+    "label_processing": "Procesando...",
     "msg_confirm_clear_staging": "Esto borrará todas las URL preparadas y la entrada actual. Esta acción no se puede deshacer.",
     "sec_ai_metadata": "Reparación de Metadatos por IA",
     "desc_ai_metadata": "Configure los servicios de IA para reparar automáticamente los metadatos faltantes o incorrectos.",
