@@ -490,9 +490,18 @@ export class LibraryScannerService extends EventEmitter {
             const albumScore = this.similarity(normalizedAlbum, trackAlbum);
 
             if (titleScore > 0.8 && artistScore > 0.6) {
-                if (normalizedAlbum && albumScore < 0.5) {
+                if (
+                    this.hasDistinctVersionContext(
+                        { filePath: '', title, album },
+                        { filePath: '', title: track.title || '', album: track.album?.title || '' }
+                    )
+                ) {
                     continue;
                 }
+
+                const strongIdentityMatch = titleScore >= 0.95 && artistScore >= 0.8;
+                if (normalizedAlbum && albumScore < 0.5 && !strongIdentityMatch) continue;
+
                 matches.push(track);
             }
         }

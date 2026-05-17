@@ -262,7 +262,7 @@ router.post('/settings/update', async (req: Request, res: Response) => {
         settingsService.setMany(updates);
 
         if (updates.QOBUZ_USER_AUTH_TOKEN) {
-            tokenManager.markInvalid();
+            tokenManager.clearValidation();
         }
 
         startBackgroundServicesIfReady();

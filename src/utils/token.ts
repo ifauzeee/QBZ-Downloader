@@ -76,6 +76,11 @@ class TokenManager extends EventEmitter {
         this.emit('token:valid');
     }
 
+    clearValidation(): void {
+        this.isValid = null;
+        this.lastValidated = 0;
+    }
+
     needsRefresh(): boolean {
         return this.isValid === false;
     }

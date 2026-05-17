@@ -126,6 +126,53 @@ describe('LibraryScannerService', () => {
         });
     });
 
+    describe('Upgrade Detection Logic', () => {
+        it('should detect a Hi-Res upgrade from a different release with the same title and artist', async () => {
+            const run = vi.fn();
+            vi.mocked(databaseService.getDb).mockReturnValue({
+                prepare: vi.fn().mockReturnValue({ run })
+            } as any);
+            vi.mocked(databaseService.getLibraryFiles).mockReturnValue([
+                {
+                    file_path: 'Music/Artist/CD Release/01. Same Song.flac',
+                    track_id: null,
+                    available_quality: null,
+                    quality: 6,
+                    title: 'Same Song',
+                    artist: 'Artist',
+                    album: 'CD Release'
+                }
+            ]);
+
+            (scanner as any).api = {
+                search: vi.fn().mockResolvedValue({
+                    success: true,
+                    data: {
+                        tracks: {
+                            items: [
+                                {
+                                    id: 123,
+                                    title: 'Same Song',
+                                    performer: { name: 'Artist' },
+                                    album: { title: 'Hi-Res Edition', artist: { name: 'Artist' } }
+                                }
+                            ]
+                        }
+                    }
+                }),
+                getFileUrl: vi.fn().mockResolvedValue({
+                    success: true,
+                    data: { format_id: 27 }
+                })
+            };
+
+            const count = await (scanner as any).checkQobuzUpgrades();
+
+            expect(count).toBe(1);
+            expect(run).toHaveBeenCalledWith('123', 27, 'Music/Artist/CD Release/01. Same Song.flac');
+        });
+    });
+
     describe('Quality Labels', () => {
         it('should return correct labels for qualities', () => {
             expect(scanner.getQualityLabel(5)).toBe('MP3 320');
