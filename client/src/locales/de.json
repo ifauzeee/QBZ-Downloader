@@ -7,7 +7,6 @@
     "menu_playlists": "Wiedergabelisten",
     "menu_history": "Verlauf",
     "menu_settings": "Einstellungen",
-    "menu_recommendations": "Empfehlungen",
     "title_queue": "Download-Warteschlange",
     "title_search": "Bibliothekssuche",
     "title_batch": "Stapelimport",
@@ -16,7 +15,6 @@
     "title_playlists": "Beobachtete Playlists",
     "title_history": "Download-Verlauf",
     "title_settings": "Einstellungen",
-    "title_recommendations": "Empfehlungen",
     "title_album": "Albumansicht",
     "title_artist": "Künstlerdetails",
     "title_dashboard": "Dashboard",
@@ -164,7 +162,5 @@
     "msg_no_notifications": "Noch keine Benachrichtigungen",
     "label_new": "neu",
     "action_refresh": "Aktualisieren",
-    "desc_recommendations": "Basierend auf Ihrem Hörverlauf und Ihrer lokalen Bibliothek",
-    "msg_not_enough_data": "Noch nicht genügend Daten",
-    "msg_not_enough_data_desc": "Hören Sie etwas Musik oder scannen Sie Ihre Bibliothek, um personalisierte Empfehlungen zu erhalten."
+    "msg_not_enough_data": "Noch nicht genügend Daten"
 }

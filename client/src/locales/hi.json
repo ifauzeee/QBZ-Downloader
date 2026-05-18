@@ -7,7 +7,6 @@
     "menu_playlists": "प्लेलिस्ट",
     "menu_history": "इतिहास",
     "menu_settings": "सेटिंग्स",
-    "menu_recommendations": "सिफारिशें",
     "title_queue": "डाउनलोड कतार",
     "title_search": "लाइब्रेरी खोज",
     "title_batch": "बैच आयात",
@@ -16,7 +15,6 @@
     "title_playlists": "देखी गई प्लेलिस्ट",
     "title_history": "डाउनलोड इतिहास",
     "title_settings": "सेटिंग्स",
-    "title_recommendations": "सिफारिशें",
     "title_album": "एल्बम दृश्य",
     "title_artist": "कलाकार विवरण",
     "title_dashboard": "डैशबोर्ड",
@@ -164,7 +162,5 @@
     "msg_no_notifications": "अभी तक कोई सूचना नहीं है",
     "label_new": "नया",
     "action_refresh": "रीफ्रेश",
-    "desc_recommendations": "आपके सुनने के इतिहास और स्थानीय लाइब्रेरी के आधार पर",
-    "msg_not_enough_data": "अभी पर्याप्त डेटा नहीं है",
-    "msg_not_enough_data_desc": "व्यक्तिगत अनुशंसाएँ प्राप्त करने के लिए कुछ संगीत सुनना शुरू करें या अपनी लाइब्रेरी स्कैन करें।"
+    "msg_not_enough_data": "अभी पर्याप्त डेटा नहीं है"
 }

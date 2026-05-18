@@ -7,7 +7,6 @@
     "menu_playlists": "Çalma Listeleri",
     "menu_history": "Geçmiş",
     "menu_settings": "Ayarlar",
-    "menu_recommendations": "Öneriler",
     "title_queue": "İndirme Kuyruğu",
     "title_search": "Kütüphane Araması",
     "title_batch": "Toplu İçe Aktar",
@@ -16,7 +15,6 @@
     "title_playlists": "İzlenen Çalma Listeleri",
     "title_history": "İndirme Geçmişi",
     "title_settings": "Ayarlar",
-    "title_recommendations": "Öneriler",
     "title_album": "Albüm Görünümü",
     "title_artist": "Sanatçı Detayı",
     "title_dashboard": "Panel",
@@ -164,7 +162,5 @@
     "msg_no_notifications": "Henüz bildirim yok",
     "label_new": "yeni",
     "action_refresh": "Yenile",
-    "desc_recommendations": "Dinleme geçmişinize ve yerel kütüphanenize dayanmaktadır",
-    "msg_not_enough_data": "Henüz yeterli veri yok",
-    "msg_not_enough_data_desc": "Kişiselleştirilmiş öneriler almak için biraz müzik dinlemeye başlayın veya kütüphanenizi tarayın."
+    "msg_not_enough_data": "Henüz yeterli veri yok"
 }

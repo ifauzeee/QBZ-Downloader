@@ -36,7 +36,6 @@ export const CommandPalette: React.FC = () => {
 
     const staticCommands: CommandItem[] = [
         { id: 'action-batch', label: 'Batch Downloader', sublabel: 'Download multiple URLs at once', icon: <Icons.Batch />, category: 'Actions', action: () => setActiveTab('batch') },
-        { id: 'action-health', label: 'Library Health', sublabel: 'Repair and organize your library', icon: <Icons.Resolve />, category: 'Actions', action: () => setActiveTab('health') },
     ];
 
     useEffect(() => {

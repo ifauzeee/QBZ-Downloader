@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { databaseService } from '../../database/index.js';
 import { libraryScannerService } from '../../library-scanner/index.js';
-import { libraryHealerService } from '../../LibraryHealerService.js';
 import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
 import { CONFIG } from '../../../config.js';
 import { formatConverterService } from '../../FormatConverterService.js';
@@ -29,15 +28,6 @@ router.post('/scan', (req: Request, res: Response) => {
 router.post('/scan/abort', (req: Request, res: Response) => {
     libraryScannerService.abortScan();
     res.json({ success: true });
-});
-
-router.post('/heal', async (req: Request, res: Response) => {
-    try {
-        const report = await libraryHealerService.performFullHeal();
-        res.json(report);
-    } catch (error: unknown) {
-        res.status(500).json({ error: (error as Error).message });
-    }
 });
 
 router.get('/statistics', async (req: Request, res: Response) => {
@@ -205,14 +195,6 @@ router.delete('/file', async (req: Request, res: Response) => {
 
         const success = await libraryScannerService.deleteFile(filePath);
         res.json({ success });
-    } catch (error: unknown) {
-        res.status(500).json({ error: (error as Error).message });
-    }
-});
-
-router.get('/health', async (req: Request, res: Response) => {
-    try {
-        res.json(databaseService.getLibraryHealth());
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });
     }

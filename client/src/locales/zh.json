@@ -7,7 +7,6 @@
     "menu_playlists": "播放列表",
     "menu_history": "历史",
     "menu_settings": "设置",
-    "menu_recommendations": "推荐",
     "title_queue": "下载队列",
     "title_search": "库搜索",
     "title_batch": "批量导入",
@@ -16,7 +15,6 @@
     "title_playlists": "观察的播放列表",
     "title_history": "下载历史",
     "title_settings": "设置",
-    "title_recommendations": "推荐",
     "title_album": "专辑视图",
     "title_artist": "艺术家详情",
     "title_dashboard": "仪表板",
@@ -164,7 +162,5 @@
     "msg_no_notifications": "暂无通知",
     "label_new": "新",
     "action_refresh": "刷新",
-    "desc_recommendations": "基于您的收听历史记录和本地库",
-    "msg_not_enough_data": "数据还不够",
-    "msg_not_enough_data_desc": "开始听音乐或扫描您的库以获得个性化推荐。"
+    "msg_not_enough_data": "数据还不够"
 }

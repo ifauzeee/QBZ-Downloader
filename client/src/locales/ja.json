@@ -7,7 +7,6 @@
     "menu_playlists": "プレイリスト",
     "menu_history": "履歴",
     "menu_settings": "設定",
-    "menu_recommendations": "おすすめ",
     "title_queue": "ダウンロードキュー",
     "title_search": "ライブラリ検索",
     "title_batch": "一括インポート",
@@ -16,7 +15,6 @@
     "title_playlists": "保存されたプレイリスト",
     "title_history": "ダウンロード履歴",
     "title_settings": "設定",
-    "title_recommendations": "おすすめ",
     "title_album": "アルバムビュー",
     "title_artist": "アーティスト詳細",
     "title_dashboard": "ダッシュボード",
@@ -164,7 +162,5 @@
     "msg_no_notifications": "通知はまだありません",
     "label_new": "新着",
     "action_refresh": "更新",
-    "desc_recommendations": "リスニング履歴とローカルライブラリに基づいています",
-    "msg_not_enough_data": "データがまだ不十分です",
-    "msg_not_enough_data_desc": "音楽を聴き始めるか、ライブラリをスキャンして、パーソナライズされたおすすめを取得してください。"
+    "msg_not_enough_data": "データがまだ不十分です"
 }

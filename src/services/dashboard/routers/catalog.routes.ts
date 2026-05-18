@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import qobuzApi from '../../../api/qobuz.js';
 import { databaseService } from '../../database/index.js';
 import { normalizeDownloadQuality } from '../../../config.js';
-import { RecommendationService } from '../../RecommendationService.js';
 import { historyService } from '../../history.js';
 
 const router = Router();
@@ -267,17 +266,6 @@ router.delete('/playlists/watch/:id', async (req: Request, res: Response) => {
     try {
         databaseService.removeWatchedPlaylist(getParam(req.params.id));
         res.json({ success: true });
-    } catch (error: unknown) {
-        res.status(500).json({ error: (error as Error).message });
-    }
-});
-
-router.get('/recommendations', async (req: Request, res: Response) => {
-    try {
-        const limit = parseInt(getParam(req.query.limit)) || 10;
-        const recommendationService = new RecommendationService();
-        const albums = await recommendationService.getRecommendations(limit);
-        res.json(albums);
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });
     }

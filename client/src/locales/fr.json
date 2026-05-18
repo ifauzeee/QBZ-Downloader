@@ -7,7 +7,6 @@
     "menu_playlists": "Playlists",
     "menu_history": "Historique",
     "menu_settings": "Paramètres",
-    "menu_recommendations": "Recommandations",
     "title_queue": "File de Téléchargement",
     "title_search": "Recherche de Bibliothèque",
     "title_batch": "Import par lot",
@@ -16,7 +15,6 @@
     "title_playlists": "Playlists Suivies",
     "title_history": "Historique des Téléchargements",
     "title_settings": "Paramètres",
-    "title_recommendations": "Recommandations",
     "title_album": "Vue Album",
     "title_artist": "Détail Artiste",
     "title_dashboard": "Tableau de Bord",
@@ -164,7 +162,5 @@
     "msg_no_notifications": "Pas encore de notifications",
     "label_new": "nouveau",
     "action_refresh": "Actualiser",
-    "desc_recommendations": "Basé sur votre historique d'écoute et votre bibliothèque locale",
-    "msg_not_enough_data": "Pas encore assez de données",
-    "msg_not_enough_data_desc": "Commencez à écouter de la musique ou scannez votre bibliothèque pour obtenir des recommandations personnalisées."
+    "msg_not_enough_data": "Pas encore assez de données"
 }

@@ -38,6 +38,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 - **Internationalization cleanup** - Corrected leaked Indonesian strings in Chinese locale data and fixed the Hindi `desc_config` translation.
 - **Audio preview caching** - Replaced preview `Map` caches with LRU-backed caches to bound memory use.
 - **Batch ZIP cleanup** - When batch ZIP creation succeeds, generated source files and now-empty download folders are removed so ZIP-only exports do not leave duplicate artist/album folders behind.
+- **Navigation simplification** - Removed the Library Health and Recommendations pages, command palette entries, locale labels, and their unused backend endpoints.
 
 ### Backend Reliability
 
@@ -53,7 +54,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 
 ### Testing And CI
 
-- **Service test expansion** - Added or expanded tests for `DownloadEngine`, `MetadataService`, `BatchImportService`, `QualityScannerService`, `PlaylistWatcherService`, `LibraryHealerService`, `AIMetadataService`, `LibraryStatisticsService`, `FormatConverterService`, `MediaServerService`, `RecommendationService`, `NotificationService`, `ThemeService`, `SettingsService`, `HistoryService`, `DatabaseService`, and `LibraryScannerService`.
+- **Service test expansion** - Added or expanded tests for `DownloadEngine`, `MetadataService`, `BatchImportService`, `QualityScannerService`, `PlaylistWatcherService`, `AIMetadataService`, `LibraryStatisticsService`, `FormatConverterService`, `MediaServerService`, `NotificationService`, `ThemeService`, `SettingsService`, `HistoryService`, `DatabaseService`, and `LibraryScannerService`.
 - **Frontend component tests** - Added React Testing Library coverage for dashboard components including `Player` and `QueuePanel`.
 - **End-to-end flow test** - Added an integration simulation covering search, queueing, download, metadata writing, and library scan flow.
 - **TypeScript stabilization** - Resolved strict TypeScript and lint failures across backend services, dashboard routes, and test mocks.

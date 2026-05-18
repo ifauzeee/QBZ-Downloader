@@ -7,7 +7,6 @@
     "menu_playlists": "Playlists",
     "menu_history": "History",
     "menu_settings": "Settings",
-    "menu_recommendations": "Recommendations",
     "title_queue": "Download Queue",
     "title_search": "Library Search",
     "title_batch": "Batch Import",
@@ -16,7 +15,6 @@
     "title_playlists": "Watched Playlists",
     "title_history": "Download History",
     "title_settings": "Settings",
-    "title_recommendations": "Recommendations",
     "title_album": "Album View",
     "title_artist": "Artist Detail",
     "title_dashboard": "Dashboard",
@@ -168,7 +166,5 @@
     "msg_no_notifications": "No notifications yet",
     "label_new": "new",
     "action_refresh": "Refresh",
-    "desc_recommendations": "Based on your listening history and local library",
-    "msg_not_enough_data": "Not enough data yet",
-    "msg_not_enough_data_desc": "Start listening to some music or scan your library to get personalized recommendations."
+    "msg_not_enough_data": "Not enough data yet"
 }
