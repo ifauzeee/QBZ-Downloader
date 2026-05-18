@@ -154,6 +154,12 @@ interface BatchStatus {
     createdAt: number;
 }
 
+interface BatchArtifact {
+    filePath: string;
+    archiveName: string;
+    cleanup: boolean;
+}
+
 export class BatchImportService {
     private activeBatches: Map<string, BatchStatus> = new Map();
 
@@ -236,37 +242,164 @@ export class BatchImportService {
         try {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const zipName = `Batch_Download_${timestamp}.zip`;
-            const zipPath = path.join(CONFIG.download.outputDir || './downloads', zipName);
+            const downloadDir = path.resolve(CONFIG.download.outputDir || './downloads');
+            const zipPath = path.join(downloadDir, zipName);
+            const artifacts = this.collectBatchArtifacts(batch, downloadDir);
 
             const output = fs.createWriteStream(zipPath);
             const archive = archiver('zip', { zlib: { level: 9 } });
 
-            output.on('close', () => {
-                logger.info(
-                    `Batch ZIP created: ${zipName} (${archive.pointer()} total bytes)`,
-                    'BATCH'
-                );
-                notifyBatchZipCreated(zipName, zipPath);
-            });
-
-            archive.on('error', (err: Error) => {
-                logger.error(`Error creating batch ZIP: ${err.message}`, 'BATCH');
+            const zipClosed = new Promise<void>((resolve, reject) => {
+                output.on('close', resolve);
+                output.on('error', reject);
+                archive.on('error', reject);
             });
 
             archive.pipe(output);
 
-            for (const file of batch.files) {
-                if (fs.existsSync(file)) {
-                    const downloadDir = path.resolve(CONFIG.download.outputDir || './downloads');
-                    const headers = path.relative(downloadDir, file);
-                    archive.file(file, { name: headers });
-                }
+            for (const artifact of artifacts) {
+                archive.file(artifact.filePath, { name: artifact.archiveName });
             }
 
             await archive.finalize();
+            await zipClosed;
+
+            logger.info(
+                `Batch ZIP created: ${zipName} (${archive.pointer()} total bytes)`,
+                'BATCH'
+            );
+            notifyBatchZipCreated(zipName, zipPath);
+            this.cleanupBatchArtifacts(artifacts, downloadDir);
         } catch (error: unknown) {
             logger.error(`Failed to create ZIP: ${(error as Error).message}`, 'BATCH');
         }
+    }
+
+    private collectBatchArtifacts(batch: BatchStatus, downloadDir: string): BatchArtifact[] {
+        const artifacts = new Map<string, BatchArtifact>();
+        const cleanupCutoff = batch.createdAt - 5000;
+
+        const addArtifact = (filePath: string, cleanup: boolean): void => {
+            const resolved = path.resolve(filePath);
+            if (!this.isPathInside(resolved, downloadDir) || !fs.existsSync(resolved)) return;
+
+            const stats = fs.lstatSync(resolved);
+            if (!stats.isFile()) return;
+
+            const existing = artifacts.get(resolved);
+            artifacts.set(resolved, {
+                filePath: resolved,
+                archiveName: path.relative(downloadDir, resolved),
+                cleanup: cleanup || existing?.cleanup === true
+            });
+        };
+
+        for (const file of batch.files) {
+            const resolved = path.resolve(file);
+            if (!this.isPathInside(resolved, downloadDir) || !fs.existsSync(resolved)) continue;
+
+            const stats = fs.lstatSync(resolved);
+            if (!stats.isFile()) continue;
+
+            addArtifact(resolved, stats.mtimeMs >= cleanupCutoff);
+
+            const containingDir = path.dirname(resolved);
+            if (containingDir !== downloadDir) {
+                for (const companionFile of this.findGeneratedCompanionFiles(resolved, cleanupCutoff)) {
+                    addArtifact(companionFile, true);
+                }
+            }
+        }
+
+        return Array.from(artifacts.values()).sort((a, b) =>
+            a.archiveName.localeCompare(b.archiveName)
+        );
+    }
+
+    private findGeneratedCompanionFiles(filePath: string, cleanupCutoff: number): string[] {
+        const files: string[] = [];
+        const dir = path.dirname(filePath);
+        const ext = path.extname(filePath);
+        const base = path.basename(filePath, ext);
+        const candidates = [
+            path.join(dir, `${base}.lrc`),
+            path.join(dir, 'cover.jpg'),
+            path.join(dir, 'cover.jpeg'),
+            path.join(dir, 'cover.png'),
+            path.join(dir, 'cover.webp'),
+            path.join(dir, 'folder.jpg'),
+            path.join(dir, 'folder.jpeg'),
+            path.join(dir, 'folder.png'),
+            path.join(dir, 'folder.webp')
+        ];
+
+        for (const candidate of candidates) {
+            try {
+                if (!fs.existsSync(candidate)) continue;
+
+                const stats = fs.lstatSync(candidate);
+                if (stats.mtimeMs >= cleanupCutoff) {
+                    files.push(candidate);
+                }
+            } catch (error: unknown) {
+                logger.warn(
+                    `Failed to inspect batch companion file ${candidate}: ${(error as Error).message}`,
+                    'BATCH'
+                );
+            }
+        }
+
+        return files;
+    }
+
+    private cleanupBatchArtifacts(artifacts: BatchArtifact[], downloadDir: string): void {
+        const touchedDirs = new Set<string>();
+
+        for (const artifact of artifacts) {
+            if (!artifact.cleanup) continue;
+
+            try {
+                if (fs.existsSync(artifact.filePath)) {
+                    fs.unlinkSync(artifact.filePath);
+                    touchedDirs.add(path.dirname(artifact.filePath));
+                }
+            } catch (error: unknown) {
+                logger.warn(
+                    `Failed to remove batch source file ${artifact.filePath}: ${(error as Error).message}`,
+                    'BATCH'
+                );
+            }
+        }
+
+        for (const dir of Array.from(touchedDirs).sort((a, b) => b.length - a.length)) {
+            this.pruneEmptyDirs(dir, downloadDir);
+        }
+    }
+
+    private pruneEmptyDirs(startDir: string, downloadDir: string): void {
+        let current = path.resolve(startDir);
+
+        while (this.isPathInside(current, downloadDir) && current !== downloadDir) {
+            try {
+                if (fs.readdirSync(current).length > 0) return;
+                fs.rmdirSync(current);
+                current = path.dirname(current);
+            } catch (error: unknown) {
+                logger.warn(
+                    `Failed to remove empty batch directory ${current}: ${(error as Error).message}`,
+                    'BATCH'
+                );
+                return;
+            }
+        }
+    }
+
+    private isPathInside(candidate: string, parent: string): boolean {
+        const relative = path.relative(parent, candidate);
+        return (
+            relative === '' ||
+            (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative))
+        );
     }
 
     async importFromFile(

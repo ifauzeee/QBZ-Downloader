@@ -37,6 +37,7 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 - **Queue panel stability** - Hardened queue rendering, drag/drop behavior, and progress updates with stronger state guards.
 - **Internationalization cleanup** - Corrected leaked Indonesian strings in Chinese locale data and fixed the Hindi `desc_config` translation.
 - **Audio preview caching** - Replaced preview `Map` caches with LRU-backed caches to bound memory use.
+- **Batch ZIP cleanup** - When batch ZIP creation succeeds, generated source files and now-empty download folders are removed so ZIP-only exports do not leave duplicate artist/album folders behind.
 
 ### Backend Reliability
 
