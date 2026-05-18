@@ -119,13 +119,12 @@ function AppContent() {
   useEffect(() => {
     if (!isDesktop || !desktopBridge) return;
 
-    let cleanup: (() => void) | undefined;
     desktopBridge.window
       .isMaximized()
       .then(setIsMaximized)
       .catch(() => setIsMaximized(false));
 
-    cleanup = desktopBridge.window.onMaximizeChanged((maximized) => {
+    const cleanup = desktopBridge.window.onMaximizeChanged((maximized) => {
       setIsMaximized(maximized);
     });
 

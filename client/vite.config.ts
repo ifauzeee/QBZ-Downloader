@@ -9,7 +9,16 @@ export default defineConfig({
   ],
   build: {
     outDir: '../src/services/dashboard/public',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          charts: ['chart.js', 'react-chartjs-2'],
+          socket: ['socket.io-client'],
+          dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        },
+      },
+    },
   },
   server: {
 

@@ -52,7 +52,7 @@ export const BatchImportView: React.FC = () => {
 
         if (type === 'csv') {
             const allText = content;
-            const matches = allText.match(/https?:\/\/(open\.qobuz\.com|www\.qobuz\.com)\/[a-zA-Z0-9\/_-]+/g);
+            const matches = allText.match(/https?:\/\/(open\.qobuz\.com|www\.qobuz\.com)\/[a-zA-Z0-9/_-]+/g);
             if (matches) {
                 urls = Array.from(new Set(matches));
             }

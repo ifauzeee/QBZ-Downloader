@@ -57,6 +57,11 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
 
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+    const setAudioRef = React.useCallback((element: HTMLAudioElement | null) => {
+        audioRef.current = element;
+        setAudioElement(element);
+    }, []);
 
     const [lyrics, setLyrics] = useState<{ time: number, text: string }[] | null>(null);
     const [lyricsRaw, setLyricsRaw] = useState<string>('');
@@ -522,7 +527,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
 
             <div className="audio-player-glass">
                 <audio
-                    ref={audioRef}
+                    ref={setAudioRef}
                     crossOrigin="anonymous"
                     onTimeUpdate={(e) => {
                         setProgress(e.currentTarget.currentTime);
@@ -551,7 +556,7 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                         <img src={track?.cover || ''} alt={track?.title || ''} onError={(e) => e.currentTarget.style.display = 'none'} />
                         <div className="visualizer-overlay">
                             <AudioVisualizer 
-                                audioElement={audioRef.current} 
+                                audioElement={audioElement}
                                 isPlaying={playing} 
                                 color="var(--accent)"
                                 barCount={32}

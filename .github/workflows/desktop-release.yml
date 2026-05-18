@@ -45,12 +45,13 @@ jobs:
       - name: Run backend tests
         run: npm test
 
+      - name: Run frontend lint
+        run: npm run lint
+        working-directory: client
+
       - name: Run frontend tests
         run: npm test
         working-directory: client
-
-      - name: Rebuild native modules for Electron
-        run: npm run desktop:rebuild
 
       - name: Publish to GitHub Releases (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
