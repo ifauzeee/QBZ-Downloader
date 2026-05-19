@@ -64,6 +64,12 @@ const APP_SETTING_KEYS = new Set([
     'UI_ACCENT'
 ]);
 
+const CLEARABLE_SETTING_KEYS = new Set([
+    'DASHBOARD_PASSWORD',
+    'UI_BATCH_STAGING_URLS',
+    'UI_ACTIVE_THEME_ID'
+]);
+
 async function getSettingsPayload() {
     let qobuz_valid = false;
     let username = '';
@@ -204,7 +210,7 @@ router.post('/settings/update', async (req: Request, res: Response) => {
 
             const normalized =
                 typeof value === 'boolean' ? String(value) : String(value).trim();
-            if (normalized === '' && key !== 'DASHBOARD_PASSWORD') return;
+            if (normalized === '' && !CLEARABLE_SETTING_KEYS.has(key)) return;
             updates[key] = normalized;
         };
 

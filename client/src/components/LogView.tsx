@@ -120,7 +120,9 @@ export const LogView: React.FC = () => {
 
     useEffect(() => {
         if (autoScroll && filteredLogs.length > 0) {
-            rowVirtualizer.scrollToIndex(filteredLogs.length - 1, { behavior: 'smooth' });
+            requestAnimationFrame(() => {
+                rowVirtualizer.scrollToOffset(rowVirtualizer.getTotalSize(), { behavior: 'auto' });
+            });
         }
     }, [filteredLogs.length, autoScroll, rowVirtualizer]);
 

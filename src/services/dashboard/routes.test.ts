@@ -364,6 +364,15 @@ describe('Dashboard API Routes', () => {
             expect(res.body.success).toBe(true);
         });
 
+        it('should allow clearing staged batch URLs', async () => {
+            const res = await request(app)
+                .post('/api/settings/update')
+                .send({ settings: { ui_batch_staging_urls: '' } });
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+        });
+
         it('should accept token alias from desktop onboarding', async () => {
             const res = await request(app)
                 .post('/api/settings/update')
