@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.2.1] - 2026-05-19
+
+### Bug Fixes
+
+- **Batch staging cleanup** - Allowed empty `UI_BATCH_STAGING_URLS` updates so cleared batch staging no longer reloads old URLs or returns `400 Bad Request`.
+- **Log auto-scroll stability** - Replaced virtual row index scrolling with bottom-offset scrolling to avoid repeated `Failed to scroll to index` warnings.
+- **Metadata issue accuracy** - Library scans now treat missing title, artist, album, genre, year, unreadable files, or empty metadata as metadata issues, while cover art and lyrics remain informational missing tags.
+- **Metadata repair errors** - Metadata writes now reject on tagging failures instead of reporting a successful auto-fix when the file was not updated.
+- **Missing tag visibility** - The Library metadata issues table now shows a dedicated `Missing` column with the exact tags that need attention.
+
+### Tests
+
+- Added regression coverage for clearing batch staging, metadata issue classification, and metadata write failure propagation.
+
+---
+
 ## [5.2.0] - 2026-05-17
 
 This release summarizes the changes from `v5.1.6` to `v5.2.0`.
