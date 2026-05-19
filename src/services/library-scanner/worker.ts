@@ -51,6 +51,20 @@ function hasLyricsMetadata(metadata: IAudioMetadata): boolean {
     );
 }
 
+export function getMetadataIssueTags(missingTags: string[]): string[] {
+    return missingTags.filter((tag) =>
+        [
+            'Title',
+            'Artist',
+            'Album',
+            'Genre',
+            'Year',
+            'All Metadata',
+            'Unreadable'
+        ].includes(tag)
+    );
+}
+
 parentPort?.on('message', async (filePath: string) => {
     try {
         const stats = await fs.promises.stat(filePath);
@@ -137,19 +151,7 @@ parentPort?.on('message', async (filePath: string) => {
             stream.on('error', () => resolve(''));
         });
 
-        const essentialMissing = missingTags.filter((tag) =>
-            [
-                'Title',
-                'Artist',
-                'Album',
-                'Genre',
-                'Year',
-                'Cover Art',
-                'Lyrics',
-                'All Metadata',
-                'Unreadable'
-            ].includes(tag)
-        );
+        const essentialMissing = getMetadataIssueTags(missingTags);
 
         parentPort?.postMessage({
             filePath,

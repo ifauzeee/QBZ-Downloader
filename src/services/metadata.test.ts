@@ -122,5 +122,13 @@ describe('MetadataService', () => {
             const titleTag = tags.find(t => t[0] === 'TITLE');
             expect(titleTag?.[1]).toBe('T');
         });
+
+        it('should reject when tag writing fails', async () => {
+            vi.spyOn(service, 'writeFlacTags').mockRejectedValueOnce(new Error('write failed'));
+
+            await expect(
+                service.writeMetadata('track.flac', mockMetadata)
+            ).rejects.toThrow('write failed');
+        });
     });
 });

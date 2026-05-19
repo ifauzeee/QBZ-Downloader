@@ -880,11 +880,10 @@ export class MetadataService {
             }
         };
 
-        MetadataService.taggingLock = MetadataService.taggingLock.then(() =>
-            operation().catch(() => {})
-        );
+        const currentOperation = MetadataService.taggingLock.then(operation, operation);
+        MetadataService.taggingLock = currentOperation.catch(() => {});
 
-        return MetadataService.taggingLock;
+        return currentOperation;
     }
 }
 

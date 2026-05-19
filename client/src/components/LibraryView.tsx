@@ -380,17 +380,38 @@ export const LibraryView: React.FC = () => {
     const getStatusLabel = (file: ProcessingFile) => {
         if (file.status !== 'pending') return file.status;
 
-        if (file.missingTags && file.missingTags.length > 0) {
-            return `Missing ${file.missingTags.join(', ')}`;
-        }
+        const missingTags = getMissingTags(file);
+        if (missingTags.length > 0) return `Missing ${missingTags.length} tag${missingTags.length === 1 ? '' : 's'}`;
+
+        return 'Incomplete Tags';
+    };
+
+    const getMissingTags = (file: MissingMetadataFile) => {
+        if (file.missingTags && file.missingTags.length > 0) return file.missingTags;
 
         const missing = [];
         if (!file.artist || file.artist === 'Unknown') missing.push('Artist');
         if (!file.album || file.album === 'Unknown') missing.push('Album');
         if (!file.title) missing.push('Title');
 
-        if (missing.length > 0) return `Missing ${missing.join(', ')}`;
-        return 'Incomplete Tags';
+        return missing;
+    };
+
+    const renderMissingTags = (file: MissingMetadataFile) => {
+        const tags = getMissingTags(file);
+        if (tags.length === 0) {
+            return <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Not reported</span>;
+        }
+
+        return (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {tags.map((tag) => (
+                    <span key={tag} className="badge warning" style={{ fontSize: '11px' }}>
+                        {tag}
+                    </span>
+                ))}
+            </div>
+        );
     };
 
     const formatMatchScore = (score?: number) => {
@@ -664,7 +685,7 @@ export const LibraryView: React.FC = () => {
                         <div className="table-responsive">
                             <table className="data-table">
                                 <thead>
-                                    <tr><th>File</th><th>Current Status</th><th>Result</th></tr>
+                                    <tr><th>File</th><th>Missing</th><th>Current Status</th><th>Result</th></tr>
                                 </thead>
                                 <tbody>
 
@@ -676,6 +697,7 @@ export const LibraryView: React.FC = () => {
                                                     {file.filePath}
                                                 </div>
                                             </td>
+                                            <td>{renderMissingTags(file)}</td>
                                             <td>
                                                 <span className={`badge ${file.status === 'applied' ? 'success' :
                                                     file.status === 'not_found' ? 'error' :
