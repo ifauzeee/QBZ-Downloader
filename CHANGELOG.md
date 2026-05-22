@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.2.2] - Unreleased
+
+### Bug Fixes
+
+- **Indonesian batch import label** - Fixed the mixed-language staging action text and added spacing between the staging and clear actions in the batch import URL header.
+
+---
+
 ## [5.2.1] - 2026-05-19
 
 ### Bug Fixes

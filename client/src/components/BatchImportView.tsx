@@ -607,6 +607,14 @@ export const BatchImportView: React.FC = () => {
                     color: var(--text-secondary);
                     text-align: right;
                 }
+
+                .action-links {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                }
                 
                 .text-btn {
                     background: none;

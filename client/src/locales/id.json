@@ -157,7 +157,7 @@
     "label_zip_desc": "Otomatis membundel semua file ke dalam satu arsip ZIP setelah diunduh",
     "label_url_list": "Daftar URL",
     "label_select_file": "Pilih File",
-    "action_load_staged": "Muat Aşamalı",
+    "action_load_staged": "Muat dari Staging",
     "action_start_import": "Mulai Impor",
     "label_processing": "Memproses...",
     "msg_confirm_clear_staging": "Ini akan menghapus semua URL yang dipentaskan dan input saat ini. Tindakan ini tidak dapat dibatalkan.",
