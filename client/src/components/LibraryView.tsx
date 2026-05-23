@@ -280,11 +280,26 @@ export const LibraryView: React.FC = () => {
     };
 
     const resolveDuplicate = async (id: number) => {
-        const res = await smartFetch(`/api/library/duplicates/${id}/resolve`, { method: 'POST' });
-        if (res && res.ok) {
-            showToast('Duplicate resolved', 'success');
+        try {
+            const res = await smartFetch(`/api/library/duplicates/${id}/resolve`, { method: 'POST' });
+            const data = res ? await res.json().catch(() => ({})) : {};
+
+            if (!res || !res.ok) {
+                showToast(data?.error || 'Failed to resolve duplicate', 'error');
+                return;
+            }
+
+            if (data?.deleted) {
+                showToast(`Deleted duplicate: ${getFilename(data.deletedFile)}`, 'success');
+            } else {
+                showToast(data?.reason || 'Duplicate record resolved; no file was deleted', 'info');
+            }
+
             loadDuplicates();
             loadStatus();
+        } catch (e) {
+            console.error(e);
+            showToast('Failed to resolve duplicate', 'error');
         }
     };
 

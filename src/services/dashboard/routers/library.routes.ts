@@ -83,8 +83,13 @@ router.post('/duplicates/:id/resolve', async (req: Request, res: Response) => {
             return;
         }
 
-        await libraryScannerService.resolveDuplicate(id);
-        res.json({ success: true });
+        const result = await libraryScannerService.resolveDuplicate(id);
+        if (!result.resolved) {
+            res.status(404).json({ success: false, error: result.reason || 'Duplicate not found' });
+            return;
+        }
+
+        res.json({ success: true, ...result });
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });
     }

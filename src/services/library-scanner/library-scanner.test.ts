@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LibraryScannerService } from './index.js';
 import { databaseService } from '../database/index.js';
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 // Mock dependencies
 vi.mock('../database/index.js', () => ({
@@ -10,6 +13,8 @@ vi.mock('../database/index.js', () => ({
         getLibraryFiles: vi.fn().mockReturnValue([]),
         addLibraryFile: vi.fn(),
         addDuplicate: vi.fn(),
+        deleteTrackByPath: vi.fn(),
+        resolveDuplicate: vi.fn(),
         getUpgradeableFiles: vi.fn().mockReturnValue([]),
         getDuplicates: vi.fn().mockReturnValue([]),
         getMissingMetadataFiles: vi.fn().mockReturnValue([]),
@@ -20,6 +25,12 @@ vi.mock('../database/index.js', () => ({
                 run: vi.fn()
             })
         })
+    }
+}));
+
+vi.mock('../history.js', () => ({
+    historyService: {
+        cleanup: vi.fn()
     }
 }));
 
@@ -138,6 +149,61 @@ describe('LibraryScannerService', () => {
 
             expect(count).toBe(0);
             expect(databaseService.addDuplicate).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Duplicate Resolution', () => {
+        it('should delete the lower-size file when resolving a similar duplicate', async () => {
+            const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbz-duplicate-'));
+            const keepPath = path.join(tempDir, 'keep.flac');
+            const deletePath = path.join(tempDir, 'delete.flac');
+            fs.writeFileSync(keepPath, Buffer.alloc(20));
+            fs.writeFileSync(deletePath, Buffer.alloc(10));
+
+            const run = vi.fn();
+            vi.mocked(databaseService.getDb).mockReturnValue({
+                prepare: vi.fn((query: string) => {
+                    if (query.includes('SELECT * FROM duplicates')) {
+                        return {
+                            get: vi.fn().mockReturnValue({
+                                id: 1,
+                                file_path_1: keepPath,
+                                file_path_2: deletePath,
+                                match_type: 'similar'
+                            })
+                        };
+                    }
+
+                    if (query.includes('SELECT * FROM library_files')) {
+                        return {
+                            get: vi.fn((filePath: string) => {
+                                if (filePath === keepPath) {
+                                    return { file_path: keepPath, quality: 6, file_size: 20 };
+                                }
+                                if (filePath === deletePath) {
+                                    return { file_path: deletePath, quality: 6, file_size: 10 };
+                                }
+                                return undefined;
+                            })
+                        };
+                    }
+
+                    return { run };
+                })
+            } as any);
+
+            try {
+                const result = await scanner.resolveDuplicate(1);
+
+                expect(result.deleted).toBe(true);
+                expect(result.deletedFile).toBe(deletePath);
+                expect(fs.existsSync(deletePath)).toBe(false);
+                expect(fs.existsSync(keepPath)).toBe(true);
+                expect(databaseService.deleteTrackByPath).toHaveBeenCalledWith(deletePath);
+                expect(databaseService.resolveDuplicate).toHaveBeenCalledWith(1);
+            } finally {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+            }
         });
     });
 

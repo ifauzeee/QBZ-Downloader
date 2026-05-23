@@ -104,6 +104,16 @@ export interface DuplicateGroup {
     recommendation: string;
 }
 
+export interface ResolveDuplicateResult {
+    id: number;
+    resolved: boolean;
+    deleted: boolean;
+    deletedFile?: string;
+    keptFile?: string;
+    matchType?: string;
+    reason?: string;
+}
+
 export interface ScanResult {
     totalFiles: number;
     scannedFiles: number;
@@ -1122,14 +1132,20 @@ export class LibraryScannerService extends EventEmitter {
         }));
     }
 
-    async resolveDuplicate(id: number): Promise<void> {
+    async resolveDuplicate(id: number): Promise<ResolveDuplicateResult> {
         const db = databaseService.getDb();
-        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as { file_path_1: string; file_path_2: string; match_type?: string } | undefined;
-        if (!duplicate) return;
-        if (duplicate.match_type !== 'exact') {
-            databaseService.resolveDuplicate(id);
-            logger.info(`Dismissed non-exact duplicate candidate #${id} without deleting files`, 'SCANNER');
-            return;
+        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as {
+            file_path_1: string;
+            file_path_2: string;
+            match_type?: string;
+        } | undefined;
+        if (!duplicate) {
+            return {
+                id,
+                resolved: false,
+                deleted: false,
+                reason: 'Duplicate record not found'
+            };
         }
 
         const file1 = db
@@ -1138,30 +1154,68 @@ export class LibraryScannerService extends EventEmitter {
         const file2 = db
             .prepare('SELECT * FROM library_files WHERE file_path = ?')
             .get(duplicate.file_path_2) as { quality?: number; file_path: string; file_size?: number } | undefined;
-        if (!file1 || !file2) {
+
+        const fallbackFile1 = {
+            file_path: duplicate.file_path_1,
+            file_size: fs.existsSync(duplicate.file_path_1) ? fs.statSync(duplicate.file_path_1).size : 0,
+            quality: 0
+        };
+        const fallbackFile2 = {
+            file_path: duplicate.file_path_2,
+            file_size: fs.existsSync(duplicate.file_path_2) ? fs.statSync(duplicate.file_path_2).size : 0,
+            quality: 0
+        };
+        const candidate1 = file1 || fallbackFile1;
+        const candidate2 = file2 || fallbackFile2;
+
+        const file1Exists = fs.existsSync(candidate1.file_path);
+        const file2Exists = fs.existsSync(candidate2.file_path);
+
+        if (!file1Exists && !file2Exists) {
+            db.prepare('DELETE FROM library_files WHERE file_path IN (?, ?)').run(
+                duplicate.file_path_1,
+                duplicate.file_path_2
+            );
             databaseService.resolveDuplicate(id);
-            return;
+            logger.warn(`Duplicate #${id} resolved as stale; neither file exists on disk`, 'SCANNER');
+            return {
+                id,
+                resolved: true,
+                deleted: false,
+                matchType: duplicate.match_type,
+                reason: 'Both duplicate files were already missing'
+            };
         }
+
         let fileToDelete: string;
         let fileToKeep: string;
-        if ((file1.quality || 0) > (file2.quality || 0)) {
-            fileToDelete = file2.file_path;
-            fileToKeep = file1.file_path;
-        } else if ((file2.quality || 0) > (file1.quality || 0)) {
-            fileToDelete = file1.file_path;
-            fileToKeep = file2.file_path;
+        let didDelete = false;
+        if (!file1Exists) {
+            fileToDelete = candidate1.file_path;
+            fileToKeep = candidate2.file_path;
+        } else if (!file2Exists) {
+            fileToDelete = candidate2.file_path;
+            fileToKeep = candidate1.file_path;
+        } else if ((candidate1.quality || 0) > (candidate2.quality || 0)) {
+            fileToDelete = candidate2.file_path;
+            fileToKeep = candidate1.file_path;
+        } else if ((candidate2.quality || 0) > (candidate1.quality || 0)) {
+            fileToDelete = candidate1.file_path;
+            fileToKeep = candidate2.file_path;
         } else {
-            if ((file1.file_size || 0) >= (file2.file_size || 0)) {
-                fileToDelete = file2.file_path;
-                fileToKeep = file1.file_path;
+            if ((candidate1.file_size || 0) >= (candidate2.file_size || 0)) {
+                fileToDelete = candidate2.file_path;
+                fileToKeep = candidate1.file_path;
             } else {
-                fileToDelete = file1.file_path;
-                fileToKeep = file2.file_path;
+                fileToDelete = candidate1.file_path;
+                fileToKeep = candidate2.file_path;
             }
         }
+
         try {
             if (fs.existsSync(fileToDelete)) {
                 fs.unlinkSync(fileToDelete);
+                didDelete = true;
                 databaseService.deleteTrackByPath(fileToDelete);
                 historyService.cleanup();
                 logger.info(
@@ -1174,12 +1228,23 @@ export class LibraryScannerService extends EventEmitter {
                 `Failed to delete duplicate file ${fileToDelete}: ${(err as Error).message}`,
                 'SCANNER'
             );
+            throw err;
         }
+
         db.prepare('DELETE FROM library_files WHERE file_path = ?').run(fileToDelete);
         db.prepare(
             'UPDATE duplicates SET resolved = 1 WHERE file_path_1 = ? OR file_path_2 = ?'
         ).run(fileToDelete, fileToDelete);
         databaseService.resolveDuplicate(id);
+
+        return {
+            id,
+            resolved: true,
+            deleted: didDelete,
+            deletedFile: fileToDelete,
+            keptFile: fileToKeep,
+            matchType: duplicate.match_type
+        };
     }
 
     async deleteFile(filePath: string): Promise<boolean> {
