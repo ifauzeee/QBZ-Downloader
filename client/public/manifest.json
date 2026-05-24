@@ -1,7 +1,7 @@
 {
     "name": "QBZ Downloader",
     "short_name": "QBZ-DL",
-    "version": "5.2.1",
+    "version": "5.2.2",
     "start_url": "/",
     "display": "standalone",
     "theme_color": "#0070f3",
