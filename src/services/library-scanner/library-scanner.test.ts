@@ -10,7 +10,10 @@ import path from 'path';
 vi.mock('../database/index.js', () => ({
     databaseService: {
         clearLibraryScan: vi.fn(),
+        clearDuplicateScan: vi.fn(),
         getLibraryFiles: vi.fn().mockReturnValue([]),
+        getLibraryFileByPath: vi.fn(),
+        deleteLibraryFileByPath: vi.fn(),
         addLibraryFile: vi.fn(),
         addDuplicate: vi.fn(),
         deleteTrackByPath: vi.fn(),
@@ -211,7 +214,7 @@ describe('LibraryScannerService', () => {
         it('should detect a Hi-Res upgrade from a different release with the same title and artist', async () => {
             const run = vi.fn();
             vi.mocked(databaseService.getDb).mockReturnValue({
-                prepare: vi.fn().mockReturnValue({ run })
+                prepare: vi.fn().mockReturnValue({ run, get: vi.fn().mockReturnValue({ count: 1 }) })
             } as any);
             vi.mocked(databaseService.getLibraryFiles).mockReturnValue([
                 {

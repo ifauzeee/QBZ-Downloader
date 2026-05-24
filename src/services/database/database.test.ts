@@ -40,7 +40,7 @@ describe('DatabaseService', () => {
         it('should store and retrieve database version', () => {
             const db = dbService.getDb();
             const version = db.prepare("SELECT value FROM meta WHERE key = 'db_version'").get();
-            expect(version.value).toBe('10');
+            expect(version.value).toBe('11');
         });
     });
 
@@ -103,11 +103,13 @@ describe('DatabaseService', () => {
             dbService.addLibraryFile({
                 file_path: '/lib/track.flac',
                 title: 'Lib Track',
-                quality: 27
+                quality: 27,
+                file_mtime_ms: 12345
             });
             const files = dbService.getLibraryFiles();
             expect(files.length).toBe(1);
             expect(files[0].title).toBe('Lib Track');
+            expect(files[0].file_mtime_ms).toBe(12345);
         });
 
         it('should calculate library health score', () => {

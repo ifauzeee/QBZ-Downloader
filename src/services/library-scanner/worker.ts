@@ -194,6 +194,7 @@ parentPort?.on('message', async (filePath: string) => {
             duration: duration || 0,
             quality,
             fileSize: stats.size,
+            fileMtimeMs: stats.mtimeMs,
             format: ext.slice(1).toUpperCase(),
             bitDepth,
             sampleRate,

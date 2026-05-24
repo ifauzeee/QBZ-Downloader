@@ -4,7 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 const DEFAULT_DB_PATH = path.resolve(process.cwd(), 'data', 'qbz.db');
 
 export interface DbTrack {
@@ -258,6 +258,7 @@ export class DatabaseService {
                 missing_metadata INTEGER DEFAULT 0,
                 missing_tags TEXT,
                 checksum TEXT,
+                file_mtime_ms REAL DEFAULT 0,
                 verification_status TEXT DEFAULT 'pending'
             )
         `);
@@ -478,6 +479,26 @@ export class DatabaseService {
                     }
                 } catch (error: unknown) {
                     logger.warn(`Migration v10 partial: ${(error as Error).message}`, 'DB');
+                }
+            }
+
+            if (currentVersion < 11) {
+                try {
+                    const tableInfo = this.db!.prepare(
+                        'PRAGMA table_info(library_files)'
+                    ).all() as { name: string }[];
+                    const hasFileMtimeMs = tableInfo.some(
+                        (col) => col.name === 'file_mtime_ms'
+                    );
+                    if (!hasFileMtimeMs) {
+                        this.db!.exec('ALTER TABLE library_files ADD COLUMN file_mtime_ms REAL DEFAULT 0');
+                        logger.info(
+                            'Migration v11: Added file_mtime_ms column to library_files',
+                            'DB'
+                        );
+                    }
+                } catch (error: unknown) {
+                    logger.warn(`Migration v11 partial: ${(error as Error).message}`, 'DB');
                 }
             }
 
@@ -801,14 +822,15 @@ export class DatabaseService {
         missing_metadata?: boolean;
         missing_tags?: string[];
         checksum?: string;
+        file_mtime_ms?: number;
         verification_status?: string;
     }): void {
         const db = this.getDb();
         db.prepare(
             `
             INSERT OR REPLACE INTO library_files 
-            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, upgrade_candidates, scanned_at, audio_fingerprint, missing_metadata, missing_tags, checksum, verification_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_path, track_id, title, artist, album_artist, album, duration, quality, available_quality, file_size, format, bit_depth, sample_rate, needs_upgrade, upgrade_candidates, scanned_at, audio_fingerprint, missing_metadata, missing_tags, checksum, file_mtime_ms, verification_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
             file.file_path,
@@ -831,6 +853,7 @@ export class DatabaseService {
             file.missing_metadata ? 1 : 0,
             file.missing_tags ? JSON.stringify(file.missing_tags) : null,
             file.checksum || null,
+            file.file_mtime_ms || 0,
             file.verification_status || 'verified'
         );
     }
@@ -840,6 +863,23 @@ export class DatabaseService {
         return db
             .prepare('SELECT * FROM library_files ORDER BY scanned_at DESC LIMIT ? OFFSET ?')
             .all(limit, offset) as Record<string, unknown>[];
+    }
+
+    getLibraryFileByPath(filePath: string): Record<string, unknown> | undefined {
+        const db = this.getDb();
+        return db
+            .prepare('SELECT * FROM library_files WHERE file_path = ?')
+            .get(filePath) as Record<string, unknown> | undefined;
+    }
+
+    deleteLibraryFileByPath(filePath: string): void {
+        const db = this.getDb();
+        db.prepare('DELETE FROM library_files WHERE file_path = ?').run(filePath);
+    }
+
+    clearDuplicateScan(): void {
+        const db = this.getDb();
+        db.prepare('DELETE FROM duplicates').run();
     }
 
     getUpgradeableFiles(): Record<string, unknown>[] {

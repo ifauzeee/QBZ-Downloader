@@ -88,10 +88,37 @@ export interface WorkerResult {
     needsUpgrade?: boolean;
     audioFingerprint?: string;
     checksum?: string;
+    fileMtimeMs?: number;
     missingInternalTags?: boolean;
     missingTags?: string[];
     error?: string;
 }
+
+type LibraryScanFile = {
+    filePath: string;
+    fileSize: number;
+    fileMtimeMs: number;
+};
+
+type CachedLibraryFile = {
+    file_path: string;
+    title?: string | null;
+    artist?: string | null;
+    album_artist?: string | null;
+    album?: string | null;
+    duration?: number | null;
+    quality?: number | null;
+    file_size?: number | null;
+    format?: string | null;
+    bit_depth?: number | null;
+    sample_rate?: number | null;
+    needs_upgrade?: number | null;
+    missing_metadata?: number | null;
+    missing_tags?: string | null;
+    audio_fingerprint?: string | null;
+    checksum?: string | null;
+    file_mtime_ms?: number | null;
+};
 
 export interface DuplicateGroup {
     id: number;
@@ -125,6 +152,7 @@ export interface ScanResult {
     scanDuration: number;
     byFormat: Record<string, number>;
     byQuality: Record<number, number>;
+    cachedFiles?: number;
 }
 
 export interface ScanProgress {
@@ -203,15 +231,30 @@ export class LibraryScannerService extends EventEmitter {
             totalSize: 0,
             scanDuration: 0,
             byFormat: {},
-            byQuality: {}
+            byQuality: {},
+            cachedFiles: 0
         };
 
         try {
-            databaseService.clearLibraryScan();
-
             await this.checkFpcalc();
             const allFiles = await this.collectAudioFiles(scanDir);
             result.totalFiles = allFiles.length;
+
+            const currentPaths = new Set(allFiles.map((file) => file.filePath));
+            const cachedRows = databaseService.getLibraryFiles(1000000, 0) as unknown as CachedLibraryFile[];
+            const cacheByPath = new Map<string, CachedLibraryFile>();
+            let staleFiles = 0;
+
+            databaseService.clearDuplicateScan();
+
+            for (const cached of cachedRows) {
+                if (currentPaths.has(cached.file_path)) {
+                    cacheByPath.set(cached.file_path, cached);
+                } else {
+                    databaseService.deleteLibraryFileByPath(cached.file_path);
+                    staleFiles++;
+                }
+            }
 
             if (result.totalFiles === 0) {
                 this.isScanning = false;
@@ -226,15 +269,82 @@ export class LibraryScannerService extends EventEmitter {
                 'SCANNER'
             );
 
-            const numWorkers = Math.min(allFiles.length, os.cpus().length || 4);
             const __dirname = path.dirname(fileURLToPath(import.meta.url));
             const workerPathJs = path.join(__dirname, 'worker.js');
             const workerPathTs = path.join(__dirname, 'worker.ts');
 
             const resolvedWorkerPath = fs.existsSync(workerPathJs) ? workerPathJs : workerPathTs;
 
-            const filesToProcess = [...allFiles];
+            const filesToProcess: LibraryScanFile[] = [];
             let processedCount = 0;
+
+            const updateResultStats = (fileInfo: {
+                fileSize?: number | null;
+                format?: string | null;
+                quality?: number | null;
+                needsUpgrade?: boolean | number | null;
+                missingInternalTags?: boolean | number | null;
+            }) => {
+                result.scannedFiles++;
+                result.totalSize += fileInfo.fileSize || 0;
+                if (fileInfo.format) {
+                    result.byFormat[fileInfo.format] = (result.byFormat[fileInfo.format] || 0) + 1;
+                }
+                if (fileInfo.quality !== undefined && fileInfo.quality !== null) {
+                    result.byQuality[fileInfo.quality] =
+                        (result.byQuality[fileInfo.quality] || 0) + 1;
+                }
+                if (fileInfo.needsUpgrade) result.upgradeableFiles++;
+                if (fileInfo.missingInternalTags) result.missingMetadata++;
+            };
+
+            const updateProgress = (filePath: string) => {
+                processedCount++;
+                const progress: ScanProgress = {
+                    current: processedCount,
+                    total: result.totalFiles,
+                    percentage: Math.round((processedCount / result.totalFiles) * 100),
+                    currentFile: path.basename(filePath || ''),
+                    status: 'scanning'
+                };
+                this.currentProgress = progress;
+                this.emit('scan:progress', progress);
+            };
+
+            const processCachedResult = (cached: CachedLibraryFile) => {
+                result.cachedFiles = (result.cachedFiles || 0) + 1;
+                updateResultStats({
+                    fileSize: cached.file_size || 0,
+                    format: cached.format || '',
+                    quality: cached.quality || 0,
+                    needsUpgrade: Boolean(cached.needs_upgrade),
+                    missingInternalTags: Boolean(cached.missing_metadata)
+                });
+                updateProgress(cached.file_path);
+            };
+
+            for (const file of allFiles) {
+                const cached = cacheByPath.get(file.filePath);
+                const cachedSize = Number(cached?.file_size || 0);
+                const cachedMtime = Number(cached?.file_mtime_ms || 0);
+                const unchanged =
+                    !options.deep &&
+                    cached &&
+                    cachedSize === file.fileSize &&
+                    cachedMtime === file.fileMtimeMs;
+
+                if (unchanged) {
+                    processCachedResult(cached);
+                } else {
+                    filesToProcess.push(file);
+                }
+            }
+
+            logger.info(
+                `Library scan cache: ${result.cachedFiles || 0} unchanged, ${filesToProcess.length} new/changed, ${staleFiles} removed`,
+                'SCANNER'
+            );
+            const changedFilePathsForUpgrade = new Set(filesToProcess.map((file) => file.filePath));
 
             const processResult = (fileInfo: WorkerResult) => {
                 if (fileInfo.error) {
@@ -244,18 +354,7 @@ export class LibraryScannerService extends EventEmitter {
                         'SCANNER'
                     );
                 } else if (fileInfo) {
-                    result.scannedFiles++;
-                    result.totalSize += fileInfo.fileSize || 0;
-                    if (fileInfo.format) {
-                        result.byFormat[fileInfo.format] = (result.byFormat[fileInfo.format] || 0) + 1;
-                    }
-                    if (fileInfo.quality !== undefined) {
-                        result.byQuality[fileInfo.quality] =
-                            (result.byQuality[fileInfo.quality] || 0) + 1;
-                    }
-
-                    if (fileInfo.needsUpgrade) result.upgradeableFiles++;
-                    if (fileInfo.missingInternalTags) result.missingMetadata++;
+                    updateResultStats(fileInfo);
 
                     databaseService.addLibraryFile({
                         file_path: fileInfo.filePath,
@@ -274,23 +373,21 @@ export class LibraryScannerService extends EventEmitter {
                         missing_metadata: fileInfo.missingInternalTags,
                         missing_tags: fileInfo.missingTags,
                         checksum: fileInfo.checksum,
+                        file_mtime_ms: fileInfo.fileMtimeMs,
                         verification_status: fileInfo.checksum ? 'verified' : 'pending'
                     });
                 }
 
-                processedCount++;
-                const progress: ScanProgress = {
-                    current: processedCount,
-                    total: result.totalFiles,
-                    percentage: Math.round((processedCount / result.totalFiles) * 100),
-                    currentFile: path.basename(fileInfo.filePath || ''),
-                    status: 'scanning'
-                };
-                this.currentProgress = progress;
-                this.emit('scan:progress', progress);
+                updateProgress(fileInfo.filePath);
             };
 
             await new Promise<void>((resolve) => {
+                if (filesToProcess.length === 0) {
+                    resolve();
+                    return;
+                }
+
+                const numWorkers = Math.min(filesToProcess.length, os.cpus().length || 4);
                 let workersFinished = 0;
 
                 const spawnWorker = () => {
@@ -309,7 +406,7 @@ export class LibraryScannerService extends EventEmitter {
                     worker.on('message', (msg) => {
                         processResult(msg);
                         if (filesToProcess.length > 0 && !this.scanAborted) {
-                            worker.postMessage(filesToProcess.pop());
+                            worker.postMessage(filesToProcess.pop()!.filePath);
                         } else {
                             worker.terminate();
                             workersFinished++;
@@ -325,7 +422,7 @@ export class LibraryScannerService extends EventEmitter {
                         if (workersFinished >= numWorkers) resolve();
                     });
 
-                    worker.postMessage(filesToProcess.pop());
+                    worker.postMessage(filesToProcess.pop()!.filePath);
                 };
 
                 for (let i = 0; i < numWorkers; i++) {
@@ -361,7 +458,10 @@ export class LibraryScannerService extends EventEmitter {
                 this.currentProgress = progress;
                 this.emit('scan:progress', progress);
 
-                const upgradeCount = await this.checkQobuzUpgrades();
+                const changedFilePaths = options.deep
+                    ? undefined
+                    : changedFilePathsForUpgrade;
+                const upgradeCount = await this.checkQobuzUpgrades(changedFilePaths);
                 result.upgradeableFiles = upgradeCount;
                 logger.info(`Found ${upgradeCount} tracks with available upgrades`, 'SCANNER');
             }
@@ -392,8 +492,8 @@ export class LibraryScannerService extends EventEmitter {
         }
     }
 
-    private async collectAudioFiles(directory: string): Promise<string[]> {
-        const files: string[] = [];
+    private async collectAudioFiles(directory: string): Promise<LibraryScanFile[]> {
+        const files: LibraryScanFile[] = [];
         const scan = async (dir: string): Promise<void> => {
             if (!fs.existsSync(dir)) return;
             try {
@@ -405,7 +505,12 @@ export class LibraryScannerService extends EventEmitter {
                     } else if (entry.isFile()) {
                         const ext = path.extname(entry.name).toLowerCase();
                         if (this.supportedFormats.includes(ext)) {
-                            files.push(fullPath);
+                            const stats = fs.statSync(fullPath);
+                            files.push({
+                                filePath: fullPath,
+                                fileSize: stats.size,
+                                fileMtimeMs: stats.mtimeMs
+                            });
                         }
                     }
                 }
@@ -417,9 +522,9 @@ export class LibraryScannerService extends EventEmitter {
         return files;
     }
 
-    private async checkQobuzUpgrades(): Promise<number> {
+    private async checkQobuzUpgrades(filePathsToCheck?: Set<string>): Promise<number> {
         const db = databaseService.getDb();
-        const files = databaseService.getLibraryFiles(10000, 0) as unknown as {
+        const allFiles = databaseService.getLibraryFiles(10000, 0) as unknown as {
             file_path: string;
             track_id?: string | null;
             available_quality?: number | null;
@@ -429,8 +534,15 @@ export class LibraryScannerService extends EventEmitter {
             title?: string | null;
             album?: string | null;
         }[];
-        let upgradeCount = 0;
+        const files = filePathsToCheck
+            ? allFiles.filter((file) => filePathsToCheck.has(file.file_path))
+            : allFiles;
         let processed = 0;
+
+        if (files.length === 0) {
+            const row = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE needs_upgrade = 1').get() as { count: number };
+            return row.count;
+        }
 
         for (const file of files) {
             if (this.scanAborted) break;
@@ -502,7 +614,6 @@ export class LibraryScannerService extends EventEmitter {
                         JSON.stringify(uniqueCandidates),
                         file.file_path
                     );
-                    upgradeCount++;
                     logger.debug(
                         `Upgrade candidates available: ${file.artist} - ${file.title} (${uniqueCandidates.length} option(s), best ${this.getQualityLabel(bestCandidate.quality)})`,
                         'SCANNER'
@@ -532,7 +643,9 @@ export class LibraryScannerService extends EventEmitter {
                 processed++;
             }
         }
-        return upgradeCount;
+
+        const row = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE needs_upgrade = 1').get() as { count: number };
+        return row.count;
     }
 
     private findAllMatches(
