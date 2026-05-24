@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - **Indonesian batch import label** - Fixed the mixed-language staging action text and added spacing between the staging and clear actions in the batch import URL header.
 - **Duplicate resolver deletion** - Resolving library duplicates now deletes the selected duplicate file for similar matches, reports when no file was deleted, and avoids showing a false success toast when deletion fails.
+- **Missing tag detection** - Library scans now surface missing cover art and require timestamped/synced lyrics instead of accepting plain lyric text as complete.
 
 ---
 

@@ -22,31 +22,62 @@ function getAudioFingerprint(filePath: string): string | undefined {
     }
 }
 
-function hasLyricsMetadata(metadata: IAudioMetadata): boolean {
+const LRC_TIMESTAMP_PATTERN = /\[(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.:]\d{1,3})?\]/;
+
+function tagValueToText(value: unknown): string {
+    if (Array.isArray(value)) return value.map(tagValueToText).join('\n');
+    if (typeof value === 'object' && value !== null) {
+        const maybeText = value as { text?: unknown; lyrics?: unknown; value?: unknown };
+        return tagValueToText(maybeText.text ?? maybeText.lyrics ?? maybeText.value ?? '');
+    }
+    return String(value || '');
+}
+
+export function hasCoverArtMetadata(metadata: IAudioMetadata): boolean {
+    if (metadata.common.picture?.some((picture) => picture.data?.length > 0)) return true;
+
+    const coverTagNames = new Set(['apic', 'picture', 'metadata_block_picture', 'covr']);
+
+    return Object.values(metadata.native || {}).some((tags) =>
+        tags.some((tag) => {
+            const id = tag.id.toLowerCase();
+            if (!coverTagNames.has(id)) return false;
+            if (Buffer.isBuffer(tag.value)) return tag.value.length > 0;
+            if (Array.isArray(tag.value)) return tag.value.length > 0;
+            return String(tag.value || '').trim().length > 0;
+        })
+    );
+}
+
+export function hasSyncedLyricsMetadata(metadata: IAudioMetadata): boolean {
     if (
         metadata.common.lyrics?.some((line: unknown) =>
-            String(typeof line === 'string' ? line : (line as { text?: string })?.text || '').trim()
+            LRC_TIMESTAMP_PATTERN.test(tagValueToText(line))
         )
     ) {
         return true;
     }
 
-    const lyricTagNames = new Set([
+    const synchronizedNativeTagNames = new Set(['sylt']);
+
+    const timestampedLyricTagNames = new Set([
         'lyrics',
         'syncedlyrics',
-        'unsyncedlyrics',
         'synchronisedlyrics',
+        'unsyncedlyrics',
         'unsynchronisedlyrics',
-        'uslt',
-        'sylt'
+        'uslt'
     ]);
 
     return Object.values(metadata.native || {}).some((tags) =>
         tags.some((tag) => {
             const id = tag.id.toLowerCase();
-            if (!lyricTagNames.has(id)) return false;
-            const value = Array.isArray(tag.value) ? tag.value.join('\n') : tag.value;
-            return String(value || '').trim().length > 0;
+            const text = tagValueToText(tag.value);
+
+            if (synchronizedNativeTagNames.has(id)) return text.trim().length > 0;
+            if (!timestampedLyricTagNames.has(id)) return false;
+
+            return LRC_TIMESTAMP_PATTERN.test(text);
         })
     );
 }
@@ -59,6 +90,8 @@ export function getMetadataIssueTags(missingTags: string[]): string[] {
             'Album',
             'Genre',
             'Year',
+            'Cover Art',
+            'Synced Lyrics',
             'All Metadata',
             'Unreadable'
         ].includes(tag)
@@ -116,9 +149,8 @@ parentPort?.on('message', async (filePath: string) => {
                 if (metadata.common.album) album = metadata.common.album;
                 else missingTags.push('Album');
 
-                if (!metadata.common.picture || metadata.common.picture.length === 0)
-                    missingTags.push('Cover Art');
-                if (!hasLyricsMetadata(metadata)) missingTags.push('Lyrics');
+                if (!hasCoverArtMetadata(metadata)) missingTags.push('Cover Art');
+                if (!hasSyncedLyricsMetadata(metadata)) missingTags.push('Synced Lyrics');
                 if (!metadata.common.genre || metadata.common.genre.length === 0)
                     missingTags.push('Genre');
                 if (!metadata.common.year && !metadata.common.date) missingTags.push('Year');
