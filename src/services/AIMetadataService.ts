@@ -1,7 +1,72 @@
 import axios from 'axios';
+import { z } from 'zod';
 import { CONFIG } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { Metadata } from './metadata.js';
+
+const MAX_METADATA_FIELD_LENGTH = 300;
+const MIN_REASONABLE_YEAR = 1000;
+const MAX_REASONABLE_YEAR = new Date().getFullYear() + 1;
+
+const aiMetadataTextField = z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_METADATA_FIELD_LENGTH)
+    .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), {
+        message: 'must not contain control characters'
+    });
+
+const aiMetadataYearField = z
+    .union([z.number().int(), z.string().trim().regex(/^\d{4}$/)])
+    .refine(
+        (value) => {
+            const year = typeof value === 'number' ? value : Number(value);
+            return year >= MIN_REASONABLE_YEAR && year <= MAX_REASONABLE_YEAR;
+        },
+        {
+            message: `must be between ${MIN_REASONABLE_YEAR} and ${MAX_REASONABLE_YEAR}`
+        }
+    );
+
+const aiMetadataSchema = z
+    .object({
+        title: aiMetadataTextField.optional(),
+        artist: aiMetadataTextField.optional(),
+        album: aiMetadataTextField.optional(),
+        year: aiMetadataYearField.optional(),
+        genre: aiMetadataTextField.optional(),
+        albumArtist: aiMetadataTextField.optional(),
+        composer: aiMetadataTextField.optional()
+    })
+    .strict()
+    .refine((value) => Object.values(value).some((field) => field !== undefined), {
+        message: 'must include at least one metadata field'
+    });
+
+const geminiResponseSchema = z.object({
+    candidates: z
+        .array(
+            z.object({
+                content: z.object({
+                    parts: z.array(z.object({ text: z.string() }).passthrough()).min(1)
+                }).passthrough()
+            }).passthrough()
+        )
+        .min(1)
+});
+
+const openAIResponseSchema = z.object({
+    choices: z
+        .array(
+            z.object({
+                message: z.object({
+                    content: z.string()
+                }).passthrough()
+            }).passthrough()
+        )
+        .min(1)
+});
 
 export class AIMetadataService {
     private sanitize(text: string | number | undefined): string {
@@ -13,6 +78,31 @@ export class AIMetadataService {
             .replace(/[\\`$]/g, '') // Remove backslashes, backticks, and dollar signs
             .substring(0, 200) // Limit to 200 characters
             .trim();
+    }
+
+    private extractJsonObject(text: string): unknown {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('AI did not return valid JSON');
+
+        try {
+            return JSON.parse(jsonMatch[0]);
+        } catch {
+            throw new Error('AI returned malformed JSON');
+        }
+    }
+
+    private validateMetadataResponse(raw: unknown): Partial<Metadata> {
+        const parsed = aiMetadataSchema.safeParse(raw);
+        if (!parsed.success) {
+            const details = parsed.error.issues
+                .map((issue) => `${issue.path.join('.') || 'response'}: ${issue.message}`)
+                .join('; ');
+            throw new Error(`AI metadata schema validation failed: ${details}`);
+        }
+
+        return Object.fromEntries(
+            Object.entries(parsed.data).filter(([, value]) => value !== undefined)
+        ) as Partial<Metadata>;
     }
 
     async repairMetadata(currentMetadata: Partial<Metadata>): Promise<Partial<Metadata> | null> {
@@ -74,13 +164,13 @@ export class AIMetadataService {
             }
         });
 
-        const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) throw new Error('Empty response from AI');
+        const parsedResponse = geminiResponseSchema.safeParse(response.data);
+        if (!parsedResponse.success) throw new Error('Invalid Gemini response schema');
 
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('AI did not return valid JSON');
+        const text = parsedResponse.data.candidates[0].content.parts[0].text;
+        if (!text.trim()) throw new Error('Empty response from AI');
 
-        return JSON.parse(jsonMatch[0]);
+        return this.validateMetadataResponse(this.extractJsonObject(text));
     }
 
     private async repairWithOpenAI(metadata: Partial<Metadata>, apiKey: string, model: string): Promise<Partial<Metadata>> {
@@ -107,10 +197,14 @@ export class AIMetadataService {
             headers: { 'Authorization': `Bearer ${apiKey}` }
         });
 
-        const content = response.data?.choices?.[0]?.message?.content;
-        return JSON.parse(content);
+        const parsedResponse = openAIResponseSchema.safeParse(response.data);
+        if (!parsedResponse.success) throw new Error('Invalid OpenAI response schema');
+
+        const content = parsedResponse.data.choices[0].message.content;
+        if (!content.trim()) throw new Error('Empty response from AI');
+
+        return this.validateMetadataResponse(this.extractJsonObject(content));
     }
 }
 
 export const aiMetadataService = new AIMetadataService();
-

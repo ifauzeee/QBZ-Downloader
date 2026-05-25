@@ -144,7 +144,8 @@
     "music-metadata": "^11.12.3",
     "node-id3": "^0.2.9",
     "p-limit": "^7.3.0",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/archiver": "^7.0.0",

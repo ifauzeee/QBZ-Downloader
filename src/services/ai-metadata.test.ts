@@ -106,6 +106,55 @@ describe('AIMetadataService', () => {
             expect(result).toEqual({ title: 'OpenAI Fixed', year: '2023' });
         });
 
+        it('should reject AI metadata with unknown fields', async () => {
+            vi.mocked(settingsService.get).mockImplementation((key) => {
+                if (key === 'AI_REPAIR_ENABLED') return 'true';
+                if (key === 'AI_PROVIDER') return 'openai';
+                if (key === 'AI_API_KEY') return 'key-123';
+                if (key === 'AI_MODEL') return 'gpt-4';
+                return '';
+            });
+
+            vi.mocked(axios.post).mockResolvedValue({
+                data: {
+                    choices: [
+                        {
+                            message: {
+                                content:
+                                    '{"title": "OpenAI Fixed", "qobuzTrackId": "wrong-id"}'
+                            }
+                        }
+                    ]
+                }
+            });
+
+            const result = await service.repairMetadata({ title: 'Test' });
+            expect(result).toBeNull();
+            expect(logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('AI metadata schema validation failed'),
+                'AI'
+            );
+        });
+
+        it('should reject invalid AI response envelopes', async () => {
+            vi.mocked(settingsService.get).mockImplementation((key) => {
+                if (key === 'AI_REPAIR_ENABLED') return 'true';
+                if (key === 'AI_PROVIDER') return 'gemini';
+                if (key === 'AI_API_KEY') return 'key-123';
+                if (key === 'AI_MODEL') return 'gemini-pro';
+                return '';
+            });
+
+            vi.mocked(axios.post).mockResolvedValue({ data: { candidates: [] } });
+
+            const result = await service.repairMetadata({ title: 'Test' });
+            expect(result).toBeNull();
+            expect(logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Invalid Gemini response schema'),
+                'AI'
+            );
+        });
+
         it('should redact API keys in error messages', async () => {
             vi.mocked(settingsService.get).mockImplementation((key) => {
                 if (key === 'AI_REPAIR_ENABLED') return 'true';
