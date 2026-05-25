@@ -1,23 +1,59 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { exec } from 'node:child_process';
 import { QualityScannerService } from './QualityScannerService.js';
-import { exec } from 'child_process';
+import { parseMeanVolume, scanQualityFile } from './QualityScannerWorker.js';
 import { checkBinaryAvailability } from '../utils/binaries.js';
 
 type ExecMockCallback = (err: Error | null, result: { stderr: string }) => void;
 
-// Mock dependencies
-vi.mock('child_process', () => ({
+const { workerState } = vi.hoisted(() => ({
+    workerState: {
+        report: {
+            isTrueLossless: true,
+            confidence: 100,
+            details: 'worker result'
+        },
+        options: undefined as { workerData?: { filePath?: string } } | undefined
+    }
+}));
+
+vi.mock('node:worker_threads', () => {
+    class MockWorker {
+        private handlers = new Map<string, (value: unknown) => void>();
+
+        constructor(_url: URL, options?: { workerData?: { filePath?: string } }) {
+            workerState.options = options;
+            setTimeout(() => {
+                this.handlers.get('message')?.(workerState.report);
+                this.handlers.get('exit')?.(0);
+            }, 0);
+        }
+
+        once(event: string, callback: (value: unknown) => void): this {
+            this.handlers.set(event, callback);
+            return this;
+        }
+    }
+
+    return {
+        Worker: MockWorker,
+        parentPort: null,
+        workerData: {}
+    };
+});
+
+vi.mock('node:child_process', () => ({
     exec: vi.fn((cmd: string, cb?: ExecMockCallback) => {
         if (cb) cb(null, { stderr: 'mean_volume: -50.0 dB' });
         return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
     })
 }));
 
-vi.mock('fs', () => ({
-    existsSync: vi.fn().mockReturnValue(true),
+vi.mock('node:fs', () => ({
     default: {
         existsSync: vi.fn().mockReturnValue(true)
-    }
+    },
+    existsSync: vi.fn().mockReturnValue(true)
 }));
 
 vi.mock('../utils/logger.js', () => ({
@@ -36,31 +72,37 @@ vi.mock('../utils/binaries.js', () => ({
 }));
 
 describe('QualityScannerService', () => {
-    let service: QualityScannerService;
-
     beforeEach(() => {
         vi.clearAllMocks();
-        service = new QualityScannerService();
-        // Reset static flags
-        const TargetService = QualityScannerService as unknown as { ffmpegAvailable: boolean | null; ffmpegPath: string | null };
-        TargetService.ffmpegAvailable = null;
-        TargetService.ffmpegPath = null;
+        workerState.report = {
+            isTrueLossless: true,
+            confidence: 100,
+            details: 'worker result'
+        };
+        workerState.options = undefined;
+    });
+
+    it('should scan files in a worker thread', async () => {
+        const service = new QualityScannerService();
+
+        const report = await service.scanFile('test.flac');
+
+        expect(report).toEqual(workerState.report);
+        expect(workerState.options?.workerData?.filePath).toBe('test.flac');
     });
 
     it('should identify true lossless files', async () => {
-        // Mock ffmpeg output showing high energy above thresholds
         vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
             if (cb) cb(null, { stderr: 'mean_volume: -30.0 dB' });
             return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
         }) as unknown as typeof exec);
 
-        const report = await service.scanFile('test.flac');
+        const report = await scanQualityFile('test.flac');
         expect(report.isTrueLossless).toBe(true);
         expect(report.confidence).toBe(100);
     });
 
     it('should detect fake lossless (16kHz cutoff)', async () => {
-        // Mock ffmpeg output showing very low energy above 16kHz
         vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
             if (cb) {
                 if (cmd.includes('f=16000')) {
@@ -72,13 +114,12 @@ describe('QualityScannerService', () => {
             return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
         }) as unknown as typeof exec);
 
-        const report = await service.scanFile('fake.flac');
+        const report = await scanQualityFile('fake.flac');
         expect(report.isTrueLossless).toBe(false);
         expect(report.cutoffFrequency).toBe(16000);
     });
 
     it('should detect likely upsampled files (20kHz cutoff)', async () => {
-        // Mock ffmpeg output: 16k is fine (-50), 20k is low (-90)
         vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
             if (cb) {
                 if (cmd.includes('f=16000')) {
@@ -90,15 +131,15 @@ describe('QualityScannerService', () => {
             return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
         }) as unknown as typeof exec);
 
-        const report = await service.scanFile('upsampled.flac');
+        const report = await scanQualityFile('upsampled.flac');
         expect(report.isTrueLossless).toBe(false);
         expect(report.cutoffFrequency).toBe(20000);
     });
 
     it('should handle missing FFmpeg gracefully', async () => {
         vi.mocked(checkBinaryAvailability).mockResolvedValueOnce({ available: false, path: '' });
-        
-        const report = await service.scanFile('test.flac');
+
+        const report = await scanQualityFile('test.flac');
         expect(report.confidence).toBe(0);
         expect(report.details).toContain('FFmpeg not installed');
     });
@@ -106,13 +147,11 @@ describe('QualityScannerService', () => {
     describe('parseMeanVolume', () => {
         it('should correctly parse volume from ffmpeg output', () => {
             const output = '... [volumedetect] mean_volume: -45.2 dB ...';
-            const target = service as unknown as { parseMeanVolume: (out: string) => number };
-            expect(target.parseMeanVolume(output)).toBe(-45.2);
+            expect(parseMeanVolume(output)).toBe(-45.2);
         });
 
         it('should return -100 if no volume found', () => {
-            const target = service as unknown as { parseMeanVolume: (out: string) => number };
-            expect(target.parseMeanVolume('garbage')).toBe(-100);
+            expect(parseMeanVolume('garbage')).toBe(-100);
         });
     });
 });
