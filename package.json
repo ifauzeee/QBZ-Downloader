@@ -29,9 +29,12 @@
     "desktop:rebuild": "node scripts/rebuild-electron-native.cjs",
     "desktop:start": "npm run build:full && npm run desktop:rebuild && electron electron/main.cjs",
     "desktop:pack": "npm run build:full && npm run desktop:rebuild && electron-builder --dir",
-    "desktop:dist": "npm run build:full && npm run desktop:rebuild && electron-builder --win nsis",
+    "desktop:dist": "npm run desktop:dist:win",
+    "desktop:dist:win": "npm run build:full && npm run desktop:rebuild && electron-builder --win nsis",
     "desktop:dist:portable": "npm run build:full && npm run desktop:rebuild && electron-builder --win portable",
-    "desktop:dist:all": "npm run build:full && npm run desktop:rebuild && electron-builder --win nsis portable",
+    "desktop:dist:mac": "npm run build:full && npm run desktop:rebuild && electron-builder --mac dmg zip",
+    "desktop:dist:linux": "npm run build:full && npm run desktop:rebuild && electron-builder --linux AppImage deb tar.gz",
+    "desktop:dist:all": "npm run build:full && npm run desktop:rebuild && electron-builder --win nsis portable --mac dmg zip --linux AppImage deb tar.gz",
     "prepare": "husky"
   },
   "keywords": [
@@ -103,6 +106,52 @@
       ],
       "icon": "assets/desktop/icon.ico",
       "artifactName": "QBZ-Downloader-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.music",
+      "icon": "assets/desktop/icon.png",
+      "artifactName": "QBZ-Downloader-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Audio",
+      "icon": "assets/desktop/icon.png",
+      "artifactName": "QBZ-Downloader-${version}-${arch}.${ext}"
     },
     "portable": {
       "artifactName": "QBZ-Downloader-Portable-${version}.${ext}"

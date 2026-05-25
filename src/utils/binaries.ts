@@ -33,10 +33,16 @@ export function resolveBinaryPath(binaryName: string): string {
     const appRoot = isDev 
         ? path.join(__dirname, '..', '..') 
         : (isDesktop ? (process as unknown as { resourcesPath: string }).resourcesPath : process.cwd());
-    const localBinPath = path.join(appRoot, 'bin', nameWithExt);
+    const localBinCandidates = [
+        path.join(appRoot, 'bin', `${process.platform}-${process.arch}`, nameWithExt),
+        path.join(appRoot, 'bin', process.platform, nameWithExt),
+        path.join(appRoot, 'bin', nameWithExt)
+    ];
 
-    if (fs.existsSync(localBinPath)) {
-        return localBinPath;
+    for (const localBinPath of localBinCandidates) {
+        if (fs.existsSync(localBinPath)) {
+            return localBinPath;
+        }
     }
 
     // 3. Check for the binary in the current directory (for portable versions)
