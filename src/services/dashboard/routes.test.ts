@@ -178,7 +178,20 @@ vi.mock('../database/index.js', () => ({
         addTrack: vi.fn(),
         addLibraryFile: vi.fn(),
         getAlbum: vi.fn().mockReturnValue(null),
-        hasTrack: vi.fn().mockReturnValue(false)
+        hasTrack: vi.fn().mockReturnValue(false),
+        getPluginConfigs: vi.fn().mockReturnValue([]),
+        getPluginConfig: vi.fn((id: string) => ({
+            id,
+            name: 'Tidal Source',
+            type: 'music-source',
+            enabled: true,
+            config: '{}',
+            version: '0.1.0',
+            installed_at: '2026-05-25T00:00:00.000Z'
+        })),
+        upsertPluginConfig: vi.fn(),
+        setPluginEnabled: vi.fn().mockReturnValue(true),
+        addPluginEvent: vi.fn()
     }
 }));
 
@@ -495,6 +508,62 @@ describe('Dashboard API Routes', () => {
 
             expect(res.status).toBe(400);
             expect(res.body.error).toContain('Query');
+        });
+    });
+
+    describe('Music source plugin endpoints', () => {
+        const manifest = {
+            apiVersion: '1.0',
+            id: 'com.example.tidal',
+            name: 'Tidal Source',
+            version: '0.1.0',
+            type: 'music-source',
+            entrypoint: './index.js',
+            capabilities: {
+                search: true,
+                getTrack: true,
+                getAlbum: true,
+                getPlaylist: true,
+                getFileUrl: true,
+                getLyrics: false
+            }
+        };
+
+        it('should return the plugin manifest descriptor', async () => {
+            const res = await request(app).get('/api/tools/plugins/manifest-schema');
+
+            expect(res.status).toBe(200);
+            expect(res.body.apiVersion).toBe('1.0');
+            expect(res.body.type).toBe('music-source');
+        });
+
+        it('should validate a music source plugin manifest', async () => {
+            const res = await request(app)
+                .post('/api/tools/plugins/validate-manifest')
+                .send(manifest);
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(res.body.manifest.id).toBe('com.example.tidal');
+        });
+
+        it('should reject invalid plugin manifests', async () => {
+            const res = await request(app)
+                .post('/api/tools/plugins/validate-manifest')
+                .send({ ...manifest, apiVersion: '2.0' });
+
+            expect(res.status).toBe(400);
+            expect(res.body.success).toBe(false);
+        });
+
+        it('should register a valid plugin manifest', async () => {
+            const res = await request(app)
+                .post('/api/tools/plugins/register')
+                .send({ manifest, config: { region: 'US' } });
+
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(res.body.plugin.id).toBe('com.example.tidal');
         });
     });
 

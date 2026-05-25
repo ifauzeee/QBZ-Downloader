@@ -60,10 +60,12 @@ export interface DbStatistic {
 export interface DbPluginConfig {
     id: string;
     name: string;
+    type: string;
     enabled: boolean;
     config: string;
     version: string;
     installed_at: string;
+    updated_at?: string;
 }
 
 export class DatabaseService {
@@ -1128,6 +1130,92 @@ export class DatabaseService {
         const db = this.getDb();
         db.prepare('DELETE FROM app_settings').run();
         logger.info('All application settings have been cleared from database', 'DB');
+    }
+
+    getPluginConfigs(): DbPluginConfig[] {
+        const db = this.getDb();
+        const rows = db
+            .prepare('SELECT * FROM plugins ORDER BY name ASC')
+            .all() as (Omit<DbPluginConfig, 'enabled'> & { enabled: number })[];
+
+        return rows.map((row) => ({
+            ...row,
+            enabled: row.enabled === 1
+        }));
+    }
+
+    getPluginConfig(id: string): DbPluginConfig | undefined {
+        const db = this.getDb();
+        const row = db.prepare('SELECT * FROM plugins WHERE id = ?').get(id) as
+            | (Omit<DbPluginConfig, 'enabled'> & { enabled: number })
+            | undefined;
+
+        if (!row) return undefined;
+
+        return {
+            ...row,
+            enabled: row.enabled === 1
+        };
+    }
+
+    upsertPluginConfig(plugin: {
+        id: string;
+        name: string;
+        type: string;
+        enabled?: boolean;
+        config?: unknown;
+        version: string;
+    }): void {
+        const db = this.getDb();
+        const now = new Date().toISOString();
+
+        db.prepare(
+            `
+            INSERT INTO plugins (id, name, type, enabled, config, version, installed_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                type = excluded.type,
+                enabled = excluded.enabled,
+                config = excluded.config,
+                version = excluded.version,
+                updated_at = excluded.updated_at
+        `
+        ).run(
+            plugin.id,
+            plugin.name,
+            plugin.type,
+            plugin.enabled === false ? 0 : 1,
+            JSON.stringify(plugin.config || {}),
+            plugin.version,
+            now,
+            now
+        );
+    }
+
+    setPluginEnabled(id: string, enabled: boolean): boolean {
+        const db = this.getDb();
+        const result = db
+            .prepare('UPDATE plugins SET enabled = ?, updated_at = ? WHERE id = ?')
+            .run(enabled ? 1 : 0, new Date().toISOString(), id);
+
+        return result.changes > 0;
+    }
+
+    removePluginConfig(id: string): boolean {
+        const db = this.getDb();
+        const result = db.prepare('DELETE FROM plugins WHERE id = ?').run(id);
+        return result.changes > 0;
+    }
+
+    addPluginEvent(pluginId: string, eventType: string, data?: unknown): void {
+        const db = this.getDb();
+        db.prepare(
+            `
+            INSERT INTO plugin_events (plugin_id, event_type, data)
+            VALUES (?, ?, ?)
+        `
+        ).run(pluginId, eventType, data === undefined ? null : JSON.stringify(data));
     }
 
     deleteTrackByPath(filePath: string): void {

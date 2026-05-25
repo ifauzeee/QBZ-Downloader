@@ -4,9 +4,85 @@ import path from 'path';
 import axios from 'axios';
 import { logger } from '../../../utils/logger.js';
 import { CONFIG } from '../../../config.js';
+import { databaseService } from '../../database/index.js';
+import {
+    musicSourcePluginApiDescriptor,
+    validateMusicSourcePluginManifest
+} from '../../../plugins/music-source.js';
 
 const router = Router();
 const api = qobuzApi;
+
+router.get('/plugins/manifest-schema', (_req: Request, res: Response) => {
+    res.json(musicSourcePluginApiDescriptor);
+});
+
+router.post('/plugins/validate-manifest', (req: Request, res: Response) => {
+    try {
+        const manifest = validateMusicSourcePluginManifest(req.body);
+        res.json({ success: true, manifest });
+    } catch (error: unknown) {
+        res.status(400).json({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+
+router.get('/plugins', (_req: Request, res: Response) => {
+    try {
+        res.json({ plugins: databaseService.getPluginConfigs() });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+router.post('/plugins/register', (req: Request, res: Response) => {
+    try {
+        const manifest = validateMusicSourcePluginManifest(req.body.manifest || req.body);
+        const config = req.body.config ?? manifest.configDefaults;
+
+        databaseService.upsertPluginConfig({
+            id: manifest.id,
+            name: manifest.name,
+            type: manifest.type,
+            version: manifest.version,
+            enabled: req.body.enabled !== false,
+            config
+        });
+        databaseService.addPluginEvent(manifest.id, 'registered', { version: manifest.version });
+
+        res.json({ success: true, plugin: databaseService.getPluginConfig(manifest.id) });
+    } catch (error: unknown) {
+        res.status(400).json({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+
+router.post('/plugins/:id/enabled', (req: Request, res: Response) => {
+    try {
+        const pluginId = req.params.id;
+        if (typeof pluginId !== 'string') {
+            return res.status(400).json({ error: 'Plugin id is required' });
+        }
+
+        if (typeof req.body.enabled !== 'boolean') {
+            return res.status(400).json({ error: 'enabled must be a boolean' });
+        }
+
+        const updated = databaseService.setPluginEnabled(pluginId, req.body.enabled);
+        if (!updated) {
+            return res.status(404).json({ error: 'Plugin not found' });
+        }
+
+        databaseService.addPluginEvent(pluginId, req.body.enabled ? 'enabled' : 'disabled');
+        res.json({ success: true, plugin: databaseService.getPluginConfig(pluginId) });
+    } catch (error: unknown) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
 
 router.post('/identify', async (req: Request, res: Response) => {
     try {
