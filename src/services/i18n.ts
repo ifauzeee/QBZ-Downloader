@@ -1,6 +1,6 @@
 export type Locale = 'en' | 'id' | 'es' | 'fr' | 'de' | 'ja' | 'zh' | 'hi';
 
-interface TranslationSet {
+export interface TranslationSet {
     appName: string;
     loading: string;
     save: string;
@@ -53,7 +53,9 @@ interface TranslationSet {
     noNotifications: string;
 }
 
-const translations: Record<Locale, TranslationSet> = {
+type TranslationCatalog = { en: TranslationSet } & Record<Exclude<Locale, 'en'>, Partial<TranslationSet>>;
+
+const translations: TranslationCatalog = {
     en: {
         appName: 'QBZ Downloader',
         loading: 'Loading...',
@@ -479,11 +481,13 @@ const translations: Record<Locale, TranslationSet> = {
     }
 };
 
-class I18nService {
+export class I18nService {
     private currentLocale: Locale = 'en';
 
+    constructor(private readonly catalog: TranslationCatalog = translations) {}
+
     setLocale(locale: Locale): void {
-        if (translations[locale]) {
+        if (this.catalog[locale]) {
             this.currentLocale = locale;
         }
     }
@@ -506,11 +510,21 @@ class I18nService {
     }
 
     t(key: keyof TranslationSet): string {
-        return translations[this.currentLocale][key] || translations.en[key] || key;
+        const active = this.catalog[this.currentLocale] || this.catalog.en;
+        const activeValue = active[key];
+        if (typeof activeValue === 'string' && activeValue.trim()) {
+            return activeValue;
+        }
+
+        const fallbackValue = this.catalog.en[key];
+        return typeof fallbackValue === 'string' && fallbackValue.trim() ? fallbackValue : key;
     }
 
     getAll(): TranslationSet {
-        return translations[this.currentLocale];
+        return {
+            ...this.catalog.en,
+            ...(this.catalog[this.currentLocale] || {})
+        };
     }
 }
 
