@@ -103,6 +103,7 @@ vi.mock('../settings.js', () => {
                 };
                 return values[key];
             }),
+            set: vi.fn(),
             setMany: vi.fn()
         }
     };

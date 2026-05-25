@@ -55,6 +55,11 @@ describe('SettingsService', () => {
         expect(settings.get('AI_API_KEY')).toBe('secret-key'); // Cache should have decrypted value
     });
 
+    it('should encrypt stored Qobuz account bundles', () => {
+        settings.set('QOBUZ_ACCOUNTS', '[{"name":"Personal","token":"secret"}]');
+        expect(encrypt).toHaveBeenCalledWith('[{"name":"Personal","token":"secret"}]');
+    });
+
     it('should handle setMany correctly', () => {
         const emitSpy = vi.spyOn(eventBus, 'emit');
         settings.setMany({

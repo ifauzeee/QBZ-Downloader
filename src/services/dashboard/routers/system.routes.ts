@@ -13,6 +13,7 @@ import { formatConverterService } from '../../FormatConverterService.js';
 import { validateEnvironment } from '../../../utils/env.js';
 import { queueProcessor } from '../../queue-processor.js';
 import { playlistWatcherService } from '../../PlaylistWatcherService.js';
+import { qobuzAccountService } from '../../QobuzAccountService.js';
 
 const router = Router();
 const api = qobuzApi;
@@ -22,6 +23,8 @@ const APP_SETTING_KEYS = new Set([
     'QOBUZ_APP_SECRET',
     'QOBUZ_USER_AUTH_TOKEN',
     'QOBUZ_USER_ID',
+    'QOBUZ_ACCOUNTS',
+    'QOBUZ_ACTIVE_ACCOUNT_ID',
     'DOWNLOADS_PATH',
     'DEFAULT_QUALITY',
     'MAX_CONCURRENCY',
@@ -94,6 +97,8 @@ async function getSettingsPayload() {
         QOBUZ_USER_ID_CONFIGURED: !!CONFIG.credentials.userId,
         QOBUZ_CREDENTIALS_VALID: qobuz_valid,
         QOBUZ_USERNAME: username,
+        QOBUZ_ACTIVE_ACCOUNT_ID: qobuzAccountService.getActiveAccountId(),
+        QOBUZ_ACCOUNTS: qobuzAccountService.list(),
         SPOTIFY_CLIENT_ID: CONFIG.spotify.clientId,
         SPOTIFY_CLIENT_ID_CONFIGURED: !!CONFIG.spotify.clientId,
         SPOTIFY_CLIENT_SECRET_CONFIGURED: !!CONFIG.spotify.clientSecret,
@@ -184,6 +189,77 @@ router.get('/onboarding', (_req: Request, res: Response) => {
 
 router.get('/credentials/status', (_req: Request, res: Response) => {
     res.json(getCredentialStatus());
+});
+
+router.get('/qobuz/accounts', (_req: Request, res: Response) => {
+    res.json({
+        activeAccountId: qobuzAccountService.getActiveAccountId(),
+        accounts: qobuzAccountService.list()
+    });
+});
+
+router.post('/qobuz/accounts', (req: Request, res: Response) => {
+    try {
+        const body = (req.body || {}) as Record<string, unknown>;
+        const account = qobuzAccountService.create(
+            {
+                name: String(body.name || ''),
+                appId: String(body.app_id || body.appId || ''),
+                appSecret: String(body.app_secret || body.appSecret || ''),
+                token: String(body.user_auth_token || body.token || ''),
+                userId: String(body.user_id || body.userId || '')
+            },
+            body.activate === true
+        );
+        startBackgroundServicesIfReady();
+        res.status(201).json(account);
+    } catch (error: unknown) {
+        res.status(400).json({ error: (error as Error).message });
+    }
+});
+
+router.put('/qobuz/accounts/:id', (req: Request, res: Response) => {
+    try {
+        const body = (req.body || {}) as Record<string, unknown>;
+        const account = qobuzAccountService.update(req.params.id as string, {
+            name: body.name === undefined ? undefined : String(body.name),
+            appId: body.app_id === undefined && body.appId === undefined ? undefined : String(body.app_id || body.appId),
+            appSecret:
+                body.app_secret === undefined && body.appSecret === undefined
+                    ? undefined
+                    : String(body.app_secret || body.appSecret),
+            token:
+                body.user_auth_token === undefined && body.token === undefined
+                    ? undefined
+                    : String(body.user_auth_token || body.token),
+            userId:
+                body.user_id === undefined && body.userId === undefined
+                    ? undefined
+                    : String(body.user_id || body.userId)
+        });
+        res.json(account);
+    } catch (error: unknown) {
+        res.status(400).json({ error: (error as Error).message });
+    }
+});
+
+router.delete('/qobuz/accounts/:id', (req: Request, res: Response) => {
+    const removed = qobuzAccountService.remove(req.params.id as string);
+    if (!removed) {
+        res.status(404).json({ error: 'Qobuz account not found' });
+        return;
+    }
+    res.json({ success: true });
+});
+
+router.post('/qobuz/accounts/:id/switch', (req: Request, res: Response) => {
+    try {
+        const account = qobuzAccountService.switchTo(req.params.id as string);
+        startBackgroundServicesIfReady();
+        res.json({ success: true, account });
+    } catch (error: unknown) {
+        res.status(404).json({ error: (error as Error).message });
+    }
 });
 
 router.get('/settings', async (_req: Request, res: Response) => {
