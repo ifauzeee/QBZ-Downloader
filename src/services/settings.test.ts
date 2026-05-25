@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsService } from './settings.js';
 import { databaseService } from './database/index.js';
 import { encrypt } from '../utils/crypto.js';
+import { eventBus, EVENTS } from '../utils/events.js';
 
 // Mock dependencies
 vi.mock('./database/index.js', () => ({
@@ -41,9 +42,11 @@ describe('SettingsService', () => {
     });
 
     it('should set and get a normal setting', () => {
+        const emitSpy = vi.spyOn(eventBus, 'emit');
         settings.set('THEME', 'dark');
         expect(settings.get('THEME')).toBe('dark');
         expect(databaseService.getDb().prepare).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO app_settings'));
+        expect(emitSpy).toHaveBeenCalledWith(EVENTS.SETTINGS.UPDATED, { keys: ['THEME'] });
     });
 
     it('should encrypt sensitive keys', () => {
@@ -53,12 +56,14 @@ describe('SettingsService', () => {
     });
 
     it('should handle setMany correctly', () => {
+        const emitSpy = vi.spyOn(eventBus, 'emit');
         settings.setMany({
             'KEY1': 'VAL1',
             'KEY2': 'VAL2'
         });
         expect(settings.get('KEY1')).toBe('VAL1');
         expect(settings.get('KEY2')).toBe('VAL2');
+        expect(emitSpy).toHaveBeenCalledWith(EVENTS.SETTINGS.UPDATED, { keys: ['KEY1', 'KEY2'] });
     });
 
     it('should return many settings at once', () => {

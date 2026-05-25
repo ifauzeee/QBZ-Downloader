@@ -1,4 +1,21 @@
 import { settingsService } from './services/settings.js';
+import { eventBus, EVENTS } from './utils/events.js';
+
+const configCache = new Map<string, unknown>();
+
+const getCachedConfig = <T>(key: string, factory: () => T): T => {
+    if (configCache.has(key)) {
+        return configCache.get(key) as T;
+    }
+
+    const value = factory();
+    configCache.set(key, value);
+    return value;
+};
+
+eventBus.on(EVENTS.SETTINGS.UPDATED, () => {
+    configCache.clear();
+});
 
 const getSetting = <T>(key: string, def: T): T => {
     const fromDb = settingsService.get(key);
@@ -133,21 +150,21 @@ export interface Config {
 
 export const CONFIG: Config = {
     get credentials() {
-        return {
+        return getCachedConfig('credentials', () => ({
             appId: getStr('QOBUZ_APP_ID', ''),
             appSecret: getStr('QOBUZ_APP_SECRET', ''),
             token: getStr('QOBUZ_USER_AUTH_TOKEN', ''),
             userId: getStr('QOBUZ_USER_ID', '')
-        };
+        }));
     },
     get spotify() {
-        return {
+        return getCachedConfig('spotify', () => ({
             clientId: getStr('SPOTIFY_CLIENT_ID', ''),
             clientSecret: getStr('SPOTIFY_CLIENT_SECRET', '')
-        };
+        }));
     },
     get api() {
-        return {
+        return getCachedConfig('api', () => ({
             baseUrl: 'https://www.qobuz.com/api.json/0.2',
             endpoints: {
                 track: '/track/get',
@@ -159,50 +176,52 @@ export const CONFIG: Config = {
                 userInfo: '/user/get',
                 favorites: '/favorite/getUserFavorites'
             }
-        };
+        }));
     },
 
     get quality() {
-        const defaultQualityRaw = getStr('DEFAULT_QUALITY', '27');
-        const parsed = parseInt(defaultQualityRaw, 10);
-        const defaultQuality =
-            defaultQualityRaw === 'ask' ||
-            defaultQualityRaw === 'min' ||
-            defaultQualityRaw === 'max'
-                ? (defaultQualityRaw as 'ask' | 'min' | 'max')
-                : !isNaN(parsed)
-                  ? parsed
-                  : 27;
+        return getCachedConfig('quality', () => {
+            const defaultQualityRaw = getStr('DEFAULT_QUALITY', '27');
+            const parsed = parseInt(defaultQualityRaw, 10);
+            const defaultQuality =
+                defaultQualityRaw === 'ask' ||
+                defaultQualityRaw === 'min' ||
+                defaultQualityRaw === 'max'
+                    ? (defaultQualityRaw as 'ask' | 'min' | 'max')
+                    : !isNaN(parsed)
+                      ? parsed
+                      : 27;
 
-        return {
-            formats: {
-                5: { name: 'MP3 320', bitDepth: null, sampleRate: null, extension: 'mp3' },
-                6: {
-                    name: 'FLAC 16-bit/44.1kHz (CD Quality)',
-                    bitDepth: 16,
-                    sampleRate: 44100,
-                    extension: 'flac'
+            return {
+                formats: {
+                    5: { name: 'MP3 320', bitDepth: null, sampleRate: null, extension: 'mp3' },
+                    6: {
+                        name: 'FLAC 16-bit/44.1kHz (CD Quality)',
+                        bitDepth: 16,
+                        sampleRate: 44100,
+                        extension: 'flac'
+                    },
+                    7: {
+                        name: 'FLAC 24-bit/96kHz (Hi-Res)',
+                        bitDepth: 24,
+                        sampleRate: 96000,
+                        extension: 'flac'
+                    },
+                    27: {
+                        name: 'FLAC 24-bit/192kHz (Hi-Res Max)',
+                        bitDepth: 24,
+                        sampleRate: 192000,
+                        extension: 'flac'
+                    }
                 },
-                7: {
-                    name: 'FLAC 24-bit/96kHz (Hi-Res)',
-                    bitDepth: 24,
-                    sampleRate: 96000,
-                    extension: 'flac'
-                },
-                27: {
-                    name: 'FLAC 24-bit/192kHz (Hi-Res Max)',
-                    bitDepth: 24,
-                    sampleRate: 192000,
-                    extension: 'flac'
-                }
-            },
-            default: defaultQuality,
-            streaming: getInt('STREAMING_QUALITY', 5)
-        };
+                default: defaultQuality,
+                streaming: getInt('STREAMING_QUALITY', 5)
+            };
+        });
     },
 
     get download() {
-        return {
+        return getCachedConfig('download', () => ({
             outputDir: getStr('DOWNLOADS_PATH', './downloads'),
             folderStructure: getStr('FOLDER_TEMPLATE', '{albumArtist}/{album}'),
             fileNaming: getStr('FILE_TEMPLATE', '{track_number}. {title}'),
@@ -210,10 +229,10 @@ export const CONFIG: Config = {
             retryAttempts: getInt('RETRY_ATTEMPTS', 3),
             retryDelay: getInt('RETRY_DELAY', 1000),
             bandwidthLimit: getInt('BANDWIDTH_LIMIT', 0)
-        };
+        }));
     },
     get metadata() {
-        return {
+        return getCachedConfig('metadata', () => ({
             embedCover: getBool('EMBED_COVER_ART', true),
             saveCoverFile: getBool('SAVE_COVER_FILE', true),
             saveLrcFile: getBool('SAVE_LRC_FILE', true),
@@ -266,44 +285,44 @@ export const CONFIG: Config = {
                     'recordedBy'
                 ]
             }
-        };
+        }));
     },
 
     get dashboard() {
-        return {
+        return getCachedConfig('dashboard', () => ({
             port: getDesktopInt('DASHBOARD_PORT', 3000),
             password: getStr('DASHBOARD_PASSWORD', ''),
             host: getDesktopStr('DASHBOARD_HOST', '127.0.0.1')
-        };
+        }));
     },
 
     get export() {
-        return {
+        return getCachedConfig('export', () => ({
             enabled: getBool('EXPORT_ENABLED', false),
             format: getStr('EXPORT_FORMAT', 'mp3') as 'mp3' | 'aac' | 'opus',
             bitrate: getStr('EXPORT_BITRATE', '320k'),
             outputDir: getStr('EXPORT_PATH', ''),
             keepOriginal: getBool('EXPORT_KEEP_ORIGINAL', true)
-        };
+        }));
     },
 
     get mediaServer() {
-        return {
+        return getCachedConfig('mediaServer', () => ({
             enabled: getBool('MEDIA_SERVER_ENABLED', false),
             type: getStr('MEDIA_SERVER_TYPE', 'none') as 'plex' | 'jellyfin' | 'webhook' | 'none',
             url: getStr('MEDIA_SERVER_URL', ''),
             token: getStr('MEDIA_SERVER_TOKEN', ''),
             libraryId: getStr('MEDIA_SERVER_LIBRARY_ID', '')
-        };
+        }));
     },
 
     get ai() {
-        return {
+        return getCachedConfig('ai', () => ({
             enabled: getBool('AI_REPAIR_ENABLED', false),
             provider: getStr('AI_PROVIDER', 'none') as 'gemini' | 'openai' | 'none',
             apiKey: getStr('AI_API_KEY', ''),
             model: getStr('AI_MODEL', 'gemini-2.0-flash')
-        };
+        }));
     }
 };
 

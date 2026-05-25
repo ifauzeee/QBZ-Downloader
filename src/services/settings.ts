@@ -1,6 +1,7 @@
 import { databaseService } from './database/index.js';
 import { logger } from '../utils/logger.js';
 import { encrypt, decrypt } from '../utils/crypto.js';
+import { eventBus, EVENTS } from '../utils/events.js';
 
 const SENSITIVE_KEYS = [
     'QOBUZ_APP_ID',
@@ -180,6 +181,7 @@ export class SettingsService {
 
             this.cache.set(key, { value, timestamp: Date.now() });
             process.env[key] = value;
+            eventBus.emit(EVENTS.SETTINGS.UPDATED, { keys: [key] });
         } catch (error: unknown) {
             logger.error(`Failed to save setting ${key}: ${(error as Error).message}`, 'SETTINGS');
             throw error;
@@ -209,6 +211,7 @@ export class SettingsService {
             });
 
             tx(Object.entries(values));
+            eventBus.emit(EVENTS.SETTINGS.UPDATED, { keys: Object.keys(values) });
         } catch (error: unknown) {
             logger.error(`Failed to save settings batch: ${(error as Error).message}`, 'SETTINGS');
             throw error;
@@ -217,4 +220,3 @@ export class SettingsService {
 }
 
 export const settingsService = new SettingsService();
-

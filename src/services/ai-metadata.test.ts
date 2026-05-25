@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AIMetadataService } from './AIMetadataService.js';
 import { settingsService } from './settings.js';
 import { logger } from '../utils/logger.js';
+import { eventBus, EVENTS } from '../utils/events.js';
 import axios from 'axios';
 
 // Mock dependencies
@@ -28,6 +29,7 @@ describe('AIMetadataService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        eventBus.emit(EVENTS.SETTINGS.UPDATED, { keys: ['AI_REPAIR_ENABLED'] });
         service = new AIMetadataService();
     });
 

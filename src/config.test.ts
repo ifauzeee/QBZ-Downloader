@@ -4,13 +4,17 @@ const originalEnv = { ...process.env };
 
 async function loadConfigWithSettings(settings: Record<string, string | undefined>) {
     vi.resetModules();
+    const get = vi.fn((key: string) => settings[key]);
     vi.doMock('./services/settings.js', () => ({
         settingsService: {
-            get: (key: string) => settings[key]
+            get
         }
     }));
 
-    return import('./config.js');
+    return {
+        ...(await import('./config.js')),
+        settingsGet: get
+    };
 }
 
 describe('CONFIG dashboard runtime overrides', () => {
@@ -45,5 +49,20 @@ describe('CONFIG dashboard runtime overrides', () => {
 
         expect(CONFIG.dashboard.port).toBe(3000);
         expect(CONFIG.dashboard.host).toBe('0.0.0.0');
+    });
+
+    it('caches config sections until settings are updated', async () => {
+        const { CONFIG, settingsGet } = await loadConfigWithSettings({
+            RETRY_DELAY: '1000'
+        });
+        const { eventBus, EVENTS } = await import('./utils/events.js');
+
+        expect(CONFIG.download.retryDelay).toBe(1000);
+        expect(CONFIG.download.retryDelay).toBe(1000);
+        expect(settingsGet).toHaveBeenCalledTimes(7);
+
+        eventBus.emit(EVENTS.SETTINGS.UPDATED, { keys: ['RETRY_DELAY'] });
+        expect(CONFIG.download.retryDelay).toBe(1000);
+        expect(settingsGet).toHaveBeenCalledTimes(14);
     });
 });

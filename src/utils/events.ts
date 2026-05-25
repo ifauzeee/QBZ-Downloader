@@ -31,6 +31,9 @@ export const EVENTS = {
     QUEUE: {
         UPDATE: 'queue:update'
     },
+    SETTINGS: {
+        UPDATED: 'settings:updated'
+    },
     SYSTEM: {
         READY: 'system:ready'
     }

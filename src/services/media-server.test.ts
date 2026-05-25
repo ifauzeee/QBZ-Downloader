@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MediaServerService } from './MediaServerService.js';
 import { settingsService } from './settings.js';
+import { eventBus, EVENTS } from '../utils/events.js';
 import axios from 'axios';
 
 // Mock dependencies
@@ -27,6 +28,7 @@ describe('MediaServerService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        eventBus.emit(EVENTS.SETTINGS.UPDATED, { keys: ['MEDIA_SERVER_ENABLED'] });
         service = new MediaServerService();
     });
 
