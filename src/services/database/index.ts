@@ -4,7 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 
-const DB_VERSION = 11;
+const DB_VERSION = 12;
 const DEFAULT_DB_PATH = path.resolve(process.cwd(), 'data', 'qbz.db');
 
 export interface DbTrack {
@@ -26,6 +26,8 @@ export interface DbTrack {
     label: string;
     checksum?: string;
     verification_status?: string;
+    quality_scan_result?: string;
+    quality_scanned_at?: string;
 }
 
 export interface DbAlbum {
@@ -164,7 +166,9 @@ export class DatabaseService {
                 play_count INTEGER DEFAULT 0,
                 last_played TEXT,
                 checksum TEXT,
-                verification_status TEXT DEFAULT 'pending'
+                verification_status TEXT DEFAULT 'pending',
+                quality_scan_result TEXT,
+                quality_scanned_at TEXT
             )
         `);
 
@@ -537,6 +541,40 @@ export class DatabaseService {
                 }
             }
 
+            if (currentVersion < 12) {
+                try {
+                    const tableInfo = this.db!.prepare('PRAGMA table_info(tracks)').all() as {
+                        name: string;
+                    }[];
+                    const hasQualityScanResult = tableInfo.some(
+                        (col) => col.name === 'quality_scan_result'
+                    );
+                    const hasQualityScannedAt = tableInfo.some(
+                        (col) => col.name === 'quality_scanned_at'
+                    );
+
+                    if (!hasQualityScanResult || !hasQualityScannedAt) {
+                        this.createMigrationBackup(12);
+                    }
+                    if (!hasQualityScanResult) {
+                        this.db!.exec('ALTER TABLE tracks ADD COLUMN quality_scan_result TEXT');
+                        logger.info(
+                            'Migration v12: Added quality_scan_result column to tracks',
+                            'DB'
+                        );
+                    }
+                    if (!hasQualityScannedAt) {
+                        this.db!.exec('ALTER TABLE tracks ADD COLUMN quality_scanned_at TEXT');
+                        logger.info(
+                            'Migration v12: Added quality_scanned_at column to tracks',
+                            'DB'
+                        );
+                    }
+                } catch (error: unknown) {
+                    logger.warn(`Migration v12 partial: ${(error as Error).message}`, 'DB');
+                }
+            }
+
             this.db
                 .prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')
                 .run('db_version', String(DB_VERSION));
@@ -564,8 +602,8 @@ export class DatabaseService {
         const db = this.getDb();
         const stmt = db.prepare(`
             INSERT OR REPLACE INTO tracks 
-            (id, title, artist, album_artist, album, album_id, duration, quality, file_path, file_size, cover_url, genre, year, isrc, label, downloaded_at, checksum, verification_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, title, artist, album_artist, album, album_id, duration, quality, file_path, file_size, cover_url, genre, year, isrc, label, downloaded_at, checksum, verification_status, quality_scan_result, quality_scanned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         stmt.run(
             track.id,
@@ -585,7 +623,9 @@ export class DatabaseService {
             track.label,
             track.downloaded_at || new Date().toISOString(),
             track.checksum || null,
-            track.verification_status || 'verified'
+            track.verification_status || 'verified',
+            track.quality_scan_result || null,
+            track.quality_scanned_at || null
         );
 
         this.updateDailyStats('tracks');
@@ -598,6 +638,36 @@ export class DatabaseService {
     getTrack(id: string): DbTrack | undefined {
         const db = this.getDb();
         return db.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as DbTrack | undefined;
+    }
+
+    getQualityScanResult(
+        id: string,
+        checksum?: string
+    ): { result: unknown; scannedAt: string } | undefined {
+        const db = this.getDb();
+        const row = db
+            .prepare(
+                'SELECT checksum, quality_scan_result, quality_scanned_at FROM tracks WHERE id = ?'
+            )
+            .get(id) as
+            | {
+                  checksum?: string;
+                  quality_scan_result?: string;
+                  quality_scanned_at?: string;
+              }
+            | undefined;
+
+        if (!row?.quality_scan_result || !row.quality_scanned_at) return undefined;
+        if (checksum && row.checksum?.toLowerCase() !== checksum.toLowerCase()) return undefined;
+
+        try {
+            return {
+                result: JSON.parse(row.quality_scan_result),
+                scannedAt: row.quality_scanned_at
+            };
+        } catch {
+            return undefined;
+        }
     }
 
     getAllTracks(limit = 100, offset = 0): DbTrack[] {

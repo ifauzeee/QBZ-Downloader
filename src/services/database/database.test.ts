@@ -44,7 +44,7 @@ describe('DatabaseService', () => {
         it('should store and retrieve database version', () => {
             const db = dbService.getDb();
             const version = db.prepare("SELECT value FROM meta WHERE key = 'db_version'").get();
-            expect(version.value).toBe('11');
+            expect(version.value).toBe('12');
         });
 
         it('should create a same-directory backup before migrating a file database', () => {
@@ -104,6 +104,62 @@ describe('DatabaseService', () => {
 
             fs.rmSync(tempDir, { recursive: true, force: true });
         });
+
+        it('should migrate tracks quality scan cache columns with a v12 backup', () => {
+            dbService.close();
+
+            const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbz-db-v12-'));
+            const dbPath = path.join(tempDir, 'qbz.db');
+            const oldDb = new Database(dbPath);
+            oldDb.exec(`
+                CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+                INSERT INTO meta (key, value) VALUES ('db_version', '11');
+                CREATE TABLE tracks (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    artist TEXT,
+                    album_artist TEXT,
+                    album TEXT,
+                    album_id TEXT,
+                    duration INTEGER DEFAULT 0,
+                    quality INTEGER DEFAULT 27,
+                    file_path TEXT,
+                    file_size INTEGER DEFAULT 0,
+                    cover_url TEXT,
+                    downloaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    genre TEXT,
+                    year INTEGER,
+                    isrc TEXT,
+                    label TEXT,
+                    play_count INTEGER DEFAULT 0,
+                    last_played TEXT,
+                    checksum TEXT
+                );
+            `);
+            oldDb.close();
+
+            const fileDbService = new DatabaseService(dbPath);
+            fileDbService.initialize();
+            fileDbService.close();
+
+            const backupPath = path.join(tempDir, 'qbz.backup-v12.db');
+            expect(fs.existsSync(backupPath)).toBe(true);
+
+            const migratedDb = new Database(dbPath, { readonly: true });
+            const columns = migratedDb.prepare('PRAGMA table_info(tracks)').all() as {
+                name: string;
+            }[];
+            const version = migratedDb
+                .prepare("SELECT value FROM meta WHERE key = 'db_version'")
+                .get() as { value: string };
+            migratedDb.close();
+
+            expect(version.value).toBe('12');
+            expect(columns.some((column) => column.name === 'quality_scan_result')).toBe(true);
+            expect(columns.some((column) => column.name === 'quality_scanned_at')).toBe(true);
+
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        });
     });
 
     describe('Track Management', () => {
@@ -139,6 +195,25 @@ describe('DatabaseService', () => {
             const results = dbService.searchTracks('Track');
             expect(results.length).toBe(1);
             expect(results[0].title).toBe('Test Track');
+        });
+
+        it('should store and retrieve cached quality scan results by checksum', () => {
+            const scanResult = {
+                isTrueLossless: true,
+                confidence: 100,
+                details: 'OK'
+            };
+            dbService.addTrack({
+                ...testTrack,
+                checksum: 'abc123',
+                quality_scan_result: JSON.stringify(scanResult),
+                quality_scanned_at: '2026-05-25T00:00:00.000Z'
+            });
+
+            const cached = dbService.getQualityScanResult('track1', 'abc123');
+            expect(cached?.result).toEqual(scanResult);
+            expect(cached?.scannedAt).toBe('2026-05-25T00:00:00.000Z');
+            expect(dbService.getQualityScanResult('track1', 'different')).toBeUndefined();
         });
 
     });

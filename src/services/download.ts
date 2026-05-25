@@ -435,7 +435,15 @@ export default class DownloadService {
             if (actualQuality >= 6) {
                 if (options.onProgress) options.onProgress({ phase: 'verifying', loaded: 0 });
                 try {
-                    scanResult = await qualityScannerService.scanFile(workingFilePath);
+                    scanResult = await this.getCachedQualityScan(trackId, md5);
+                    if (scanResult) {
+                        logger.debug(
+                            `Using cached quality scan for ${metadata.title}`,
+                            'SCANNER'
+                        );
+                    } else {
+                        scanResult = await qualityScannerService.scanFile(workingFilePath);
+                    }
                     if (!scanResult.isTrueLossless) {
                         logger.warn(`Quality Warning for ${metadata.title}: ${scanResult.details}`, 'SCANNER');
                     }
@@ -487,6 +495,23 @@ export default class DownloadService {
         }
     }
 
+    private async getCachedQualityScan(
+        trackId: string | number,
+        checksum?: string
+    ): Promise<QualityReport | undefined> {
+        if (!checksum) return undefined;
+
+        try {
+            const { databaseService } = await import('./database/index.js');
+            const cached = databaseService.getQualityScanResult(trackId.toString(), checksum);
+            return cached?.result as QualityReport | undefined;
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.debug(`Quality scan cache lookup failed: ${message}`, 'SCANNER');
+            return undefined;
+        }
+    }
+
     private async updateDatabase(
         trackId: string | number,
         metadata: Metadata,
@@ -531,7 +556,9 @@ export default class DownloadService {
                 isrc: metadata.isrc,
                 label: metadata.label,
                 checksum: md5,
-                verification_status: 'verified'
+                verification_status: 'verified',
+                quality_scan_result: scanResult ? JSON.stringify(scanResult) : undefined,
+                quality_scanned_at: scanResult ? new Date().toISOString() : undefined
             });
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
