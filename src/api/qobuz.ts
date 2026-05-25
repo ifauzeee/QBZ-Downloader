@@ -1,7 +1,7 @@
 import { createAxiosInstance } from '../utils/network.js';
 import { cacheService } from '../utils/cache.js';
 import { logger } from '../utils/logger.js';
-import { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
+import { AxiosInstance, AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import crypto from 'crypto';
 import { CONFIG, normalizeDownloadQuality } from '../config.js';
 import { APIError, AuthenticationError } from '../utils/errors.js';
@@ -9,7 +9,16 @@ import { refreshUserToken } from '../utils/token.js';
 import { URL_PATTERNS } from '../constants.js';
 import { settingsService } from '../services/settings.js';
 
-import { Album, Track, UserInfo, SearchResults, LyricsResult, Playlist, ArtistDetails } from '../types/qobuz.js';
+import {
+    Album,
+    Track,
+    UserInfo,
+    SearchResults,
+    LyricsResult,
+    Playlist,
+    ArtistDetails,
+    FileUrlData
+} from '../types/qobuz.js';
 
 interface ApiResponse<T = unknown> {
     success: boolean;
@@ -20,6 +29,11 @@ interface ApiResponse<T = unknown> {
 export class QobuzAPI {
     baseUrl: string;
     client: AxiosInstance;
+    private nextRequestAt = 0;
+    private rateLimitUntil = 0;
+    private requestSchedule: Promise<void> = Promise.resolve();
+    private readonly minRequestIntervalMs = 250;
+    private readonly maxBackoffMs = 5 * 60 * 1000;
 
     get appId() {
         return CONFIG.credentials.appId;
@@ -76,7 +90,7 @@ export class QobuzAPI {
         this.client.interceptors.response.use(
             (response) => response,
             async (error) => {
-                const originalRequest = error.config;
+                const originalRequest = error.config || {};
 
                 if (
                     (error.response?.status === 401 || error.response?.status === 403) &&
@@ -102,6 +116,99 @@ export class QobuzAPI {
                 return Promise.reject(error);
             }
         );
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    private async waitForRequestSlot(): Promise<void> {
+        const scheduled = this.requestSchedule.then(async () => {
+            const now = Date.now();
+            const waitUntil = Math.max(this.nextRequestAt, this.rateLimitUntil);
+            const delay = Math.max(0, waitUntil - now);
+            if (delay > 0) {
+                logger.debug(`Qobuz API rate limit wait: ${delay}ms`, 'API');
+                await this.sleep(delay);
+            }
+            this.nextRequestAt = Date.now() + this.minRequestIntervalMs;
+        });
+
+        this.requestSchedule = scheduled.catch(() => undefined);
+        await scheduled;
+    }
+
+    private parseRetryAfterMs(error: AxiosError): number | null {
+        const headers = error.response?.headers as Record<string, unknown> | undefined;
+        const rawValue = headers?.['retry-after'] ?? headers?.['Retry-After'];
+        const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+
+        if (typeof value !== 'string' && typeof value !== 'number') return null;
+
+        const seconds = Number(value);
+        if (Number.isFinite(seconds)) {
+            return Math.max(0, seconds * 1000);
+        }
+
+        const retryDate = Date.parse(String(value));
+        if (Number.isNaN(retryDate)) return null;
+
+        return Math.max(0, retryDate - Date.now());
+    }
+
+    private getBackoffDelayMs(error: AxiosError, attempt: number): number {
+        const retryAfterMs = this.parseRetryAfterMs(error);
+        if (error.response?.status === 429 && retryAfterMs !== null) {
+            return retryAfterMs;
+        }
+
+        const baseDelay = Math.max(250, CONFIG.download.retryDelay ?? 1000);
+        const exponentialDelay = baseDelay * 2 ** attempt;
+        const jitter = Math.floor(Math.random() * Math.min(1000, baseDelay));
+        return Math.min(exponentialDelay + jitter, this.maxBackoffMs);
+    }
+
+    private shouldRetryRequest(error: AxiosError): boolean {
+        const status = error.response?.status;
+        return !status || status === 429 || status >= 500;
+    }
+
+    private async getWithRateLimit<T = unknown>(
+        endpoint: string,
+        config: AxiosRequestConfig
+    ): Promise<AxiosResponse<T>> {
+        const maxRetries = Math.max(0, CONFIG.download.retryAttempts ?? 3);
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            await this.waitForRequestSlot();
+
+            try {
+                return await this.client.get<T>(endpoint, config);
+            } catch (error) {
+                const axiosError = error as AxiosError;
+                if (!this.shouldRetryRequest(axiosError) || attempt >= maxRetries) {
+                    throw error;
+                }
+
+                const delay = this.getBackoffDelayMs(axiosError, attempt);
+                if (axiosError.response?.status === 429) {
+                    this.rateLimitUntil = Math.max(this.rateLimitUntil, Date.now() + delay);
+                    logger.warn(
+                        `Qobuz API rate limited; retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
+                        'API'
+                    );
+                } else {
+                    logger.warn(
+                        `Qobuz API request failed; retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
+                        'API'
+                    );
+                }
+
+                await this.sleep(delay);
+            }
+        }
+
+        throw new APIError('Qobuz API retry loop exhausted');
     }
 
     generateSignature(endpoint: string, params: Record<string, string | number | boolean>) {
@@ -135,7 +242,7 @@ export class QobuzAPI {
         if (cached) return { success: true, data: cached as Track };
 
         try {
-            const response = await this.client.get('/track/get', {
+            const response = await this.getWithRateLimit<Track>('/track/get', {
                 params: {
                     track_id: trackId,
                     app_id: this.appId,
@@ -157,7 +264,7 @@ export class QobuzAPI {
         if (cached) return { success: true, data: cached as Album };
 
         try {
-            const response = await this.client.get('/album/get', {
+            const response = await this.getWithRateLimit<Album>('/album/get', {
                 params: {
                     album_id: albumId,
                     app_id: this.appId,
@@ -185,7 +292,7 @@ export class QobuzAPI {
         if (cached) return { success: true, data: cached as ArtistDetails };
 
         try {
-            const response = await this.client.get('/artist/get', {
+            const response = await this.getWithRateLimit<ArtistDetails>('/artist/get', {
                 params: {
                     artist_id: artistId,
                     app_id: this.appId,
@@ -216,7 +323,7 @@ export class QobuzAPI {
 
     async getArtistAlbums(artistId: string | number, limit = 20, offset = 0): Promise<ApiResponse<ArtistDetails>> {
         try {
-            const response = await this.client.get('/artist/get', {
+            const response = await this.getWithRateLimit<ArtistDetails>('/artist/get', {
                 params: {
                     artist_id: artistId,
                     app_id: this.appId,
@@ -237,7 +344,7 @@ export class QobuzAPI {
 
     async getPlaylist(playlistId: string | number): Promise<ApiResponse<Playlist>> {
         try {
-            const response = await this.client.get('/playlist/get', {
+            const response = await this.getWithRateLimit<Playlist>('/playlist/get', {
                 params: {
                     playlist_id: playlistId,
                     app_id: this.appId,
@@ -254,7 +361,7 @@ export class QobuzAPI {
 
     async getGenres(): Promise<ApiResponse> {
         try {
-            const response = await this.client.get('/genre/list', {
+            const response = await this.getWithRateLimit('/genre/list', {
                 params: {
                     app_id: this.appId,
                     user_auth_token: this.token
@@ -274,7 +381,7 @@ export class QobuzAPI {
         offset = 0
     ): Promise<ApiResponse<SearchResults>> {
         try {
-            const response = await this.client.get('/catalog/search', {
+            const response = await this.getWithRateLimit<SearchResults>('/catalog/search', {
                 params: {
                     query: query,
                     type: type,
@@ -301,7 +408,7 @@ export class QobuzAPI {
             };
             const { timestamp, signature } = this.generateSignature('track/getFileUrl', sigParams);
 
-            const response = await this.client.get('/track/getFileUrl', {
+            const response = await this.getWithRateLimit<FileUrlData>('/track/getFileUrl', {
                 params: {
                     track_id: trackId,
                     format_id: requestedFormatId,
@@ -326,7 +433,7 @@ export class QobuzAPI {
                     detectedFormat = 6;
                     qualityVerified = true;
                 } else if (bit_depth === 24) {
-                    if (sampling_rate >= 176.4) {
+                    if ((sampling_rate || 0) >= 176.4) {
                         detectedFormat = 27;
                     } else {
                         detectedFormat = 7;
@@ -383,7 +490,7 @@ export class QobuzAPI {
             return { success: false, error: 'App ID is not configured' };
         }
         try {
-            const response = await this.client.get('/user/get', {
+            const response = await this.getWithRateLimit<UserInfo>('/user/get', {
                 params: {
                     user_id: this.userId,
                     app_id: this.appId,

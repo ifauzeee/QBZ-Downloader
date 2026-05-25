@@ -172,5 +172,8 @@ export interface FileUrlData {
     bit_depth?: number;
     sampling_rate?: number;
     mime_type?: string;
+    duration?: number;
+    sample?: boolean;
+    restrictions?: unknown;
     md5_hash?: string;
 }
