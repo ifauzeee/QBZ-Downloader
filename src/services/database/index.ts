@@ -1326,6 +1326,11 @@ export class DatabaseService {
         db.prepare('DELETE FROM queue_items WHERE id = ?').run(id);
     }
 
+    clearQueueItems(): void {
+        const db = this.getDb();
+        db.prepare('DELETE FROM queue_items').run();
+    }
+
     getWatchedPlaylists(): Record<string, unknown>[] {
         const db = this.getDb();
         return db.prepare('SELECT * FROM watched_playlists ORDER BY created_at DESC').all() as Record<string, unknown>[];
@@ -1348,6 +1353,43 @@ export class DatabaseService {
                 interval_hours = excluded.interval_hours
         `
         ).run(p.id, p.playlistId, p.title, p.quality, p.intervalHours);
+    }
+
+    upsertWatchedPlaylist(p: {
+        id: string;
+        playlistId: string;
+        title?: string;
+        quality?: number;
+        intervalHours?: number;
+        lastSyncedAt?: string | null;
+        createdAt?: string;
+    }): void {
+        const db = this.getDb();
+        db.prepare(
+            `
+            INSERT INTO watched_playlists (id, playlist_id, title, quality, interval_hours, last_synced_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                playlist_id = excluded.playlist_id,
+                title = excluded.title,
+                quality = excluded.quality,
+                interval_hours = excluded.interval_hours,
+                last_synced_at = excluded.last_synced_at
+        `
+        ).run(
+            p.id,
+            p.playlistId,
+            p.title || null,
+            p.quality ?? 27,
+            p.intervalHours ?? 24,
+            p.lastSyncedAt || null,
+            p.createdAt || new Date().toISOString()
+        );
+    }
+
+    clearWatchedPlaylists(): void {
+        const db = this.getDb();
+        db.prepare('DELETE FROM watched_playlists').run();
     }
 
     removeWatchedPlaylist(id: string): void {

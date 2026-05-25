@@ -14,6 +14,7 @@ import { validateEnvironment } from '../../../utils/env.js';
 import { queueProcessor } from '../../queue-processor.js';
 import { playlistWatcherService } from '../../PlaylistWatcherService.js';
 import { qobuzAccountService } from '../../QobuzAccountService.js';
+import { configBackupService } from '../../ConfigBackupService.js';
 
 const router = Router();
 const api = qobuzApi;
@@ -423,6 +424,28 @@ router.post('/system/reset', async (req: Request, res: Response) => {
         res.json({ success: true, message: 'All data and settings have been cleared.' });
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+router.post('/config/export', (req: Request, res: Response) => {
+    try {
+        const passphrase = String((req.body || {}).passphrase || '');
+        res.json(configBackupService.exportEncrypted(passphrase));
+    } catch (error: unknown) {
+        res.status(400).json({ error: (error as Error).message });
+    }
+});
+
+router.post('/config/import', async (req: Request, res: Response) => {
+    try {
+        const body = (req.body || {}) as Record<string, unknown>;
+        const passphrase = String(body.passphrase || '');
+        const mode = body.mode === 'replace' ? 'replace' : 'merge';
+        const result = await configBackupService.importEncrypted(body.backup, passphrase, mode);
+        startBackgroundServicesIfReady();
+        res.json({ success: true, imported: result });
+    } catch (error: unknown) {
+        res.status(400).json({ error: (error as Error).message });
     }
 });
 

@@ -167,6 +167,32 @@ export class SettingsService {
         return result;
     }
 
+    getAll(): Record<string, string> {
+        this.ensureInitialized();
+
+        try {
+            const db = databaseService.getDb();
+            const rows = db.prepare('SELECT key, value FROM app_settings').all() as Array<{
+                key: string;
+                value: string;
+            }>;
+            const result: Record<string, string> = {};
+            const now = Date.now();
+
+            for (const row of rows) {
+                const value = SENSITIVE_KEYS.includes(row.key) ? decrypt(row.value) : row.value;
+                result[row.key] = value;
+                this.cache.set(row.key, { value, timestamp: now });
+            }
+
+            return result;
+        } catch {
+            return Object.fromEntries(
+                Array.from(this.cache.entries()).map(([key, item]) => [key, item.value])
+            );
+        }
+    }
+
     set(key: string, value: string): void {
         this.ensureInitialized();
 
