@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import Database from 'better-sqlite3';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { DatabaseService } from './index.js';
 
 // Mock logger to avoid console spam
@@ -41,6 +45,64 @@ describe('DatabaseService', () => {
             const db = dbService.getDb();
             const version = db.prepare("SELECT value FROM meta WHERE key = 'db_version'").get();
             expect(version.value).toBe('11');
+        });
+
+        it('should create a same-directory backup before migrating a file database', () => {
+            dbService.close();
+
+            const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbz-db-migration-'));
+            const dbPath = path.join(tempDir, 'qbz.db');
+            const oldDb = new Database(dbPath);
+            oldDb.exec(`
+                CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+                INSERT INTO meta (key, value) VALUES ('db_version', '10');
+                CREATE TABLE library_files (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    file_path TEXT UNIQUE NOT NULL,
+                    track_id TEXT,
+                    title TEXT,
+                    artist TEXT,
+                    album_artist TEXT,
+                    album TEXT,
+                    duration INTEGER,
+                    quality INTEGER,
+                    available_quality INTEGER,
+                    file_size INTEGER,
+                    format TEXT,
+                    bit_depth INTEGER,
+                    sample_rate INTEGER,
+                    scanned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    needs_upgrade INTEGER DEFAULT 0,
+                    upgrade_candidates TEXT,
+                    audio_fingerprint TEXT,
+                    missing_metadata INTEGER DEFAULT 0,
+                    missing_tags TEXT,
+                    checksum TEXT,
+                    verification_status TEXT DEFAULT 'pending'
+                );
+            `);
+            oldDb.close();
+
+            const fileDbService = new DatabaseService(dbPath);
+            fileDbService.initialize();
+            fileDbService.close();
+
+            const backupPath = path.join(tempDir, 'qbz.backup-v11.db');
+            expect(fs.existsSync(backupPath)).toBe(true);
+
+            const backupDb = new Database(backupPath, { readonly: true });
+            const backupVersion = backupDb
+                .prepare("SELECT value FROM meta WHERE key = 'db_version'")
+                .get() as { value: string };
+            const backupColumns = backupDb.prepare('PRAGMA table_info(library_files)').all() as {
+                name: string;
+            }[];
+            backupDb.close();
+
+            expect(backupVersion.value).toBe('10');
+            expect(backupColumns.some((column) => column.name === 'file_mtime_ms')).toBe(false);
+
+            fs.rmSync(tempDir, { recursive: true, force: true });
         });
     });
 

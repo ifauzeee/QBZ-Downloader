@@ -74,6 +74,33 @@ export class DatabaseService {
         this.dbPath = dbPath || DEFAULT_DB_PATH;
     }
 
+    private createMigrationBackup(targetVersion: number): void {
+        if (!this.db || this.dbPath === ':memory:') return;
+
+        const dbFile = path.resolve(this.dbPath);
+        if (!fs.existsSync(dbFile)) return;
+
+        const backupPath = path.join(path.dirname(dbFile), `qbz.backup-v${targetVersion}.db`);
+        if (fs.existsSync(backupPath)) {
+            logger.warn(`Migration backup already exists, preserving: ${backupPath}`, 'DB');
+            return;
+        }
+
+        const tmpPath = `${backupPath}.tmp`;
+        try {
+            fs.writeFileSync(tmpPath, this.db.serialize());
+            fs.renameSync(tmpPath, backupPath);
+            logger.info(`Database backup created before migration v${targetVersion}: ${backupPath}`, 'DB');
+        } catch (error: unknown) {
+            if (fs.existsSync(tmpPath)) {
+                fs.rmSync(tmpPath, { force: true });
+            }
+            throw new Error(
+                `Failed to create database backup before migration v${targetVersion}: ${(error as Error).message}`
+            );
+        }
+    }
+
     initialize(): void {
         if (this.initialized) return;
 
@@ -351,6 +378,7 @@ export class DatabaseService {
             }[];
             const hasFingerprint = tableInfo.some((col) => col.name === 'audio_fingerprint');
             if (!hasFingerprint) {
+                this.createMigrationBackup(6);
                 this.db!.exec('ALTER TABLE library_files ADD COLUMN audio_fingerprint TEXT');
                 logger.info('Migration: Added audio_fingerprint to library_files', 'DB');
             }
@@ -376,6 +404,7 @@ export class DatabaseService {
                 const hasAlbumArtist = tableInfo.some((col) => col.name === 'album_artist');
 
                 if (!hasAlbumArtist) {
+                    this.createMigrationBackup(2);
                     this.db.exec('ALTER TABLE tracks ADD COLUMN album_artist TEXT');
                     this.db.exec(
                         'UPDATE tracks SET album_artist = artist WHERE album_artist IS NULL'
@@ -397,6 +426,7 @@ export class DatabaseService {
                 );
 
                 if (!hasAvailableQuality) {
+                    this.createMigrationBackup(3);
                     this.db.exec('ALTER TABLE library_files ADD COLUMN available_quality INTEGER');
                     logger.info(
                         'Migration: Added available_quality column to library_files table',
@@ -416,6 +446,7 @@ export class DatabaseService {
                     ).all() as { name: string }[];
                     const hasMissingMeta = tableInfo.some((col) => col.name === 'missing_metadata');
                     if (!hasMissingMeta) {
+                        this.createMigrationBackup(7);
                         this.db!.exec(
                             'ALTER TABLE library_files ADD COLUMN missing_metadata INTEGER DEFAULT 0'
                         );
@@ -433,6 +464,7 @@ export class DatabaseService {
                     ).all() as { name: string }[];
                     const hasAlbumArtist = tableInfo.some((col) => col.name === 'album_artist');
                     if (!hasAlbumArtist) {
+                        this.createMigrationBackup(8);
                         this.db!.exec('ALTER TABLE library_files ADD COLUMN album_artist TEXT');
                         logger.info(
                             'Migration v8: Added album_artist column to library_files',
@@ -451,6 +483,7 @@ export class DatabaseService {
                     ).all() as { name: string }[];
                     const hasMissingTags = tableInfo.some((col) => col.name === 'missing_tags');
                     if (!hasMissingTags) {
+                        this.createMigrationBackup(9);
                         this.db!.exec('ALTER TABLE library_files ADD COLUMN missing_tags TEXT');
                         logger.info(
                             'Migration v9: Added missing_tags column to library_files',
@@ -471,6 +504,7 @@ export class DatabaseService {
                         (col) => col.name === 'upgrade_candidates'
                     );
                     if (!hasUpgradeCandidates) {
+                        this.createMigrationBackup(10);
                         this.db!.exec('ALTER TABLE library_files ADD COLUMN upgrade_candidates TEXT');
                         logger.info(
                             'Migration v10: Added upgrade_candidates column to library_files',
@@ -491,6 +525,7 @@ export class DatabaseService {
                         (col) => col.name === 'file_mtime_ms'
                     );
                     if (!hasFileMtimeMs) {
+                        this.createMigrationBackup(11);
                         this.db!.exec('ALTER TABLE library_files ADD COLUMN file_mtime_ms REAL DEFAULT 0');
                         logger.info(
                             'Migration v11: Added file_mtime_ms column to library_files',
