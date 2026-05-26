@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-05-26
+
+### Reliability
+
+- **Dashboard startup resilience** - Dashboard server startup now handles listen failures, including port conflicts, as logged errors instead of allowing unhandled server errors to crash the process.
+- **AI metadata validation** - AI metadata response validation now rejects control characters without relying on a lint-blocked regular expression, keeping the validation behavior intact while restoring backend lint stability.
+
+### Security
+
+- **Dependency audit cleanup** - Updated vulnerable transitive WebSocket and querystring dependencies in the root and dashboard client lockfiles so `npm audit --audit-level=high` reports no vulnerabilities.
+
+### Tests
+
+- Added regression coverage for dashboard port-conflict handling and AI metadata control-character rejection.
+
+---
+
 ## [5.2.2] - 2026-05-24
 
 ### Bug Fixes

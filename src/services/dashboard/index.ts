@@ -305,8 +305,17 @@ export class DashboardService {
     }
 
     public start(port?: number): void {
-        if (port) this.port = port;
+        if (port !== undefined) this.port = port;
         const host = CONFIG.dashboard.host || '127.0.0.1';
+
+        this.httpServer.once('error', (error) => {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error(
+                `Failed to initialize dashboard service on ${host}:${this.port}: ${message}`,
+                'WEB'
+            );
+        });
+
         try {
             this.httpServer.listen(this.port, host, async () => {
 

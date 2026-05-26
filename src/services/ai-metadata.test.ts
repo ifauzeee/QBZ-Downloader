@@ -138,6 +138,35 @@ describe('AIMetadataService', () => {
             );
         });
 
+        it('should reject AI metadata containing control characters', async () => {
+            vi.mocked(settingsService.get).mockImplementation((key) => {
+                if (key === 'AI_REPAIR_ENABLED') return 'true';
+                if (key === 'AI_PROVIDER') return 'openai';
+                if (key === 'AI_API_KEY') return 'key-123';
+                if (key === 'AI_MODEL') return 'gpt-4';
+                return '';
+            });
+
+            vi.mocked(axios.post).mockResolvedValue({
+                data: {
+                    choices: [
+                        {
+                            message: {
+                                content: '{"title": "Bad\\u0000Title"}'
+                            }
+                        }
+                    ]
+                }
+            });
+
+            const result = await service.repairMetadata({ title: 'Test' });
+            expect(result).toBeNull();
+            expect(logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('must not contain control characters'),
+                'AI'
+            );
+        });
+
         it('should reject invalid AI response envelopes', async () => {
             vi.mocked(settingsService.get).mockImplementation((key) => {
                 if (key === 'AI_REPAIR_ENABLED') return 'true';

@@ -8,12 +8,19 @@ const MAX_METADATA_FIELD_LENGTH = 300;
 const MIN_REASONABLE_YEAR = 1000;
 const MAX_REASONABLE_YEAR = new Date().getFullYear() + 1;
 
+function hasControlCharacter(value: string): boolean {
+    return Array.from(value).some((char) => {
+        const code = char.charCodeAt(0);
+        return code <= 0x1f || code === 0x7f;
+    });
+}
+
 const aiMetadataTextField = z
     .string()
     .trim()
     .min(1)
     .max(MAX_METADATA_FIELD_LENGTH)
-    .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), {
+    .refine((value) => !hasControlCharacter(value), {
         message: 'must not contain control characters'
     });
 
