@@ -16,6 +16,49 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Cache node-gyp cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/node-gyp
+            ~\AppData\Local\node-gyp\cache
+          key: node-gyp-windows-22-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-gyp-windows-22-
+            node-gyp-windows-
+
+      - name: Cache root node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-root-${{ hashFiles('package-lock.json') }}
+          restore-keys: node-modules-root-
+
+      - name: Cache client node_modules
+        uses: actions/cache@v4
+        with:
+          path: client/node_modules
+          key: node-modules-client-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: node-modules-client-
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~\AppData\Local\electron\Cache
+          key: electron-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-
+
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron-builder
+            ~\AppData\Local\electron-builder\Cache
+          key: electron-builder-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-builder-
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

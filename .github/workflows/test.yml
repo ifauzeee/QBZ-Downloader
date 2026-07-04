@@ -17,6 +17,32 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Cache node-gyp cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/node-gyp
+          ~\AppData\Local\node-gyp\cache
+        key: node-gyp-${{ matrix.os }}-${{ matrix.node-version }}-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          node-gyp-${{ matrix.os }}-${{ matrix.node-version }}-
+          node-gyp-${{ matrix.os }}-
+
+    - name: Cache root node_modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: node-modules-root-${{ hashFiles('package-lock.json') }}
+        restore-keys: node-modules-root-
+
+    - name: Cache client node_modules
+      uses: actions/cache@v4
+      with:
+        path: client/node_modules
+        key: node-modules-client-${{ hashFiles('client/package-lock.json') }}
+        restore-keys: node-modules-client-
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
@@ -60,3 +86,9 @@ jobs:
     - name: Run client tests
       run: npm test
       working-directory: client
+
+    - name: Electron smoke test (Windows, merge-to-main only)
+      if: runner.os == 'Windows' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: npm run build:full && node tests/electron-smoke.mjs
+      env:
+        NODE_ENV: test

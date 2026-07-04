@@ -22,6 +22,7 @@
     "test:native": "npm rebuild better-sqlite3",
     "test:watch": "npx vitest",
     "test:coverage": "npx vitest run --coverage",
+    "test:smoke": "node tests/electron-smoke.mjs",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
