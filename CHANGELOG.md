@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-05-26
+## [5.2.3] - 2026-05-26
 
 ### Reliability
 
