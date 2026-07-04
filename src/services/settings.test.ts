@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsService } from './settings.js';
 import { databaseService } from './database/index.js';
-import { encrypt } from '../utils/crypto.js';
+
+import { encryptionService } from '../utils/encryption.js';
 import { eventBus, EVENTS } from '../utils/events.js';
 
 // Mock dependencies
@@ -28,9 +29,12 @@ vi.mock('../utils/logger.js', () => ({
     }
 }));
 
-vi.mock('../utils/crypto.js', () => ({
-    encrypt: vi.fn((v) => `enc_${v}`),
-    decrypt: vi.fn((v) => v.replace('enc_', ''))
+vi.mock('../utils/encryption.js', () => ({
+    encryptionService: {
+        encryptSync: vi.fn((v) => `enc_${v}`),
+        decryptSync: vi.fn((v) => v.replace('enc_', '')),
+        isEncryptedSync: vi.fn(() => true),
+    }
 }));
 
 describe('SettingsService', () => {
@@ -51,13 +55,13 @@ describe('SettingsService', () => {
 
     it('should encrypt sensitive keys', () => {
         settings.set('AI_API_KEY', 'secret-key');
-        expect(encrypt).toHaveBeenCalledWith('secret-key');
-        expect(settings.get('AI_API_KEY')).toBe('secret-key'); // Cache should have decrypted value
+        expect(encryptionService.encryptSync).toHaveBeenCalledWith('secret-key');
+        expect(settings.get('AI_API_KEY')).toBe('secret-key');
     });
 
     it('should encrypt stored Qobuz account bundles', () => {
         settings.set('QOBUZ_ACCOUNTS', '[{"name":"Personal","token":"secret"}]');
-        expect(encrypt).toHaveBeenCalledWith('[{"name":"Personal","token":"secret"}]');
+        expect(encryptionService.encryptSync).toHaveBeenCalledWith('[{"name":"Personal","token":"secret"}]');
     });
 
     it('should handle setMany correctly', () => {

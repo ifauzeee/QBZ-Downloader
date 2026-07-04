@@ -29,6 +29,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Audit root dependencies
+      run: npm audit --audit-level=high
+
     - name: Lint
       run: npm run lint
 
@@ -40,6 +43,10 @@ jobs:
 
     - name: Install client dependencies
       run: npm ci
+      working-directory: client
+
+    - name: Audit client dependencies
+      run: npm audit --audit-level=high
       working-directory: client
 
     - name: Lint client

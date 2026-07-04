@@ -58,13 +58,41 @@ function getOrGenerateKey(): Buffer {
     return key;
 }
 
+function encryptSync(text: string): string {
+    const key = getOrGenerateKey();
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decryptSync(text: string): string {
+    try {
+        const textParts = text.split(':');
+        if (textParts.length < 2) return text;
+        const key = getOrGenerateKey();
+        const iv = Buffer.from(textParts.shift()!, 'hex');
+        const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+        let decrypted = decipher.update(encryptedText);
+        decrypted = Buffer.concat([decrypted, decipher.final()]);
+        return decrypted.toString();
+    } catch {
+        return text;
+    }
+}
+
+function isEncryptedSync(text: string): boolean {
+    return /^[0-9a-f]{32}:[0-9a-f]+$/.test(text);
+}
+
 export const encryptionService = {
     async encrypt(text: string): Promise<string> {
         if (!text) return text;
-        
+
         const safeStorage = await getSafeStorage();
-        
-        // Use safeStorage if available
+
         if (safeStorage?.isEncryptionAvailable()) {
             try {
                 const encrypted = safeStorage.encryptString(text);
@@ -74,18 +102,7 @@ export const encryptionService = {
             }
         }
 
-        // Fallback to legacy encryption
-        try {
-            const key = getOrGenerateKey();
-            const iv = crypto.randomBytes(IV_LENGTH);
-            const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-            let encrypted = cipher.update(text);
-            encrypted = Buffer.concat([encrypted, cipher.final()]);
-            return iv.toString('hex') + ':' + encrypted.toString('hex');
-        } catch (error) {
-            console.error('Encryption failed:', error);
-            return text;
-        }
+        return encryptSync(text);
     },
 
     async decrypt(text: string): Promise<string> {
@@ -93,7 +110,6 @@ export const encryptionService = {
 
         const safeStorage = await getSafeStorage();
 
-        // Handle safeStorage decryption
         if (text.startsWith('safe:') && safeStorage?.isEncryptionAvailable()) {
             try {
                 const encryptedHex = text.substring(5);
@@ -104,25 +120,14 @@ export const encryptionService = {
             }
         }
 
-        // Handle legacy decryption
-        try {
-            const textParts = text.split(':');
-            if (textParts.length < 2) return text;
-
-            const key = getOrGenerateKey();
-            const iv = Buffer.from(textParts.shift()!, 'hex');
-            const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-            const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-            let decrypted = decipher.update(encryptedText);
-            decrypted = Buffer.concat([decrypted, decipher.final()]);
-            return decrypted.toString();
-        } catch {
-            return text;
-        }
+        return decryptSync(text);
     },
 
     isEncrypted(text: string): boolean {
-        return text.startsWith('safe:') || /^[0-9a-f]{32}:[0-9a-f]+$/.test(text);
-    }
-};
+        return text.startsWith('safe:') || isEncryptedSync(text);
+    },
 
+    encryptSync,
+    decryptSync,
+    isEncryptedSync,
+};

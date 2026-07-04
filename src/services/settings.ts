@@ -1,6 +1,6 @@
 import { databaseService } from './database/index.js';
 import { logger } from '../utils/logger.js';
-import { encrypt, decrypt } from '../utils/crypto.js';
+import { encryptionService } from '../utils/encryption.js';
 import { eventBus, EVENTS } from '../utils/events.js';
 
 const SENSITIVE_KEYS = [
@@ -94,7 +94,7 @@ export class SettingsService {
             this.cache.clear();
             const now = Date.now();
             for (const row of rows) {
-                const value = SENSITIVE_KEYS.includes(row.key) ? decrypt(row.value) : row.value;
+                const value = SENSITIVE_KEYS.includes(row.key) ? encryptionService.decryptSync(row.value) : row.value;
                 this.cache.set(row.key, { value, timestamp: now });
             }
 
@@ -146,7 +146,7 @@ export class SettingsService {
             const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined;
             
             if (row) {
-                const value = SENSITIVE_KEYS.includes(key) ? decrypt(row.value) : row.value;
+                const value = SENSITIVE_KEYS.includes(key) ? encryptionService.decryptSync(row.value) : row.value;
                 this.cache.set(key, { value, timestamp: now });
                 return value;
             }
@@ -180,7 +180,7 @@ export class SettingsService {
             const now = Date.now();
 
             for (const row of rows) {
-                const value = SENSITIVE_KEYS.includes(row.key) ? decrypt(row.value) : row.value;
+                const value = SENSITIVE_KEYS.includes(row.key) ? encryptionService.decryptSync(row.value) : row.value;
                 result[row.key] = value;
                 this.cache.set(row.key, { value, timestamp: now });
             }
@@ -198,7 +198,7 @@ export class SettingsService {
 
         try {
             const db = databaseService.getDb();
-            const valueToStore = SENSITIVE_KEYS.includes(key) ? encrypt(value) : value;
+            const valueToStore = SENSITIVE_KEYS.includes(key) ? encryptionService.encryptSync(value) : value;
 
             db.prepare(
                 `INSERT INTO app_settings (key, value, updated_at)
@@ -232,7 +232,7 @@ export class SettingsService {
                 );
 
                 for (const [key, value] of entries) {
-                    const valueToStore = SENSITIVE_KEYS.includes(key) ? encrypt(value) : value;
+                    const valueToStore = SENSITIVE_KEYS.includes(key) ? encryptionService.encryptSync(value) : value;
                     stmt.run(key, valueToStore);
                     this.cache.set(key, { value, timestamp: Date.now() });
                     process.env[key] = value;
