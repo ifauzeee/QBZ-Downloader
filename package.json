@@ -188,7 +188,7 @@
     "express-rate-limit": "^8.5.2",
     "figlet": "^1.11.0",
     "flac-metadata": "^0.1.1",
-    "gradient-string": "^2.0.2",
+    "gradient-string": "^3.0.0",
     "lru-cache": "^11.3.6",
     "music-metadata": "^11.12.3",
     "node-id3": "^0.2.9",
