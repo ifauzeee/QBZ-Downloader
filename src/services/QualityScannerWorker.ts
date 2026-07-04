@@ -11,7 +11,7 @@ const execPromise = promisify(exec);
 
 export function parseMeanVolume(output: string): number {
     const match = output.match(/mean_volume: ([-\d.]+) dB/);
-    if (match) return parseFloat(match[1]);
+    if (match) return parseFloat(match[1]!);
 
     return -100;
 }

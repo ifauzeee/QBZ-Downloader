@@ -19,8 +19,8 @@ export function parseSelection(input: string, max: number): number[] {
             const nums = subParts.map((s) => parseInt(s));
             if (nums.some(isNaN)) continue;
 
-            const start = nums[0];
-            const end = nums[1];
+            const start = nums[0]!;
+            const end = nums[1]!;
 
             const low = Math.min(start, end);
             const high = Math.max(start, end);

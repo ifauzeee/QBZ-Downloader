@@ -94,7 +94,7 @@ export class MetadataService {
         if (!names || names.length === 0) return '';
         const filteredNames = names.filter(Boolean);
         if (filteredNames.length === 0) return '';
-        if (filteredNames.length === 1) return filteredNames[0];
+        if (filteredNames.length === 1) return filteredNames[0]!;
         if (filteredNames.length === 2) return `${filteredNames[0]} & ${filteredNames[1]}`;
         const last = filteredNames.pop();
         return `${filteredNames.join(', ')} & ${last}`;
@@ -194,7 +194,7 @@ export class MetadataService {
                 let bestGenre = '';
 
                 if (list.length > 0) {
-                    const lastItem = list[list.length - 1];
+                    const lastItem = list[list.length - 1]!;
                     const name = typeof lastItem === 'string' ? lastItem : (lastItem as { name: string }).name;
                     bestGenre = name.split('→').pop()!.trim();
                 } else if ((album.genre as { name?: string })?.name) {
@@ -303,7 +303,7 @@ export class MetadataService {
                     (k) => k.toLowerCase().trim() === lowerGenre
                 );
 
-                return matchedKey ? GENRE_TRANSLATIONS[matchedKey] : bestGenre;
+                return matchedKey ? GENRE_TRANSLATIONS[matchedKey]! : bestGenre;
             })(),
 
             albumArtist: (album.artist as { name?: string })?.name || artist.name || '',
@@ -543,7 +543,7 @@ export class MetadataService {
     formatDate(timestamp?: number) {
         if (!timestamp) return '';
         const date = new Date(timestamp * 1000);
-        return date.toISOString().split('T')[0];
+        return date.toISOString().split('T')[0]!;
     }
 
     formatDuration(seconds?: number) {
@@ -716,9 +716,9 @@ export class MetadataService {
         for (const [key, value] of validComments) {
             if (typeof value === 'string' && value.includes('; ')) {
                 const parts = value.split('; ');
-                parts.forEach((p) => expandedComments.push([key, p]));
+                parts.forEach((p) => expandedComments.push([key!, p]));
             } else {
-                expandedComments.push([key, value?.toString() || '']);
+                expandedComments.push([key!, value?.toString() || '']);
             }
         }
 

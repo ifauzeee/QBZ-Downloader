@@ -510,8 +510,8 @@ export class BatchImportService {
             const urlsWithQuality: { url: string; quality: number }[] = records.map((row) => {
                 const r = row as Record<string, string>;
                 return {
-                    url: r[urlKey],
-                    quality: qualityKey ? parseInt(r[qualityKey]) || defaultQuality : defaultQuality
+                    url: r[urlKey]!,
+                    quality: qualityKey ? parseInt(r[qualityKey]!) || defaultQuality : defaultQuality
                 };
             }).filter(item => item.url);
 

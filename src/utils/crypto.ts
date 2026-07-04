@@ -31,5 +31,5 @@ export function decrypt(text: string): string {
 }
 
 export function isEncrypted(text: string): boolean {
-    return text.includes(':') && text.split(':')[0].length === IV_LENGTH * 2;
+    return text.includes(':') && text.split(':')[0]!.length === IV_LENGTH * 2;
 }

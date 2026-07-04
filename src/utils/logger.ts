@@ -63,7 +63,7 @@ class Logger {
         }
 
         if (this.broadcastCallback) {
-            this.broadcastCallback(this.logs[this.logs.length - 1]);
+            this.broadcastCallback(this.logs[this.logs.length - 1]!);
         }
 
         const timestamp = chalk.gray(timestampStr);

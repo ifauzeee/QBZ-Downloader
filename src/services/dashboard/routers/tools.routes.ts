@@ -117,7 +117,7 @@ router.post('/identify', async (req: Request, res: Response) => {
 
         const result = await api.search(query, 'tracks', 5);
         if (result.success && result.data?.tracks?.items?.length) {
-            const track = result.data.tracks.items[0];
+            const track = result.data.tracks.items[0]!;
             
             // Intelligence Boost: Fetch full album to get Genre, Label, and accurate Year
             if (track.album?.id) {

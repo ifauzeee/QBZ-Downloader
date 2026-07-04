@@ -888,21 +888,21 @@ export class LibraryScannerService extends EventEmitter {
     private levenshteinDistance(str1: string, str2: string): number {
         const matrix: number[][] = [];
         for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
-        for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
+        for (let j = 0; j <= str1.length; j++) matrix[0]![j] = j;
         for (let i = 1; i <= str2.length; i++) {
             for (let j = 1; j <= str1.length; j++) {
                 if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
+                    matrix[i]![j] = matrix[i - 1]![j - 1]!;
                 } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1,
-                        matrix[i][j - 1] + 1,
-                        matrix[i - 1][j] + 1
+                    matrix[i]![j] = Math.min(
+                        matrix[i - 1]![j - 1]! + 1,
+                        matrix[i]![j - 1]! + 1,
+                        matrix[i - 1]![j]! + 1
                     );
                 }
             }
         }
-        return matrix[str2.length][str1.length];
+        return matrix[str2.length]![str1.length]!;
     }
 
     private getQualityLabel(quality: number): string {
@@ -991,7 +991,7 @@ export class LibraryScannerService extends EventEmitter {
             if (paths.length > 1) {
                 for (let i = 0; i < paths.length; i++) {
                     for (let j = i + 1; j < paths.length; j++) {
-                        registerDuplicate(paths[i], paths[j], 'exact', 1.0);
+                        registerDuplicate(paths[i]!, paths[j]!, 'exact', 1.0);
                     }
                 }
             }
@@ -1002,8 +1002,8 @@ export class LibraryScannerService extends EventEmitter {
 
             for (let i = 0; i < items.length; i++) {
                 for (let j = i + 1; j < items.length; j++) {
-                    const item1 = items[i];
-                    const item2 = items[j];
+                    const item1 = items[i]!;
+                    const item2 = items[j]!;
 
                     if (item1.filePath === item2.filePath) continue;
 

@@ -59,7 +59,7 @@ export class MetadataProcessor {
     }
 
     buildFilename(metadata: Metadata, quality: number): string {
-        const format = CONFIG.quality.formats[quality] || CONFIG.quality.formats[27];
+        const format = CONFIG.quality.formats[quality] || CONFIG.quality.formats[27]!;
         const ext = format.extension || 'flac';
         const filename = this.applyTemplate(CONFIG.download.fileNaming, metadata, quality);
         return filename.endsWith(`.${ext}`) ? filename : `${filename}.${ext}`;
@@ -99,7 +99,7 @@ export class MetadataProcessor {
         if (overLimit > 0) {
             const parts = folderPath.split(/[/\\]/);
             for (let i = parts.length - 1; i >= 0 && overLimit > 0; i--) {
-                const part = parts[i];
+                const part = parts[i]!;
                 if (part.length > 10) {
                     const toCut = Math.min(overLimit, part.length - 5);
                     parts[i] = part.substring(0, part.length - toCut).trim();

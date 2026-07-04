@@ -247,10 +247,10 @@ export function formatErrorForAPI(
 
 function extractErrorCode(errorString: string): string {
     const httpMatch = errorString.match(/\b(4\d{2}|5\d{2})\b/);
-    if (httpMatch) return httpMatch[1];
+    if (httpMatch) return httpMatch[1]!;
 
     const nodeMatch = errorString.match(/\b(E[A-Z]+)\b/);
-    if (nodeMatch) return nodeMatch[1];
+    if (nodeMatch) return nodeMatch[1]!;
 
     return 'UNKNOWN';
 }

@@ -203,11 +203,11 @@ class AdvancedAnalyticsService {
             const monthKeys = Array.from(monthsMap.keys()).sort().reverse();
 
             for (let i = 0; i < monthKeys.length; i++) {
-                const month = monthKeys[i];
+                const month = monthKeys[i]!;
                 const monthData = monthsMap.get(month)!;
                 const aggregated = this.aggregateStats(monthData);
 
-                const prevMonth = monthKeys[i + 1];
+                const prevMonth = monthKeys[i + 1]!;
                 let change = 0;
                 if (prevMonth) {
                     const prevData = monthsMap.get(prevMonth)!;
@@ -221,7 +221,7 @@ class AdvancedAnalyticsService {
                 }
 
                 trends.push({
-                    period: month,
+                    period: month!,
                     downloads: aggregated.downloads,
                     tracks: aggregated.tracks,
                     albums: aggregated.albums,
@@ -416,12 +416,12 @@ class AdvancedAnalyticsService {
         change: { downloads: number; size: number };
     } {
         const stats1 = databaseService.getStatsForRange(
-            start1.toISOString().split('T')[0],
-            end1.toISOString().split('T')[0]
+            start1.toISOString().split('T')[0]!,
+            end1.toISOString().split('T')[0]!
         );
         const stats2 = databaseService.getStatsForRange(
-            start2.toISOString().split('T')[0],
-            end2.toISOString().split('T')[0]
+            start2.toISOString().split('T')[0]!,
+            end2.toISOString().split('T')[0]!
         );
 
         const agg1 = this.aggregateStats(stats1);

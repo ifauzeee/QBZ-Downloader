@@ -185,16 +185,16 @@ class LyricsProvider {
         for (const line of lines) {
             const match = line.match(timeRegex);
             if (match) {
-                const minutes = parseInt(match[1]);
-                const seconds = parseInt(match[2]);
-                const milliseconds = parseInt(match[3].padEnd(3, '0'));
+                const minutes = parseInt(match[1]!);
+                const seconds = parseInt(match[2]!);
+                const milliseconds = parseInt(match[3]!.padEnd(3, '0'));
                 const timeMs = (minutes * 60 + seconds) * 1000 + milliseconds;
                 const text = line.replace(timeRegex, '').trim();
 
                 if (text) {
                     lyrics.push({
                         time: timeMs,
-                        timeStr: `${match[1]}:${match[2]}.${match[3]}`,
+                        timeStr: `${match[1]!}:${match[2]!}.${match[3]!}`,
                         text: text
                     });
                 }
@@ -251,8 +251,8 @@ class LyricsProvider {
         }
 
         const cleanTitle = this.cleanTitle(title);
-        const cleanArtist = artist.split(/[,&]/)[0].trim();
-        const cleanAlbumArtist = albumArtist ? albumArtist.split(/[,&]/)[0].trim() : '';
+        const cleanArtist = artist.split(/[,&]/)[0]!.trim();
+        const cleanAlbumArtist = albumArtist ? albumArtist.split(/[,&]/)[0]!.trim() : '';
 
         if (cleanTitle !== title || (cleanArtist !== artist && cleanArtist !== '')) {
             logger.warn(

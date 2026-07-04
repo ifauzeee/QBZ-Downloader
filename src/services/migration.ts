@@ -113,7 +113,7 @@ export class MigrationService {
         if (sTitle === qTitle) score += 0.5;
         else if (qTitle.includes(sTitle) || sTitle.includes(qTitle)) score += 0.3;
 
-        const sArtist = sTrack.artist.toLowerCase().split(',')[0].trim();
+        const sArtist = sTrack.artist.toLowerCase().split(',')[0]!.trim();
         const qArtist = qTrack.artist?.name?.toLowerCase() || '';
 
         if (qArtist.includes(sArtist) || sArtist.includes(qArtist)) score += 0.4;

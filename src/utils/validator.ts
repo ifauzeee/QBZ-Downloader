@@ -103,7 +103,7 @@ export class InputValidator {
         for (const [type, pattern] of Object.entries(this.URL_PATTERNS)) {
             const match = url.match(pattern);
             if (match) {
-                const id = match[1];
+                const id = match[1]!;
 
                 if (!this.isValidId(id)) {
                     return { valid: false, error: 'Invalid ID format' };

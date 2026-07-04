@@ -157,13 +157,13 @@ class SpotifyAPI {
 
     extractId(url: string): { id: string; type: 'playlist' | 'album' | 'track' } | null {
         const playlistMatch = url.match(/playlist\/([a-zA-Z0-9]+)/);
-        if (playlistMatch) return { id: playlistMatch[1], type: 'playlist' };
+        if (playlistMatch) return { id: playlistMatch[1]!, type: 'playlist' };
 
         const albumMatch = url.match(/album\/([a-zA-Z0-9]+)/);
-        if (albumMatch) return { id: albumMatch[1], type: 'album' };
+        if (albumMatch) return { id: albumMatch[1]!, type: 'album' };
 
         const trackMatch = url.match(/track\/([a-zA-Z0-9]+)/);
-        if (trackMatch) return { id: trackMatch[1], type: 'track' };
+        if (trackMatch) return { id: trackMatch[1]!, type: 'track' };
 
         return null;
     }

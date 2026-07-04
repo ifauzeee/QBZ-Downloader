@@ -62,12 +62,12 @@ export class LibraryStatisticsService {
         for (let i = 29; i >= 0; i--) {
             const d = new Date();
             d.setDate(now.getDate() - i);
-            activityMap.set(d.toISOString().split('T')[0], 0);
+            activityMap.set(d.toISOString().split('T')[0]!, 0);
         }
 
         for (const track of tracks) {
             if (track.downloaded_at) {
-                const date = track.downloaded_at.split(' ')[0];
+                const date = track.downloaded_at.split(' ')[0]!;
                 if (activityMap.has(date)) {
                     activityMap.set(date, (activityMap.get(date) || 0) + 1);
                 }

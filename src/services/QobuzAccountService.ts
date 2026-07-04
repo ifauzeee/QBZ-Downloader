@@ -131,7 +131,7 @@ export class QobuzAccountService {
         const index = accounts.findIndex((account) => account.id === id);
         if (index === -1) throw new Error('Qobuz account not found');
 
-        const existing = accounts[index];
+        const existing = accounts[index]!;
         const updated: QobuzAccount = {
             ...existing,
             name: input.name !== undefined ? String(input.name).trim() : existing.name,

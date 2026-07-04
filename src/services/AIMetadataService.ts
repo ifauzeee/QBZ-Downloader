@@ -174,7 +174,7 @@ export class AIMetadataService {
         const parsedResponse = geminiResponseSchema.safeParse(response.data);
         if (!parsedResponse.success) throw new Error('Invalid Gemini response schema');
 
-        const text = parsedResponse.data.candidates[0].content.parts[0].text;
+        const text = parsedResponse.data.candidates[0]!.content.parts[0]!.text;
         if (!text.trim()) throw new Error('Empty response from AI');
 
         return this.validateMetadataResponse(this.extractJsonObject(text));
@@ -207,7 +207,7 @@ export class AIMetadataService {
         const parsedResponse = openAIResponseSchema.safeParse(response.data);
         if (!parsedResponse.success) throw new Error('Invalid OpenAI response schema');
 
-        const content = parsedResponse.data.choices[0].message.content;
+        const content = parsedResponse.data.choices[0]!.message.content;
         if (!content.trim()) throw new Error('Empty response from AI');
 
         return this.validateMetadataResponse(this.extractJsonObject(content));
