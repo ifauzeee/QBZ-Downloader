@@ -197,7 +197,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@types/archiver": "^7.0.0",
     "@types/cheerio": "^0.22.35",
     "@types/express": "^5.0.6",
