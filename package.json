@@ -176,7 +176,7 @@
   },
   "dependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "axios": "^1.16.1",
     "better-sqlite3": "^12.10.0",
     "boxen": "^7.1.1",
@@ -198,7 +198,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@types/archiver": "^7.0.0",
+    "@types/archiver": "^8.0.0",
     "@types/cheerio": "^0.22.35",
     "@types/express": "^5.0.6",
     "@types/figlet": "^1.7.0",
