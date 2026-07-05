@@ -68,7 +68,7 @@ async function main() {
 
   proc.kill();
 
-  if (data.status === 'ok' || data.status === 'healthy') {
+  if (data.status === 'running') {
     console.log('Electron smoke test passed');
     process.exit(0);
   } else {
