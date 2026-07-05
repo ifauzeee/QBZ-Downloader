@@ -51,7 +51,7 @@ async function main() {
     process.exit(1);
   }, TIMEOUT);
 
-  const url = `http://127.0.0.1:${availablePort}/api/health`;
+  const url = `http://127.0.0.1:${availablePort}/api/status`;
   const started = await waitForServer(url, TIMEOUT);
 
   clearTimeout(timer);
