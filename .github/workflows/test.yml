@@ -29,20 +29,6 @@ jobs:
           node-gyp-${{ matrix.os }}-${{ matrix.node-version }}-
           node-gyp-${{ matrix.os }}-
 
-    - name: Cache root node_modules
-      uses: actions/cache@v4
-      with:
-        path: node_modules
-        key: node-modules-root-${{ hashFiles('package-lock.json') }}
-        restore-keys: node-modules-root-
-
-    - name: Cache client node_modules
-      uses: actions/cache@v4
-      with:
-        path: client/node_modules
-        key: node-modules-client-${{ hashFiles('client/package-lock.json') }}
-        restore-keys: node-modules-client-
-
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
