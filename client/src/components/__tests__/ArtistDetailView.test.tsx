@@ -8,8 +8,8 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   setActiveTab: vi.fn(),
   addToStaging: vi.fn(),
-  settings: {},
-  navData: null,
+  settings: {} as Record<string, unknown>,
+  navData: null as { id: string } | null,
 }));
 
 vi.mock('../../utils/api', () => ({

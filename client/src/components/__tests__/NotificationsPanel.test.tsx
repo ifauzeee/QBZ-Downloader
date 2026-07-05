@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotificationsPanel } from '../NotificationsPanel';
 
 const mocks = vi.hoisted(() => ({
-  notifications: [],
+  notifications: [] as Array<{ id: string; type: string; title: string; message: string; timestamp: string; read: boolean }>,
   unreadCount: 0,
   markAsRead: vi.fn(),
   markAllAsRead: vi.fn(),
@@ -45,11 +45,11 @@ describe('NotificationsPanel', () => {
 
   it('renders notifications when open', () => {
     mocks.notifications = [
-      { id: '1', message: 'Download complete', type: 'success', timestamp: Date.now() },
-      { id: '2', message: 'Error occurred', type: 'error', timestamp: Date.now() },
+      { id: '1', type: 'success', title: 'Download success', message: 'File downloaded', timestamp: new Date().toISOString(), read: false },
+      { id: '2', type: 'error', title: 'Download error', message: 'Failed to download', timestamp: new Date().toISOString(), read: false },
     ];
     render(<NotificationsPanel isOpen={true} onClose={() => {}} />);
-    expect(screen.getByText('Download complete')).toBeInTheDocument();
-    expect(screen.getByText('Error occurred')).toBeInTheDocument();
+    expect(screen.getByText('Download success')).toBeInTheDocument();
+    expect(screen.getByText('Download error')).toBeInTheDocument();
   });
 });

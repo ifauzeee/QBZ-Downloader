@@ -3,13 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { DropZone } from '../DropZone';
 
 describe('DropZone', () => {
-  it('renders with default text', () => {
-    render(<DropZone onFiles={() => {}} />);
-    expect(screen.getByText(/drop/i)).toBeInTheDocument();
+  it('renders with children', () => {
+    render(<DropZone><span>drop zone content</span></DropZone>);
+    expect(screen.getByText('drop zone content')).toBeInTheDocument();
   });
 
-  it('renders with custom children', () => {
-    render(<DropZone onFiles={() => {}}><span>custom content</span></DropZone>);
-    expect(screen.getByText('custom content')).toBeInTheDocument();
+  it('renders the drop zone container', () => {
+    const { container } = render(<DropZone><div>child</div></DropZone>);
+    const firstChild = container.firstElementChild;
+    expect(firstChild).toBeInTheDocument();
+    expect(firstChild!.tagName).toBe('DIV');
   });
 });

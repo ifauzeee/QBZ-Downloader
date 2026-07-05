@@ -7,8 +7,8 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   navigate: vi.fn(),
   addToStaging: vi.fn(),
-  settings: {},
-  searchState: { query: '', type: 'albums', results: [], total: 0, page: 0 },
+  settings: {} as Record<string, unknown>,
+  searchState: { query: '', type: 'albums', results: [] as Array<{ id: string; title?: string; artist?: { name: string }; image?: Record<string, string>; hires?: boolean; maximum_bit_depth?: number; maximum_sampling_rate?: number }>, total: 0, page: 0 },
   setSearchState: vi.fn(),
 }));
 
@@ -97,7 +97,7 @@ describe('SearchView', () => {
   it('shows pagination when total exceeds limit', async () => {
     mocks.searchState.query = 'test';
     mocks.searchState.results = Array.from({ length: 20 }, (_, i) => ({
-      id: String(i), title: `Track ${i}`, artist: {}, image: {},
+      id: String(i), title: `Track ${i}`, artist: { name: `Artist ${i}` }, image: {},
     }));
     mocks.searchState.total = 50;
     render(<SearchView />);
