@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', '../src/services/dashboard/public']),
+  globalIgnores(['dist', 'coverage', '../src/services/dashboard/public']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -32,6 +32,7 @@ export default defineConfig([
       'no-empty': ['error', { allowEmptyCatch: true }],
       'react-hooks/immutability': 'off',
       'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/preserve-manual-memoization': 'warn',
       'react-refresh/only-export-components': 'warn',
     },
   },
