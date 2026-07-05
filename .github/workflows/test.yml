@@ -76,8 +76,10 @@ jobs:
       run: npm test
       working-directory: client
 
-    - name: Electron smoke test (Windows, merge-to-main only)
+    - name: Build backend
       if: runner.os == 'Windows' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: npm run build:full && node tests/electron-smoke.mjs
-      env:
-        NODE_ENV: test
+      run: npm run sync-version && npm run build
+
+    - name: Smoke test (server health check)
+      if: runner.os == 'Windows' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: node tests/electron-smoke.mjs

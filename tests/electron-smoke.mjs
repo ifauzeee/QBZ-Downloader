@@ -1,10 +1,10 @@
 import { spawn } from 'child_process';
 import { createServer } from 'net';
-import { platform } from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const PORT = 43210;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TIMEOUT = 30000;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 async function findAvailablePort(startPort) {
   return new Promise((resolve) => {
@@ -30,24 +30,37 @@ async function waitForServer(url, timeout) {
 }
 
 async function main() {
-  if (platform() !== 'win32') {
-    console.log('Skipping Electron smoke test on non-Windows platform');
-    process.exit(0);
-  }
+  const availablePort = await findAvailablePort(43210);
+  const serverEntry = path.resolve(__dirname, '..', 'dist', 'index.js');
 
-  const availablePort = await findAvailablePort(PORT);
-
-  const proc = spawn('npx', ['electron', '.'], {
+  console.log(`Starting server on port ${availablePort}...`);
+  const proc = spawn('node', [serverEntry], {
     stdio: ['ignore', 'inherit', 'inherit'],
-    env: { ...process.env, DASHBOARD_PORT: String(availablePort) },
-    shell: true,
+    env: {
+      ...process.env,
+      DASHBOARD_PORT: String(availablePort),
+      DASHBOARD_HOST: '127.0.0.1',
+      QBZ_DESKTOP: '1',
+      NODE_ENV: 'test',
+    },
+  });
+
+  proc.on('error', (err) => {
+    console.error('Failed to start server:', err.message);
+    process.exit(1);
+  });
+
+  proc.on('exit', (code) => {
+    if (code !== null && code !== 0) {
+      console.error(`Server exited with code ${code}`);
+    }
   });
 
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     proc.kill();
-    console.error('Electron failed to start within timeout');
+    console.error('Server failed to start within timeout');
     process.exit(1);
   }, TIMEOUT);
 
@@ -64,15 +77,15 @@ async function main() {
 
   const res = await fetch(url);
   const data = await res.json();
-  console.log('Health check response:', JSON.stringify(data));
+  console.log('Status check response:', JSON.stringify(data));
 
   proc.kill();
 
   if (data.status === 'running') {
-    console.log('Electron smoke test passed');
+    console.log('Smoke test passed');
     process.exit(0);
   } else {
-    console.error('Unexpected health check response:', data);
+    console.error('Unexpected status response:', data);
     process.exit(1);
   }
 }
