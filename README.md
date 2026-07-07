@@ -3,7 +3,7 @@
 # 🎵 QBZ-Downloader
 ### *The Ultimate High-Resolution Audio Downloader & Library Manager*
 
-[![Version](https://img.shields.io/badge/version-5.2.3-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
+[![Version](https://img.shields.io/badge/version-5.3.0-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
 [![Windows](https://img.shields.io/badge/Windows-EXE-0078d4?style=flat-square&logo=windows)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-DMG-000000?style=flat-square&logo=apple)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
 [![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624?style=flat-square&logo=linux)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
