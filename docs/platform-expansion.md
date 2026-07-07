@@ -51,3 +51,14 @@ For developer builds, installing FFmpeg in `PATH` remains sufficient.
 - Configure Apple Developer signing and notarization secrets before distributing macOS builds publicly.
 - Add Linux package metadata such as maintainer and desktop categories once a release owner is chosen.
 - Smoke-test download path selection, open-folder actions, notifications, and auto-update behavior on each OS before publishing stable artifacts.
+
+## Implementation Status (v5.3.0)
+
+- [x] CI workflow: macOS job (macos-latest, DMG + ZIP)
+- [x] CI workflow: Linux job (ubuntu-latest, AppImage + deb + tar.gz)
+- [x] Native rebuild per platform (better-sqlite3 via @electron/rebuild)
+- [x] bin/ directory structure for platform binaries
+- [ ] FFmpeg/fpcalc binaries populated (requires manual download per platform)
+- [ ] macOS code signing & notarization (requires Apple Developer account)
+- [x] README updated for 3 platforms
+- [x] Version badge shows 3 platform download links

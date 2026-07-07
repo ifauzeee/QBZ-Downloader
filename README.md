@@ -4,6 +4,9 @@
 ### *The Ultimate High-Resolution Audio Downloader & Library Manager*
 
 [![Version](https://img.shields.io/badge/version-5.2.3-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
+[![Windows](https://img.shields.io/badge/Windows-EXE-0078d4?style=flat-square&logo=windows)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
+[![macOS](https://img.shields.io/badge/macOS-DMG-000000?style=flat-square&logo=apple)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
+[![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624?style=flat-square&logo=linux)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
 [![React](https://img.shields.io/badge/React-18.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -110,7 +113,10 @@ Keep your collection pristine.
 ### Desktop EXE (Windows)
 QBZ-Downloader is built as a native Windows application. Install the ready-to-use EXE directly from GitHub Releases:
 
-1. Download the latest `.exe` from [Releases](https://github.com/ifauzeee/QBZ-Downloader/releases).
+1. Download the installer for your platform from [Releases](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
+   - **Windows:** `.exe` installer or portable `.exe`
+   - **macOS:** `.dmg` disk image
+   - **Linux:** `.AppImage` (portable), `.deb` (Debian/Ubuntu), or `.tar.gz`
 2. Run the installer or the portable version.
 3. Complete the onboarding process and enter your Qobuz credentials in Settings.
 
