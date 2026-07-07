@@ -61,7 +61,7 @@ Everything you need to build the perfect local music library.
 | **📡 Media Sync** | **New!** Auto-notify **Plex** or **Jellyfin** to rescan library after download. |
 | **📤 Auto Export** | **New!** Automatically convert FLAC to **MP3/AAC/Opus** for mobile devices. |
 | **👀 Playlist Watcher**| **New!** Automatically monitor and sync new tracks from your favorite playlists. |
-| **🧩 Desktop Runtime** | Optimized for Windows EXE delivery with local-first configuration and storage. |
+| **🧩 Desktop Runtime** | Optimized for Windows/macOS/Linux delivery with local-first configuration and storage. |
 
 ---
 
@@ -153,7 +153,7 @@ Configure these in the app:
 
 Notes:
 - No `.env` file or manual configuration is required.
-- App data is stored in `%APPDATA%/QBZ Downloader` (Installer) or `QBZ-Data/` (Portable).
+- App data is stored in your platform's app data directory (e.g. `%APPDATA%/QBZ Downloader` on Windows, `~/Library/Application Support/QBZ Downloader` on macOS).
 
 ---
 
@@ -162,7 +162,7 @@ Notes:
 
 ```mermaid
 graph TD
-    User[User] -->|Windows EXE| Desktop[Electron Desktop App]
+    User[User] -->|Desktop App| Desktop[Electron Desktop App]
     Desktop -->|Local WebSocket/REST| Server[Node.js Local Service]
     
     subgraph Backend Services
