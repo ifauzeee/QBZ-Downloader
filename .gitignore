@@ -73,3 +73,15 @@ data/
 .agent/
 roadmap.md
 repomix-output.xml
+
+# Bundled platform binaries (populated at build time by scripts/bundle-binaries.cjs)
+bin/**/*.exe
+bin/darwin-x64/ffmpeg
+bin/darwin-x64/fpcalc
+bin/darwin-arm64/ffmpeg
+bin/darwin-arm64/fpcalc
+bin/linux-x64/ffmpeg
+bin/linux-x64/fpcalc
+bin/win32-x64/ffmpeg
+bin/win32-x64/fpcalc
+!bin/**/.gitkeep

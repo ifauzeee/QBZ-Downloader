@@ -1,7 +1,9 @@
 # Platform Binaries
 
 This directory contains platform-specific binaries bundled with the app via
-electron-builder's `extraResources`.
+electron-builder's `extraResources`. The binaries are **not committed** to the
+repo — they are downloaded at release-build time by `scripts/bundle-binaries.cjs`
+(which runs as the `Bundle platform binaries` step in `desktop-release.yml`).
 
 ## Directory Structure
 
@@ -13,6 +15,9 @@ bin/
 └── win32-x64/        # Windows x64 (ffmpeg.exe, fpcalc.exe)
 ```
 
+Each directory contains a `.gitkeep` so the structure is tracked, but the actual
+binaries are gitignored (see `.gitignore`) to avoid bloating the repository.
+
 ## Binary Resolution Order
 
 The app resolves binaries via `src/utils/binaries.ts`:
@@ -22,14 +27,25 @@ The app resolves binaries via `src/utils/binaries.ts`:
 3. `bin/<binary>` (universal fallback)
 4. System PATH
 
-## Adding Binaries
+## How Binaries Are Bundled
 
-1. Download the correct binary for each platform/arch
-2. Place it in the appropriate `bin/<platform>-<arch>/` directory
-3. Ensure it is executable (`chmod +x` on Unix)
-4. The `extraResources` config in `package.json` includes `bin/**/*`
+Run locally (requires network access):
+
+```bash
+npm run bundle-binaries
+```
+
+This:
+- Copies the `ffmpeg` binary from the `ffmpeg-static` npm package (downloaded
+  per-platform at `npm install` time) into `bin/<platform>-<arch>/`.
+- Downloads `fpcalc` (Chromaprint) from the
+  [acoustid/chromaprint](https://github.com/acoustid/chromaprint/releases)
+  GitHub releases into `bin/<platform>-<arch>/`.
+
+If a download fails, the step warns but does not fail the build — the app falls
+back to system PATH for that binary (with a reduced feature set).
 
 ## Sources
 
-- **FFmpeg**: https://ffmpeg.org/download.html or https://github.com/BtbN/FFmpeg-Builds
-- **fpcalc** (Chromaprint): https://github.com/nicfit/chromaprint-fpcalc/releases
+- **FFmpeg**: provided by [`ffmpeg-static`](https://www.npmjs.com/package/ffmpeg-static)
+- **fpcalc** (Chromaprint): https://github.com/acoustid/chromaprint/releases
