@@ -2,17 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
-## [5.3.0] - 2026-07-07
+## [5.3.0] - 2026-07-11
 
 ### Added
 - macOS builds (DMG + ZIP) for Intel and Apple Silicon
 - Linux builds (AppImage, deb, tar.gz)
 - Platform-specific binary resolution via `bin/<platform>-<arch>/`
-- CI release workflow now builds for Windows, macOS, and Linux
+- FFmpeg and fpcalc (Chromaprint) now bundled per-platform at release build time (`scripts/bundle-binaries.cjs`), so audio conversion and AcoustID fingerprinting work out of the box
+- Server health-check (smoke test) runs before packaging on every release platform
+- Community health files: PR template, bug/feature issue templates, and `CODE_OF_CONDUCT.md`
 
 ### Changed
 - README updated with download links for all 3 platforms
 - Minimum Node.js version bumped to 20.0.0
+- Linux packages now ship `maintainer` metadata and expanded desktop categories (`Audio;AudioVideo;Music`)
 
 ---
 
