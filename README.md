@@ -9,7 +9,7 @@
 [![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624?style=flat-square&logo=linux)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
 [![React](https://img.shields.io/badge/React-18.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
 
 <br/>
@@ -20,12 +20,12 @@
 
 **Unlock the full potential of your music library.**
 
-A comprehensive desktop-first music downloading and library management application for Windows. Experience studio-quality audio up to **24-bit/192kHz** with complete metadata, synchronized lyrics, intelligent queue management, and a polished EXE workflow.
+A comprehensive desktop-first music downloading and library management application for Windows, macOS, and Linux. Experience studio-quality audio up to **24-bit/192kHz** with complete metadata, synchronized lyrics, intelligent queue management, and a polished native desktop workflow.
 
 [✨ Features](#-key-features) •
 [📥 Installation](#-installation) •
 [⚙️ Configuration](#-configuration) •
-[🖥️ Desktop Mode](#desktop-exe-windows) •
+[🖥️ Desktop Mode](#desktop-app-windows-macos-linux) •
 [📸 Screenshots](#-interface-showcase)
 
 </div>
@@ -33,8 +33,8 @@ A comprehensive desktop-first music downloading and library management applicati
 <br/>
 
 > [!IMPORTANT]
-> **v5.2.1: Stability Patch**
-> This update fixes batch staging cleanup, improves library metadata issue reporting, and hardens metadata auto-fix error handling. Check the [Changelog](CHANGELOG.md) for full details.
+> **v5.3.0: Cross-Platform Release**
+> QBZ-Downloader now ships official builds for **Windows, macOS (Apple Silicon), and Linux**. FFmpeg and fpcalc are bundled so audio conversion and AcoustID fingerprinting work out of the box. See the [Changelog](CHANGELOG.md) for full details.
 
 
 ---
@@ -110,12 +110,12 @@ Keep your collection pristine.
 
 ## 📥 Installation
 
-### Desktop EXE (Windows)
-QBZ-Downloader is built as a native Windows application. Install the ready-to-use EXE directly from GitHub Releases:
+### Desktop App (Windows, macOS, Linux)
+QBZ-Downloader is built as a native desktop application. Install the ready-to-use build directly from GitHub Releases:
 
 1. Download the installer for your platform from [Releases](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
    - **Windows:** `.exe` installer or portable `.exe`
-   - **macOS:** `.dmg` disk image
+   - **macOS:** `.dmg` disk image (Apple Silicon / arm64 only — Intel Macs not yet supported)
    - **Linux:** `.AppImage` (portable), `.deb` (Debian/Ubuntu), or `.tar.gz`
 2. Run the installer or the portable version.
 3. Complete the onboarding process and enter your Qobuz credentials in Settings.
@@ -134,9 +134,10 @@ npm run build:full
 npm run desktop:dist
 ```
 
-Output paths:
-- Installer: `release/QBZ-Downloader-Setup-<version>.exe`
-- Portable: `release/QBZ-Downloader-Portable-<version>.exe`
+Output paths (varies by platform):
+- Windows: `release/QBZ-Downloader-Setup-<version>.exe` / `-Portable-<version>.exe`
+- macOS: `release/QBZ-Downloader-<version>-arm64.dmg`
+- Linux: `release/QBZ-Downloader-<version>-x86_64.AppImage` / `.deb` / `.tar.gz`
 
 ---
 
