@@ -151,7 +151,8 @@
           ]
         }
       ],
-      "category": "Audio",
+      "category": "Audio;AudioVideo;Music",
+      "maintainer": "ifauze",
       "icon": "assets/desktop/icon.png",
       "artifactName": "QBZ-Downloader-${version}-${arch}.${ext}"
     },
