@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [5.3.0] - 2026-07-11
 
 ### Added
-- macOS builds (DMG + ZIP) for Intel and Apple Silicon
+- macOS builds (DMG + ZIP) for Apple Silicon (arm64); Intel (x64) planned for a later release
 - Linux builds (AppImage, deb, tar.gz)
 - Platform-specific binary resolution via `bin/<platform>-<arch>/`
 - FFmpeg and fpcalc (Chromaprint) now bundled per-platform at release build time (`scripts/bundle-binaries.cjs`), so audio conversion and AcoustID fingerprinting work out of the box
