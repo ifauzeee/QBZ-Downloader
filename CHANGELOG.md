@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **Cover Size dropdown shows pixel dimensions** - Settings → Cover Size options now display their pixel sizes (Small 230px, Large 600px, Max original) so the 600px option is easier to find (see issue #50).
+
+---
+
 ## [5.3.1] - 2026-07-14
 
 ### Changed
