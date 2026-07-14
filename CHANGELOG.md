@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.3.1] - 2026-07-14
+
+### Changed
+- **Clearer signature error messages** - Login signature-test failures now explain the real cause: the App Secret does not match the App ID (or is revoked/expired), and instruct users to use a matching App ID + App Secret pair from the Qobuz web player. Previously these surfaced as a generic "Invalid Request Signature" error (see issue #50).
+
+---
+
 ## [5.3.0] - 2026-07-11
 
 ### Added

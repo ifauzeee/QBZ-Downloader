@@ -383,8 +383,11 @@ router.post('/login', async (req: Request, res: Response) => {
                     
                     if (isSigError) {
                         tokenManager.markInvalid();
-                        return res.status(401).json({ 
-                            error: 'Invalid App Secret: Signature verification failed. Please check your App Secret.' 
+                        return res.status(401).json({
+                            error: 'Invalid App Secret: signature verification failed. ' +
+                                'Your App Secret does not match the App ID (or has been revoked/expired). ' +
+                                'Get a fresh App ID + App Secret pair from the Qobuz web player (bundle.js) ' +
+                                'and make sure they come from the same source, with no extra spaces.'
                         });
                     }
                 }
@@ -392,7 +395,12 @@ router.post('/login', async (req: Request, res: Response) => {
                 const message = (e as Error).message || '';
                 if (message.toLowerCase().includes('signature') || message.toLowerCase().includes('auth')) {
                     tokenManager.markInvalid();
-                    return res.status(401).json({ error: 'Authentication failed during signature test: ' + message });
+                    return res.status(401).json({
+                        error: 'Authentication failed during signature test. ' +
+                            'This usually means the App Secret does not match the App ID. ' +
+                            'Get a matching App ID + App Secret pair from the Qobuz web player (bundle.js). ' +
+                            'Original error: ' + message
+                    });
                 }
             }
 
