@@ -5,6 +5,7 @@ export interface QueueStats {
     total: number;
     downloading: number;
     completed: number;
+    partial?: number;
     failed: number;
     pending: number;
 }
@@ -15,7 +16,7 @@ export interface QueueItem {
     title: string;
     type: string;
     quality: number;
-    status: 'pending' | 'downloading' | 'processing' | 'completed' | 'failed' | 'cancelled';
+    status: 'pending' | 'downloading' | 'processing' | 'completed' | 'partial' | 'failed' | 'cancelled';
     progress: number;
     artist?: string;
     album?: string;

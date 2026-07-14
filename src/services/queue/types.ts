@@ -11,6 +11,7 @@ export type QueueItemStatus =
     | 'processing'
     | 'uploading'
     | 'completed'
+    | 'partial'
     | 'failed'
     | 'cancelled';
 
@@ -53,6 +54,7 @@ export interface QueueStats {
     downloading: number;
     processing: number;
     completed: number;
+    partial: number;
     failed: number;
 }
 

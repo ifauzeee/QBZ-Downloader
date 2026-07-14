@@ -426,9 +426,18 @@ export class QueueProcessor {
                 batchFiles: files
             });
 
-            downloadQueue.complete(item.id);
-            logger.success(`Batch Download Completed: ${item.title}`, 'BATCH');
-            notifyDownloadComplete(item.title || 'Batch', undefined);
+            if (result.failedTracks && result.failedTracks > 0) {
+                downloadQueue.completePartial(item.id);
+                logger.warn(
+                    `Batch Download completed with ${result.failedTracks}/${result.totalTracks} tracks missing: ${item.title}`,
+                    'BATCH'
+                );
+                notifyDownloadComplete(item.title || 'Batch');
+            } else {
+                downloadQueue.complete(item.id);
+                logger.success(`Batch Download Completed: ${item.title}`, 'BATCH');
+                notifyDownloadComplete(item.title || 'Batch', undefined);
+            }
         } else {
             throw new Error(result.error || 'Batch download failed');
         }

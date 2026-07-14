@@ -41,7 +41,7 @@ const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, ha
             <div>
                 {(item.status === 'downloading' || item.status === 'pending' || item.status === 'processing') ? (
                     <button className="btn danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleCancel(item.id)}>{t('action_cancel')}</button>
-                ) : item.status === 'completed' ? (
+                ) : (item.status === 'completed' || item.status === 'partial') ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button className="btn primary" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }} onClick={() => handleDownload(item.contentId)}>
                             <Icons.Download size={14} /> {t('action_download')}
@@ -157,6 +157,10 @@ export const QueueView: React.FC = () => {
                 <div className="stat-card">
                     <h3>{t('label_completed')}</h3>
                     <div className="number text-success" id="q-completed">{stats.completed}</div>
+                </div>
+                <div className="stat-card">
+                    <h3>{t('label_partial')}</h3>
+                    <div className="number text-warning" id="q-partial">{stats.partial || 0}</div>
                 </div>
                 <div className="stat-card">
                     <h3>{t('label_failed')}</h3>

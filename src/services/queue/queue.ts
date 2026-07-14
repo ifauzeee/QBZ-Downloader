@@ -183,6 +183,24 @@ export class DownloadQueue {
         this.checkQueueEmpty();
     }
 
+    completePartial(id: string, filePath?: string): void {
+        const item = this.items.get(id);
+        if (!item) return;
+
+        item.status = 'partial';
+        item.progress = 100;
+        item.completedAt = new Date();
+        if (filePath) item.filePath = filePath;
+        this.processing.delete(id);
+
+        databaseService.addQueueItem(item);
+
+        this.emit('item:completed', item);
+        logger.debug(`Queue: Completed with errors ${id}`);
+
+        this.checkQueueEmpty();
+    }
+
     fail(id: string, error: string): void {
         const item = this.items.get(id);
         if (!item) return;
@@ -256,6 +274,7 @@ export class DownloadQueue {
         for (const [id, item] of this.items) {
             if (
                 item.status === 'completed' ||
+                item.status === 'partial' ||
                 item.status === 'failed' ||
                 item.status === 'cancelled'
             ) {
@@ -314,6 +333,7 @@ export class DownloadQueue {
             processing: items.filter((i) => i.status === 'processing' || i.status === 'uploading')
                 .length,
             completed: items.filter((i) => i.status === 'completed').length,
+            partial: items.filter((i) => i.status === 'partial').length,
             failed: items.filter((i) => i.status === 'failed').length
         };
     }

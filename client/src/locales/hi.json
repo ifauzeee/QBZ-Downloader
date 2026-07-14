@@ -94,6 +94,7 @@
     "label_total": "कुल",
     "label_downloading": "डाउनलोड हो रहा है",
     "label_completed": "पूरा हुआ",
+    "label_partial": "आंशिक",
     "label_failed": "विफल",
     "label_title": "शीर्षक",
     "label_type": "प्रकार",

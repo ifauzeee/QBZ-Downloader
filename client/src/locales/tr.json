@@ -94,6 +94,7 @@
     "label_total": "Toplam",
     "label_downloading": "İndiriliyor",
     "label_completed": "Tamamlandı",
+    "label_partial": "Kısmi",
     "label_failed": "Başarısız",
     "label_title": "Başlık",
     "label_type": "Tür",

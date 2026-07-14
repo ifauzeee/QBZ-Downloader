@@ -7,6 +7,10 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Clearer signature error messages** - Login signature-test failures now explain the real cause: the App Secret does not match the App ID (or is revoked/expired), and instruct users to use a matching App ID + App Secret pair from the Qobuz web player. Previously these surfaced as a generic "Invalid Request Signature" error (see issue #50).
 
+### Fixed
+- **Preview/sample tracks no longer downloaded as full tracks** - `getFileUrl` falls back to the ~30s preview (format 1) when a track is unavailable; such tracks are now rejected and surfaced in `missing_tracks.txt` instead of being saved as a broken/partial file (see issue #8, case 1).
+- **Queue now reports partial downloads** - Albums/playlists that finish with some tracks missing are marked with a new `partial` queue status (and a "Partial" stat), instead of always showing as `completed`. The missing tracks are still logged to `missing_tracks.txt` in the album folder (see issue #8, case 2).
+
 ---
 
 ## [5.3.0] - 2026-07-11

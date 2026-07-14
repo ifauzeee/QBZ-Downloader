@@ -126,6 +126,7 @@
     "label_total": "Total",
     "label_downloading": "Mengunduh",
     "label_completed": "Selesai",
+    "label_partial": "Sebagian",
     "label_failed": "Gagal",
     "label_title": "Judul",
     "label_type": "Tipe",

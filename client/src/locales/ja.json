@@ -94,6 +94,7 @@
     "label_total": "合計",
     "label_downloading": "ダウンロード中",
     "label_completed": "完了",
+    "label_partial": "一部",
     "label_failed": "失敗",
     "label_title": "タイトル",
     "label_type": "タイプ",

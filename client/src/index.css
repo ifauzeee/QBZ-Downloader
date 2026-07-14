@@ -1077,7 +1077,7 @@ body.desktop-mode {
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 20px;
     margin-bottom: 32px;
 }
@@ -1305,6 +1305,11 @@ body.desktop-mode {
 .badge.failed {
     background: rgba(239, 68, 68, 0.15);
     color: var(--danger);
+}
+
+.badge.partial {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
 }
 
 .badge.album,

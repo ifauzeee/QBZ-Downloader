@@ -126,6 +126,7 @@
     "label_total": "Total",
     "label_downloading": "Downloading",
     "label_completed": "Completed",
+    "label_partial": "Partial",
     "label_failed": "Failed",
     "label_title": "Title",
     "label_type": "Type",

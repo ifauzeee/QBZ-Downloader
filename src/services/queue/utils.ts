@@ -45,6 +45,7 @@ export function getStatusIcon(status: QueueItemStatus): string {
         processing: '⚙️',
         uploading: '📤',
         completed: '✅',
+        partial: '⚠️',
         failed: '❌',
         cancelled: '🚫'
     };

@@ -94,6 +94,7 @@
     "label_total": "Gesamt",
     "label_downloading": "Wird heruntergeladen",
     "label_completed": "Abgeschlossen",
+    "label_partial": "Teilweise",
     "label_failed": "Fehlgeschlagen",
     "label_title": "Titel",
     "label_type": "Typ",

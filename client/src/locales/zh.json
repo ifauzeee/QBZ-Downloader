@@ -94,6 +94,7 @@
     "label_total": "总计",
     "label_downloading": "正在下载",
     "label_completed": "已完成",
+    "label_partial": "部分",
     "label_failed": "失败",
     "label_title": "标题",
     "label_type": "类型",
