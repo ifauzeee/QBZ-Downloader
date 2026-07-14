@@ -678,9 +678,9 @@ export const SettingsView: React.FC = () => {
                                 setSettingsForm((prev) => ({ ...prev, coverSize: e.target.value }))
                             }
                         >
-                            <option value="small">Small</option>
-                            <option value="large">Large</option>
-                            <option value="max">Max</option>
+                            <option value="small">Small (230px)</option>
+                            <option value="large">Large (600px)</option>
+                            <option value="max">Max (original)</option>
                         </select>
                     </div>
                     <div className="form-group">
