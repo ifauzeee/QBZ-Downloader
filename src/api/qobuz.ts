@@ -422,6 +422,23 @@ export class QobuzAPI {
 
             if (response.data) {
                 const rawFormatId = Number(response.data.format_id || 0);
+
+                // Format 1 is always a preview/sample — skip quality detection so the
+                // original format_id is preserved, allowing the downloader to reject it
+                // (download.ts checks fileUrlData.format_id === 1).
+                if (rawFormatId === 1) {
+                    logger.warn(`Track ${trackId} returned format 1 (preview/sample)`, 'API');
+                    const debugInfo = {
+                        duration: response.data.duration,
+                        sample: response.data.sample,
+                        restrictions: response.data.restrictions,
+                        format_id: 1
+                    };
+                    logger.debug(`Sample Details: ${JSON.stringify(debugInfo, null, 2)}`, 'API');
+                    response.data.quality_verified = false;
+                    return { success: true, data: response.data };
+                }
+
                 let detectedFormat = rawFormatId > 0 ? rawFormatId : requestedFormatId;
                 let qualityVerified = rawFormatId > 0;
                 const { bit_depth, sampling_rate, mime_type } = response.data;

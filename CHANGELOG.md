@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Cover Size dropdown shows pixel dimensions** - Settings → Cover Size options now display their pixel sizes (Small 230px, Large 600px, Max original) so the 600px option is easier to find (see issue #50).
 
+### Fixed
+- **Format 1 preview no longer bypasses sample rejection** - When `getFileUrl` falls back to format 1 (30s preview), the quality-detection logic was overwriting `format_id` from 1 to 6 (or 5) based on MIME type/bit depth, which caused the sample rejection check in the downloader to miss it. Preview data was then saved as a full FLAC file, resulting in a "Corrupted FLAC stream" error in players like Foobar2000. Now format 1 preserves its original `format_id` so the rejection works correctly (see issue #50).
+
 ---
 
 ## [5.3.1] - 2026-07-14
