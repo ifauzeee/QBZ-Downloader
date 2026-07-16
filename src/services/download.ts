@@ -438,7 +438,7 @@ export default class DownloadService {
                 metadata,
                 actualQuality,
                 CONFIG.metadata.embedLyrics ? (lyricsResult as LyricsResult) : null,
-                coverBuffer
+                CONFIG.metadata.embedCover ? coverBuffer : null
             );
 
             let scanResult: QualityReport | undefined;

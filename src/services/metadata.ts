@@ -1,7 +1,7 @@
 import NodeID3 from 'node-id3';
-import flac from 'flac-metadata';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
 import { logger } from '../utils/logger.js';
 import { Track, Album, Artist, LyricsResult } from '../types/qobuz.js';
 
@@ -754,104 +754,65 @@ export class MetadataService {
         };
     }
     async writeFlacTags(filePath: string, tags: string[][], coverBuffer: Buffer | null = null) {
-        return new Promise<void>((resolve, reject) => {
-            const tempPath = filePath + '.tmp';
-            let readStream: fs.ReadStream;
-            let writeStream: fs.WriteStream;
+        const tempPath = filePath + '.tmp';
+        const coverPath = filePath + '.cover.tmp.jpg';
 
-            try {
-                readStream = fs.createReadStream(filePath);
-                writeStream = fs.createWriteStream(tempPath);
-            } catch (e) {
-                return reject(e);
+        const clean = () => {
+            try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+            try { if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath); } catch {}
+        };
+
+        try {
+            const { resolveBinaryPath } = await import('../utils/binaries.js');
+            const ffmpeg = resolveBinaryPath('ffmpeg');
+
+            let cmd = `"${ffmpeg}" -y -i "${filePath}"`;
+
+            // Remove all existing metadata and re-apply only desired tags
+            cmd += ' -map_metadata -1';
+            for (const [key, val] of tags) {
+                if (val) {
+                    const escaped = val.replace(/"/g, '\\"');
+                    cmd += ` -metadata "${key}=${escaped}"`;
+                }
             }
 
-            const processor = new flac.Processor({ parseMetaDataBlocks: true });
-            const comments = tags.map(([key, val]) => `${key}=${val}`);
-            const vendor = 'QBZ-Downloader v5.1.0';
+            if (coverBuffer) {
+                fs.writeFileSync(coverPath, coverBuffer);
+                // Map only audio from original + new cover; discard old pictures
+                cmd += ` -i "${coverPath}" -map 0:0 -map 1:0 -c copy -disposition:v:0 attached_pic`;
+            } else {
+                // Map only audio, dropping any existing embedded cover
+                cmd += ' -map 0:0 -c copy';
+            }
 
-            let metadataInserted = false;
+            cmd += ` "${tempPath}"`;
 
-            processor.on('preprocess', (mdb: { type: number; remove: () => void; isLast: boolean }) => {
-                if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
-                    mdb.remove();
-                    return;
-                }
-
-                if (mdb.type === flac.Processor.MDB_TYPE_PICTURE && coverBuffer) {
-                    mdb.remove();
-                    return;
-                }
-
-                if (mdb.type === flac.Processor.MDB_TYPE_STREAMINFO && !metadataInserted) {
-                    metadataInserted = true;
-
-                    mdb.isLast = false;
-                }
-            });
-
-            processor.on('postprocess', (mdb: { type: number }) => {
-                if (mdb.type === flac.Processor.MDB_TYPE_STREAMINFO) {
-                    const isVorbisLast = !coverBuffer;
-                    const mdbVorbis = flac.data.MetaDataBlockVorbisComment.create(
-                        isVorbisLast,
-                        vendor,
-                        comments
-                    );
-                    processor.push(mdbVorbis.publish());
-
-                    if (coverBuffer) {
-                        try {
-                            const mdbPicture = flac.data.MetaDataBlockPicture.create(
-                                true,
-                                3,
-                                'image/jpeg',
-                                'Cover',
-                                0,
-                                0,
-                                0,
-                                0,
-                                coverBuffer
-                            );
-                            processor.push(mdbPicture.publish());
-                        } catch {}
-                    }
-                }
-            });
-
-            readStream.pipe(processor).pipe(writeStream);
-
-            writeStream.on('finish', () => {
-                try {
-                    const stats = fs.statSync(tempPath);
-                    if (stats.size > 1000) {
-                        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                        fs.renameSync(tempPath, filePath);
-                        resolve();
+            await new Promise<void>((resolve, reject) => {
+                exec(cmd, { timeout: 60000 }, (error, _stdout, stderr) => {
+                    if (error) {
+                        const detail = stderr ? stderr.slice(0, 200) : error.message;
+                        reject(new Error(`ffmpeg tagging failed: ${detail}`));
                     } else {
-                        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                        reject(new Error('Tagging resulted in invalid file size'));
+                        resolve();
                     }
-                } catch (err: unknown) {
-                    const message = err instanceof Error ? err.message : String(err);
-                    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                    reject(new Error(message));
-                }
+                });
             });
 
-            writeStream.on('error', (err: Error) => {
-                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                reject(err);
-            });
-            processor.on('error', (err: Error) => {
-                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                reject(err);
-            });
-            readStream.on('error', (err: Error) => {
-                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                reject(err);
-            });
-        });
+            const stats = fs.statSync(tempPath);
+            if (stats.size <= 1000) {
+                clean();
+                throw new Error('Tagging resulted in invalid file size');
+            }
+
+            fs.unlinkSync(filePath);
+            fs.renameSync(tempPath, filePath);
+        } catch (e) {
+            clean();
+            throw e instanceof Error ? e : new Error(String(e));
+        } finally {
+            try { if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath); } catch {}
+        }
     }
 
     private static taggingLock: Promise<void> = Promise.resolve();
