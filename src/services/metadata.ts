@@ -1,7 +1,7 @@
 import NodeID3 from 'node-id3';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { logger } from '../utils/logger.js';
 import { Track, Album, Artist, LyricsResult } from '../types/qobuz.js';
 
@@ -754,8 +754,13 @@ export class MetadataService {
         };
     }
     async writeFlacTags(filePath: string, tags: string[][], coverBuffer: Buffer | null = null) {
-        const tempPath = filePath + '.tmp';
-        const coverPath = filePath + '.cover.tmp.jpg';
+        // Unique per-invocation temp files. Using a fixed `filePath + '.tmp'`
+        // caused collisions when multiple tracks were tagged concurrently (the
+        // album downloader runs several in parallel), where one operation would
+        // read/rename a temp file another had just created or deleted.
+        const uniqueSuffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const tempPath = `${filePath}.${uniqueSuffix}.tmp`;
+        const coverPath = `${filePath}.${uniqueSuffix}.cover.tmp.jpg`;
 
         const clean = () => {
             try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
@@ -766,33 +771,43 @@ export class MetadataService {
             const { resolveBinaryPath } = await import('../utils/binaries.js');
             const ffmpeg = resolveBinaryPath('ffmpeg');
 
-            let cmd = `"${ffmpeg}" -y -i "${filePath}"`;
+            // Build the argument list as an array and pass it to execFile. This
+            // bypasses the shell entirely, so there is no platform-dependent
+            // quoting (Windows cmd.exe mangles `\"` and `&`/`|`/`^`/`%` inside
+            // metadata values) and no risk of ffmpeg receiving a malformed
+            // command line.
+            const args: string[] = ['-y', '-i', filePath];
 
             // Remove all existing metadata and re-apply only desired tags
-            cmd += ' -map_metadata -1';
+            args.push('-map_metadata', '-1');
             for (const [key, val] of tags) {
                 if (val) {
-                    const escaped = val.replace(/"/g, '\\"');
-                    cmd += ` -metadata "${key}=${escaped}"`;
+                    args.push('-metadata', `${key}=${val}`);
                 }
             }
 
             if (coverBuffer) {
                 fs.writeFileSync(coverPath, coverBuffer);
                 // Map only audio from original + new cover; discard old pictures
-                cmd += ` -i "${coverPath}" -map 0:0 -map 1:0 -c copy -disposition:v:0 attached_pic`;
+                args.push(
+                    '-i', coverPath,
+                    '-map', '0:0',
+                    '-map', '1:0',
+                    '-c', 'copy',
+                    '-disposition:v:0', 'attached_pic'
+                );
             } else {
                 // Map only audio, dropping any existing embedded cover
-                cmd += ' -map 0:0 -c copy';
+                args.push('-map', '0:0', '-c', 'copy');
             }
 
-            cmd += ` "${tempPath}"`;
+            args.push(tempPath);
 
             await new Promise<void>((resolve, reject) => {
-                exec(cmd, { timeout: 60000 }, (error, _stdout, stderr) => {
+                execFile(ffmpeg, args, { timeout: 60000 }, (error, _stdout, stderr) => {
                     if (error) {
-                        const detail = stderr ? stderr.slice(0, 200) : error.message;
-                        reject(new Error(`ffmpeg tagging failed: ${detail}`));
+                        const detail = (stderr || error.message || '').trim().split('\n').slice(-3).join('\n');
+                        reject(new Error(`ffmpeg tagging failed: ${detail || error.message}`));
                     } else {
                         resolve();
                     }
@@ -811,7 +826,7 @@ export class MetadataService {
             clean();
             throw e instanceof Error ? e : new Error(String(e));
         } finally {
-            try { if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath); } catch {}
+            clean();
         }
     }
 
