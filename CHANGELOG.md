@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [5.3.3] - 2026-07-16
 
 ### Fixed
 - **FLAC tagging no longer corrupts audio stream** - Replaced the `flac-metadata` library with ffmpeg for writing FLAC Vorbis comments and embedding cover art. The `flac-metadata` v0.1.1 library used a fragile `processor.push()` pattern inside a Transform stream's event handler, which could misalign audio frame boundaries and produce a "Corrupted FLAC stream" error in players like Foobar2000. Re-encoding in Foobar restored playback because it created a clean FLAC from the original PCM audio. ffmpeg's stream-copy mode is now used instead, which updates metadata without touching audio frames (see issue #50).
