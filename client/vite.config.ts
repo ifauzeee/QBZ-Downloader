@@ -12,10 +12,10 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          charts: ['chart.js', 'react-chartjs-2'],
-          socket: ['socket.io-client'],
-          dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        manualChunks(id: string) {
+          if (id.includes('chart.js') || id.includes('react-chartjs-2')) return 'charts';
+          if (id.includes('socket.io-client')) return 'socket';
+          if (id.includes('@dnd-kit')) return 'dnd';
         },
       },
     },
