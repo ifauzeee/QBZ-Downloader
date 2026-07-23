@@ -50,18 +50,29 @@ async function main() {
     process.exit(1);
   });
 
+  let serverExited = false;
+  let serverExitCode = null;
   proc.on('exit', (code) => {
-    if (code !== null && code !== 0) {
-      console.error(`Server exited with code ${code}`);
-    }
+    serverExited = true;
+    serverExitCode = code;
   });
+
+  /** Gracefully stop the server and wait for it to exit. */
+  async function stopServer() {
+    if (serverExited) return;
+    proc.kill('SIGTERM');
+    // Wait up to 10s for the server to actually exit
+    for (let i = 0; i < 100; i++) {
+      if (serverExited) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
 
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
-    proc.kill();
     console.error('Server failed to start within timeout');
-    process.exit(1);
+    stopServer().then(() => process.exit(1));
   }, TIMEOUT);
 
   const url = `http://127.0.0.1:${availablePort}/api/status`;
@@ -70,7 +81,7 @@ async function main() {
   clearTimeout(timer);
 
   if (!started) {
-    proc.kill();
+    await stopServer();
     console.error(`Server did not respond at ${url} within ${TIMEOUT}ms`);
     process.exit(1);
   }
@@ -79,7 +90,7 @@ async function main() {
   const data = await res.json();
   console.log('Status check response:', JSON.stringify(data));
 
-  proc.kill();
+  await stopServer();
 
   if (data.status === 'running') {
     console.log('Smoke test passed');
