@@ -423,20 +423,36 @@ export class QobuzAPI {
             if (response.data) {
                 const rawFormatId = Number(response.data.format_id || 0);
 
-                // Format 1 is always a preview/sample — skip quality detection so the
-                // original format_id is preserved, allowing the downloader to reject it
-                // (download.ts checks fileUrlData.format_id === 1).
                 if (rawFormatId === 1) {
-                    logger.warn(`Track ${trackId} returned format 1 (preview/sample)`, 'API');
-                    const debugInfo = {
-                        duration: response.data.duration,
-                        sample: response.data.sample,
-                        restrictions: response.data.restrictions,
-                        format_id: 1
-                    };
-                    logger.debug(`Sample Details: ${JSON.stringify(debugInfo, null, 2)}`, 'API');
-                    response.data.quality_verified = false;
-                    return { success: true, data: response.data };
+                    // Distinguish between a GENUINE preview (sample flag or <=30s duration)
+                    // and a false positive where the API returns format_id=1 but the track
+                    // is actually a full-length 24-bit track carrying bit_depth/sampling_rate.
+                    const isPreview =
+                        response.data.sample === true ||
+                        (typeof response.data.duration === 'number' && response.data.duration <= 30);
+
+                    if (isPreview) {
+                        logger.warn(`Track ${trackId} returned format 1 (preview/sample)`, 'API');
+                        const debugInfo = {
+                            duration: response.data.duration,
+                            sample: response.data.sample,
+                            restrictions: response.data.restrictions,
+                            format_id: 1
+                        };
+                        logger.debug(`Sample Details: ${JSON.stringify(debugInfo, null, 2)}`, 'API');
+                        response.data.quality_verified = false;
+                        return { success: true, data: response.data };
+                    }
+
+                    // Not a preview — fall through to quality detection which will
+                    // overwrite format_id based on bit_depth/sampling_rate/mime_type,
+                    // allowing full-length tracks served at format_id=1 to download.
+                    logger.debug(
+                        `Track ${trackId} returned format_id=1 but is not a preview ` +
+                        `(sample=${response.data.sample}, duration=${response.data.duration}) — ` +
+                        `falling through to quality detection`,
+                        'API'
+                    );
                 }
 
                 let detectedFormat = rawFormatId > 0 ? rawFormatId : requestedFormatId;

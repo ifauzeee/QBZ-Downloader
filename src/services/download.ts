@@ -295,9 +295,9 @@ export default class DownloadService {
         const actualQuality = fileUrlData.format_id || requestedQuality;
         if (options.onQuality) options.onQuality(actualQuality);
 
-        // Reject preview/sample-only tracks. getFileUrl falls back to format 1 (the ~30s
-        // preview) when the full track is unavailable; downloading it silently would produce
-        // a broken/partial file, so we fail explicitly and let it surface in missing_tracks.txt.
+        // Reject preview/sample-only tracks. getFileUrl returns format_id=1 for
+        // genuine previews (sample=true or duration<=30) and also for unverifiable
+        // tracks (no bit_depth/sampling_rate metadata). Both should be rejected.
         if (fileUrlData.sample === true || fileUrlData.format_id === 1) {
             return {
                 success: false,
