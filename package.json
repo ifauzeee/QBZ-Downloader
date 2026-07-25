@@ -65,6 +65,9 @@
     "url": "https://github.com/ifauzeee/QBZ-Downloader/issues"
   },
   "homepage": "https://github.com/ifauzeee/QBZ-Downloader#readme",
+  "overrides": {
+    "brace-expansion": "5.0.8"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
