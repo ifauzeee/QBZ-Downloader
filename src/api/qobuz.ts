@@ -450,7 +450,7 @@ export class QobuzAPI {
                     logger.debug(
                         `Track ${trackId} returned format_id=1 but is not a preview ` +
                         `(sample=${response.data.sample}, duration=${response.data.duration}) — ` +
-                        `falling through to quality detection`,
+                        'falling through to quality detection',
                         'API'
                     );
                 }
