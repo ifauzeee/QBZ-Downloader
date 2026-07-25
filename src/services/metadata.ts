@@ -753,6 +753,18 @@ export class MetadataService {
             '✨ Hi-Res': metadata.hiresAvailable ? '✅' : '❌'
         };
     }
+    private escapeFFMetadataVal(value: string): string {
+        // ffmetadata format: backslash \n \r \= and leading #; must be escaped.
+        // Order matters — backslash first so we don't double-escape.
+        return value
+            .replace(/\\/g, '\\\\')
+            .replace(/=/g, '\\=')
+            .replace(/\n/g, '\\n')
+            .replace(/\r/g, '\\r')
+            .replace(/^#/gm, '\\#')
+            .replace(/^;/gm, '\\;');
+    }
+
     async writeFlacTags(filePath: string, tags: string[][], coverBuffer: Buffer | null = null) {
         // Unique per-invocation temp files. Using a fixed `filePath + '.tmp'`
         // caused collisions when multiple tracks were tagged concurrently (the
@@ -761,44 +773,49 @@ export class MetadataService {
         const uniqueSuffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const tempPath = `${filePath}.${uniqueSuffix}.tmp`;
         const coverPath = `${filePath}.${uniqueSuffix}.cover.tmp.jpg`;
+        const metaPath = `${filePath}.${uniqueSuffix}.meta.txt`;
 
         const clean = () => {
             try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
             try { if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath); } catch {}
+            try { if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath); } catch {}
         };
 
         try {
             const { resolveBinaryPath } = await import('../utils/binaries.js');
             const ffmpeg = resolveBinaryPath('ffmpeg');
 
-            // Build the argument list as an array and pass it to execFile. This
-            // bypasses the shell entirely, so there is no platform-dependent
-            // quoting (Windows cmd.exe mangles `\"` and `&`/`|`/`^`/`%` inside
-            // metadata values) and no risk of ffmpeg receiving a malformed
-            // command line.
-            const args: string[] = ['-y', '-i', filePath];
+            // Write metadata to a temp file (ffmetadata format) instead of
+            // passing inline -metadata flags. The inline approach would put
+            // every tag value in the command line args, which on Windows
+            // hits the ~32K CreateProcess limit when lyrics or performer
+            // credits are long (Issue #57).
+            const metaEntries = tags
+                .filter(([, val]) => val)
+                .map(([key, val]) => `${key}=${this.escapeFFMetadataVal(val!.toString())}`);
+            fs.writeFileSync(metaPath, ';FFMETADATA1\n' + metaEntries.join('\n'), 'utf8');
 
-            // Remove all existing metadata and re-apply only desired tags
-            args.push('-map_metadata', '-1');
-            for (const [key, val] of tags) {
-                if (val) {
-                    args.push('-metadata', `${key}=${val}`);
-                }
-            }
+            const args: string[] = ['-y', '-i', filePath];
 
             if (coverBuffer) {
                 fs.writeFileSync(coverPath, coverBuffer);
-                // Map only audio from original + new cover; discard old pictures
+                // inputs: [0]=flac, [1]=cover, [2]=metadata file
+                args.push('-i', coverPath, '-f', 'ffmetadata', '-i', metaPath);
                 args.push(
-                    '-i', coverPath,
                     '-map', '0:0',
                     '-map', '1:0',
+                    '-map_metadata', '2',
                     '-c', 'copy',
                     '-disposition:v:0', 'attached_pic'
                 );
             } else {
-                // Map only audio, dropping any existing embedded cover
-                args.push('-map', '0:0', '-c', 'copy');
+                // inputs: [0]=flac, [1]=metadata file
+                args.push('-f', 'ffmetadata', '-i', metaPath);
+                args.push(
+                    '-map', '0:0',
+                    '-map_metadata', '1',
+                    '-c', 'copy'
+                );
             }
 
             args.push(tempPath);

@@ -131,4 +131,65 @@ describe('MetadataService', () => {
             ).rejects.toThrow('write failed');
         });
     });
+
+    describe('escapeFFMetadataVal', () => {
+        it('should escape backslashes', () => {
+            const result = (service as any).escapeFFMetadataVal('a\\b');
+            expect(result).toBe('a\\\\b');
+        });
+
+        it('should escape equals signs', () => {
+            const result = (service as any).escapeFFMetadataVal('key=value');
+            expect(result).toBe('key\\=value');
+        });
+
+        it('should escape newlines', () => {
+            const result = (service as any).escapeFFMetadataVal('line1\nline2');
+            expect(result).toBe('line1\\nline2');
+        });
+
+        it('should escape carriage returns', () => {
+            const result = (service as any).escapeFFMetadataVal('line1\rline2');
+            expect(result).toBe('line1\\rline2');
+        });
+
+        it('should escape hash at start of line', () => {
+            const result = (service as any).escapeFFMetadataVal('#hashtag');
+            expect(result).toBe('\\#hashtag');
+        });
+
+        it('should escape semicolon at start of line', () => {
+            const result = (service as any).escapeFFMetadataVal(';comment');
+            expect(result).toBe('\\;comment');
+        });
+
+        it('should not escape hash in middle of line', () => {
+            const result = (service as any).escapeFFMetadataVal('a#b');
+            expect(result).toBe('a#b');
+        });
+
+        it('should not escape semicolon in middle of line', () => {
+            const result = (service as any).escapeFFMetadataVal('a;b');
+            expect(result).toBe('a;b');
+        });
+
+        it('should handle long lyrics-like content', () => {
+            const lyrics = '[00:00.00] Line one\n[00:01.00] Line two\n[00:02.00] Line three';
+            const result = (service as any).escapeFFMetadataVal(lyrics);
+            expect(result).toContain('[00:00.00] Line one\\n');
+            expect(result).toContain('[00:01.00] Line two\\n');
+            expect(result).toContain('[00:02.00] Line three');
+        });
+
+        it('should handle text with = and backslash', () => {
+            const val = 'path=C:\\Music\\test';
+            const result = (service as any).escapeFFMetadataVal(val);
+            expect(result).toBe('path\\=C:\\\\Music\\\\test');
+        });
+
+        it('should not double-escape already valid text', () => {
+            const result = (service as any).escapeFFMetadataVal('plain text');
+            expect(result).toBe('plain text');
+        });
+    });
 });
