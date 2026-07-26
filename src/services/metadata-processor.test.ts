@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import path from 'path';
 import { MetadataProcessor } from './MetadataProcessor.js';
+import type { Metadata } from './metadata.js';
 
 vi.mock('../config.js', () => ({
     CONFIG: {
@@ -76,6 +78,71 @@ describe('MetadataProcessor', () => {
             const emptyMeta = {};
             const result = processor.applyTemplate('{artist} - {title}', emptyMeta as unknown as Record<string, unknown>, 27);
             expect(result).toBe('Unknown Artist - Unknown Title');
+        });
+    });
+
+    describe('multi-disc placeholders', () => {
+        const disc2 = {
+            artist: 'Metallica',
+            albumArtist: 'Metallica',
+            album: 'S&M',
+            title: 'Battery',
+            trackNumber: 10,
+            discNumber: 2,
+            totalDiscs: 2
+        };
+
+        const singleDisc = { ...disc2, discNumber: 1, totalDiscs: 1 };
+
+        it('exposes the disc number and total', () => {
+            const result = processor.applyTemplate(
+                '{disc_number}-{track_number} of {total_discs}',
+                disc2 as unknown as Record<string, unknown>,
+                27
+            );
+            expect(result).toBe('2-10 of 2');
+        });
+
+        it('renders {disc_folder} as CDn on a multi-disc release', () => {
+            const result = processor.applyTemplate(
+                '{disc_folder}',
+                disc2 as unknown as Record<string, unknown>,
+                27
+            );
+            expect(result).toBe('CD2');
+        });
+
+        it('renders {disc_folder} empty on a single-disc release', () => {
+            const result = processor.applyTemplate(
+                '{disc_folder}',
+                singleDisc as unknown as Record<string, unknown>,
+                27
+            );
+            expect(result).toBe('');
+        });
+
+        it('defaults to disc 1 of 1 when the release carries no disc data', () => {
+            const result = processor.applyTemplate(
+                '{disc_number}/{total_discs}[{disc_folder}]',
+                { title: 'T' } as unknown as Record<string, unknown>,
+                27
+            );
+            expect(result).toBe('1/1[]');
+        });
+
+        it('splits discs into subfolders without stranding a segment on single discs', async () => {
+            const { CONFIG } = await import('../config.js');
+            const original = CONFIG.download.folderStructure;
+            CONFIG.download.folderStructure = '{albumArtist}/{album}/{disc_folder}';
+
+            try {
+                expect(processor.buildFolderPath(disc2 as unknown as Metadata, 27))
+                    .toBe(path.join('Metallica', 'SandM', 'CD2'));
+                expect(processor.buildFolderPath(singleDisc as unknown as Metadata, 27))
+                    .toBe(path.join('Metallica', 'SandM'));
+            } finally {
+                CONFIG.download.folderStructure = original;
+            }
         });
     });
 
