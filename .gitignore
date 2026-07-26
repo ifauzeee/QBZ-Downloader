@@ -71,6 +71,7 @@ data/
 
 # Agent/Development
 .agent/
+.omo/
 roadmap.md
 repomix-output.xml
 

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.3.4] - 2026-07-26
+
+### Fixed
+- **FLAC tagging always fails on non-Windows platforms** — `writeFlacTags()` writes the tagged output to a temporary file with a `.tmp` extension. Since ffmpeg selects the output muxer based on the file extension and `.tmp` does not match any known format, every tag write fails with `Unable to find a suitable output format`. The downloader then treats the track as failed and removes the file, resulting in complete batch downloads with nothing on disk. The output muxer is now forced with `-f flac` before the output path — the output is always FLAC here (`-c copy` from a FLAC input). Reported and fixed by @ICHlMOKU (see issue #58).
+- **ffmpeg 'Command line too long' on long metadata** — Replaced inline `-metadata KEY=VALUE` flags with an ffmetadata temp file. The inline approach placed every tag value in the CreateProcess command line, exceeding Windows' ~32K limit when synced lyrics or performer credits were lengthy. Now tags are written to a temp file in ffmetadata format and passed via `-f ffmetadata -i meta.txt -map_metadata` (see issue #57).
+- **format_id=1 false positive on full-length 24-bit tracks** — `getFileUrl()` now only early-returns for genuine previews (`sample === true` or `duration <= 30`). Full-length tracks that the Qobuz API serves with `format_id=1` but carry valid `bit_depth`/`sampling_rate` metadata fall through to quality detection, which correctly sets the format to 7 (Hi-Res ≤96kHz) or 27 (Hi-Res 192kHz) (see issue #56).
+
+---
+
 ## [5.3.3] - 2026-07-16
 
 ### Fixed
