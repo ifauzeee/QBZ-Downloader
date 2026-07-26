@@ -201,6 +201,13 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
         await metadataService.writeMetadata(filePath as string, targetMeta as any, 0, lyrics as any, coverBuffer);
         res.json({ success: true });
     } catch (error: unknown) {
+        // Log as well as answer the client: a tagging failure that only travels
+        // back over HTTP leaves no trace in the logs, so a run that silently
+        // wrote nothing is indistinguishable from one that worked.
+        logger.error(
+            `Failed to apply metadata to ${req.body?.filePath}: ${(error as Error).message}`,
+            'TOOLS'
+        );
         res.status(500).json({ error: (error as Error).message });
     }
 });

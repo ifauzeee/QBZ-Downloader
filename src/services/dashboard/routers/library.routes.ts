@@ -4,6 +4,7 @@ import { libraryScannerService } from '../../library-scanner/index.js';
 import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
 import { CONFIG } from '../../../config.js';
 import { formatConverterService } from '../../FormatConverterService.js';
+import { logger } from '../../../utils/logger.js';
 
 const router = Router();
 
@@ -185,6 +186,10 @@ router.post('/metadata/edit', async (req: Request, res: Response) => {
         await metadataService.writeMetadata(filePath, targetMeta as any, 0, lyrics, coverBuffer);
         res.json({ success: true });
     } catch (error: unknown) {
+        logger.error(
+            `Failed to write metadata to ${req.body?.filePath}: ${(error as Error).message}`,
+            'LIBRARY'
+        );
         res.status(500).json({ error: (error as Error).message });
     }
 });
