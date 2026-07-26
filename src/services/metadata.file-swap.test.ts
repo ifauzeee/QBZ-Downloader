@@ -9,10 +9,12 @@ import { MetadataService } from './metadata.js';
 // final argument. The point of this suite is the *file swap* around that call --
 // the step that replaces the user's original track with the tagged copy -- which
 // every other test mocks away behind vi.mock('fs').
+type ExecFileCallback = (error: Error | null, stdout: string, stderr: string) => void;
+
 vi.mock('child_process', async () => {
     const realFs = await vi.importActual<typeof import('fs')>('fs');
     return {
-        execFile: vi.fn((_file: string, args: string[], _opts: unknown, cb: Function) => {
+        execFile: vi.fn((_file: string, args: string[], _opts: unknown, cb: ExecFileCallback) => {
             realFs.writeFileSync(args[args.length - 1]!, Buffer.alloc(4096, 7));
             cb(null, '', '');
         })
@@ -78,7 +80,7 @@ describe('writeFlacTags file swap', () => {
             _file: string,
             _args: string[],
             _opts: unknown,
-            cb: Function
+            cb: ExecFileCallback
         ) => {
             cb(new Error('exited 1'), '', 'Unable to find a suitable output format');
         }) as unknown as typeof execFile);
