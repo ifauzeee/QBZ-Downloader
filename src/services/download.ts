@@ -470,7 +470,16 @@ export default class DownloadService {
 
             if (lrcContent !== null) {
                 const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
-                writeFileSync(lrcPath, lrcContent, 'utf8');
+                try {
+                    writeFileSync(lrcPath, lrcContent, 'utf8');
+                } catch (error: unknown) {
+                    // A sidecar must never take the track with it: the catch at the
+                    // end of this method deletes the audio file on any throw, so an
+                    // unwritable .lrc (read-only share, full disk) would discard a
+                    // download that had already completed, verified and tagged.
+                    const message = error instanceof Error ? error.message : String(error);
+                    logger.warn(`Failed to write .lrc sidecar, keeping track: ${message}`, 'LYRICS');
+                }
             }
 
             let finalFilePath = filePath;
@@ -498,6 +507,10 @@ export default class DownloadService {
             const message = error instanceof Error ? error.message : String(error);
             const cleanupPath = shouldReplaceExisting ? workingFilePath : filePath;
             if (existsSync(cleanupPath) && (!this.pathsEqual(cleanupPath, filePath) || !shouldReplaceExisting)) {
+                // Log before discarding: this deletion is silent otherwise, so a
+                // late-stage failure looks to the user like the file was never
+                // downloaded at all.
+                logger.warn(`Removing incomplete download "${cleanupPath}": ${message}`, 'DOWNLOAD');
                 unlinkSync(cleanupPath);
             }
             resumeService.completeDownload(trackId.toString());
