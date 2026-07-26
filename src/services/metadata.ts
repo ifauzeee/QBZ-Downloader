@@ -818,7 +818,10 @@ export class MetadataService {
                 );
             }
 
-            args.push(tempPath);
+            // The temp output ends in `.tmp`, so ffmpeg cannot guess the output
+            // muxer from the extension — force it, or every tag write fails with
+            // "Unable to find a suitable output format".
+            args.push('-f', 'flac', tempPath);
 
             await new Promise<void>((resolve, reject) => {
                 execFile(ffmpeg, args, { timeout: 60000 }, (error, _stdout, stderr) => {
