@@ -1,0 +1,28 @@
+services:
+  qbz-downloader:
+    build: .
+    # image: ghcr.io/ifauzeee/qbz-downloader:latest
+    container_name: qbz-downloader
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Required. The dashboard refuses to serve a non-loopback address without
+      # a password, so without this the container starts but nothing is
+      # reachable on the published port.
+      DASHBOARD_PASSWORD: "change-me"
+
+      DASHBOARD_HOST: "0.0.0.0"
+      DASHBOARD_PORT: "3000"
+      DOWNLOADS_PATH: "/music"
+
+      # Any setting key works here; it applies when nothing is stored yet, and
+      # anything changed in the dashboard afterwards takes precedence.
+      # MAX_CONCURRENCY: "2"
+      # EMBED_LYRICS: "true"
+      # FOLDER_STRUCTURE: "{albumArtist}/{album}/{disc_folder}"
+    volumes:
+      # Database, settings and the encryption key.
+      - ./data:/app/data
+      # Music library.
+      - /path/to/music:/music
