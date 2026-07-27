@@ -840,8 +840,31 @@ export class MetadataService {
                 throw new Error('Tagging resulted in invalid file size');
             }
 
-            fs.unlinkSync(filePath);
-            fs.renameSync(tempPath, filePath);
+            // Swap through a backup rather than unlinking the original first.
+            // The old order (unlink original -> rename temp into place) left no
+            // copy on disk if the rename failed — an SMB lock, an AV hold or a
+            // transient EPERM — and the catch below then removed the tagged temp
+            // via clean(), destroying both copies of the track. Mirrors the
+            // backup/restore swap already used by DownloadService.
+            const backupPath = `${filePath}.${uniqueSuffix}.bak`;
+            fs.renameSync(filePath, backupPath);
+            try {
+                fs.renameSync(tempPath, filePath);
+            } catch (e) {
+                try {
+                    fs.renameSync(backupPath, filePath);
+                } catch (restoreError) {
+                    const detail = restoreError instanceof Error ? restoreError.message : String(restoreError);
+                    logger.error(
+                        `Failed to restore original after tagging error (${detail}). The untagged original is preserved at: ${backupPath}`,
+                        'META'
+                    );
+                }
+                throw e;
+            }
+            // The swap already succeeded, so failing to remove the backup must
+            // not surface as a tagging error — callers delete the track on throw.
+            try { fs.unlinkSync(backupPath); } catch {}
         } catch (e) {
             clean();
             throw e instanceof Error ? e : new Error(String(e));
