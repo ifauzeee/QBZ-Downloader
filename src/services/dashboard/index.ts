@@ -304,9 +304,33 @@ export class DashboardService {
         });
     }
 
+    /** Loopback binds are reachable from this machine alone. */
+    private static isLoopbackHost(host: string): boolean {
+        const normalized = host.trim().toLowerCase().replace(/^\[|\]$/g, '');
+        return (
+            normalized === 'localhost' ||
+            normalized === '::1' ||
+            normalized === '127.0.0.1' ||
+            normalized.startsWith('127.')
+        );
+    }
+
     public start(port?: number): void {
         if (port !== undefined) this.port = port;
-        const host = CONFIG.dashboard.host || '127.0.0.1';
+        let host = CONFIG.dashboard.host || '127.0.0.1';
+
+        // Serving a network interface with no password exposes every API route --
+        // including the ones that delete and overwrite library files -- to anyone
+        // who can reach the port. Fall back to loopback rather than coming up wide
+        // open; setting a password restores the requested bind.
+        if (!DashboardService.isLoopbackHost(host) && !CONFIG.dashboard.password) {
+            logger.error(
+                `Refusing to serve ${host}:${this.port} without a dashboard password — ` +
+                    'binding to 127.0.0.1 instead. Set a dashboard password to expose it.',
+                'SECURITY'
+            );
+            host = '127.0.0.1';
+        }
 
         this.httpServer.once('error', (error) => {
             const message = error instanceof Error ? error.message : String(error);

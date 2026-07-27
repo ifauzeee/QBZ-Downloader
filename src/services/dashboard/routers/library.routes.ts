@@ -5,6 +5,7 @@ import { libraryStatisticsService } from '../../LibraryStatisticsService.js';
 import { CONFIG } from '../../../config.js';
 import { formatConverterService } from '../../FormatConverterService.js';
 import { logger } from '../../../utils/logger.js';
+import { isPathWithinManagedRoots } from '../../../utils/paths.js';
 
 const router = Router();
 
@@ -113,6 +114,12 @@ router.post('/metadata/edit', async (req: Request, res: Response) => {
             return;
         }
 
+        if (!isPathWithinManagedRoots(filePath)) {
+            logger.warn(`Refused metadata write outside the library: ${filePath}`, 'LIBRARY');
+            res.status(403).json({ error: 'Path is outside the library directory' });
+            return;
+        }
+
         const { default: MetadataService } = await import('../../metadata.js');
         const metadataService = new MetadataService();
 
@@ -200,6 +207,12 @@ router.delete('/file', async (req: Request, res: Response) => {
 
         if (!filePath) {
             res.status(400).json({ error: 'filePath is required' });
+            return;
+        }
+
+        if (!isPathWithinManagedRoots(filePath)) {
+            logger.warn(`Refused delete outside the library: ${filePath}`, 'LIBRARY');
+            res.status(403).json({ error: 'Path is outside the library directory' });
             return;
         }
 

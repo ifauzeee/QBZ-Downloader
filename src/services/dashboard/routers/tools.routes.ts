@@ -3,6 +3,7 @@ import qobuzApi from '../../../api/qobuz.js';
 import path from 'path';
 import axios from 'axios';
 import { logger } from '../../../utils/logger.js';
+import { isPathWithinManagedRoots } from '../../../utils/paths.js';
 import { CONFIG } from '../../../config.js';
 import { databaseService } from '../../database/index.js';
 import {
@@ -89,6 +90,11 @@ router.post('/identify', async (req: Request, res: Response) => {
         const { filePath } = req.body;
         if (!filePath) return res.status(400).json({ error: 'filePath is required' });
 
+        if (!isPathWithinManagedRoots(filePath)) {
+            logger.warn(`Refused identify outside the library: ${filePath}`, 'TOOLS');
+            return res.status(403).json({ error: 'Path is outside the library directory' });
+        }
+
         const filename = path.basename(filePath as string, path.extname(filePath as string));
         const parts = (filePath as string).split(path.sep);
         
@@ -158,6 +164,11 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
         const { filePath, metadata } = req.body;
         if (!filePath || !metadata) {
             return res.status(400).json({ error: 'filePath and metadata are required' });
+        }
+
+        if (!isPathWithinManagedRoots(filePath)) {
+            logger.warn(`Refused metadata write outside the library: ${filePath}`, 'TOOLS');
+            return res.status(403).json({ error: 'Path is outside the library directory' });
         }
 
         const { default: MetadataService } = await import('../../metadata.js');
