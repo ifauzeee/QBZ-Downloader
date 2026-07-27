@@ -113,4 +113,36 @@
     Display="advanced"
     Required="false"
     Mask="false">2</Config>
+  <Config
+    Name="PUID"
+    Target="PUID"
+    Default="99"
+    Mode=""
+    Description="User id the app runs as. Unraid's default is 99 (nobody); downloads are written with this owner, so it should match the rest of your shares."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">99</Config>
+
+  <Config
+    Name="PGID"
+    Target="PGID"
+    Default="100"
+    Mode=""
+    Description="Group id the app runs as. Unraid's default is 100 (users)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">100</Config>
+
+  <Config
+    Name="UMASK"
+    Target="UMASK"
+    Default="002"
+    Mode=""
+    Description="Permission mask for new files. 002 leaves them group-writable so other apps running as the users group can manage the library."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">002</Config>
 </Container>
