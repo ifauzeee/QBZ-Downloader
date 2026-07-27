@@ -8,6 +8,9 @@ import { QueueItem } from './queue/types.js';
 import { CONFIG } from '../config.js';
 import { notifyDownloadComplete, notifyDownloadError } from './notifications.js';
 
+/** Hydration passes to spend on one queue item before treating it as unresolvable. */
+const MAX_HYDRATION_ATTEMPTS = 3;
+
 enum ErrorCategory {
     NETWORK = 'network',
     AUTH = 'auth',
@@ -97,6 +100,8 @@ export class QueueProcessor {
     private runningTasks: Set<string> = new Set();
     private isHydrationRunning: boolean = false;
     private isStarted: boolean = false;
+    /** Hydration attempts per content id, so an unresolvable item is dropped. */
+    private hydrationAttempts: Map<string | number, number> = new Map();
 
     constructor() {
         const lyricsProvider = new LyricsProvider();
@@ -126,7 +131,9 @@ export class QueueProcessor {
             try {
                 const pendingItems = downloadQueue.getPendingItems();
                 const itemsToHydrate = pendingItems.filter(
-                    (item) => !item.title || item.title === `${item.type}: ${item.contentId}`
+                    (item) =>
+                        (!item.title || item.title === `${item.type}: ${item.contentId}`) &&
+                        (this.hydrationAttempts.get(item.contentId) ?? 0) < MAX_HYDRATION_ATTEMPTS
                 );
 
                 for (const item of itemsToHydrate) {
@@ -172,12 +179,27 @@ export class QueueProcessor {
                             );
                         }
 
+                        this.hydrationAttempts.delete(item.contentId);
                         await sleep(200);
                     } catch (e: unknown) {
                         const err = e as Error;
-                        logger.debug(
-                            `Failed to hydrate metadata for ${item.contentId}: ${err.message}`
-                        );
+                        // Count the failure and stop after a few tries. Content that
+                        // has been pulled from Qobuz can never resolve, and because
+                        // the item keeps its empty title it matched the filter again
+                        // on every 5s pass — retrying the same dead id forever.
+                        const attempts = (this.hydrationAttempts.get(item.contentId) ?? 0) + 1;
+                        this.hydrationAttempts.set(item.contentId, attempts);
+
+                        if (attempts >= MAX_HYDRATION_ATTEMPTS) {
+                            logger.warn(
+                                `Giving up on metadata for ${item.type} ${item.contentId} after ${attempts} attempts: ${err.message}`,
+                                'QUEUE'
+                            );
+                        } else {
+                            logger.debug(
+                                `Failed to hydrate metadata for ${item.contentId}: ${err.message}`
+                            );
+                        }
                     }
                 }
             } catch (error) {

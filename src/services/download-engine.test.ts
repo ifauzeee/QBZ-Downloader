@@ -199,4 +199,91 @@ describe('DownloadEngine', () => {
             expect.objectContaining({ headers: { 'Range': 'bytes=500-' } })
         );
     });
+
+    describe('stalled transfers', () => {
+        const makeStream = () => {
+            const stream = new EventEmitter();
+            (stream as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
+            (stream as unknown as Record<string, unknown>).destroy = vi.fn();
+            return stream;
+        };
+
+        // Settle into a value either way so the promise is never left unhandled
+        // while fake timers are driving the clock.
+        const begin = (stream: EventEmitter) => {
+            vi.mocked(network.downloadFile).mockResolvedValue({
+                status: 200,
+                headers: { 'content-length': '1000' },
+                data: stream
+            } as unknown as AxiosResponse);
+
+            return engine
+                .download('url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27)
+                .then(
+                    (ok) => ({ ok, err: undefined as Error | undefined }),
+                    (err: Error) => ({ ok: undefined, err })
+                );
+        };
+
+        // A socket that goes quiet emits no 'end', 'error' or 'aborted', so before
+        // the idle timeout this promise never settled: the track hung forever and
+        // its queue item held a slot in 'downloading' indefinitely.
+        it('rejects a stream that stops delivering data', async () => {
+            vi.useFakeTimers();
+            try {
+                const stream = makeStream();
+                const settled = begin(stream);
+                await vi.advanceTimersByTimeAsync(0);
+
+                stream.emit('data', Buffer.alloc(100));
+                await vi.advanceTimersByTimeAsync(61_000);
+
+                const { err } = await settled;
+                expect(err).toBeInstanceOf(Error);
+                expect(err?.message).toMatch(/stalled/i);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('rejects a connection that never delivers a first byte', async () => {
+            vi.useFakeTimers();
+            try {
+                const settled = begin(makeStream());
+                await vi.advanceTimersByTimeAsync(0);
+
+                await vi.advanceTimersByTimeAsync(61_000);
+
+                const { err } = await settled;
+                expect(err?.message).toMatch(/stalled/i);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('keeps a slow but progressing transfer alive', async () => {
+            vi.useFakeTimers();
+            try {
+                const stream = makeStream();
+                const settled = begin(stream);
+                await vi.advanceTimersByTimeAsync(0);
+
+                const writer = vi.mocked(fs.createWriteStream).mock.results.at(-1)!.value;
+
+                // A chunk every 50s stays under the 60s limit, so the timer re-arms.
+                for (let i = 0; i < 4; i++) {
+                    stream.emit('data', Buffer.alloc(250));
+                    await vi.advanceTimersByTimeAsync(50_000);
+                }
+                writer.emit('finish');
+                await vi.advanceTimersByTimeAsync(0);
+
+                const { ok, err } = await settled;
+                expect(err).toBeUndefined();
+                expect(ok?.size).toBe(1000);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+    });
 });
