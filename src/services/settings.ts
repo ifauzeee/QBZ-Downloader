@@ -102,28 +102,38 @@ export class SettingsService {
                 logger.success(`Loaded ${this.cache.size} setting(s) from database`, 'SETTINGS');
             }
 
-            if (this.cache.size === 0) {
-                let seeded = 0;
-                const upsert = db.prepare(
-                    `INSERT INTO app_settings (key, value, updated_at)
-                     VALUES (?, ?, CURRENT_TIMESTAMP)
-                     ON CONFLICT(key) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP`
+            // An explicitly set environment variable is authoritative on every start, not just
+            // the first one. Container users configure the app through their compose file or
+            // Unraid template and expect an edit there to take effect; before this, the stored
+            // value silently won and the template field looked broken. Keys left unset in the
+            // environment are untouched, so the UI stays in charge of everything else.
+            const upsert = db.prepare(
+                `INSERT INTO app_settings (key, value, updated_at)
+                 VALUES (?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP`
+            );
+
+            const appliedKeys: string[] = [];
+            for (const key of KNOWN_SETTING_KEYS) {
+                const value = process.env[key];
+                if (value === undefined || value === '') continue;
+                if (this.cache.get(key)?.value === value) continue;
+
+                const valueToStore = SENSITIVE_KEYS.includes(key)
+                    ? encryptionService.encryptSync(value)
+                    : value;
+                upsert.run(key, valueToStore);
+                this.cache.set(key, { value, timestamp: Date.now() });
+                appliedKeys.push(key);
+            }
+
+            if (appliedKeys.length > 0) {
+                logger.info(
+                    `Applied ${appliedKeys.length} setting(s) from environment: ${appliedKeys.join(', ')}`,
+                    'SETTINGS'
                 );
-
-                for (const key of KNOWN_SETTING_KEYS) {
-                    const value = process.env[key];
-                    if (value !== undefined && value !== '') {
-                        upsert.run(key, value);
-                        this.cache.set(key, { value, timestamp: Date.now() });
-                        seeded++;
-                    }
-                }
-
-                if (seeded > 0) {
-                    logger.info(`Migrated ${seeded} setting(s) from environment to local database`, 'SETTINGS');
-                }
             }
 
             this.initialized = true;
