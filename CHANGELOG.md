@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [5.3.4] - 2026-07-26
+## [5.4.0] - 2026-07-26
 
 ### Fixed
 - **FLAC tagging always fails on non-Windows platforms** — `writeFlacTags()` writes the tagged output to a temporary file with a `.tmp` extension. Since ffmpeg selects the output muxer based on the file extension and `.tmp` does not match any known format, every tag write fails with `Unable to find a suitable output format`. The downloader then treats the track as failed and removes the file, resulting in complete batch downloads with nothing on disk. The output muxer is now forced with `-f flac` before the output path — the output is always FLAC here (`-c copy` from a FLAC input). Reported and fixed by @ICHlMOKU (see issue #58).
