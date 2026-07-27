@@ -182,7 +182,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "archiver": "^7.0.1",
     "axios": "^1.18.1",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.1",
     "boxen": "^7.1.1",
     "chalk": "^6.0.0",
     "cheerio": "^1.2.0",
