@@ -14,7 +14,7 @@ interface LyricsEditorProps {
     currentTime: number;
     onSave: () => void;
     onClose: () => void;
-    audioRef: React.RefObject<HTMLAudioElement>;
+    audioRef: React.RefObject<HTMLAudioElement | null>;
 }
 
 export const LyricsEditor: React.FC<LyricsEditorProps> = ({
