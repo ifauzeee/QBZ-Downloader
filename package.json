@@ -214,7 +214,7 @@
     "copyfiles": "^2.4.1",
     "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
-    "eslint": "^9.39.4",
+    "eslint": "^10.8.0",
     "globals": "^17.8.0",
     "husky": "^9.1.7",
     "prettier": "^3.9.6",
