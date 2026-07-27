@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+client/node_modules
+dist
+release
+bin
+data
+downloads
+coverage
+*.log
+.DS_Store
+.env
+.env.*
+Dockerfile
+docker-compose.yml
+.dockerignore

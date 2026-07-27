@@ -19,7 +19,14 @@ eventBus.on(EVENTS.SETTINGS.UPDATED, () => {
 
 const getSetting = <T>(key: string, def: T): T => {
     const fromDb = settingsService.get(key);
-    const raw = fromDb;
+
+    // Environment variables supply the value when nothing is stored, so a server
+    // or container install can be configured declaratively (DASHBOARD_HOST,
+    // DOWNLOADS_PATH, ...) instead of only through the dashboard. A stored
+    // setting still wins, so changing something in the UI keeps working and
+    // existing installs are unaffected.
+    const fromEnv = process.env[key];
+    const raw = fromDb !== undefined ? fromDb : fromEnv === '' ? undefined : fromEnv;
 
     if (raw === undefined) return def;
     if (raw === 'true') return true as T;

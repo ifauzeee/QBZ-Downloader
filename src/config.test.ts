@@ -66,3 +66,45 @@ describe('CONFIG dashboard runtime overrides', () => {
         expect(settingsGet).toHaveBeenCalledTimes(14);
     });
 });
+
+describe('CONFIG environment fallback (server / container installs)', () => {
+    afterEach(() => {
+        process.env = { ...originalEnv };
+        vi.resetModules();
+        vi.doUnmock('./services/settings.js');
+    });
+
+    it('reads a setting from the environment when nothing is stored', async () => {
+        process.env.DASHBOARD_HOST = '0.0.0.0';
+        process.env.DOWNLOADS_PATH = '/music';
+
+        const { CONFIG } = await loadConfigWithSettings({});
+
+        expect(CONFIG.dashboard.host).toBe('0.0.0.0');
+        expect(CONFIG.download.outputDir).toBe('/music');
+    });
+
+    it('lets a stored setting win over the environment', async () => {
+        process.env.DASHBOARD_HOST = '0.0.0.0';
+
+        const { CONFIG } = await loadConfigWithSettings({ DASHBOARD_HOST: '10.0.0.5' });
+
+        expect(CONFIG.dashboard.host).toBe('10.0.0.5');
+    });
+
+    it('coerces numeric environment values', async () => {
+        process.env.DASHBOARD_PORT = '8080';
+
+        const { CONFIG } = await loadConfigWithSettings({});
+
+        expect(CONFIG.dashboard.port).toBe(8080);
+    });
+
+    it('ignores an empty environment value and uses the default', async () => {
+        process.env.DASHBOARD_HOST = '';
+
+        const { CONFIG } = await loadConfigWithSettings({});
+
+        expect(CONFIG.dashboard.host).toBe('127.0.0.1');
+    });
+});
