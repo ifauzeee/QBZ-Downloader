@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.5.0] - 2026-07-26
+
+### Added
+- **Docker image for server/NAS deployments** — Multi-stage Dockerfile based on `node:22-bookworm-slim` with ffmpeg and fpcalc from apt, `tini` as entrypoint, and volume mounts for `/app/data` (database, encryption key) and `/music`. Environment variables (`DASHBOARD_HOST`, `DOWNLOADS_PATH`, etc.) fall back to config when nothing is stored, so a container is fully configurable. Built and verified end to end on linux/arm64. Contributed by @ICHlMOKU.
+- **Path containment for library API routes** — Four routes (`DELETE /api/library/file`, `POST /api/library/metadata/edit`, `POST /api/tools/identify`, `POST /api/tools/apply-metadata`) now validate that supplied file paths resolve inside the managed download/export directories. Symlink-based escape and `../` traversal are blocked. Contributed by @ICHlMOKU.
+- **Startup security guard** — The dashboard refuses to bind a non-loopback host when no password is set, falling back to `127.0.0.1` and logging the override at the `SECURITY` level. Contributed by @ICHlMOKU.
+
+### Fixed
+- **UNSYNCEDLYRICS showing as one continuous string** — `buildId3Tags()` and `buildFlacTags()` now derive plain lyrics from synced LRC (timestamp-stripped) when the API returns `plainLyrics` without newlines, producing proper line breaks in FLAC Vorbis comments and MP3 ID3 tags.
+- **Stalled download holds queue slot forever** — A 60-second idle timeout was added to the download stream. If no data is received for 60 consecutive seconds (re-armed on every chunk), the transfer is rejected with `Stream stalled` and retried instead of holding its queue slot indefinitely.
+- **Metadata hydration retries unresolvable items infinitely** — `startMetadataHydration()` now tracks attempts per content ID and stops after 3 failures, logging a `warn`-level `Giving up on metadata` message instead of retrying the same dead ID every 5 seconds forever.
+
+---
+
 ## [5.4.0] - 2026-07-26
 
 ### Fixed

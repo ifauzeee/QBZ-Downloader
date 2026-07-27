@@ -1,7 +1,7 @@
 {
   "name": "qbz-downloader-client",
   "private": true,
-  "version": "5.4.0",
+  "version": "5.5.0",
   "type": "module",
   "overrides": {
     "brace-expansion": "5.0.8",
