@@ -212,16 +212,16 @@
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.10",
     "copyfiles": "^2.4.1",
-    "electron": "^43.1.1",
+    "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
     "eslint": "^9.39.4",
-    "globals": "^17.7.0",
+    "globals": "^17.8.0",
     "husky": "^9.1.7",
-    "prettier": "^3.9.5",
+    "prettier": "^3.9.6",
     "supertest": "^7.2.2",
     "typedoc": "^0.28.20",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.64.0",
+    "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.6"
   }
 }
