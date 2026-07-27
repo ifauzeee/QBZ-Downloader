@@ -614,9 +614,12 @@ export class MetadataService {
             const safePlain = (() => {
                 const raw = typeof plain === 'string' ? plain : '';
                 if (raw && raw.includes('\n')) return raw;
-                // Strip LRC timestamps to get proper line-separated plain text
+                // Strip BOM + LRC timestamps to get proper line-separated plain text.
+                // LRCLIB may serve syncedLyrics with a UTF-8 BOM (\uFEFF) that would
+                // cause the first timestamp to survive the regex.
                 if (synced) {
                     const stripped = (typeof synced === 'string' ? synced : '')
+                        .replace(/^\uFEFF/, '')
                         .replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '')
                         .trim();
                     if (stripped) return stripped;
@@ -711,7 +714,10 @@ export class MetadataService {
             const plain = rawPlain && rawPlain.includes('\n')
                 ? rawPlain
                 : synced
-                    ? (typeof synced === 'string' ? synced : '').replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '').trim()
+                    ? (typeof synced === 'string' ? synced : '')
+                        .replace(/^\uFEFF/, '')
+                        .replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '')
+                        .trim()
                     : rawPlain;
 
             if (plain) {
