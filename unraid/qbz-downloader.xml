@@ -1,0 +1,116 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>QBZ-Downloader</Name>
+  <Repository>ghcr.io/ifauzeee/qbz-downloader:latest</Repository>
+  <Registry>https://github.com/ifauzeee/QBZ-Downloader/pkgs/container/qbz-downloader</Registry>
+  <Branch>
+    <Tag>latest</Tag>
+    <TagDescription>Latest build from main</TagDescription>
+  </Branch>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/ifauzeee/QBZ-Downloader/issues</Support>
+  <Project>https://github.com/ifauzeee/QBZ-Downloader</Project>
+  <Overview>
+    Qobuz downloader with a web dashboard for Hi-Res audio, metadata automation and local library management.
+
+    Search Qobuz and queue tracks, albums, artists or playlists; files are tagged from Qobuz metadata with cover art and lyrics, and organised on disk using your own folder and filename templates. The built-in library scanner reports duplicates, missing tags and tracks available at a higher quality than the copy you already have.
+
+    [b]Setting up[/b]
+    [b]1.[/b] Set a dashboard password below. It is required: without one the dashboard refuses to serve a network address and binds to localhost inside the container, so the WebUI will not open.
+    [b]2.[/b] Point [b]Music Library[/b] at the share you want files written to.
+    [b]3.[/b] Start the container, open the WebUI and enter your Qobuz credentials under Settings.
+
+    Any application setting can also be supplied as an environment variable here (for example FOLDER_TEMPLATE or MAX_CONCURRENCY). A value saved in the dashboard takes precedence over the variable.
+  </Overview>
+  <Category>Downloaders: MediaApp:Music</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/ifauzeee/QBZ-Downloader/main/unraid/qbz-downloader.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/ifauzeee/QBZ-Downloader/main/assets/desktop/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+
+  <Config
+    Name="WebUI Port"
+    Target="3000"
+    Default="3000"
+    Mode="tcp"
+    Description="Port for the web dashboard."
+    Type="Port"
+    Display="always"
+    Required="true"
+    Mask="false">3000</Config>
+
+  <Config
+    Name="Dashboard Password"
+    Target="DASHBOARD_PASSWORD"
+    Default=""
+    Mode=""
+    Description="Required. Protects the dashboard, which can queue downloads and edit tags in your library. Without a password the app refuses to serve a network address and the WebUI will not be reachable."
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="true"/>
+
+  <Config
+    Name="Music Library"
+    Target="/music"
+    Default="/mnt/user/music"
+    Mode="rw"
+    Description="Where downloads are written. The library scanner reads this same path."
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false">/mnt/user/music</Config>
+
+  <Config
+    Name="Appdata"
+    Target="/app/data"
+    Default="/mnt/user/appdata/qbz-downloader"
+    Mode="rw"
+    Description="Database, settings and the key used to encrypt stored credentials. Keep this on appdata so it survives container updates."
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false">/mnt/user/appdata/qbz-downloader</Config>
+
+  <Config
+    Name="Folder Structure"
+    Target="FOLDER_TEMPLATE"
+    Default="{albumArtist}/{album}/{disc_folder}"
+    Mode=""
+    Description="Folder template. {disc_folder} becomes CD1, CD2 ... on multi-disc releases and is empty on single-disc ones, so one template suits both."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">{albumArtist}/{album}/{disc_folder}</Config>
+
+  <Config
+    Name="File Template"
+    Target="FILE_TEMPLATE"
+    Default="{track_number}. {title}"
+    Mode=""
+    Description="Filename template."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">{track_number}. {title}</Config>
+
+  <Config
+    Name="Concurrent Downloads"
+    Target="MAX_CONCURRENCY"
+    Default="2"
+    Mode=""
+    Description="How many downloads run at once."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">2</Config>
+</Container>
