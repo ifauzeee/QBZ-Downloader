@@ -26,6 +26,9 @@ export class MetadataProcessor {
             'META'
         );
 
+        const discNumber = Number(metadata.discNumber) || 1;
+        const totalDiscs = Number(metadata.totalDiscs) || 1;
+
         const data: Record<string, string> = {
             artist: metadata.artist || 'Unknown Artist',
             albumArtist: metadata.albumArtist || metadata.artist || 'Unknown Artist',
@@ -36,11 +39,23 @@ export class MetadataProcessor {
             format: qualityName,
             track_number: metadata.trackNumber?.toString().padStart(2, '0') || '01',
             tracknumber: metadata.trackNumber?.toString().padStart(2, '0') || '01',
-            track: metadata.trackNumber?.toString().padStart(2, '0') || '01'
+            track: metadata.trackNumber?.toString().padStart(2, '0') || '01',
+            disc: discNumber.toString(),
+            disc_number: discNumber.toString(),
+            discnumber: discNumber.toString(),
+            total_discs: totalDiscs.toString(),
+            totaldiscs: totalDiscs.toString(),
+            // Resolves to an empty string on single-disc releases so one folder
+            // template works for both: "{albumArtist}/{album}/{disc_folder}"
+            // yields "Artist/Album" for a single disc and "Artist/Album/CD2" for
+            // a multi-disc set, without stranding an empty path segment.
+            disc_folder: totalDiscs > 1 ? `CD${discNumber}` : ''
         };
 
         for (const [key, value] of Object.entries(data)) {
-            const sanitizedValue = this.sanitizeFilename(String(value));
+            // Deliberately-empty values must stay empty; sanitizeFilename maps
+            // falsy input to "Unknown", which would create an "Unknown" folder.
+            const sanitizedValue = value === '' ? '' : this.sanitizeFilename(String(value));
             const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`\\{${escapedKey}\\}`, 'gi');
 
@@ -55,7 +70,11 @@ export class MetadataProcessor {
     }
 
     buildFolderPath(metadata: Metadata, quality: number): string {
-        return this.applyTemplate(CONFIG.download.folderStructure, metadata, quality);
+        const rendered = this.applyTemplate(CONFIG.download.folderStructure, metadata, quality);
+        // A placeholder may render empty on purpose ({disc_folder} on a single-disc
+        // release), which would otherwise leave an empty segment and a stray
+        // separator in the path.
+        return rendered.split(/[/\\]/).filter(Boolean).join(path.sep);
     }
 
     buildFilename(metadata: Metadata, quality: number): string {
