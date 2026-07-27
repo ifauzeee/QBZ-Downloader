@@ -5,6 +5,13 @@ import { execFile } from 'child_process';
 import { logger } from '../utils/logger.js';
 import { Track, Album, Artist, LyricsResult } from '../types/qobuz.js';
 
+const LYRICS_KEYS = new Set([
+    'LYRICS',
+    'SYNCEDLYRICS',
+    'UNSYNCEDLYRICS',
+    'UNSYNCED LYRICS',
+]);
+
 export type RawData = Record<string, unknown>;
 
 export interface Metadata {
@@ -901,6 +908,136 @@ export class MetadataService {
         }
     }
 
+    /**
+     * Write lyrics Vorbis comments directly into the FLAC file, bypassing
+     * ffmpeg's ffmetadata pipeline entirely.
+     *
+     * ffmpeg's ffmetadata parser on Windows discards the backslash in `\n`
+     * escape sequences, writing a bare `n` (0x6E) into the Vorbis comment
+     * instead of an actual newline (0x0A).  By writing the lyrics entries
+     * ourselves at the binary level we can preserve real newline characters.
+     */
+    private writeFlacLyricsDirect(filePath: string, lyrics: LyricsResult): void {
+        const entries: Array<{ key: string; value: string }> = [];
+
+        const synced = lyrics.syncedLyrics;
+        if (synced) {
+            const s = typeof synced === 'string' ? synced : '';
+            entries.push({ key: 'SYNCEDLYRICS', value: s });
+            entries.push({ key: 'LYRICS', value: s });
+        }
+
+        const rawPlain = typeof lyrics.plainLyrics === 'string' ? lyrics.plainLyrics : '';
+        const plain = rawPlain && rawPlain.includes('\n')
+            ? rawPlain
+            : synced
+                ? (typeof synced === 'string' ? synced : '')
+                    .replace(/^\uFEFF/, '')
+                    .replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '')
+                    .trim()
+                : rawPlain;
+
+        if (plain) {
+            entries.push({ key: 'UNSYNCEDLYRICS', value: plain });
+            entries.push({ key: 'UNSYNCED LYRICS', value: plain });
+        }
+
+        if (lyrics.source) {
+            entries.push({ key: 'LYRICS_SOURCE', value: lyrics.source });
+        }
+
+        if (entries.length === 0) return;
+
+        const data = fs.readFileSync(filePath);
+        if (data.toString('ascii', 0, 4) !== 'fLaC') return;
+
+        let pos = 4;
+        let lastBlock = false;
+
+        while (!lastBlock && pos < data.length) {
+            const blockType = data[pos]! & 0x7F;
+            lastBlock = (data[pos]! & 0x80) !== 0;
+            const blockSize = data.readUIntBE(pos + 1, 3);
+            const blockEnd = pos + 4 + blockSize;
+
+            if (blockType === 4) {
+                const body = data.slice(pos + 4, blockEnd);
+
+                // parse existing Vorbis comments, dropping old lyrics entries
+                let p = 0;
+                if (p + 4 > body.length) return;
+                const vendorLen = body.readUInt32LE(p);
+                p += 4 + vendorLen;
+                if (p > body.length) return;
+                if (p + 4 > body.length) return;
+                const numComments = body.readUInt32LE(p);
+                p += 4;
+
+                const kept: Buffer[] = [];
+                for (let i = 0; i < numComments; i++) {
+                    if (p + 4 > body.length) break;
+                    const commentLen = body.readUInt32LE(p);
+                    p += 4;
+                    if (p + commentLen > body.length) break;
+                    const commentStr = body.toString('utf8', p, p + commentLen);
+                    const eqIdx = commentStr.indexOf('=');
+                    const key = eqIdx > 0 ? commentStr.slice(0, eqIdx) : '';
+
+                    if (LYRICS_KEYS.has(key)) {
+                        p += commentLen;
+                        continue;
+                    }
+
+                    const lenBuf = Buffer.alloc(4);
+                    lenBuf.writeUInt32LE(commentLen);
+                    kept.push(lenBuf, body.slice(p, p + commentLen));
+                    p += commentLen;
+                }
+
+                // append fresh lyrics entries
+                for (const entry of entries) {
+                    const comment = `${entry.key}=${entry.value}`;
+                    const commentBuf = Buffer.from(comment, 'utf8');
+                    const lenBuf = Buffer.alloc(4);
+                    lenBuf.writeUInt32LE(commentBuf.length);
+                    kept.push(lenBuf, commentBuf);
+                }
+
+                // rebuild Vorbis comment body
+                const vendorLenBuf = body.slice(0, 4);
+                const vendorStrBuf = body.slice(4, 4 + body.readUInt32LE(0));
+                const numBuf = Buffer.alloc(4);
+                numBuf.writeUInt32LE(kept.length / 2);
+                const newBody = Buffer.concat([vendorLenBuf, vendorStrBuf, numBuf, ...kept]);
+
+                // update metadata block header with new size
+                const newSize = newBody.length;
+                const sizeBuf = Buffer.alloc(3);
+                sizeBuf.writeUIntBE(newSize, 0, 3);
+
+                const newData = Buffer.concat([
+                    data.slice(0, pos),
+                    Buffer.from([data[pos]!, ...sizeBuf]),
+                    newBody,
+                    data.slice(blockEnd),
+                ]);
+
+                const tmp = `${filePath}.lrc-${Date.now()}.tmp`;
+                fs.writeFileSync(tmp, newData);
+                try {
+                    fs.renameSync(tmp, filePath);
+                } catch {
+                    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+                    throw new Error('Failed to write lyrics to FLAC');
+                }
+
+                return;
+            }
+
+            pos += 4 + blockSize;
+        }
+    }
+
     private static taggingLock: Promise<void> = Promise.resolve();
 
     async writeMetadata(
@@ -915,7 +1052,16 @@ export class MetadataService {
                 logger.debug(`Writing metadata to ${path.basename(filePath)} (Lyrics: ${lyrics ? 'Yes' : 'No'})`, 'META');
                 if (filePath.endsWith('.flac')) {
                     const tags = this.buildFlacTags(metadata, lyrics);
-                    await this.writeFlacTags(filePath, tags, coverBuffer);
+                    // Strip lyrics tags from ffmpeg — its ffmetadata parser
+                    // on Windows drops backslash in \n escapes, writing bare
+                    // n instead of real newlines.  We inject them directly.
+                    const filtered = lyrics
+                        ? tags.filter((p) => !LYRICS_KEYS.has(p[0]!))
+                        : tags;
+                    await this.writeFlacTags(filePath, filtered, coverBuffer);
+                    if (lyrics) {
+                        this.writeFlacLyricsDirect(filePath, lyrics);
+                    }
                 } else if (filePath.endsWith('.mp3')) {
                     const tags = this.buildId3Tags(metadata, coverBuffer, lyrics);
                     await this.writeId3Tags(filePath, tags);
