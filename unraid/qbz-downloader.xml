@@ -23,10 +23,12 @@
     [b]2.[/b] Point [b]Music Library[/b] at the share you want files written to.
     [b]3.[/b] Start the container, open the WebUI and enter your Qobuz credentials under Settings.
 
+    The WebUI link carries [b]?mode=web[/b]. The bundled dashboard renders a "Desktop Only" notice without it, since it otherwise expects to be running inside the Electron shell.
+
     Any application setting can also be supplied as an environment variable here (for example FOLDER_TEMPLATE or MAX_CONCURRENCY). A value saved in the dashboard takes precedence over the variable.
   </Overview>
   <Category>Downloaders: MediaApp:Music</Category>
-  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <WebUI>http://[IP]:[PORT:3000]/?mode=web</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/ifauzeee/QBZ-Downloader/main/unraid/qbz-downloader.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/ifauzeee/QBZ-Downloader/main/assets/desktop/icon.png</Icon>
   <ExtraParams/>
