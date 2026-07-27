@@ -4,6 +4,7 @@ import { useSocket } from '../contexts/SocketContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Icons } from './Icons';
+import { useAutoFixStore, type AutoFixFile } from '../stores/autoFixStore';
 
 interface LibraryStats {
     totalFiles: number;
@@ -58,10 +59,7 @@ interface MissingMetadataFile {
     missingTags?: string[];
 }
 
-interface ProcessingFile extends MissingMetadataFile {
-    status: 'pending' | 'identifying' | 'found' | 'not_found' | 'applied';
-    result?: any;
-}
+type ProcessingFile = AutoFixFile;
 
 const QUALITY_LABELS: Record<number, string> = {
     5: 'MP3 320',
@@ -170,8 +168,11 @@ export const LibraryView: React.FC = () => {
 
     const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
     const [upgradeable, setUpgradeable] = useState<UpgradeableFile[]>([]);
-    const [missingMetadata, setMissingMetadata] = useState<ProcessingFile[]>([]);
-    const [processingMetadata, setProcessingMetadata] = useState(false);
+    const missingMetadata = useAutoFixStore((s) => s.files);
+    const setMissingMetadata = useAutoFixStore((s) => s.setFiles);
+    const processingMetadata = useAutoFixStore((s) => s.running);
+    const runAutoFix = useAutoFixStore((s) => s.run);
+    const stopAutoFix = useAutoFixStore((s) => s.stop);
     const [loading, setLoading] = useState(false);
     const [upgradingIds, setUpgradingIds] = useState<Set<string>>(new Set());
 
@@ -335,51 +336,17 @@ export const LibraryView: React.FC = () => {
     };
 
     const processMetadata = async () => {
-        if (processingMetadata) return;
-        setProcessingMetadata(true);
-        const files = [...missingMetadata];
+        await runAutoFix((summary) => {
+            const parts = [`${summary.applied} applied`];
+            if (summary.failed > 0) parts.push(`${summary.failed} failed`);
+            if (summary.notFound > 0) parts.push(`${summary.notFound} not found`);
 
-        for (let i = 0; i < files.length; i++) {
-            if (files[i].status === 'applied') continue;
-
-            files[i].status = 'identifying';
-            setMissingMetadata([...files]);
-
-
-            try {
-                const idRes = await smartFetch('/api/tools/identify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filePath: files[i].filePath })
-                });
-
-                if (idRes && idRes.ok) {
-                    const data = await idRes.json();
-                    files[i].result = data.data;
-                    files[i].status = 'found';
-                    setMissingMetadata([...files]);
-
-                    const applyRes = await smartFetch('/api/tools/apply-metadata', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ filePath: files[i].filePath, metadata: data.data })
-                    });
-
-                    if (applyRes && applyRes.ok) {
-                        files[i].status = 'applied';
-                        files[i].title = data.data.title;
-                        files[i].artist = data.data.artist;
-                    }
-                } else {
-                    files[i].status = 'not_found';
-                }
-            } catch (e) {
-                files[i].status = 'not_found';
-            }
-            setMissingMetadata([...files]);
-        }
-        setProcessingMetadata(false);
-        showToast('Metadata processing complete', 'success');
+            showToast(
+                `${summary.stopped ? 'Auto-Fix stopped' : 'Auto-Fix complete'}: ${parts.join(', ')}`,
+                summary.failed > 0 ? 'error' : 'success'
+            );
+            loadMissingMetadata();
+        });
     };
 
 
@@ -680,12 +647,13 @@ export const LibraryView: React.FC = () => {
                                 The following files are missing metadata, cover art, or lyrics. Click "Auto-Fix All" to identify and tag them using Smart Match.
                             </p>
                             <button
-                                className="btn primary"
-                                onClick={processMetadata}
-                                disabled={processingMetadata}
+                                className={`btn ${processingMetadata ? 'secondary' : 'primary'}`}
+                                onClick={processingMetadata ? stopAutoFix : processMetadata}
                                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
-                                {processingMetadata ? 'Processing...' : <><Icons.Check width={14} height={14} /> Auto-Fix All ({missingMetadata.length})</>}
+                                {processingMetadata
+                                    ? `Stop (${missingMetadata.filter(f => f.status === 'applied' || f.status === 'failed' || f.status === 'not_found').length}/${missingMetadata.length})`
+                                    : <><Icons.Check width={14} height={14} /> Auto-Fix All ({missingMetadata.length})</>}
                             </button>
                         </div>
                     )}
@@ -715,14 +683,18 @@ export const LibraryView: React.FC = () => {
                                             <td>{renderMissingTags(file)}</td>
                                             <td>
                                                 <span className={`badge ${file.status === 'applied' ? 'success' :
-                                                    file.status === 'not_found' ? 'error' :
+                                                    (file.status === 'not_found' || file.status === 'failed') ? 'error' :
                                                         file.status === 'identifying' ? 'info' : 'warning'
                                                     }`}>
                                                     {getStatusLabel(file)}
                                                 </span>
                                             </td>
                                             <td>
-                                                {file.result ? (
+                                                {file.error ? (
+                                                    <span style={{ color: 'var(--danger)', fontSize: '0.85em' }} title={file.error}>
+                                                        {file.error}
+                                                    </span>
+                                                ) : file.result ? (
                                                     <div className="track-info">
                                                         <span style={{ fontWeight: 600 }}>{file.result.title}</span>
                                                         <span style={{ opacity: 0.8 }}> - {file.result.artist}</span>
