@@ -11,6 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
+[![Telegram](https://img.shields.io/badge/Telegram-Join-26A5E4?style=flat-square&logo=telegram)](https://t.me/qbzdownloader)
 
 <br/>
 
@@ -24,8 +25,8 @@ A comprehensive desktop-first music downloading and library management applicati
 
 [✨ Features](#-key-features) •
 [📥 Installation](#-installation) •
+[💬 Community](#-community) •
 [⚙️ Configuration](#-configuration) •
-[🖥️ Desktop Mode](#desktop-app-windows-macos-linux) •
 [📸 Screenshots](#-interface-showcase)
 
 </div>
@@ -139,6 +140,41 @@ Output paths (varies by platform):
 - macOS: `release/QBZ-Downloader-<version>-arm64.dmg`
 - Linux: `release/QBZ-Downloader-<version>-x86_64.AppImage` / `.deb` / `.tar.gz`
 
+### 🔄 Pre-Release Build (from CI)
+If a fix has been merged but not yet released, you can download the latest build from GitHub Actions:
+
+1. Go to the [Actions tab](https://github.com/ifauzeee/QBZ-Downloader/actions) and select the **Desktop Release** workflow.
+2. Click the latest (topmost) green-checkmarked run.
+3. Scroll down to **Artifacts** and download your platform's bundle:
+   - `Windows-Installer` — `.exe` installer
+   - `macOS-DMG` — `.dmg` disk image
+   - `Linux-AppImage` — portable `.AppImage`
+4. Extract the archive and run the installer — no build tools required.
+
+> These builds are compiled from `main` with the same CI pipeline used for official releases. They are identical in quality — just not tagged as a versioned release.
+
+### Docker (for NAS / headless servers)
+A pre-built Docker image is available for **linux/amd64** and **linux/arm64**:
+
+```bash
+docker pull ghcr.io/ifauzeee/qbz-downloader:latest
+```
+
+See the [Docker workflow](.github/workflows/docker-publish.yml) for publish details.
+
+---
+
+## 💬 Community
+
+Join our Telegram group for updates, help, and discussion:
+
+[![Telegram](https://img.shields.io/badge/Telegram-@qbzdownloader-26A5E4?style=for-the-badge&logo=telegram)](https://t.me/qbzdownloader)
+
+- ⭐ **Get notified** about new releases and fixes
+- 🐛 **Report bugs** and get direct support
+- 💡 **Suggest features** and vote on what's next
+- 🔧 **Get help** with installation, configuration, and troubleshooting
+
 ---
 
 ## ⚙️ Configuration
@@ -190,5 +226,7 @@ This software is provided specifically for educational and personal archival pur
 
 <div align="center">
   Made with ❤️ by <b>Muhammad Ibnu Fauzi</b>
+  <br/>
+  <a href="https://t.me/qbzdownloader"><b>Join Telegram</b></a> for latest updates & support
 </div>
 
