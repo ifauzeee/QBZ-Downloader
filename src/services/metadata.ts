@@ -608,10 +608,25 @@ export class MetadataService {
         if (lyrics) {
             const synced = lyrics.syncedLyrics;
             const plain = lyrics.plainLyrics || lyrics.syncedLyrics;
-            
+
+            // Derive proper plain text with line breaks from synced lyrics
+            // when the API only returns plain text as a single continuous string.
+            const safePlain = (() => {
+                const raw = typeof plain === 'string' ? plain : '';
+                if (raw && raw.includes('\n')) return raw;
+                // Strip LRC timestamps to get proper line-separated plain text
+                if (synced) {
+                    const stripped = (typeof synced === 'string' ? synced : '')
+                        .replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '')
+                        .trim();
+                    if (stripped) return stripped;
+                }
+                return raw;
+            })();
+
             // Priority for unsynchronisedLyrics: synced (LRC format) then plain
             // Many modern players (BlackPlayer, Musicolet, etc.) look for LRC in USLT
-            const mainLyrics = synced || plain;
+            const mainLyrics = synced || safePlain;
 
             if (mainLyrics) {
                 tags.unsynchronisedLyrics = {
@@ -682,7 +697,6 @@ export class MetadataService {
 
         if (lyrics) {
             const synced = lyrics.syncedLyrics;
-            const plain = lyrics.plainLyrics || lyrics.syncedLyrics;
 
             if (synced) {
                 const syncedStr = typeof synced === 'string' ? synced : '';
@@ -691,13 +705,21 @@ export class MetadataService {
                 comments.push(['LYRICS', syncedStr]);
             }
 
+            // LRCLIB returns plainLyrics as a single continuous string without \n.
+            // When available, strip timestamps from synced lyrics to get proper line breaks.
+            const rawPlain = typeof lyrics.plainLyrics === 'string' ? lyrics.plainLyrics : '';
+            const plain = rawPlain && rawPlain.includes('\n')
+                ? rawPlain
+                : synced
+                    ? (typeof synced === 'string' ? synced : '').replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '').trim()
+                    : rawPlain;
+
             if (plain) {
-                const plainStr = typeof plain === 'string' ? plain : '';
-                comments.push(['UNSYNCEDLYRICS', plainStr]);
-                comments.push(['UNSYNCED LYRICS', plainStr]);
+                comments.push(['UNSYNCEDLYRICS', plain]);
+                comments.push(['UNSYNCED LYRICS', plain]);
                 // If no synced lyrics, use plain for the main tag
                 if (!synced) {
-                    comments.push(['LYRICS', plainStr]);
+                    comments.push(['LYRICS', plain]);
                 }
             }
 
