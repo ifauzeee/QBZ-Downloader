@@ -23,6 +23,56 @@ export interface DashboardConfig {
     enabled: boolean;
 }
 
+// Set when a password is accepted, so that plain browser requests carry proof of
+// login on their own. An <audio> or <img> element cannot attach an x-password
+// header, which is why /api/stream and /api/preview used to skip authentication
+// altogether; a cookie closes that gap without changing how the player works.
+const SESSION_COOKIE = 'qbz_session';
+
+function readSessionCookie(req: Request): string | undefined {
+    const header = req.headers.cookie;
+    if (!header) return undefined;
+
+    for (const part of header.split(';')) {
+        const separator = part.indexOf('=');
+        if (separator === -1) continue;
+        if (part.slice(0, separator).trim() !== SESSION_COOKIE) continue;
+
+        try {
+            return decodeURIComponent(part.slice(separator + 1).trim());
+        } catch {
+            return undefined;
+        }
+    }
+
+    return undefined;
+}
+
+function sha256Hex(value: string): string {
+    return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+// Accepts either the password itself or its SHA-256 hex digest, which is what the
+// browser keeps after logging in so the plaintext never has to be stored.
+function matchesDashboardPassword(provided: string, password: string): boolean {
+    try {
+        const candidate = Buffer.from(provided);
+        const plain = Buffer.from(password);
+        if (candidate.length === plain.length && crypto.timingSafeEqual(candidate, plain)) {
+            return true;
+        }
+
+        if (provided.length === 64) {
+            const expected = Buffer.from(sha256Hex(password));
+            return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
+        }
+    } catch (err) {
+        logger.error(`Auth comparison error: ${err}`, 'AUTH');
+    }
+
+    return false;
+}
+
 export class DashboardService {
     private app: Express;
     private httpServer: HttpServer;
@@ -83,35 +133,21 @@ export class DashboardService {
             }
 
             const providedPassword = req.headers['x-password'] || req.query.pw;
-            if (providedPassword && typeof providedPassword === 'string') {
-                try {
-                    const provided = Buffer.from(providedPassword);
-                    const plain = Buffer.from(password);
-                    if (
-                        provided.length === plain.length &&
-                        crypto.timingSafeEqual(provided, plain)
-                    ) {
-                        res.json({ success: true });
-                        return;
-                    }
-
-                    if (providedPassword.length === 64) {
-                        const expectedHash = crypto
-                            .createHash('sha256')
-                            .update(password)
-                            .digest('hex');
-                        const expected = Buffer.from(expectedHash);
-                        if (
-                            provided.length === expected.length &&
-                            crypto.timingSafeEqual(provided, expected)
-                        ) {
-                            res.json({ success: true });
-                            return;
-                        }
-                    }
-                } catch (err) {
-                    logger.error(`Auth verify error: ${err}`, 'AUTH');
-                }
+            if (
+                providedPassword &&
+                typeof providedPassword === 'string' &&
+                matchesDashboardPassword(providedPassword, password)
+            ) {
+                // A session cookie, so it is discarded when the browser closes and
+                // matches how the client already scopes the password to the tab.
+                res.cookie(SESSION_COOKIE, sha256Hex(password), {
+                    httpOnly: true,
+                    sameSite: 'strict',
+                    secure: req.secure,
+                    path: '/'
+                });
+                res.json({ success: true });
+                return;
             }
 
             res.status(401).json({ error: 'Invalid password' });
@@ -124,12 +160,15 @@ export class DashboardService {
             // Bypass password protection entirely in Desktop mode
             if (!password || isDesktop) return next();
 
+            // Only what the lock screen itself needs before anyone has logged in.
+            // Media routes are deliberately absent: they serve the library, so
+            // exempting them left every track readable to anyone who could reach
+            // the port, which matters the moment the dashboard is put behind a
+            // domain rather than kept on a LAN.
             const excludedRoutes = [
                 '/api/status',
                 '/api/themes',
-                '/api/onboarding',
-                '/api/stream/',
-                '/api/preview/'
+                '/api/onboarding'
             ];
 
             const isExcluded = excludedRoutes.some((route) => req.path.startsWith(route));
@@ -138,26 +177,15 @@ export class DashboardService {
             const isProtected = req.path.startsWith('/api') || req.path.startsWith('/downloads');
             if (!isProtected) return next();
 
-            const providedPassword = req.headers['x-password'] || req.query.pw;
+            const providedPassword =
+                req.headers['x-password'] || req.query.pw || readSessionCookie(req);
 
-            if (providedPassword && typeof providedPassword === 'string' && password) {
-                try {
-                    // Check plaintext
-                    const isPlainMatch = providedPassword.length === password.length && 
-                                       crypto.timingSafeEqual(Buffer.from(providedPassword), Buffer.from(password));
-                    
-                    if (isPlainMatch) return next();
-
-                    // Check SHA-256 hash (64 chars)
-                    if (providedPassword.length === 64) {
-                        const expectedHash = crypto.createHash('sha256').update(password).digest('hex');
-                        if (crypto.timingSafeEqual(Buffer.from(providedPassword), Buffer.from(expectedHash))) {
-                            return next();
-                        }
-                    }
-                } catch (err) {
-                    logger.error(`Auth check error: ${err}`, 'AUTH');
-                }
+            if (
+                providedPassword &&
+                typeof providedPassword === 'string' &&
+                matchesDashboardPassword(providedPassword, password)
+            ) {
+                return next();
             }
 
             res.status(401).json({ error: 'Unauthorized: Dashboard password required' });
