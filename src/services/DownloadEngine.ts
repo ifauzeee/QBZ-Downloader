@@ -7,6 +7,14 @@ import { CONFIG } from '../config.js';
 import { resumeService } from './batch.js';
 import { Metadata } from './metadata.js';
 
+/**
+ * A transfer that goes this long without delivering a byte is treated as dead.
+ * Without it a silently dropped socket never emits 'error', 'aborted' or 'end',
+ * so the download promise never settles: the track hangs, the album's Promise.all
+ * never resolves, and the queue item holds its slot in 'downloading' forever.
+ */
+const STREAM_IDLE_TIMEOUT_MS = 60_000;
+
 export interface DownloadProgress {
     phase: 'download_start' | 'download' | 'lyrics' | 'cover' | 'tagging' | 'verifying';
     loaded: number;
@@ -121,17 +129,40 @@ export class DownloadEngine {
         try {
             await new Promise<void>((resolve, reject) => {
                 let settled = false;
+                let idleTimer: NodeJS.Timeout | null = null;
+
+                const clearIdleTimer = () => {
+                    if (idleTimer) {
+                        clearTimeout(idleTimer);
+                        idleTimer = null;
+                    }
+                };
+                const armIdleTimer = () => {
+                    clearIdleTimer();
+                    idleTimer = setTimeout(() => {
+                        fail(
+                            new Error(
+                                `Stream stalled: no data received for ${STREAM_IDLE_TIMEOUT_MS / 1000}s`
+                            )
+                        );
+                    }, STREAM_IDLE_TIMEOUT_MS);
+                };
+
                 const fail = (error: unknown) => {
                     if (settled) return;
                     settled = true;
+                    clearIdleTimer();
                     reject(normalizeDownloadError(error, downloaded, effectiveTotalLength));
                 };
                 const done = () => {
                     if (settled) return;
                     settled = true;
+                    clearIdleTimer();
                     resolve();
                 };
                 const onData = (chunk: Buffer) => {
+                    armIdleTimer();
+
                     if (isCancelled && isCancelled()) {
                         fail(new Error('Cancelled by user'));
                         return;
@@ -170,6 +201,10 @@ export class DownloadEngine {
                 writer.on('error', fail);
                 response.data.on('aborted', () => fail(new Error('aborted')));
                 response.data.on('error', fail);
+
+                // Start the clock before the first byte: a connection that opens
+                // and then says nothing is just as dead as one that stops midway.
+                armIdleTimer();
             });
         } finally {
             if (!writer.closed) {
