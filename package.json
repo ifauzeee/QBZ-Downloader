@@ -184,7 +184,7 @@
     "axios": "^1.18.1",
     "better-sqlite3": "^12.11.1",
     "boxen": "^7.1.1",
-    "chalk": "^5.6.2",
+    "chalk": "^6.0.0",
     "cheerio": "^1.2.0",
     "csv-parse": "^6.2.1",
     "electron-updater": "^6.8.9",
