@@ -41,7 +41,7 @@ FROM node:22-bookworm-slim AS runtime
 # does the audio fingerprinting used by the duplicate scanner. resolveBinaryPath
 # falls back to PATH, so installing them here is all that is needed.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg libchromaprint-tools ca-certificates tini \
+    && apt-get install -y --no-install-recommends ffmpeg libchromaprint-tools ca-certificates tini gosu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -57,10 +57,17 @@ ENV DASHBOARD_HOST=0.0.0.0 \
     DASHBOARD_PORT=3000 \
     DOWNLOADS_PATH=/music
 
-RUN mkdir -p /app/data /music
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# The logger writes to ./logs, which is not configurable. Point it at the data
+# volume so logs persist across container recreation and are writable by the
+# unprivileged user the entrypoint drops to.
+RUN mkdir -p /app/data /music && ln -sfn /app/data/logs /app/logs
 VOLUME ["/app/data", "/music"]
 EXPOSE 3000
 
-# tini reaps the ffmpeg/fpcalc children this app spawns per track.
-ENTRYPOINT ["/usr/bin/tini", "--"]
+# tini reaps the ffmpeg/fpcalc children this app spawns per track; the entrypoint
+# drops to PUID/PGID when they are set so downloads are not written as root.
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]
