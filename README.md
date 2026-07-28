@@ -1,17 +1,20 @@
 <div align="center">
 
 # 🎵 QBZ-Downloader
-### *The Ultimate High-Resolution Audio Downloader & Library Manager*
+### The Ultimate High-Resolution Audio Downloader & Library Manager
 
 [![Version](https://img.shields.io/badge/version-5.5.0-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
-[![Windows](https://img.shields.io/badge/Windows-EXE-0078d4?style=flat-square&logo=windows)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
-[![macOS](https://img.shields.io/badge/macOS-DMG-000000?style=flat-square&logo=apple)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
-[![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624?style=flat-square&logo=linux)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
-[![React](https://img.shields.io/badge/React-18.x-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
-[![Telegram](https://img.shields.io/badge/Telegram-Join-26A5E4?style=flat-square&logo=telegram)](https://t.me/qbzdownloader)
+[![Windows](https://img.shields.io/badge/Windows-EXE-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
+[![macOS](https://img.shields.io/badge/macOS-DMG-000000?style=for-the-badge&logo=apple)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
+[![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624?style=for-the-badge&logo=linux)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
+[![Docker](https://img.shields.io/badge/Docker-ghcr-2496ed?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/ifauzeee/QBZ-Downloader/pkgs/container/qbz-downloader)
+[![Telegram](https://img.shields.io/badge/Telegram-Join-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/qbzdownloader)
+
+[![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Electron](https://img.shields.io/badge/Electron-40-9feaf9?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![License](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](LICENSE)
 
 <br/>
 
@@ -19,81 +22,74 @@
 
 <br/>
 
-**Unlock the full potential of your music library.**
-
-A comprehensive desktop-first music downloading and library management application for Windows, macOS, and Linux. Experience studio-quality audio up to **24-bit/192kHz** with complete metadata, synchronized lyrics, intelligent queue management, and a polished native desktop workflow.
+**QBZ-Downloader** is a cross-platform desktop application for building and managing a personal high-resolution music library. It downloads studio-quality audio up to **24-bit / 192 kHz** from Qobuz, enriches every track with complete metadata and synchronized lyrics, and provides a beautiful dashboard for queue management, library analytics, and day-to-day listening.
 
 [✨ Features](#-key-features) •
 [📥 Installation](#-installation) •
+[🐳 Docker](#docker-for-nas--headless-servers) •
 [💬 Community](#-community) •
-[⚙️ Configuration](#-configuration) •
-[📸 Screenshots](#-interface-showcase)
+[🤝 Contributors](#-contributors)
 
 </div>
-
-<br/>
-
-> [!IMPORTANT]
-> **v5.3.0: Cross-Platform Release**
-> QBZ-Downloader now ships official builds for **Windows, macOS (Apple Silicon), and Linux**. FFmpeg and fpcalc are bundled so audio conversion and AcoustID fingerprinting work out of the box. See the [Changelog](CHANGELOG.md) for full details.
-
 
 ---
 
 ## ✨ Key Features
 
-Everything you need to build the perfect local music library.
+QBZ-Downloader transforms the way you curate your local music library. Every feature is designed to deliver a seamless, high-fidelity experience from search to playback.
 
 | Feature | Description |
-| :--- | :--- |
-| **🎵 Studio Quality** | Download in **Hi-Res FLAC (up to 24-bit/192kHz)**. Bit-perfect replicas of the source. |
-| **🖥️ Modern Desktop UI** | Beautiful **React & Vite** interface with **Light/Dark Mode**, real-time updates, and smooth animations. |
-| **🎤 Live Lyrics** | Experience synchronized lyrics with **60fps smooth scrolling**. Includes a built-in **Lyrics Editor**. |
-| **🏷️ Smart Tagging** | Automatic tagging with **High-Res Cover Art**, Artist, Album, Year, Genre, ISRC, and more. |
-| **📦 Batch Power** | Download **Full Albums**, **Artist Discographies**, or **Playlists** with a single click. |
-| **📚 Library Manager** | Scans your library to **detect duplicates**, identify missing metadata, and suggest upgrades. |
-| **🎼 Visualizer** | Built-in real-time audio visualization for an immersive listening experience. |
-| **📊 Analytics** | Visualize your collection with charts: quality distribution, top artists, and storage mastery. |
-| **🔄 Resumable** | **New!** Support for HTTP Range to resume interrupted downloads seamlessly. |
-| **🔌 Bandwidth Ctrl** | **New!** Limit download speed to save bandwidth for other activities. |
-| **🔐 Encrypted Auth** | Sensitive Qobuz credentials are now encrypted in the local database. |
-| **🌍 Spotify Migration** | Import your playlists from Spotify directly into Qobuz for high-res downloading. |
-| **🔍 Quality Scan** | **New!** Automated spectral analysis to detect upsampled/fake lossless files. |
-| **📡 Media Sync** | **New!** Auto-notify **Plex** or **Jellyfin** to rescan library after download. |
-| **📤 Auto Export** | **New!** Automatically convert FLAC to **MP3/AAC/Opus** for mobile devices. |
-| **👀 Playlist Watcher**| **New!** Automatically monitor and sync new tracks from your favorite playlists. |
-| **🧩 Desktop Runtime** | Optimized for Windows/macOS/Linux delivery with local-first configuration and storage. |
+|:-------|:------------|
+| **🎵 Studio-Quality Downloads** | Download tracks in pristine FLAC format at resolutions up to 24-bit / 192 kHz. Every file is a bit-perfect replica of the original studio master. |
+| **🖥️ Modern Desktop Dashboard** | A polished React and Vite interface greets you with light and dark themes, real-time progress updates, smooth animations, and an intuitive layout that feels right at home on any platform. |
+| **🎤 Synchronized Lyrics** | Experience live lyrics that scroll at 60 fps in perfect sync with the music. A built-in lyrics editor lets you correct or customize the text on the fly. |
+| **🏷️ Intelligent Metadata Tagging** | Every downloaded track is automatically tagged with high-resolution cover art, artist name, album title, release year, genre, ISRC, and more — so your library is always organised and ready for any player. |
+| **📦 Batch Operations** | Download entire albums, complete artist discographies, or full playlists in a single click. The queue manager handles prioritisation, concurrency, and error recovery automatically. |
+| **📚 Library Manager** | Scan your existing collection to detect duplicates, surface missing metadata, identify format quality, and suggest Hi-Res upgrade candidates with visual release-picker comparisons. |
+| **🎼 Audio Visualizer** | A real-time audio visualisation engine turns your listening sessions into an immersive visual experience directly within the dashboard. |
+| **📊 Library Analytics** | Gain insight into your collection with interactive charts covering quality distribution, top artists, storage usage trends, and more. |
+| **🔄 Resumable Downloads** | Interrupted transfers recover automatically. The download engine supports HTTP Range requests so a partial file picks up exactly where it left off. |
+| **🔌 Bandwidth Control** | Limit the download speed to keep bandwidth available for other activities on your network. |
+| **🔐 Encrypted Credentials** | Qobuz authentication tokens and secrets are encrypted before they touch the local database, keeping your account information secure. |
+| **🌍 Spotify Import** | Migrate your existing playlists from Spotify directly into Qobuz, then download the matching tracks in high resolution — no manual searching required. |
+| **🔍 Quality Analysis** | A built-in spectral scanner detects upsampled or fake lossless files, so you always know the true provenance of your audio. |
+| **📡 Media Server Integration** | After a download completes, the app can automatically notify Plex or Jellyfin to rescan the library — your music appears in your media server immediately. |
+| **📤 Automatic Format Conversion** | Optionally convert downloaded FLAC files to MP3, AAC, or Opus for portable devices. The conversion runs automatically after every download. |
+| **👀 Playlist Watcher** | Subscribe to any Qobuz playlist and the app will monitor it for new tracks, downloading them as soon as they appear. |
+| **🐳 Docker Deployment** | Run the full dashboard inside a container on your NAS or headless server. A multi-architecture image (amd64 + arm64) is published to GHCR with every release. |
 
 ---
 
 ## 📸 Interface Showcase
 
-Explore the beautiful, functional interface of QBZ-Downloader.
+### Discovery and Search
+Find any album, artist, or track with the built-in search engine.
 
-### 🔍 Discovery & Search
-Quickly find your music with our optimized search engine.
 <div align="center">
   <img src="./docs/screenshots/search-artist.png" width="32%" alt="Search Artist" />
   <img src="./docs/screenshots/search-album.png" width="32%" alt="Search Album" />
   <img src="./docs/screenshots/search-track.png" width="32%" alt="Search Track" />
 </div>
 
-### 👤 Deep Metadata Exploration
-Dive into detailed artist biographies and album credits.
+### Artist and Album Details
+Dive into detailed biographies and full album credits with cover art, track listing, and release information.
+
 <div align="center">
   <img src="./docs/screenshots/artist-detail.png" width="48%" alt="Artist Detail" />
   <img src="./docs/screenshots/album-view.png" width="48%" alt="Album View" />
 </div>
 
-### 📥 Download Management
-Track your downloads with precision and history.
+### Download Queue and History
+Monitor active downloads, reorder queued items, and review your complete download history.
+
 <div align="center">
   <img src="./docs/screenshots/download-queue.png" width="48%" alt="Download Queue" />
   <img src="./docs/screenshots/history.png" width="48%" alt="History" />
 </div>
 
-### 📚 Library Tools
-Keep your collection pristine.
+### Library Management Tools
+Audit your collection for metadata completeness, identify Hi-Res upgrade candidates, and explore your listening statistics.
+
 <div align="center">
   <img src="./docs/screenshots/library-metadata.png" width="32%" alt="Metadata Audit" />
   <img src="./docs/screenshots/library-hires.png" width="32%" alt="Hi-Res Upgrade" />
@@ -111,97 +107,85 @@ Keep your collection pristine.
 
 ## 📥 Installation
 
-### Desktop App (Windows, macOS, Linux)
-QBZ-Downloader is built as a native desktop application. Install the ready-to-use build directly from GitHub Releases:
+### Desktop Application (Windows, macOS, Linux)
+QBZ-Downloader ships as a native desktop application for all three major platforms. Download the installer for your operating system from the [Releases page](https://github.com/ifauzeee/QBZ-Downloader/releases/latest), run it, and complete the one-time credential setup in the settings panel.
 
-1. Download the installer for your platform from [Releases](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
-   - **Windows:** `.exe` installer or portable `.exe`
-   - **macOS:** `.dmg` disk image (Apple Silicon / arm64 only — Intel Macs not yet supported)
-   - **Linux:** `.AppImage` (portable), `.deb` (Debian/Ubuntu), or `.tar.gz`
-2. Run the installer or the portable version.
-3. Complete the onboarding process and enter your Qobuz credentials in Settings.
+- **Windows:** `.exe` installer or portable `.exe` (no installation required)
+- **macOS:** `.dmg` disk image for Apple Silicon (arm64); Intel support is planned for a future release
+- **Linux:** `.AppImage` (portable), `.deb` (Debian / Ubuntu), or `.tar.gz` archive
 
-### Development Build
-If you wish to build the EXE from source:
+### Build from Source
+If you prefer to build the application yourself:
 
 ```bash
-# 1. Install dependencies
+# Install dependencies
 npm install
 
-# 2. Build both client and server
+# Build both the client dashboard and the backend server
 npm run build:full
 
-# 3. Create installer
+# Package the desktop installer
 npm run desktop:dist
 ```
 
-Output paths (varies by platform):
-- Windows: `release/QBZ-Downloader-Setup-<version>.exe` / `-Portable-<version>.exe`
-- macOS: `release/QBZ-Downloader-<version>-arm64.dmg`
-- Linux: `release/QBZ-Downloader-<version>-x86_64.AppImage` / `.deb` / `.tar.gz`
+Build artifacts are written to the `release/` directory:
+- **Windows:** `QBZ-Downloader-Setup-<version>.exe` and `QBZ-Downloader-Portable-<version>.exe`
+- **macOS:** `QBZ-Downloader-<version>-arm64.dmg`
+- **Linux:** `QBZ-Downloader-<version>-x86_64.AppImage`, `.deb`, and `.tar.gz`
 
-### 🔄 Pre-Release Build (from CI)
-If a fix has been merged but not yet released, you can download the latest build from GitHub Actions:
+### Pre-Release Builds (CI Artifacts)
+When a fix has been merged to `main` but a formal release has not yet been cut, you can download the latest CI build directly from GitHub Actions:
 
-1. Go to the [Actions tab](https://github.com/ifauzeee/QBZ-Downloader/actions) and select the **Desktop Release** workflow.
-2. Click the latest (topmost) green-checkmarked run.
-3. Scroll down to **Artifacts** and download your platform's bundle:
-   - `Windows-Installer` — `.exe` installer
-   - `macOS-DMG` — `.dmg` disk image
-   - `Linux-AppImage` — portable `.AppImage`
-4. Extract the archive and run the installer — no build tools required.
+1. Navigate to the [Actions tab](https://github.com/ifauzeee/QBZ-Downloader/actions) and select the **Desktop Release** workflow.
+2. Open the latest green-checkmarked run.
+3. Scroll down to the **Artifacts** section and download your platform's bundle:
+   - `Windows-Installer` — the `.exe` installer
+   - `macOS-DMG` — the `.dmg` disk image
+   - `Linux-AppImage` — the portable `.AppImage`
+4. Extract the archive and run the installer. No build tools are required.
 
-> These builds are compiled from `main` with the same CI pipeline used for official releases. They are identical in quality — just not tagged as a versioned release.
+> These builds are compiled from the latest `main` branch using the same CI pipeline that produces official releases. They are functionally identical to a tagged release — the only difference is the absence of a version tag.
 
-### Docker (for NAS / headless servers)
-A pre-built Docker image is available for **linux/amd64** and **linux/arm64**:
+### Docker (for NAS / Headless Servers)
+A pre-built multi-architecture Docker image is available for server and NAS deployments. It bundles ffmpeg, fpcalc, and the full dashboard behind a password-protected web interface.
 
 ```bash
 docker pull ghcr.io/ifauzeee/qbz-downloader:latest
 ```
 
-See the [Docker workflow](.github/workflows/docker-publish.yml) for publish details.
-
----
-
-## 💬 Community
-
-Join our Telegram group for updates, help, and discussion:
-
-[![Telegram](https://img.shields.io/badge/Telegram-@qbzdownloader-26A5E4?style=for-the-badge&logo=telegram)](https://t.me/qbzdownloader)
-
-- ⭐ **Get notified** about new releases and fixes
-- 🐛 **Report bugs** and get direct support
-- 💡 **Suggest features** and vote on what's next
-- 🔧 **Get help** with installation, configuration, and troubleshooting
+Refer to the [Docker workflow](.github/workflows/docker-publish.yml) for environment variables and volume mount points.
 
 ---
 
 ## ⚙️ Configuration
 
-All settings are managed directly within the app's **Settings UI** and stored in a local SQLite database.
+All application settings are managed through the dashboard's **Settings** interface and persisted in a local SQLite database. No manual `.env` files or configuration edits are required.
 
-### 🔑 Authentication
-Configure these in the app:
+### Authentication
+Before you can download music, you must provide your Qobuz credentials in the Settings panel:
+
 - `QOBUZ_APP_ID`
 - `QOBUZ_APP_SECRET`
 - `QOBUZ_USER_AUTH_TOKEN`
 - `QOBUZ_USER_ID`
 
-Notes:
-- No `.env` file or manual configuration is required.
-- App data is stored in your platform's app data directory (e.g. `%APPDATA%/QBZ Downloader` on Windows, `~/Library/Application Support/QBZ Downloader` on macOS).
+Sensitive values are encrypted before storage. Application data is kept in your platform's standard data directory:
+
+| Platform | Data Directory |
+|----------|---------------|
+| **Windows** | `%APPDATA%/QBZ Downloader/` |
+| **macOS** | `~/Library/Application Support/QBZ Downloader/` |
+| **Linux** | `~/.local/share/QBZ Downloader/` |
 
 ---
-
 
 ## 🏗️ System Architecture
 
 ```mermaid
 graph TD
     User[User] -->|Desktop App| Desktop[Electron Desktop App]
-    Desktop -->|Local WebSocket/REST| Server[Node.js Local Service]
-    
+    Desktop -->|Local WebSocket / REST| Server[Node.js Backend Service]
+
     subgraph Backend Services
         Server --> API[Qobuz API Client]
         Server --> Queue[Queue Manager]
@@ -211,22 +195,54 @@ graph TD
     end
 ```
 
+The application follows a local-first architecture. An Electron shell wraps a Node.js backend that communicates with the React dashboard over WebSocket and REST. The backend handles all Qobuz API interactions, queue processing, metadata tagging, and library scanning against a local SQLite database.
+
+---
+
+## 🤝 Contributors
+
+QBZ-Downloader is developed and maintained by **Muhammad Ibnu Fauzi**, with valuable contributions from the community.
+
+<a href="https://github.com/ifauzeee">
+  <img src="https://avatars.githubusercontent.com/u/83929247?v=4" width="48" height="48" alt="ifauzeee" style="border-radius: 50%;" />
+</a>
+<a href="https://github.com/ICHlMOKU">
+  <img src="https://avatars.githubusercontent.com/u/57502530?v=4" width="48" height="48" alt="ICHlMOKU" style="border-radius: 50%;" />
+</a>
+
+| Contributor | Role |
+|:------------|:-----|
+| [@ifauzeee](https://github.com/ifauzeee) | Project maintainer, core development, architecture |
+| [@ICHlMOKU](https://github.com/ICHlMOKU) | Docker CI/CD, cross-platform FLAC tagging fix, security hardening, path traversal protection, Unraid template, media route authentication, environment variable handling, HTTP login fix |
+| [@dependabot](https://github.com/dependabot) | Automated dependency management and security updates |
+
+We welcome contributions of all kinds — bug reports, feature suggestions, documentation improvements, and pull requests.
+
+---
+
+## 💬 Community
+
+Join the [Telegram group](https://t.me/qbzdownloader) for updates, support, and discussion:
+
+- ⭐ **Be notified** about new releases and important fixes as soon as they ship
+- 🐛 **Report bugs** and receive direct assistance from the maintainer and community
+- 💡 **Suggest features** and help shape the project's roadmap
+- 🔧 **Get help** with installation, configuration, Docker deployment, and troubleshooting
+
 ---
 
 ## ⚖️ Legal Disclaimer
 
-**Educational Use Only**
-This software is provided specifically for educational and personal archival purposes.
+**Educational and Personal Archival Use Only.** This software is provided for educational purposes and personal archival use.
 
-1.  **No Bypass**: This tool does not bypass DRM or region restrictions. It interacts with the API using your own valid credentials.
-2.  **Trademarks**: "Qobuz" is a registered trademark of Xandrie SA. This project is not affiliated with Xandrie SA.
-3.  **Responsibility**: Users are solely responsible for their actions and must comply with Qobuz's Terms of Service.
+1. **No DRM circumvention.** QBZ-Downloader does not bypass DRM or region restrictions. It interacts with the Qobuz API using your own valid credentials.
+2. **Trademark notice.** "Qobuz" is a registered trademark of Xandrie SA. This project is not affiliated with, endorsed by, or sponsored by Xandrie SA or Qobuz.
+3. **User responsibility.** You are solely responsible for how you use this software. Please comply with Qobuz's Terms of Service at all times.
 
 ---
 
 <div align="center">
-  Made with ❤️ by <b>Muhammad Ibnu Fauzi</b>
-  <br/>
-  <a href="https://t.me/qbzdownloader"><b>Join Telegram</b></a> for latest updates & support
+  Made with ❤️ by <b>Muhammad Ibnu Fauzi</b> &nbsp;·&nbsp;
+  <a href="https://t.me/qbzdownloader"><b>Join Telegram</b></a> &nbsp;·&nbsp;
+  <a href="https://github.com/ifauzeee/QBZ-Downloader"><b>GitHub</b></a>
 </div>
-
