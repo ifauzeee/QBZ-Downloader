@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { smartFetch } from '../utils/api';
 import { useToast } from '../contexts/ToastContext';
-import { sha256 } from '../utils/crypto';
+import { normalizePasswordForAuth } from '../utils/crypto';
 import { useSettings } from '../contexts/SettingsContext';
 
 interface AddUrlModalProps {
@@ -156,14 +156,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
             });
 
             if (res.ok) {
-                const hash = await sha256(password);
-                sessionStorage.setItem('dashboard_password', hash);
+                // normalizePasswordForAuth falls back to the plaintext when Web
+                // Crypto is unavailable. Calling sha256 directly threw on any
+                // plain-http origin, leaving the user locked out *after* the
+                // server had already accepted the password.
+                const token = await normalizePasswordForAuth(password);
+                sessionStorage.setItem('dashboard_password', token);
                 onSuccess();
             } else {
-                setError('Invalid password');
+                setError(
+                    res.status === 429
+                        ? 'Too many attempts. Wait a moment and try again.'
+                        : 'Invalid password'
+                );
             }
         } catch (err) {
-            setError('Connection failed');
+            setError(`Could not sign in: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
             setLoading(false);
         }
@@ -209,7 +217,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                                 onChange={(e) => setPassword(e.target.value)}
                                 className={error ? 'input-error' : ''}
                             />
-                            {error && <span className="error-text">Invalid password</span>}
+                            {error && <span className="error-text">{error}</span>}
                         </div>
 
                         <button
