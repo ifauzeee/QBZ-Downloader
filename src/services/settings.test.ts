@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SettingsService } from './settings.js';
 import { databaseService } from './database/index.js';
 
@@ -90,7 +90,42 @@ describe('SettingsService', () => {
         vi.mocked(databaseService.getDb().prepare('').all).mockReturnValueOnce([
             { key: 'LOADED', value: 'yes' }
         ]);
-        
+
         expect(settings.get('LOADED')).toBe('yes');
+    });
+
+    describe('environment overrides', () => {
+        afterEach(() => {
+            delete process.env.DASHBOARD_PASSWORD;
+        });
+
+        it('should let an env var override a value already stored in the database', () => {
+            process.env.DASHBOARD_PASSWORD = 'from-env';
+            vi.mocked(databaseService.getDb().prepare('').all).mockReturnValueOnce([
+                { key: 'DASHBOARD_PASSWORD', value: 'enc_from-database' }
+            ]);
+
+            expect(settings.get('DASHBOARD_PASSWORD')).toBe('from-env');
+            expect(encryptionService.encryptSync).toHaveBeenCalledWith('from-env');
+        });
+
+        it('should keep the stored value when the env var is not set', () => {
+            vi.mocked(databaseService.getDb().prepare('').all).mockReturnValueOnce([
+                { key: 'DASHBOARD_PASSWORD', value: 'enc_from-database' }
+            ]);
+
+            expect(settings.get('DASHBOARD_PASSWORD')).toBe('from-database');
+            expect(encryptionService.encryptSync).not.toHaveBeenCalledWith('from-database');
+        });
+
+        it('should not rewrite the database when env matches the stored value', () => {
+            process.env.DASHBOARD_PASSWORD = 'same-value';
+            vi.mocked(databaseService.getDb().prepare('').all).mockReturnValueOnce([
+                { key: 'DASHBOARD_PASSWORD', value: 'enc_same-value' }
+            ]);
+
+            expect(settings.get('DASHBOARD_PASSWORD')).toBe('same-value');
+            expect(encryptionService.encryptSync).not.toHaveBeenCalledWith('same-value');
+        });
     });
 });
