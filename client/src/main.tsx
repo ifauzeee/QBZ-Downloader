@@ -2,9 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { resolveWebMode } from './utils/webMode.js'
 
 const isDesktop = typeof window !== 'undefined' && Boolean(window.qbzDesktop?.isDesktop);
-const isWebMode = typeof window !== 'undefined' && window.location.search.includes('mode=web');
+const isWebMode = resolveWebMode();
 const root = document.getElementById('root');
 
 if (!root) {
