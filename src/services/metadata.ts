@@ -861,8 +861,24 @@ export class MetadataService {
             await new Promise<void>((resolve, reject) => {
                 execFile(ffmpeg, args, { timeout: 60000 }, (error, _stdout, stderr) => {
                     if (error) {
-                        const detail = (stderr || error.message || '').trim().split('\n').slice(-3).join('\n');
-                        reject(new Error(`ffmpeg tagging failed: ${detail || error.message}`));
+                        const fullDetail = (stderr || error.message || '').trim();
+                        const detail = fullDetail.split('\n').slice(-10).join('\n');
+                        let msg = `ffmpeg tagging failed: ${detail || error.message}`;
+
+                        // On Windows, bundled ffmpeg may use ANSI file APIs that
+                        // cannot handle non-ASCII paths (Issue #50, dogiale70 report
+                        // with Japanese characters).  Detect this and give the user
+                        // an actionable hint rather than a cryptic "Invalid argument".
+                        if (process.platform === 'win32') {
+                            const hasNonAscii = [...filePath].some((c) => c.charCodeAt(0) > 127);
+                            if (hasNonAscii && (fullDetail.includes('Invalid argument') || fullDetail.includes('muxer'))) {
+                                msg += ' — The output path contains non-ASCII characters that the bundled ' +
+                                    'ffmpeg build may not support on this Windows version. Try a shorter ' +
+                                    'ALL-ASCII download path in Settings.';
+                            }
+                        }
+
+                        reject(new Error(msg));
                     } else {
                         resolve();
                     }
