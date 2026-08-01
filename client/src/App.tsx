@@ -291,7 +291,7 @@ function AppContent() {
           {isDesktop && (
             <header className="desktop-titlebar">
               <div className="desktop-titlebar-brand">
-                <span className="desktop-titlebar-logo">QBZ</span>
+                <img src="/logo.svg" alt="QBZ" className="desktop-titlebar-logo" />
                 <span>QBZ Downloader Desktop</span>
               </div>
               <div className="desktop-window-controls">
