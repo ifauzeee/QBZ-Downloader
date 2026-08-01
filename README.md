@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./assets/desktop/icon.png" alt="QBZ-Downloader" width="120" style="border-radius: 24px;" />
+
 # 🎵 QBZ-Downloader
 ### The Ultimate High-Resolution Audio Downloader & Library Manager
 
@@ -8,7 +10,7 @@
 [![macOS](https://img.shields.io/badge/macOS-DMG-000000?style=for-the-badge&logo=apple)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
 [![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624?style=for-the-badge&logo=linux)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
 [![Docker](https://img.shields.io/badge/Docker-ghcr-2496ed?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/ifauzeee/QBZ-Downloader/pkgs/container/qbz-downloader)
-[![Telegram](https://img.shields.io/badge/Telegram-Join-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/qbzdownloader)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-Support-ffdd00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/ifauzeee)
 
 [![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -27,7 +29,6 @@
 [✨ Features](#-key-features) •
 [📥 Installation](#-installation) •
 [🐳 Docker](#docker-for-nas--headless-servers) •
-[💬 Community](#-community) •
 [🤝 Contributors](#-contributors)
 
 </div>
@@ -220,17 +221,6 @@ We welcome contributions of all kinds — bug reports, feature suggestions, docu
 
 ---
 
-## 💬 Community
-
-Join the [Telegram group](https://t.me/qbzdownloader) for updates, support, and discussion:
-
-- ⭐ **Be notified** about new releases and important fixes as soon as they ship
-- 🐛 **Report bugs** and receive direct assistance from the maintainer and community
-- 💡 **Suggest features** and help shape the project's roadmap
-- 🔧 **Get help** with installation, configuration, Docker deployment, and troubleshooting
-
----
-
 ## ⚖️ Legal Disclaimer
 
 **Educational and Personal Archival Use Only.** This software is provided for educational purposes and personal archival use.
@@ -243,6 +233,5 @@ Join the [Telegram group](https://t.me/qbzdownloader) for updates, support, and 
 
 <div align="center">
   Made with ❤️ by <b>Muhammad Ibnu Fauzi</b> &nbsp;·&nbsp;
-  <a href="https://t.me/qbzdownloader"><b>Join Telegram</b></a> &nbsp;·&nbsp;
   <a href="https://github.com/ifauzeee/QBZ-Downloader"><b>GitHub</b></a>
 </div>
