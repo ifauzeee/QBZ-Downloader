@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="QBZ-Downloader">
+  <!-- Squircle badge -->
+  <rect x="0" y="0" width="1024" height="1024" rx="228" fill="#0b1120"/>
+
+  <!-- Ring with 90 degree gap on the right -->
+  <path d="M 676.8 681.8 A 250 250 0 1 1 676.8 328.2" fill="none" stroke="#ffffff" stroke-width="88"/>
+
+  <!-- Equalizer bars filling the gap -->
+  <rect x="732.6" y="358" width="44" height="240" rx="22" fill="#14b8a6"/>
+  <rect x="772" y="360" width="44" height="290" rx="22" fill="#14b8a6"/>
+  <rect x="732.6" y="652" width="44" height="240" rx="22" fill="#14b8a6"/>
+</svg>

@@ -182,7 +182,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
             <div className="amoled-login-card">
                 <div className="login-side-info">
                     <div className="login-brand">
-                        <span className="brand-icon">QBZ</span>
+                        <img src="/logo.svg" alt="QBZ" className="brand-icon" />
                         <span className="brand-name">QBZ-DL</span>
                     </div>
                     <div className="security-badge">
