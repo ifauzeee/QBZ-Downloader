@@ -10,6 +10,9 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - dependencies
+    ignore:
+      - dependency-name: "@types/node"
+        versions: [">=23.0.0"]
     groups:
       production-deps:
         dependency-type: production
@@ -32,6 +35,9 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - dependencies
+    ignore:
+      - dependency-name: "@types/node"
+        versions: [">=23.0.0"]
     groups:
       production-deps:
         dependency-type: production
