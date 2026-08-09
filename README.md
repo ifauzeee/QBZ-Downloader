@@ -115,6 +115,22 @@ QBZ-Downloader ships as a native desktop application for all three major platfor
 - **macOS:** `.dmg` disk image for Apple Silicon (arm64); Intel support is planned for a future release
 - **Linux:** `.AppImage` (portable), `.deb` (Debian / Ubuntu), or `.tar.gz` archive
 
+> **macOS Gatekeeper note:** builds made without notarization credentials are
+> ad-hoc signed and may still be flagged by macOS with *"…is damaged and can't
+> be opened"* or *"Apple cannot check it for malicious software"* because the
+> app is not notarized by Apple.
+> To run an unsigned build, right-click the app and select **Open**, or remove
+> the quarantine attribute once:
+>
+> ```bash
+> xattr -cr "/Applications/QBZ Downloader.app"
+> ```
+>
+> Releases built with Apple Developer ID credentials configured in CI (secrets
+> `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`,
+> `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`) are signed and notarized and
+> install without any workaround.
+
 ### Build from Source
 If you prefer to build the application yourself:
 
