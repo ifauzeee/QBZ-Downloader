@@ -100,6 +100,7 @@
     "extraResources": [
       "bin/**/*"
     ],
+    "afterPack": "scripts/adhoc-sign-mac.cjs",
     "win": {
       "target": [
         {
@@ -129,7 +130,11 @@
       ],
       "category": "public.app-category.music",
       "icon": "assets/desktop/icon.png",
-      "artifactName": "QBZ-Downloader-${version}-${arch}.${ext}"
+      "artifactName": "QBZ-Downloader-${version}-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/desktop/entitlements.mac.plist",
+      "entitlementsInherit": "assets/desktop/entitlements.mac.plist"
     },
     "linux": {
       "target": [
