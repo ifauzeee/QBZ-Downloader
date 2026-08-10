@@ -95,7 +95,7 @@ module.exports = async function afterPack(context) {
     const targets = [...bundles, ...binaries].sort(byDepthDesc);
     console.info(`[adhoc-sign-mac] Ad-hoc signing ${targets.length} targets (${binaries.length} binaries, ${bundles.length} bundles)...`);
 
-    const entitlements = path.join(context.projectDir, 'assets', 'desktop', 'entitlements.mac.plist');
+    const entitlements = path.join(context.packager.projectDir, 'assets', 'desktop', 'entitlements.mac.plist');
     const entitlementsFlag = fs.existsSync(entitlements) ? ['--entitlements', entitlements] : [];
     const signArgs = ['--force', '--sign', '-', '--timestamp=none', '--options=runtime', ...entitlementsFlag];
 
