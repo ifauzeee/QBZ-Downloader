@@ -192,26 +192,51 @@ jobs:
 
       - name: Publish to GitHub Releases (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
-        run: npx electron-builder --mac dmg zip --publish always
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          MAC_APPLE_ID: ${{ secrets.APPLE_ID }}
+          MAC_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          MAC_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Only export signing/notarization env vars when the secrets exist.
+          # An empty CSC_LINK makes electron-builder try to read a cert from an
+          # empty path and crash with "<projectDir> not a file".
+          if [ -n "$MAC_CSC_LINK" ]; then
+            export CSC_LINK="$MAC_CSC_LINK"
+            export CSC_KEY_PASSWORD="$MAC_CSC_KEY_PASSWORD"
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          if [ -n "$MAC_APPLE_ID" ]; then
+            export APPLE_ID="$MAC_APPLE_ID"
+            export APPLE_APP_SPECIFIC_PASSWORD="$MAC_APPLE_APP_SPECIFIC_PASSWORD"
+            export APPLE_TEAM_ID="$MAC_APPLE_TEAM_ID"
+          fi
+          npx electron-builder --mac dmg zip --publish always
 
       - name: Build artifacts only (manual dispatch)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: npx electron-builder --mac dmg zip --publish never
+        shell: bash
         env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          MAC_APPLE_ID: ${{ secrets.APPLE_ID }}
+          MAC_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          MAC_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$MAC_CSC_LINK" ]; then
+            export CSC_LINK="$MAC_CSC_LINK"
+            export CSC_KEY_PASSWORD="$MAC_CSC_KEY_PASSWORD"
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          if [ -n "$MAC_APPLE_ID" ]; then
+            export APPLE_ID="$MAC_APPLE_ID"
+            export APPLE_APP_SPECIFIC_PASSWORD="$MAC_APPLE_APP_SPECIFIC_PASSWORD"
+            export APPLE_TEAM_ID="$MAC_APPLE_TEAM_ID"
+          fi
+          npx electron-builder --mac dmg zip --publish never
 
       - name: Upload macOS artifacts
         if: startsWith(github.ref, 'refs/tags/v')
