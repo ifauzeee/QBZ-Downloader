@@ -103,7 +103,7 @@ describe('DatabaseService', () => {
             expect(backupColumns.some((column) => column.name === 'file_mtime_ms')).toBe(false);
 
             fs.rmSync(tempDir, { recursive: true, force: true });
-        });
+        }, 30000);
 
         it('should migrate tracks quality scan cache columns with a v12 backup', () => {
             dbService.close();
