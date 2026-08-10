@@ -2,17 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [5.5.0] - 2026-07-26
-
-### Added
-- **Docker image for server/NAS deployments** — Multi-stage Dockerfile based on `node:22-bookworm-slim` with ffmpeg and fpcalc from apt, `tini` as entrypoint, and volume mounts for `/app/data` (database, encryption key) and `/music`. Environment variables (`DASHBOARD_HOST`, `DOWNLOADS_PATH`, etc.) fall back to config when nothing is stored, so a container is fully configurable. Built and verified end to end on linux/arm64. Contributed by @ICHlMOKU.
-- **Path containment for library API routes** — Four routes (`DELETE /api/library/file`, `POST /api/library/metadata/edit`, `POST /api/tools/identify`, `POST /api/tools/apply-metadata`) now validate that supplied file paths resolve inside the managed download/export directories. Symlink-based escape and `../` traversal are blocked. Contributed by @ICHlMOKU.
-- **Startup security guard** — The dashboard refuses to bind a non-loopback host when no password is set, falling back to `127.0.0.1` and logging the override at the `SECURITY` level. Contributed by @ICHlMOKU.
+## [5.5.1] - 2026-08-10
 
 ### Fixed
-- **UNSYNCEDLYRICS showing as one continuous string** — `buildId3Tags()` and `buildFlacTags()` now derive plain lyrics from synced LRC (timestamp-stripped) when the API returns `plainLyrics` without newlines, producing proper line breaks in FLAC Vorbis comments and MP3 ID3 tags.
-- **Stalled download holds queue slot forever** — A 60-second idle timeout was added to the download stream. If no data is received for 60 consecutive seconds (re-armed on every chunk), the transfer is rejected with `Stream stalled` and retried instead of holding its queue slot indefinitely.
-- **Metadata hydration retries unresolvable items infinitely** — `startMetadataHydration()` now tracks attempts per content ID and stops after 3 failures, logging a `warn`-level `Giving up on metadata` message instead of retrying the same dead ID every 5 seconds forever.
+- **macOS "app is damaged" on Apple Silicon (arm64 builds)** — macOS Gatekeeper rejected unsigned builds once quarantine was applied: electron-builder rewrites `Info.plist` during packaging, invalidating the auto-generated ad-hoc signature, so the app failed with *"is damaged and can't be opened"*. All macOS builds are now ad-hoc signed via an `afterPack` hook (`scripts/adhoc-sign-mac.cjs`) with hardened runtime and entitlements, which produces a valid signature and clears the error (see issue #107). The release pipeline also forwards Apple Developer ID and notarization secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), so builds made with credentials are fully signed and notarized automatically. Without credentials, builds remain ad-hoc signed and may still require right-click → Open (see README workaround).
+
+### Tests
+- **Flaky Windows CI: database migration test timeout** — `should create a same-directory backup before migrating a file database` exceeded vitest's 5000ms default on slow runners (9s observed on windows-latest), failing the run intermittently. The per-test timeout is raised to 30000ms.
 
 ---
 
