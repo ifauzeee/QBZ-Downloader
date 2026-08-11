@@ -1,13 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FormatConverterService } from './FormatConverterService.js';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import { checkBinaryAvailability } from '../utils/binaries.js';
 import { CONFIG } from '../config.js';
 
 // Mock dependencies
+// execFile, not exec: the converter builds an argv array so a settings value
+// such as EXPORT_BITRATE can never reach a shell.
 vi.mock('child_process', () => ({
-    exec: vi.fn((cmd, cb) => cb(null, { stdout: '', stderr: '' }))
+    execFile: vi.fn((file, args, cb) => cb(null, { stdout: '', stderr: '' }))
 }));
 
 vi.mock('fs', () => {
@@ -76,7 +78,7 @@ describe('FormatConverterService', () => {
         
         expect(result).toBeDefined();
         expect(result).toContain('input.mp3');
-        expect(exec).toHaveBeenCalled();
+        expect(execFile).toHaveBeenCalled();
     });
 
     it('should remove original file if keepOriginal is false', async () => {
@@ -89,7 +91,7 @@ describe('FormatConverterService', () => {
     it('should skip if output file already exists', async () => {
         vi.mocked(fs.existsSync).mockReturnValue(true);
         const result = await service.convert('input.flac');
-        expect(exec).not.toHaveBeenCalled();
+        expect(execFile).not.toHaveBeenCalled();
         expect(result).toBeDefined();
     });
 

@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parentPort, workerData } from 'node:worker_threads';
@@ -7,7 +7,7 @@ import { checkBinaryAvailability, resolveBinaryPath } from '../utils/binaries.js
 import { logger } from '../utils/logger.js';
 import type { QualityReport } from './QualityScannerService.js';
 
-const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
 
 export function parseMeanVolume(output: string): number {
     const match = output.match(/mean_volume: ([-\d.]+) dB/);
@@ -38,15 +38,28 @@ export async function scanQualityFile(filePath: string): Promise<QualityReport> 
         }
 
         const ffmpeg = resolveBinaryPath('ffmpeg');
-        const cmd16 = `"${ffmpeg}" -v error -i "${filePath}" -af "highpass=f=16000, volumedetect" -f null -`;
-        const cmd20 = `"${ffmpeg}" -v error -i "${filePath}" -af "highpass=f=20000, volumedetect" -f null -`;
+        // argv form, never a shell string. filePath is derived from remote
+        // Qobuz metadata via the filename template, and sanitizeFilename leaves
+        // `$`, backticks and `;` intact — inside a double-quoted shell word
+        // those still expand.
+        const ffmpegArgs = (cutoffHz: number): string[] => [
+            '-v',
+            'error',
+            '-i',
+            filePath,
+            '-af',
+            `highpass=f=${cutoffHz}, volumedetect`,
+            '-f',
+            'null',
+            '-'
+        ];
 
         const [result16, result20] = await Promise.all([
-            execPromise(cmd16).catch((error) => {
+            execFilePromise(ffmpeg, ffmpegArgs(16000)).catch((error) => {
                 logger.debug(`FFmpeg 16k error: ${error.message}`);
                 return { stderr: error.stderr || '' };
             }),
-            execPromise(cmd20).catch((error) => {
+            execFilePromise(ffmpeg, ffmpegArgs(20000)).catch((error) => {
                 logger.debug(`FFmpeg 20k error: ${error.message}`);
                 return { stderr: error.stderr || '' };
             })

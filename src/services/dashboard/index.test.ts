@@ -61,8 +61,11 @@ vi.mock('./routes.js', () => ({
 }));
 
 import { AddressInfo } from 'net';
+import { Server } from 'http';
+import request from 'supertest';
 import { DashboardService, dashboardService } from './index.js';
 import { logger } from '../../utils/logger.js';
+import { CONFIG } from '../../config.js';
 
 const services: DashboardService[] = [];
 
@@ -76,11 +79,26 @@ function getPort(service: DashboardService): number {
     return server.address().port;
 }
 
+function getServer(service: DashboardService): Server {
+    return (service as unknown as { httpServer: Server }).httpServer;
+}
+
+async function startService(): Promise<DashboardService> {
+    const service = new DashboardService(0);
+    services.push(service);
+    const listening = waitForListening(service);
+    service.start();
+    await listening;
+    return service;
+}
+
 afterEach(() => {
     for (const service of services.splice(0)) {
         service.stop();
     }
     dashboardService.stop();
+    CONFIG.dashboard.password = '';
+    delete process.env.QBZ_DESKTOP;
     vi.clearAllMocks();
 });
 
@@ -103,5 +121,85 @@ describe('DashboardService', () => {
                 'WEB'
             );
         });
+    });
+});
+
+describe('DashboardService password guard', () => {
+    /**
+     * Express matches routes case-insensitively by default. The guard compared
+     * the raw path, so `/API/...` failed the "is this protected?" test, fell
+     * through unauthenticated, and was then dispatched to the very router the
+     * guard existed to protect.
+     */
+    it.each(['/api/logs', '/API/logs', '/Api/logs', '/aPi/logs', '/DOWNLOADS/x.flac'])(
+        'refuses %s without the password',
+        async (routePath) => {
+            CONFIG.dashboard.password = 'hunter2';
+            const service = await startService();
+
+            const response = await request(getServer(service)).get(routePath);
+
+            expect(response.status).toBe(401);
+        }
+    );
+
+    it('accepts the password in the x-password header', async () => {
+        CONFIG.dashboard.password = 'hunter2';
+        const service = await startService();
+
+        // registerRoutes is mocked out, so a permitted request falls through to
+        // the catch-all, which answers 404 for /api paths. Anything other than
+        // 401 proves the guard let it past.
+        const response = await request(getServer(service))
+            .get('/api/logs')
+            .set('x-password', 'hunter2');
+
+        expect(response.status).toBe(404);
+    });
+
+    it('no longer accepts the password in the query string', async () => {
+        CONFIG.dashboard.password = 'hunter2';
+        const service = await startService();
+
+        const response = await request(getServer(service)).get('/api/logs?pw=hunter2');
+
+        expect(response.status).toBe(401);
+    });
+
+    it('leaves theme reads unauthenticated but not theme writes', async () => {
+        CONFIG.dashboard.password = 'hunter2';
+        const service = await startService();
+
+        const read = await request(getServer(service)).get('/api/themes');
+        expect(read.status).toBe(404); // past the guard, no route registered
+
+        const write = await request(getServer(service)).post('/api/themes').send({});
+        expect(write.status).toBe(401);
+    });
+
+    it('rejects a cross-origin state-changing request', async () => {
+        CONFIG.dashboard.password = 'hunter2';
+        const service = await startService();
+
+        const response = await request(getServer(service))
+            .post('/api/settings')
+            .set('x-password', 'hunter2')
+            .set('Origin', 'https://evil.example')
+            .send({});
+
+        expect(response.status).toBe(403);
+    });
+
+    it('rejects a non-loopback Host header when nothing else authenticates', async () => {
+        CONFIG.dashboard.password = '';
+        const service = await startService();
+
+        const rebound = await request(getServer(service))
+            .get('/api/status')
+            .set('Host', 'evil.example');
+        expect(rebound.status).toBe(403);
+
+        const local = await request(getServer(service)).get('/api/status');
+        expect(local.status).not.toBe(403);
     });
 });

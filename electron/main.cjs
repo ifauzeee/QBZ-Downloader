@@ -12,6 +12,14 @@ try {
 
 const initialCwd = process.cwd();
 const net = require('net');
+const crypto = require('crypto');
+
+// findAvailablePort closes the probe socket before the backend binds it, so
+// another local process can win the race and serve the window instead. The
+// backend echoes this secret back on /api/status; waitForDashboard refuses to
+// load anything that cannot produce it. No CORS headers are ever set, so the
+// header stays unreadable to a cross-origin page.
+const DESKTOP_HANDSHAKE_TOKEN = crypto.randomBytes(32).toString('hex');
 
 async function findAvailablePort(startPort) {
   return new Promise((resolve) => {
@@ -347,7 +355,7 @@ async function waitForDashboard(timeoutMs = 45000) {
   while (Date.now() - start < timeoutMs) {
     try {
       const response = await fetch(`${DASHBOARD_URL}/api/status`);
-      if (response.ok) {
+      if (response.ok && response.headers.get('x-qbz-desktop-token') === DESKTOP_HANDSHAKE_TOKEN) {
         return true;
       }
     } catch {
@@ -374,6 +382,7 @@ async function startBackend() {
     process.env.DASHBOARD_PORT = String(DESKTOP_PORT);
     process.env.DASHBOARD_HOST = '127.0.0.1';
     process.env.QBZ_DESKTOP = '1';
+    process.env.QBZ_DESKTOP_TOKEN = DESKTOP_HANDSHAKE_TOKEN;
     process.env.NODE_ENV = process.env.NODE_ENV || (app.isPackaged ? 'production' : 'development');
     process.env.DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || path.join(app.getPath('downloads'), 'QBZ-Downloader');
 
@@ -436,8 +445,28 @@ function createWindow() {
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    // Only ever hand the OS a web URL. Without the scheme check any renderer
+    // could open file://, smb:// or a registered custom protocol handler.
+    let parsed = null;
+    try {
+      parsed = new URL(url);
+    } catch {
+      parsed = null;
+    }
+
+    if (parsed && (parsed.protocol === 'https:' || parsed.protocol === 'http:')) {
+      void shell.openExternal(url);
+    }
+
     return { action: 'deny' };
+  });
+
+  // The preload bridge is attached to this window, so it would travel with it
+  // to any origin the renderer navigated to.
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url !== DASHBOARD_URL && !url.startsWith(`${DASHBOARD_URL}/`) && !url.startsWith('data:')) {
+      event.preventDefault();
+    }
   });
 
   return win;
@@ -478,9 +507,16 @@ function setupAutoUpdater() {
   }
 
   const rawFeed = process.env.QBZ_UPDATE_URL;
-  if (rawFeed) {
+  if (rawFeed && rawFeed.startsWith('https://')) {
     const feed = rawFeed.endsWith('/') ? rawFeed : `${rawFeed}/`;
     autoUpdater.setFeedURL({ provider: 'generic', url: feed });
+  } else if (rawFeed) {
+    // autoDownload and autoInstallOnAppQuit are both on, so a plaintext feed
+    // is a straight path from a network position to code execution.
+    pushUpdateState({
+      status: 'error',
+      message: 'Ignoring QBZ_UPDATE_URL: only https update feeds are accepted.'
+    });
   }
 
   autoUpdater.autoDownload = true;
@@ -690,14 +726,29 @@ function registerIpc() {
   });
 
   ipcMain.handle('desktop:open-folder', async (event, folderPath) => {
-    if (!folderPath || !fs.existsSync(folderPath)) return false;
-    await shell.openPath(folderPath);
+    if (typeof folderPath !== 'string' || !folderPath) return false;
+
+    // shell.openPath on a file hands it to its registered application — which
+    // for a .app, .command or .desktop means launching it. Only ever open a
+    // directory in the file manager.
+    const resolved = path.resolve(folderPath);
+    let stat;
+    try {
+      stat = fs.statSync(resolved);
+    } catch {
+      return false;
+    }
+    if (!stat.isDirectory()) return false;
+
+    await shell.openPath(resolved);
     return true;
   });
 
   ipcMain.handle('desktop:show-item', async (event, filePath) => {
-    if (!filePath || !fs.existsSync(filePath)) return false;
-    shell.showItemInFolder(filePath);
+    if (typeof filePath !== 'string' || !filePath) return false;
+    // showItemInFolder only reveals the item, it never executes it.
+    if (!fs.existsSync(filePath)) return false;
+    shell.showItemInFolder(path.resolve(filePath));
     return true;
   });
 }

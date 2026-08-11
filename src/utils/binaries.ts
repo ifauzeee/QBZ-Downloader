@@ -1,4 +1,5 @@
-import { execSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -6,6 +7,7 @@ import { logger } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV === 'development';
+const execFileAsync = promisify(execFile);
 
 export interface BinaryInfo {
     path: string;
@@ -58,23 +60,42 @@ export function resolveBinaryPath(binaryName: string): string {
 /**
  * Validates if a binary is available and functional.
  */
+/**
+ * Short-lived memo. Several HTTP routes call this per request; a spawn each
+ * time is wasteful. The TTL keeps it from pinning a "not installed" answer for
+ * the lifetime of the process when the user installs ffmpeg while it runs.
+ */
+const availabilityCache = new Map<string, { info: BinaryInfo; at: number }>();
+const AVAILABILITY_TTL_MS = 60_000;
+
 export async function checkBinaryAvailability(binaryName: string): Promise<BinaryInfo> {
+    const cached = availabilityCache.get(binaryName);
+    if (cached && Date.now() - cached.at < AVAILABILITY_TTL_MS) {
+        return cached.info;
+    }
+
     const binaryPath = resolveBinaryPath(binaryName);
     try {
-        const cmd = `"${binaryPath}" -version`;
-        const output = execSync(cmd, { stdio: 'pipe' }).toString();
-        const firstLine = output.split('\n')[0];
-        
-        return {
+        // argv form and a timeout: this runs on the HTTP request path, and a
+        // synchronous shell spawn with no bound blocked the whole event loop
+        // whenever the binary hung.
+        const { stdout } = await execFileAsync(binaryPath, ['-version'], { timeout: 10000 });
+        const firstLine = stdout.split('\n')[0];
+
+        const info: BinaryInfo = {
             path: binaryPath,
             available: true,
             version: firstLine
         };
+        availabilityCache.set(binaryName, { info, at: Date.now() });
+        return info;
     } catch {
-        return {
+        const info: BinaryInfo = {
             path: binaryPath,
             available: false
         };
+        availabilityCache.set(binaryName, { info, at: Date.now() });
+        return info;
     }
 }
 

@@ -49,8 +49,13 @@ describe('MediaServerService', () => {
             });
 
             await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
-            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('refresh'));
-            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('X-Plex-Token=token123'));
+            // The token goes in a header, not the query string, so it does not
+            // land in the media server's access log.
+            expect(axios.get).toHaveBeenCalledWith(
+                expect.stringContaining('refresh'),
+                expect.objectContaining({ headers: { 'X-Plex-Token': 'token123' } })
+            );
+            expect(vi.mocked(axios.get).mock.calls[0]?.[0]).not.toContain('token123');
         });
 
         it('should notify Jellyfin', async () => {
@@ -63,7 +68,12 @@ describe('MediaServerService', () => {
             });
 
             await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
-            expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('Refresh?api_key=jkey'));
+            expect(axios.post).toHaveBeenCalledWith(
+                expect.stringContaining('/Library/Refresh'),
+                undefined,
+                expect.objectContaining({ headers: { 'X-Emby-Token': 'jkey' } })
+            );
+            expect(vi.mocked(axios.post).mock.calls[0]?.[0]).not.toContain('jkey');
         });
 
         it('should notify Webhook', async () => {
@@ -75,9 +85,27 @@ describe('MediaServerService', () => {
             });
 
             await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
-            expect(axios.post).toHaveBeenCalledWith('http://hook', expect.objectContaining({
-                event: 'download_complete'
-            }));
+            expect(axios.post).toHaveBeenCalledWith(
+                'http://hook',
+                expect.objectContaining({ event: 'download_complete' }),
+                expect.objectContaining({ timeout: expect.any(Number) })
+            );
+        });
+
+        it('should refuse a media server URL that is not http(s)', async () => {
+            vi.mocked(settingsService.get).mockImplementation((key) => {
+                if (key === 'MEDIA_SERVER_ENABLED') return 'true';
+                if (key === 'MEDIA_SERVER_TYPE') return 'webhook';
+                if (key === 'MEDIA_SERVER_URL') return 'file:///etc/passwd';
+                return '';
+            });
+
+            await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
+            expect(axios.post).not.toHaveBeenCalled();
+
+            await expect(
+                service.testConnection('webhook', 'file:///etc/passwd', '')
+            ).rejects.toThrow('must use http or https');
         });
     });
 

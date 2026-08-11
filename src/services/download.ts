@@ -18,6 +18,7 @@ import { mediaServerService } from './MediaServerService.js';
 import { formatConverterService } from './FormatConverterService.js';
 import { aiMetadataService } from './AIMetadataService.js';
 import { globalApiLimit } from '../utils/limit.js';
+import { MAX_IMAGE_BYTES, MAX_IMAGE_REDIRECTS } from '../utils/net.js';
 
 export { DownloadProgress };
 
@@ -185,7 +186,11 @@ export default class DownloadService {
             try {
                 const response = await axios.get(url, {
                     responseType: 'arraybuffer',
-                    timeout: 15000
+                    timeout: 15000,
+                    // The URL comes from remote Qobuz metadata; without a cap
+                    // a hostile response buffers until the process dies.
+                    maxContentLength: MAX_IMAGE_BYTES,
+                    maxRedirects: MAX_IMAGE_REDIRECTS
                 });
                 const contentType = String(response.headers?.['content-type'] || '');
                 const buffer = Buffer.from(response.data);

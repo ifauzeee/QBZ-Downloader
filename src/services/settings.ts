@@ -15,7 +15,7 @@ const SENSITIVE_KEYS = [
     'AI_API_KEY'
 ];
 
-const KNOWN_SETTING_KEYS = [
+export const KNOWN_SETTING_KEYS = [
     'QOBUZ_APP_ID',
     'QOBUZ_APP_SECRET',
     'QOBUZ_USER_AUTH_TOKEN',
