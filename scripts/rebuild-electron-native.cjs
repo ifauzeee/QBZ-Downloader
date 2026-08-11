@@ -54,6 +54,12 @@ if (!rebuildCli) {
     process.exit(1);
 }
 
+// Defaults to the host arch. Pass a target explicitly (e.g. `arm64`) when
+// packaging for an architecture other than the machine doing the build —
+// otherwise better-sqlite3's .node is built for the wrong ABI and the packaged
+// app crashes the moment it opens the database.
+const targetArch = process.argv[2] || process.arch;
+
 const result = spawnSync(
     process.execPath,
     [
@@ -63,6 +69,8 @@ const result = spawnSync(
         'better-sqlite3',
         '--version',
         electronVersion,
+        '--arch',
+        targetArch,
         '--module-dir',
         root
     ],

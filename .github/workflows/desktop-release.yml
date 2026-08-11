@@ -57,9 +57,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build full project
-        run: npm run build:full
-
       - name: Verify version consistency
         run: |
           node -e "
@@ -70,6 +67,9 @@ jobs:
             if(r!==c||r!==m){console.error('Version mismatch!');process.exit(1);}
             console.log('All versions consistent: '+r);
           "
+
+      - name: Build full project
+        run: npm run build:full
 
       - name: Run backend tests
         run: npm test
@@ -156,9 +156,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build full project
-        run: npm run build:full
-
       - name: Verify version consistency
         run: |
           node -e "
@@ -169,6 +166,9 @@ jobs:
             if(r!==c||r!==m){console.error('Version mismatch!');process.exit(1);}
             console.log('All versions consistent: '+r);
           "
+
+      - name: Build full project
+        run: npm run build:full
 
       - name: Run backend tests
         run: npm test
@@ -239,7 +239,7 @@ jobs:
           npx electron-builder --mac dmg zip --publish never
 
       - name: Upload macOS artifacts
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
           name: macos-build
@@ -300,9 +300,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build full project
-        run: npm run build:full
-
       - name: Verify version consistency
         run: |
           node -e "
@@ -313,6 +310,9 @@ jobs:
             if(r!==c||r!==m){console.error('Version mismatch!');process.exit(1);}
             console.log('All versions consistent: '+r);
           "
+
+      - name: Build full project
+        run: npm run build:full
 
       - name: Run backend tests
         run: npm test
@@ -345,7 +345,7 @@ jobs:
         run: npx electron-builder --linux AppImage deb tar.gz --publish never
 
       - name: Upload Linux artifacts
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
           name: linux-build
