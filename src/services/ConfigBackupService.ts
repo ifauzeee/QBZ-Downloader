@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { z } from 'zod';
-import { settingsService } from './settings.js';
+import { settingsService, KNOWN_SETTING_KEYS } from './settings.js';
 import { databaseService } from './database/index.js';
 import { downloadQueue } from './queue/queue.js';
 
@@ -69,7 +69,14 @@ export class ConfigBackupService {
             databaseService.clearQueueItems();
         }
 
-        settingsService.setMany(settings);
+        // settingsService.setMany mirrors every key it is given into
+        // process.env, so an unfiltered import would let a crafted backup set
+        // NODE_TLS_REJECT_UNAUTHORIZED, PATH or QBZ_DESKTOP.
+        const knownKeys = KNOWN_SETTING_KEYS as readonly string[];
+        const allowedSettings = Object.fromEntries(
+            Object.entries(settings).filter(([key]) => knownKeys.includes(key))
+        );
+        settingsService.setMany(allowedSettings);
 
         for (const playlist of watchedPlaylists) {
             databaseService.upsertWatchedPlaylist({
@@ -121,7 +128,7 @@ export class ConfigBackupService {
         await downloadQueue.load();
 
         return {
-            settings: Object.keys(settings).length,
+            settings: Object.keys(allowedSettings).length,
             watchedPlaylists: watchedPlaylists.length,
             queueItems: queue.length
         };

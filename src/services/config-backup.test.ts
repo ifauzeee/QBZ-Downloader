@@ -8,7 +8,8 @@ vi.mock('./settings.js', () => ({
     settingsService: {
         getAll: vi.fn(),
         setMany: vi.fn()
-    }
+    },
+    KNOWN_SETTING_KEYS: ['QOBUZ_APP_ID', 'UI_LANGUAGE']
 }));
 
 vi.mock('./database/index.js', () => ({

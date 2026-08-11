@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { QualityScannerService } from './QualityScannerService.js';
 import { parseMeanVolume, scanQualityFile } from './QualityScannerWorker.js';
 import { checkBinaryAvailability } from '../utils/binaries.js';
 
 type ExecMockCallback = (err: Error | null, result: { stderr: string }) => void;
+
+/** The scanner passes ffmpeg an argv array, so the filter frequency arrives as
+ *  its own argument rather than embedded in a shell command string. */
+const hasFilter = (args: string[], needle: string): boolean =>
+    args.some((arg) => arg.includes(needle));
 
 const { workerState } = vi.hoisted(() => ({
     workerState: {
@@ -43,9 +48,9 @@ vi.mock('node:worker_threads', () => {
 });
 
 vi.mock('node:child_process', () => ({
-    exec: vi.fn((cmd: string, cb?: ExecMockCallback) => {
+    execFile: vi.fn((file: string, args: string[], cb?: ExecMockCallback) => {
         if (cb) cb(null, { stderr: 'mean_volume: -50.0 dB' });
-        return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
+        return { on: vi.fn() } as unknown as ReturnType<typeof execFile>;
     })
 }));
 
@@ -92,10 +97,14 @@ describe('QualityScannerService', () => {
     });
 
     it('should identify true lossless files', async () => {
-        vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
+        vi.mocked(execFile).mockImplementation(((
+            _file: string,
+            _args: string[],
+            cb?: ExecMockCallback
+        ) => {
             if (cb) cb(null, { stderr: 'mean_volume: -30.0 dB' });
-            return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
-        }) as unknown as typeof exec);
+            return { on: vi.fn() } as unknown as ReturnType<typeof execFile>;
+        }) as unknown as typeof execFile);
 
         const report = await scanQualityFile('test.flac');
         expect(report.isTrueLossless).toBe(true);
@@ -103,16 +112,20 @@ describe('QualityScannerService', () => {
     });
 
     it('should detect fake lossless (16kHz cutoff)', async () => {
-        vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
+        vi.mocked(execFile).mockImplementation(((
+            _file: string,
+            args: string[],
+            cb?: ExecMockCallback
+        ) => {
             if (cb) {
-                if (cmd.includes('f=16000')) {
+                if (hasFilter(args, 'f=16000')) {
                     cb(null, { stderr: 'mean_volume: -85.0 dB' });
                 } else {
                     cb(null, { stderr: 'mean_volume: -95.0 dB' });
                 }
             }
-            return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
-        }) as unknown as typeof exec);
+            return { on: vi.fn() } as unknown as ReturnType<typeof execFile>;
+        }) as unknown as typeof execFile);
 
         const report = await scanQualityFile('fake.flac');
         expect(report.isTrueLossless).toBe(false);
@@ -120,16 +133,20 @@ describe('QualityScannerService', () => {
     });
 
     it('should detect likely upsampled files (20kHz cutoff)', async () => {
-        vi.mocked(exec).mockImplementation(((cmd: string, cb?: ExecMockCallback) => {
+        vi.mocked(execFile).mockImplementation(((
+            _file: string,
+            args: string[],
+            cb?: ExecMockCallback
+        ) => {
             if (cb) {
-                if (cmd.includes('f=16000')) {
+                if (hasFilter(args, 'f=16000')) {
                     cb(null, { stderr: 'mean_volume: -50.0 dB' });
                 } else {
                     cb(null, { stderr: 'mean_volume: -90.0 dB' });
                 }
             }
-            return { on: vi.fn() } as unknown as ReturnType<typeof exec>;
-        }) as unknown as typeof exec);
+            return { on: vi.fn() } as unknown as ReturnType<typeof execFile>;
+        }) as unknown as typeof execFile);
 
         const report = await scanQualityFile('upsampled.flac');
         expect(report.isTrueLossless).toBe(false);

@@ -79,14 +79,35 @@ export class DashboardService {
     private io: SocketServer;
     private port: number;
     private checkInterval: NodeJS.Timeout | null = null;
+    /** The address actually passed to listen(), which start() may downgrade. */
+    private boundHost: string = CONFIG.dashboard.host || '127.0.0.1';
 
     constructor(port: number = CONFIG.dashboard.port || 3000) {
         this.port = port;
         this.app = express();
+        // Express matches routes case-insensitively by default, so `/API/logs`
+        // reaches the same router as `/api/logs`. The auth guard below decides
+        // what is protected from the same path, and the two must never disagree.
+        this.app.set('case sensitive routing', true);
         this.httpServer = createServer(this.app);
         this.io = new SocketServer(this.httpServer, {
             transports: ['websocket', 'polling'],
-            allowEIO3: true
+            allowEIO3: true,
+            // A WebSocket upgrade is not subject to the same-origin policy and
+            // socket.io only installs CORS when `cors` is set, so without this
+            // any page the user visits could open a socket and receive the live
+            // log, queue and notification streams. Clients that send no Origin
+            // (CLI, tests) are unaffected.
+            allowRequest: (req, callback) => {
+                const origin = req.headers.origin;
+                if (!origin) return callback(null, true);
+
+                try {
+                    callback(null, new URL(origin).host === req.headers.host);
+                } catch {
+                    callback(null, false);
+                }
+            }
         });
 
 
@@ -96,7 +117,60 @@ export class DashboardService {
     }
 
     private setupMiddleware(): void {
+        // DNS rebinding guard. A loopback bind is only private as long as the
+        // browser agrees the request is cross-origin; an attacker who points
+        // their own hostname at 127.0.0.1 makes the app same-origin to their
+        // page and can then read every response. Only enforced when the bind is
+        // loopback AND nothing else authenticates the caller, so a reverse
+        // proxy fronting a password-protected instance keeps working.
+        this.app.use((req: Request, res: Response, next: NextFunction) => {
+            if (!this.requiresLoopbackHost()) return next();
+
+            const hostHeader = req.headers.host || '';
+            const hostname = hostHeader.replace(/:\d+$/, '');
+            if (!hostname || DashboardService.isLoopbackHost(hostname)) return next();
+
+            logger.warn(`Rejected request with non-loopback Host header: ${hostHeader}`, 'SECURITY');
+            res.status(403).json({ error: 'Forbidden: invalid Host header' });
+        });
+
+        // CSRF guard. `express.urlencoded` makes a cross-origin form POST a
+        // CORS "simple request" — no preflight — so without this any page the
+        // user visits can drive every state-changing route, and in desktop mode
+        // the password middleware below is bypassed entirely.
+        this.app.use((req: Request, res: Response, next: NextFunction) => {
+            if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+                return next();
+            }
+
+            const origin = req.headers.origin;
+            if (!origin) return next(); // non-browser clients never send Origin
+
+            let originHost: string;
+            try {
+                originHost = new URL(origin).host;
+            } catch {
+                res.status(403).json({ error: 'Forbidden: malformed Origin header' });
+                return;
+            }
+
+            if (originHost !== req.headers.host) {
+                logger.warn(`Rejected cross-origin ${req.method} from ${origin}`, 'SECURITY');
+                res.status(403).json({ error: 'Forbidden: cross-origin request' });
+                return;
+            }
+
+            next();
+        });
+
         this.app.use((_req: Request, res: Response, next: NextFunction) => {
+            // Lets the Electron shell confirm the loopback port is served by
+            // the backend it just started, and not by a local process that won
+            // the race for the port.
+            if (process.env.QBZ_DESKTOP_TOKEN) {
+                res.setHeader('X-QBZ-Desktop-Token', process.env.QBZ_DESKTOP_TOKEN);
+            }
+
             res.setHeader(
                 'Content-Security-Policy',
                 "default-src 'self'; " +
@@ -123,6 +197,19 @@ export class DashboardService {
 
         this.app.use('/api', limiter);
 
+        // The generic limiter allows ~96k attempts a day, which is not a
+        // meaningful bound on guessing a dashboard password.
+        const authLimiter = rateLimit({
+            windowMs: 15 * 60 * 1000,
+            max: 20,
+            message: { error: 'Too many authentication attempts, please try again later' },
+            standardHeaders: true,
+            legacyHeaders: false,
+            skipSuccessfulRequests: true
+        });
+
+        this.app.use(['/api/auth/verify', '/api/login'], authLimiter);
+
         this.app.get('/api/auth/verify', (req: Request, res: Response) => {
             const password = CONFIG.dashboard.password;
             const isDesktop = process.env.QBZ_DESKTOP === '1';
@@ -132,7 +219,7 @@ export class DashboardService {
                 return;
             }
 
-            const providedPassword = req.headers['x-password'] || req.query.pw;
+            const providedPassword = req.headers['x-password'];
             if (
                 providedPassword &&
                 typeof providedPassword === 'string' &&
@@ -165,20 +252,36 @@ export class DashboardService {
             // exempting them left every track readable to anyone who could reach
             // the port, which matters the moment the dashboard is put behind a
             // domain rather than kept on a LAN.
-            const excludedRoutes = [
-                '/api/status',
-                '/api/themes',
-                '/api/onboarding'
-            ];
+            //
+            // /api/themes is read-only here: POST /api/themes and
+            // DELETE /api/themes/:id mutate stored themes and must stay behind
+            // the password.
+            const excludedRoutes = ['/api/status', '/api/onboarding'];
+            const readOnlyExcludedRoutes = ['/api/themes'];
 
-            const isExcluded = excludedRoutes.some((route) => req.path.startsWith(route));
+            // Express route matching is case-insensitive unless configured
+            // otherwise, so this test has to be too — comparing the raw path
+            // let `/API/...` slip past the guard and still reach the router.
+            const requestPath = req.path.toLowerCase();
+            const isReadRequest = req.method === 'GET' || req.method === 'HEAD';
+
+            // Exact or whole-segment match only, so a future `/api/statuses`
+            // route cannot inherit the `/api/status` exemption.
+            const matchesRoute = (route: string): boolean =>
+                requestPath === route || requestPath.startsWith(`${route}/`);
+
+            const isExcluded =
+                excludedRoutes.some(matchesRoute) ||
+                (isReadRequest && readOnlyExcludedRoutes.some(matchesRoute));
             if (isExcluded) return next();
 
-            const isProtected = req.path.startsWith('/api') || req.path.startsWith('/downloads');
+            const isProtected =
+                requestPath.startsWith('/api') || requestPath.startsWith('/downloads');
             if (!isProtected) return next();
 
-            const providedPassword =
-                req.headers['x-password'] || req.query.pw || readSessionCookie(req);
+            // Deliberately not accepting the password from the query string: it
+            // lands in access logs, Referer headers and browser history.
+            const providedPassword = req.headers['x-password'] || readSessionCookie(req);
 
             if (
                 providedPassword &&
@@ -211,7 +314,9 @@ export class DashboardService {
         registerRoutes(this.app);
 
         this.app.get(/.*/, (req: Request, res: Response) => {
-            const isProtected = req.path.startsWith('/api') || req.path.startsWith('/downloads');
+            const requestPath = req.path.toLowerCase();
+            const isProtected =
+                requestPath.startsWith('/api') || requestPath.startsWith('/downloads');
             if (isProtected) {
                 return res.status(404).json({ error: 'Endpoint not found' });
             }
@@ -227,7 +332,7 @@ export class DashboardService {
             // Bypass password protection entirely in Desktop mode
             if (!password || isDesktop) return next();
 
-            const providedPassword = socket.handshake.auth?.password || socket.handshake.query?.pw;
+            const providedPassword = socket.handshake.auth?.password;
 
             if (providedPassword && typeof providedPassword === 'string' && password) {
                 try {
@@ -332,6 +437,16 @@ export class DashboardService {
         });
     }
 
+    /**
+     * True when the only thing keeping the API private is the loopback bind —
+     * i.e. no password will be demanded from the caller. Those are exactly the
+     * deployments a DNS-rebinding attack turns into a same-origin API.
+     */
+    private requiresLoopbackHost(): boolean {
+        if (!DashboardService.isLoopbackHost(this.boundHost)) return false;
+        return process.env.QBZ_DESKTOP === '1' || !CONFIG.dashboard.password;
+    }
+
     /** Loopback binds are reachable from this machine alone. */
     private static isLoopbackHost(host: string): boolean {
         const normalized = host.trim().toLowerCase().replace(/^\[|\]$/g, '');
@@ -359,6 +474,8 @@ export class DashboardService {
             );
             host = '127.0.0.1';
         }
+
+        this.boundHost = host;
 
         this.httpServer.once('error', (error) => {
             const message = error instanceof Error ? error.message : String(error);

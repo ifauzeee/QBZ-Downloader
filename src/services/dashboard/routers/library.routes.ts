@@ -6,10 +6,23 @@ import { CONFIG } from '../../../config.js';
 import { formatConverterService } from '../../FormatConverterService.js';
 import { logger } from '../../../utils/logger.js';
 import { isPathWithinManagedRoots } from '../../../utils/paths.js';
+import { isPublicHttpUrl, MAX_IMAGE_BYTES, MAX_IMAGE_REDIRECTS } from '../../../utils/net.js';
 
 const router = Router();
 
 const getParam = (p: unknown): string => (Array.isArray(p) ? String(p[0]) : String(p ?? ''));
+
+/**
+ * Pagination values reach SQLite's LIMIT/OFFSET directly, and SQLite reads a
+ * negative LIMIT as "no limit" — so `?limit=-1` dumped whole tables.
+ */
+const getPageParam = (raw: unknown, fallback: number, max: number): number => {
+    const parsed = parseInt(getParam(raw), 10);
+    if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+    return Math.min(parsed, max);
+};
+
+const MAX_PAGE_SIZE = 1000;
 
 router.get('/scan/status', async (req: Request, res: Response) => {
     const stats = libraryScannerService.getScanStats();
@@ -23,7 +36,23 @@ router.get('/scan/status', async (req: Request, res: Response) => {
 
 router.post('/scan', (req: Request, res: Response) => {
     const { path } = req.body;
-    libraryScannerService.scanLibrary(path);
+
+    // Without this the caller picks any directory and the scanner walks it into
+    // the database, which the /api/library/files route then reads back.
+    if (path !== undefined && !isPathWithinManagedRoots(path)) {
+        logger.warn(`Refused library scan outside the library: ${path}`, 'LIBRARY');
+        res.status(403).json({ error: 'Path is outside the library directory' });
+        return;
+    }
+
+    // scanLibrary rejects with 'Scan already in progress'; unhandled, that
+    // rejection terminates the process on Node 20+.
+    libraryScannerService
+        .scanLibrary(path)
+        .catch((error: unknown) =>
+            logger.error(`Library scan failed: ${(error as Error).message}`, 'LIBRARY')
+        );
+
     res.json({ success: true });
 });
 
@@ -43,8 +72,8 @@ router.get('/statistics', async (req: Request, res: Response) => {
 
 router.get('/files', (req: Request, res: Response) => {
     try {
-        const limit = parseInt(getParam(req.query.limit)) || 100;
-        const offset = parseInt(getParam(req.query.offset)) || 0;
+        const limit = getPageParam(req.query.limit, 100, MAX_PAGE_SIZE);
+        const offset = getPageParam(req.query.offset, 0, Number.MAX_SAFE_INTEGER);
         const files = databaseService.getLibraryFiles(limit, offset);
         res.json(files);
     } catch (error: unknown) {
@@ -171,10 +200,24 @@ router.post('/metadata/edit', async (req: Request, res: Response) => {
             const axios = (await import('axios')).default;
             const { logger } = await import('../../../utils/logger.js');
             for (const candidate of coverCandidates) {
+                // The URL comes from the request body, so it must not be used
+                // to reach the host's own network.
+                if (!isPublicHttpUrl(candidate)) {
+                    logger.warn(`Refused cover fetch for non-public URL: ${candidate}`, 'METADATA');
+                    continue;
+                }
+
                 try {
                     const response = await axios.get(candidate, {
                         responseType: 'arraybuffer',
-                        timeout: 15000
+                        timeout: 15000,
+                        maxContentLength: MAX_IMAGE_BYTES,
+                        maxRedirects: MAX_IMAGE_REDIRECTS,
+                        beforeRedirect: (options) => {
+                            if (!isPublicHttpUrl(options.href)) {
+                                throw new Error('redirect to a non-public host');
+                            }
+                        }
                     });
                     coverBuffer = Buffer.from(response.data);
                     break;
@@ -233,8 +276,8 @@ router.get('/database/stats', async (req: Request, res: Response) => {
 
 router.get('/database/tracks', async (req: Request, res: Response) => {
     try {
-        const limit = parseInt(req.query.limit as string) || 100;
-        const offset = parseInt(req.query.offset as string) || 0;
+        const limit = getPageParam(req.query.limit, 100, MAX_PAGE_SIZE);
+        const offset = getPageParam(req.query.offset, 0, Number.MAX_SAFE_INTEGER);
         res.json(databaseService.getAllTracks(limit, offset));
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });
@@ -243,8 +286,8 @@ router.get('/database/tracks', async (req: Request, res: Response) => {
 
 router.get('/database/albums', async (req: Request, res: Response) => {
     try {
-        const limit = parseInt(req.query.limit as string) || 50;
-        const offset = parseInt(req.query.offset as string) || 0;
+        const limit = getPageParam(req.query.limit, 50, MAX_PAGE_SIZE);
+        const offset = getPageParam(req.query.offset, 0, Number.MAX_SAFE_INTEGER);
         res.json(databaseService.getAllAlbums(limit, offset));
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });

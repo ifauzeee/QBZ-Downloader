@@ -2,7 +2,7 @@ import { parentPort } from 'worker_threads';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { parseFile } from 'music-metadata';
 import type { IAudioMetadata } from 'music-metadata';
 
@@ -11,7 +11,10 @@ import { resolveBinaryPath } from '../../utils/binaries.js';
 function getAudioFingerprint(filePath: string): string | undefined {
     try {
         const fpcalc = resolveBinaryPath('fpcalc');
-        const stdout = execSync(`"${fpcalc}" -json "${filePath}"`, {
+        // argv form, never a shell string: a filename may legally contain `"`,
+        // `$`, backticks or `;`, and building a command line out of one hands
+        // the shell whatever the file is called.
+        const stdout = execFileSync(fpcalc, ['-json', filePath], {
             encoding: 'utf-8',
             stdio: ['ignore', 'pipe', 'ignore']
         });

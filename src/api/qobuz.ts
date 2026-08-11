@@ -159,7 +159,15 @@ export class QobuzAPI {
     private getBackoffDelayMs(error: AxiosError, attempt: number): number {
         const retryAfterMs = this.parseRetryAfterMs(error);
         if (error.response?.status === 429 && retryAfterMs !== null) {
-            return retryAfterMs;
+            if (retryAfterMs > this.maxBackoffMs) {
+                logger.warn(
+                    `Qobuz asked for a ${Math.round(retryAfterMs / 1000)}s pause; capping at ${Math.round(this.maxBackoffMs / 1000)}s`,
+                    'API'
+                );
+            }
+            // Uncapped, a single hostile or mistaken Retry-After stalls every
+            // Qobuz call for the lifetime of the process.
+            return Math.min(retryAfterMs, this.maxBackoffMs);
         }
 
         const baseDelay = Math.max(250, CONFIG.download.retryDelay ?? 1000);

@@ -34,9 +34,19 @@ function getOrGenerateKey(): Buffer {
 
     if (fs.existsSync(ENCRYPTION_KEY_FILE)) {
         try {
-            const keyHex = fs.readFileSync(ENCRYPTION_KEY_FILE, 'utf8');
-            ENCRYPTION_KEY = Buffer.from(keyHex, 'hex');
-            return ENCRYPTION_KEY;
+            const keyHex = fs.readFileSync(ENCRYPTION_KEY_FILE, 'utf8').trim();
+            const parsed = Buffer.from(keyHex, 'hex');
+            // Buffer.from silently truncates at the first invalid hex pair, so
+            // a truncated or corrupted key file used to yield a short (often
+            // zero-length) key. createCipheriv then threw on every write and
+            // decryptSync returned the ciphertext unchanged as "plaintext".
+            if (parsed.length === 32) {
+                ENCRYPTION_KEY = parsed;
+                return ENCRYPTION_KEY;
+            }
+            console.error(
+                'Encryption key file is corrupt, generating new one. Warning: Old encrypted data will be unreadable.'
+            );
         } catch {
             console.error(
                 'Failed to read encryption key, generating new one. Warning: Old encrypted data will be unreadable.'
@@ -50,7 +60,11 @@ function getOrGenerateKey(): Buffer {
         if (!fs.existsSync(dataDir)) {
             fs.mkdirSync(dataDir, { recursive: true });
         }
-        fs.writeFileSync(ENCRYPTION_KEY_FILE, key.toString('hex'), { mode: 0o600 });
+        // Written to a temp file and renamed so an interrupted write cannot
+        // leave a half-length key behind.
+        const tmpPath = `${ENCRYPTION_KEY_FILE}.tmp`;
+        fs.writeFileSync(tmpPath, key.toString('hex'), { mode: 0o600 });
+        fs.renameSync(tmpPath, ENCRYPTION_KEY_FILE);
     } catch (error) {
         console.error('Failed to save encryption key:', error);
     }

@@ -7,6 +7,14 @@ import { logger } from '../../utils/logger.js';
 const DB_VERSION = 12;
 const DEFAULT_DB_PATH = path.resolve(process.cwd(), 'data', 'qbz.db');
 
+/**
+ * `%` and `_` are wildcards inside a LIKE pattern. A search for "100_" or a
+ * filename containing "%" otherwise matches rows it should not — which for
+ * deleteTrackByPath means removing the wrong track.
+ * Callers must pair this with `ESCAPE '\'` in the statement.
+ */
+const escapeLikePattern = (value: string): string => value.replace(/[\\%_]/g, (c) => `\\${c}`);
+
 export interface DbTrack {
     id: string;
     title: string;
@@ -681,10 +689,10 @@ export class DatabaseService {
 
     searchTracks(query: string): DbTrack[] {
         const db = this.getDb();
-        const searchQuery = `%${query}%`;
+        const searchQuery = `%${escapeLikePattern(query)}%`;
         return db
             .prepare(
-                'SELECT * FROM tracks WHERE title LIKE ? OR artist LIKE ? OR album LIKE ? ORDER BY downloaded_at DESC LIMIT 100'
+                "SELECT * FROM tracks WHERE title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\' ORDER BY downloaded_at DESC LIMIT 100"
             )
             .all(searchQuery, searchQuery, searchQuery) as DbTrack[];
     }
@@ -1231,8 +1239,10 @@ export class DatabaseService {
             const suffixWin = `\\${parentDir}\\${filename}`;
 
             track = db
-                .prepare('SELECT * FROM tracks WHERE file_path LIKE ? OR file_path LIKE ?')
-                .get(`%${suffixUnix}`, `%${suffixWin}`) as { file_path: string; album_artist?: string; artist?: string; quality?: number; file_size?: number; genre?: string } | undefined;
+                .prepare(
+                    "SELECT * FROM tracks WHERE file_path LIKE ? ESCAPE '\\' OR file_path LIKE ? ESCAPE '\\'"
+                )
+                .get(`%${escapeLikePattern(suffixUnix)}`, `%${escapeLikePattern(suffixWin)}`) as { file_path: string; album_artist?: string; artist?: string; quality?: number; file_size?: number; genre?: string } | undefined;
         }
 
         if (track) {
@@ -1601,11 +1611,12 @@ export class DatabaseService {
 
     searchHistory(query: string): Record<string, unknown>[] {
         const db = this.getDb();
-        const searchQuery = `%${query}%`;
+        const searchQuery = `%${escapeLikePattern(query)}%`;
         const rows = db.prepare(`
-            SELECT * FROM history 
-            WHERE title LIKE ? OR artist LIKE ? OR album LIKE ? 
+            SELECT * FROM history
+            WHERE title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\'
             ORDER BY downloaded_at DESC
+            LIMIT 100
         `).all(searchQuery, searchQuery, searchQuery) as {
             downloaded_at?: string;
             artist_image_url?: string;

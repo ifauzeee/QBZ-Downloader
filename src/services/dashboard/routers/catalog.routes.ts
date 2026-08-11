@@ -218,7 +218,9 @@ router.get('/stream/:id', async (req: Request, res: Response) => {
         const url = await audioPreviewService.getStreamUrl(trackId);
 
         if (url) {
-            res.setHeader('Access-Control-Allow-Origin', '*');
+            // No Access-Control-Allow-Origin here: the dashboard plays this
+            // from its own origin, and `*` let any site read a signed Qobuz
+            // stream URL minted with the user's credentials.
             res.redirect(url);
         } else {
             res.status(404).json({ error: 'Stream URL not found' });

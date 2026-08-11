@@ -4,6 +4,7 @@ import path from 'path';
 import axios from 'axios';
 import { logger } from '../../../utils/logger.js';
 import { isPathWithinManagedRoots } from '../../../utils/paths.js';
+import { isPublicHttpUrl, MAX_IMAGE_BYTES, MAX_IMAGE_REDIRECTS } from '../../../utils/net.js';
 import { CONFIG } from '../../../config.js';
 import { databaseService } from '../../database/index.js';
 import {
@@ -190,10 +191,24 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
         );
 
         for (const imageUrl of coverCandidates) {
+            // The URL comes from the request body, so it must not be used to
+            // reach the host's own network.
+            if (!isPublicHttpUrl(imageUrl)) {
+                logger.warn(`Refused cover fetch for non-public URL: ${imageUrl}`, 'TOOLS');
+                continue;
+            }
+
             try {
                 const response = await axios.get(imageUrl, {
                     responseType: 'arraybuffer',
-                    timeout: 15000
+                    timeout: 15000,
+                    maxContentLength: MAX_IMAGE_BYTES,
+                    maxRedirects: MAX_IMAGE_REDIRECTS,
+                    beforeRedirect: (options) => {
+                        if (!isPublicHttpUrl(options.href)) {
+                            throw new Error('redirect to a non-public host');
+                        }
+                    }
                 });
                 coverBuffer = Buffer.from(response.data);
                 break;
