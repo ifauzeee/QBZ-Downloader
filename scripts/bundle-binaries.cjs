@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const os = require('os');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 
 const platform = process.platform; // win32 | darwin | linux
@@ -53,6 +54,33 @@ function bundleFfmpeg() {
 const FPCALC_VERSION = '1.5.1';
 const FPCALC_BASE = `https://github.com/acoustid/chromaprint/releases/download/v${FPCALC_VERSION}`;
 
+// These archives are downloaded during the release build and their contents are
+// shipped inside every published artifact, so a compromised or swapped asset
+// would be signed and distributed as ours. Pin the exact bytes.
+const FPCALC_SHA256 = {
+  'chromaprint-fpcalc-1.5.1-macos-universal.tar.gz':
+    'd4d8faff4b5f7c558d9be053da47804f9501eaa6c2f87906a9f040f38d61c860',
+  'chromaprint-fpcalc-1.5.1-linux-x86_64.tar.gz':
+    '4d7433a7f778e5946d7225230681cbcd634e153316ecac87c538c33ac32387a5',
+  'chromaprint-fpcalc-1.5.1-windows-x86_64.zip':
+    '36b478e16aa69f757f376645db0d436073a42c0097b6bb2677109e7835b59bbc'
+};
+
+const MAX_REDIRECTS = 5;
+
+function verifyChecksum(filePath, url) {
+  const name = url.split('/').pop();
+  const expected = FPCALC_SHA256[name];
+  if (!expected) {
+    throw new Error(`no pinned checksum for ${name}`);
+  }
+
+  const actual = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+  if (actual !== expected) {
+    throw new Error(`checksum mismatch for ${name}: expected ${expected}, got ${actual}`);
+  }
+}
+
 // Returns the list of target arch directories to copy fpcalc into.
 function fpcalcTargets() {
   if (platform === 'win32') {
@@ -72,9 +100,14 @@ function fpcalcTargets() {
   return [];
 }
 
-function download(url) {
+function download(url, depth = 0) {
   const isZip = url.endsWith('.zip');
   return new Promise((resolve, reject) => {
+    if (depth > MAX_REDIRECTS) {
+      reject(new Error(`too many redirects (${MAX_REDIRECTS}) fetching ${url}`));
+      return;
+    }
+
     const tmp = path.join(os.tmpdir(), `fpcalc-${Date.now()}.${isZip ? 'zip' : 'tar.gz'}`);
     const file = fs.createWriteStream(tmp);
     const req = https.get(
@@ -84,7 +117,7 @@ function download(url) {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           file.close();
           const next = new URL(res.headers.location, url).href;
-          download(next).then(resolve).catch(reject);
+          download(next, depth + 1).then(resolve).catch(reject);
           return;
         }
         if (res.statusCode !== 200) {
@@ -130,6 +163,14 @@ async function bundleFpcalc() {
     try {
       log(`downloading fpcalc from ${target.url}`);
       const tmp = await download(target.url);
+
+      try {
+        verifyChecksum(tmp, target.url);
+      } catch (err) {
+        fs.rmSync(tmp, { force: true });
+        throw err;
+      }
+
       const extractDir = path.join(os.tmpdir(), `fpcalc-extract-${Date.now()}`);
       fs.mkdirSync(extractDir, { recursive: true });
       if (target.url.endsWith('.zip')) {

@@ -34,7 +34,7 @@
     "desktop:dist": "npm run desktop:dist:win",
     "desktop:dist:win": "npm run build:full && npm run desktop:rebuild && electron-builder --win nsis",
     "desktop:dist:portable": "npm run build:full && npm run desktop:rebuild && electron-builder --win portable",
-    "desktop:dist:mac": "npm run build:full && npm run desktop:rebuild && electron-builder --mac dmg zip",
+    "desktop:dist:mac": "npm run build:full && node scripts/rebuild-electron-native.cjs arm64 && electron-builder --mac dmg zip",
     "desktop:dist:linux": "npm run build:full && npm run desktop:rebuild && electron-builder --linux AppImage deb tar.gz",
     "desktop:dist:all": "npm run build:full && npm run desktop:rebuild && electron-builder --win nsis portable --mac dmg zip --linux AppImage deb tar.gz",
     "prepare": "husky"

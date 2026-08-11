@@ -115,15 +115,25 @@ QBZ-Downloader ships as a native desktop application for all three major platfor
 - **macOS:** `.dmg` disk image for Apple Silicon (arm64); Intel support is planned for a future release
 - **Linux:** `.AppImage` (portable), `.deb` (Debian / Ubuntu), or `.tar.gz` archive
 
-> **macOS Gatekeeper note:** builds made without notarization credentials are
-> ad-hoc signed and may still be flagged by macOS with *"…is damaged and can't
-> be opened"* or *"Apple cannot check it for malicious software"* because the
-> app is not notarized by Apple.
-> To run an unsigned build, right-click the app and select **Open**, or remove
-> the quarantine attribute once:
+> **macOS Gatekeeper note:** builds made without Apple Developer credentials
+> are ad-hoc signed but **not notarized**, so the first launch of a downloaded
+> copy is blocked with *"Apple could not verify … is free of malicious
+> software."* This is expected. Either open it once via **System Settings →
+> Privacy & Security → Open Anyway**, or clear the quarantine attribute after
+> dragging the app to `/Applications`:
 >
 > ```bash
-> xattr -cr "/Applications/QBZ Downloader.app"
+> xattr -dr com.apple.quarantine "/Applications/QBZ Downloader.app"
+> ```
+>
+> If macOS instead reports *"…is damaged and can't be opened"*, the bundle's
+> code signature is invalid rather than merely unnotarized — that is a build
+> bug, not a Gatekeeper policy, and no workaround should be needed. Please
+> [open an issue](https://github.com/ifauzeee/QBZ-Downloader/issues). You can
+> confirm a good build yourself with:
+>
+> ```bash
+> codesign --verify --deep --strict --verbose=2 "/Applications/QBZ Downloader.app"
 > ```
 >
 > Releases built with Apple Developer ID credentials configured in CI (secrets
@@ -151,17 +161,17 @@ Build artifacts are written to the `release/` directory:
 - **Linux:** `QBZ-Downloader-<version>-x86_64.AppImage`, `.deb`, and `.tar.gz`
 
 ### Pre-Release Builds (CI Artifacts)
-When a fix has been merged to `main` but a formal release has not yet been cut, you can download the latest CI build directly from GitHub Actions:
+When a fix has been merged to `main` but a formal release has not yet been cut, you can build the current `main` from CI:
 
 1. Navigate to the [Actions tab](https://github.com/ifauzeee/QBZ-Downloader/actions) and select the **Desktop Release** workflow.
-2. Open the latest green-checkmarked run.
-3. Scroll down to the **Artifacts** section and download your platform's bundle:
-   - `Windows-Installer` — the `.exe` installer
-   - `macOS-DMG` — the `.dmg` disk image
-   - `Linux-AppImage` — the portable `.AppImage`
+2. Trigger it with **Run workflow** (the workflow only runs automatically for `v*` tags).
+3. Open the run and, once it is green, download your platform's bundle from the **Artifacts** section:
+   - `qbz-desktop-release` — the Windows `.exe` installer and portable build
+   - `macos-build` — the `.dmg` and `.zip`
+   - `linux-build` — the `.AppImage`, `.deb` and `.tar.gz`
 4. Extract the archive and run the installer. No build tools are required.
 
-> These builds are compiled from the latest `main` branch using the same CI pipeline that produces official releases. They are functionally identical to a tagged release — the only difference is the absence of a version tag.
+> These builds are compiled from the selected branch using the same CI pipeline that produces official releases. They are functionally identical to a tagged release — the only difference is the absence of a version tag.
 
 ### Docker (for NAS / Headless Servers)
 A pre-built multi-architecture Docker image is available for server and NAS deployments. It bundles ffmpeg, fpcalc, and the full dashboard behind a password-protected web interface.
