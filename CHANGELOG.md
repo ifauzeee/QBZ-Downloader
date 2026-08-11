@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.5.2] - 2026-08-11
+
+### Security
+- **Dashboard authentication hardened** — The dashboard is now protected from request smuggling, CSRF, and DNS-rebinding attacks: routes are matched case-sensitively, requests are validated against the expected `Host` header, `Origin`/`Referer` is checked on state-changing requests, socket.io validates its origin, and the authentication endpoint is rate-limited. A random handshake token (`DESKTOP_HANDSHAKE_TOKEN` → `QBZ_DESKTOP_TOKEN`) is generated for desktop mode and sent via the `x-qbz-desktop-token` header instead of the query string (see PR #119).
+- **Process invocation hardened** — All `exec`/`execSync` shell calls replaced with `execFile` and explicit argv arrays: quality scanner, format converter, library scanner worker, and the binary availability probe (which also gained a 10s timeout and 60s memoization so a hung binary can't block the event loop). Format conversion validates the target format/bitrate against an allowlist (see PR #119).
+- **SSRF protection for outbound requests** — New `src/utils/net.ts` guards URLs from request bodies: only public http(s) allowed (private/link-local/loopback/CGNAT IPv4+IPv6 and localhost blocked), 25 MB size cap, 3-hop redirect limit with per-hop re-check. Applied to cover art, library, and tools routes; CORS wildcard removed from catalog routes; media server URLs must be http(s) with tokens moved from query strings to headers and a connection timeout (see PR #119).
+- **Config backup whitelist** — Backups only restore known setting keys (exported `KNOWN_SETTING_KEYS`), so a crafted backup can't inject arbitrary config (see PR #119).
+- **SQLite LIKE wildcard escaping** — User input in search queries is escaped so `%`/`_` can't be abused; library routes cap pagination and only accept scan paths inside the library directory (see PR #119).
+- **Encryption key corruption handling** — The key file is validated (32-byte hex) and written atomically (temp + rename); a truncated/corrupted key is detected and regenerated with a warning instead of silently producing a zero-length key (see PR #119).
+
+### Fixed
+- **macOS "app is damaged" on Apple Silicon (arm64 builds) — for real this time** — The 5.5.1 ad-hoc signing hook never actually signed anything: its Mach-O magic check compared a 4-byte buffer against a 16-byte constant with `every()`, which always returned false, and the collector only traversed inside the bundle, skipping the top-level `.app`. The hook now uses `MACHO_MAGICS.some(buf.equals(...))`, signs the app bundle itself, fails the build when zero binaries are signed, and verifies with `codesign --verify --deep --strict`. The release workflow now also verifies version consistency before building and uploads macOS artifacts even when packaging fails (see issue #107, PR #117).
+- **Partial files left behind after failed downloads** — Downloads are staged to a `.qbz-part` file and only renamed on success; interrupted transfers resume via partial path matching, and `skipExisting` no longer mis-detects (see PR #118).
+- **Empty album/playlist downloads produced corrupt zips** — Queues that finish with zero tracks now report `partial` instead of writing an empty archive; queue items are deduplicated and concurrency is read from settings at runtime (see PR #118).
+- **UI bugs in player, queue, and settings** — `AudioContext` is closed on unmount to stop memory leaks, the editor resets after save, and queue/player state updates are more reliable (see PR #118).
+
+### Tests
+- **New coverage for the fixes above** — `scripts/adhoc-sign-mac.test.mjs` (signing hook), dashboard hardening tests (`src/services/dashboard/index.test.ts`), media server guard tests, format converter allowlist tests, and download/queue regression tests.
+
+---
+
 ## [5.5.1] - 2026-08-10
 
 ### Fixed
