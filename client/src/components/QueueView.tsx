@@ -71,6 +71,7 @@ export const QueueView: React.FC = () => {
     const parentRef = useRef<HTMLDivElement>(null);
     const [scrollMargin, setScrollMargin] = React.useState(0);
     const listRef = useRef<HTMLDivElement>(null);
+    const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (listRef.current && parentRef.current) {
@@ -91,9 +92,20 @@ export const QueueView: React.FC = () => {
 
         fetchQueue();
 
+        // The server emits queue:update once per second and item:* on every
+        // state change. Refetching per event burned through the API rate limit
+        // during a large batch, after which every dashboard request 429'd.
+        const scheduleFetch = () => {
+            if (refreshTimer.current) return;
+            refreshTimer.current = setTimeout(() => {
+                refreshTimer.current = null;
+                fetchQueue();
+            }, 1000);
+        };
+
         const handleQueueUpdate = (newStats: any) => {
             setStats(newStats);
-            fetchQueue();
+            scheduleFetch();
         };
 
         const handleStats = (newStats: any) => {
@@ -105,7 +117,7 @@ export const QueueView: React.FC = () => {
         };
 
         const handleRefresh = () => {
-            fetchQueue();
+            scheduleFetch();
         };
 
         socket.on('queue:update', handleQueueUpdate);
@@ -116,6 +128,10 @@ export const QueueView: React.FC = () => {
         socket.on('item:progress', handleItemProgress);
 
         return () => {
+            if (refreshTimer.current) {
+                clearTimeout(refreshTimer.current);
+                refreshTimer.current = null;
+            }
             socket.off('queue:update', handleQueueUpdate);
             socket.off('queue:stats', handleStats);
             socket.off('item:added', handleRefresh);

@@ -524,7 +524,7 @@ export class LibraryScannerService extends EventEmitter {
 
     private async checkQobuzUpgrades(filePathsToCheck?: Set<string>): Promise<number> {
         const db = databaseService.getDb();
-        const allFiles = databaseService.getLibraryFiles(10000, 0) as unknown as {
+        const allFiles = databaseService.getLibraryFiles(1_000_000, 0) as unknown as {
             file_path: string;
             track_id?: string | null;
             available_quality?: number | null;

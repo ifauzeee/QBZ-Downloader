@@ -119,6 +119,19 @@ export default class DownloadService {
         return this.normalizeComparablePath(left) === this.normalizeComparablePath(right);
     }
 
+    /**
+     * Staging path for an in-flight download. Deterministic on purpose: a
+     * timestamped name would never match the path recorded by resumeService,
+     * so an interrupted transfer could never be resumed. The extension is kept
+     * because writeMetadata and the quality scanner dispatch on it.
+     */
+    private buildPartialPath(filePath: string): string {
+        const dir = path.dirname(filePath);
+        const ext = path.extname(filePath);
+        const base = path.basename(filePath, ext);
+        return path.join(dir, `${base}.qbz-part${ext}`);
+    }
+
     private buildReplacementPath(filePath: string): string {
         const dir = path.dirname(filePath);
         const ext = path.extname(filePath);
@@ -346,7 +359,12 @@ export default class DownloadService {
         const isSamePathUpgrade =
             !!sourcePath && existsSync(sourcePath) && this.pathsEqual(sourcePath, filePath);
         const shouldReplaceExisting = existsSync(filePath) && !options.skipExisting;
-        const workingFilePath = shouldReplaceExisting ? this.buildReplacementPath(filePath) : filePath;
+        // Always stage into a sibling and promote on success. Writing straight
+        // to the final path meant a crash or a kill mid-transfer left a
+        // truncated file there, which `skipExisting` then treated as a finished
+        // download forever. The name is deterministic so resumeService can
+        // still match the partial across a restart.
+        const workingFilePath = this.buildPartialPath(filePath);
 
         if (isSamePathUpgrade) {
             logger.info(
@@ -468,8 +486,8 @@ export default class DownloadService {
                 }
             }
 
+            this.replaceExistingFile(workingFilePath, filePath);
             if (shouldReplaceExisting) {
-                this.replaceExistingFile(workingFilePath, filePath);
                 logger.info(`Replaced existing file after successful download: ${filePath}`, 'DOWNLOAD');
             }
 
@@ -497,7 +515,7 @@ export default class DownloadService {
 
             resumeService.completeDownload(trackId.toString());
 
-            this.updateDatabase(trackId, metadata, actualQuality, finalFilePath, size, md5, track, album as Album, scanResult);
+            await this.updateDatabase(trackId, metadata, actualQuality, finalFilePath, size, md5, track, album as Album, scanResult);
 
             mediaServerService.notifyNewContent({
                 title: metadata.title,
@@ -510,13 +528,14 @@ export default class DownloadService {
             return { success: true, filePath, quality: actualQuality, metadata, lyrics: lyricsResult as LyricsResult };
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
-            const cleanupPath = shouldReplaceExisting ? workingFilePath : filePath;
-            if (existsSync(cleanupPath) && (!this.pathsEqual(cleanupPath, filePath) || !shouldReplaceExisting)) {
+            // Only ever the staging file: the previously downloaded track at
+            // filePath is left untouched by a failed re-download.
+            if (existsSync(workingFilePath)) {
                 // Log before discarding: this deletion is silent otherwise, so a
                 // late-stage failure looks to the user like the file was never
                 // downloaded at all.
-                logger.warn(`Removing incomplete download "${cleanupPath}": ${message}`, 'DOWNLOAD');
-                unlinkSync(cleanupPath);
+                logger.warn(`Removing incomplete download "${workingFilePath}": ${message}`, 'DOWNLOAD');
+                unlinkSync(workingFilePath);
             }
             resumeService.completeDownload(trackId.toString());
             return { success: false, error: message };
@@ -551,21 +570,24 @@ export default class DownloadService {
         _album: Album,
         scanResult?: QualityReport
     ) {
-        historyService.add(trackId, {
-            filename: filePath,
-            quality: quality,
-            title: metadata.title,
-            artist: metadata.artist,
-            albumArtist: metadata.albumArtist || metadata.artist,
-            album: metadata.album,
-            qualityScan: scanResult ? {
-                isTrueLossless: scanResult.isTrueLossless,
-                confidence: scanResult.confidence,
-                details: scanResult.details
-            } : undefined
-        });
-
+        // Inside the try: a SQLite failure here used to escape as an unhandled
+        // rejection (the caller did not await), and once awaited it would reach
+        // downloadTrack's catch, which deletes the finished audio file.
         try {
+            historyService.add(trackId, {
+                filename: filePath,
+                quality: quality,
+                title: metadata.title,
+                artist: metadata.artist,
+                albumArtist: metadata.albumArtist || metadata.artist,
+                album: metadata.album,
+                qualityScan: scanResult ? {
+                    isTrueLossless: scanResult.isTrueLossless,
+                    confidence: scanResult.confidence,
+                    details: scanResult.details
+                } : undefined
+            });
+
             const { databaseService } = await import('./database/index.js');
             databaseService.addTrack({
                 id: trackId.toString(),
@@ -641,6 +663,7 @@ export default class DownloadService {
  
         const promises = tracks.map((track: Track) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
             album,
+            skipExisting: options.skipExisting,
             isCancelled: options.isCancelled,
             onProgress: (p) => {
                 if (options.onProgress) options.onProgress(track.id.toString(), {
@@ -697,6 +720,9 @@ export default class DownloadService {
 
         return {
             success: completed > 0,
+            // The batch/zip path reads `tracks` to collect the files it just
+            // produced; leaving it unset made every album/playlist zip empty.
+            tracks: results,
             completedTracks: completed,
             totalTracks: results.length,
             failedTracks: failedItems.length
@@ -720,6 +746,7 @@ export default class DownloadService {
         const tracks = playlist.tracks.items;
  
         const promises = tracks.map((track: Track) => this.concurrencyLimit(() => this.downloadTrack(track.id, requestedQuality, {
+            skipExisting: options.skipExisting,
             isCancelled: options.isCancelled,
             onProgress: (p) => {
                 if (options.onProgress) options.onProgress(track.id.toString(), {
@@ -783,6 +810,9 @@ export default class DownloadService {
 
         return {
             success: completed > 0,
+            // The batch/zip path reads `tracks` to collect the files it just
+            // produced; leaving it unset made every album/playlist zip empty.
+            tracks: results,
             completedTracks: completed,
             totalTracks: results.length,
             failedTracks: failedItems.length

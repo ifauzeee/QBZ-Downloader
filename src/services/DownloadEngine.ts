@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import path from 'path';
 import { createWriteStream, createReadStream } from 'fs';
 import { downloadFile } from '../utils/network.js';
 import { logger } from '../utils/logger.js';
@@ -71,12 +72,24 @@ export class DownloadEngine {
         const headers: Record<string, string> = {};
         let isResuming = false;
 
-        if (resumeService.canResume(trackId)) {
+        // The recorded partial has to be the file we are about to write, not
+        // just the same track id: the byte offset and the re-hash below both
+        // apply to `filePath`, so resuming against a different recorded path
+        // would append to one file using another file's length.
+        const partial = resumeService.getPartial(trackId);
+        const partialMatchesTarget =
+            !!partial && path.resolve(partial.filePath) === path.resolve(filePath);
+
+        if (partialMatchesTarget && resumeService.canResume(trackId)) {
             downloaded = resumeService.getResumePosition(trackId);
             headers['Range'] = `bytes=${downloaded}-`;
             isResuming = true;
             logger.info(`Resuming download for ${metadata.title} from ${downloaded} bytes`, 'DOWNLOAD');
         }
+
+        // Captured once: reading it again later re-stats the file as it grows,
+        // which made every resumed download report ~0 B/s.
+        const resumeStartOffset = downloaded;
 
         const response = await downloadFile(url, { headers });
         
@@ -174,7 +187,7 @@ export class DownloadEngine {
                         const currentTime = Date.now();
                         if (currentTime - lastProgressEmit >= 100 || (effectiveTotalLength > 0 && downloaded >= effectiveTotalLength)) {
                             const elapsed = (currentTime - startTime) / 1000;
-                            const speed = elapsed > 0 ? (downloaded - (isResuming ? resumeService.getResumePosition(trackId) : 0)) / elapsed : 0;
+                            const speed = elapsed > 0 ? (downloaded - resumeStartOffset) / elapsed : 0;
 
                             onProgress({
                                 phase: 'download',

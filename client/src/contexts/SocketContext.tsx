@@ -26,8 +26,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             socketInstance = io('/', {
                 auth: { password },
                 transports: ['websocket', 'polling'],
-                reconnectionAttempts: 5,
-                reconnectionDelay: 1000
+                // Giving up after 5 attempts left the dashboard permanently
+                // dead — and still showing "Reconnecting" — after any restart
+                // that took more than ~5s. Back off instead of stopping.
+                reconnectionAttempts: Infinity,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 10000
             });
 
             socketInstance.on('connect', () => {
@@ -47,6 +51,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 console.error('Socket connection error:', err.message);
                 if (err.message === 'Authentication failed') {
                     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                    // Unlimited retries must not hammer the server with a
+                    // password that is never going to be accepted.
+                    socketInstance?.io.reconnection(false);
                 }
             });
 

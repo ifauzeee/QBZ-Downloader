@@ -93,6 +93,10 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
         if (!track) return;
         setLyrics(null);
         setLyricsRaw('');
+        // The editor only renders when lyricsRaw is non-empty, so a click on a
+        // track without lyrics left showEditor stuck true and the editor sprang
+        // open unrequested on the next track that had them.
+        setShowEditor(false);
 
         smartFetch(`/api/lyrics/${track.id}`)
             .then(res => res ? res.json() : null)
@@ -457,7 +461,17 @@ export const Player: React.FC<PlayerProps> = ({ sidebarCollapsed = false }) => {
                     )}
                 </div>
                 <div className="lyrics-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-start', marginTop: '4px' }}>
-                    <button className="icon-btn" onClick={() => setShowEditor(true)} title="Edit Lyrics">
+                    <button
+                        className="icon-btn"
+                        onClick={() => {
+                            if (!lyricsRaw) {
+                                showToast('No lyrics available to edit', 'error');
+                                return;
+                            }
+                            setShowEditor(true);
+                        }}
+                        title="Edit Lyrics"
+                    >
                         <Icons.Edit width={20} />
                     </button>
                     <button className="icon-btn" onClick={() => setIsLyricsFullscreen(!isLyricsFullscreen)} title="Toggle Fullscreen">

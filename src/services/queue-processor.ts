@@ -7,6 +7,8 @@ import { logger } from '../utils/logger.js';
 import { QueueItem } from './queue/types.js';
 import { CONFIG } from '../config.js';
 import { notifyDownloadComplete, notifyDownloadError } from './notifications.js';
+import { eventBus, EVENTS } from '../utils/events.js';
+import { globalApiLimit } from '../utils/limit.js';
 
 /** Hydration passes to spend on one queue item before treating it as unresolvable. */
 const MAX_HYDRATION_ATTEMPTS = 3;
@@ -116,6 +118,19 @@ export class QueueProcessor {
         }
 
         this.isStarted = true;
+
+        // MAX_CONCURRENCY is editable in the UI but the queue was constructed
+        // with a hardcoded 2 and the API limiter was frozen at import time, so
+        // the setting had no effect at all. Applied here — after settings and
+        // the database are initialised — and re-applied whenever it changes.
+        const applyConcurrency = () => {
+            const concurrent = CONFIG.download.concurrent || 2;
+            downloadQueue.setMaxConcurrent(concurrent);
+            globalApiLimit.concurrency = concurrent;
+        };
+        applyConcurrency();
+        eventBus.on(EVENTS.SETTINGS.UPDATED, applyConcurrency);
+
         this.setupEvents();
         void this.startMetadataHydration();
         void this.processNext();

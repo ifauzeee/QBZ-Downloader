@@ -15,7 +15,8 @@ vi.mock('./queue/queue.js', () => ({
         get: vi.fn(),
         updateProgress: vi.fn(),
         updateQuality: vi.fn(),
-        requeue: vi.fn()
+        requeue: vi.fn(),
+        setMaxConcurrent: vi.fn()
     }
 }));
 

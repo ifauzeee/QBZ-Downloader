@@ -194,6 +194,9 @@ vi.mock('fs', async (importOriginal) => {
     const mockExistsSync = vi.fn().mockReturnValue(false);
     const mockMkdirSync = vi.fn();
     const mockWriteFileSync = vi.fn();
+    // Downloads are staged to a .qbz-part sibling and promoted on success.
+    const mockRenameSync = vi.fn();
+    const mockUnlinkSync = vi.fn();
     const mockCreateWriteStream = vi.fn().mockReturnValue({
         on: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }, event, cb) {
             if (event === 'finish') setTimeout(cb, 10);
@@ -215,12 +218,16 @@ vi.mock('fs', async (importOriginal) => {
         existsSync: mockExistsSync,
         mkdirSync: mockMkdirSync,
         writeFileSync: mockWriteFileSync,
+        renameSync: mockRenameSync,
+        unlinkSync: mockUnlinkSync,
         createWriteStream: mockCreateWriteStream,
         default: {
             ...actual,
             existsSync: mockExistsSync,
             mkdirSync: mockMkdirSync,
             writeFileSync: mockWriteFileSync,
+            renameSync: mockRenameSync,
+            unlinkSync: mockUnlinkSync,
             createWriteStream: mockCreateWriteStream
         }
     };

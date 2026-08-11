@@ -21,14 +21,21 @@ const crypto = require('crypto');
 // header stays unreadable to a cross-origin page.
 const DESKTOP_HANDSHAKE_TOKEN = crypto.randomBytes(32).toString('hex');
 
-async function findAvailablePort(startPort) {
-  return new Promise((resolve) => {
+async function findAvailablePort(startPort, attempts = 100) {
+  return new Promise((resolve, reject) => {
+    // Without a bound, a port above 65535 (or a busy range) recursed until the
+    // stack gave out and the app came up with no window and no error.
+    if (!Number.isInteger(startPort) || startPort < 1024 || startPort > 65535 || attempts <= 0) {
+      reject(new Error(`No available port found starting from ${startPort}`));
+      return;
+    }
+
     const server = net.createServer();
     server.unref();
     server.on('error', () => {
-      resolve(findAvailablePort(startPort + 1));
+      findAvailablePort(startPort + 1, attempts - 1).then(resolve, reject);
     });
-    server.listen(startPort, () => {
+    server.listen(startPort, '127.0.0.1', () => {
       server.close(() => {
         resolve(startPort);
       });
@@ -296,6 +303,9 @@ function migrateLegacyState(targetDir) {
   if (fs.existsSync(markerPath)) return;
 
   const candidates = uniqueExisting([process.env.QBZ_MIGRATE_FROM]);
+  // Nothing to migrate from: leave the marker unwritten so a later run with
+  // QBZ_MIGRATE_FROM set still gets a chance to migrate.
+  if (candidates.length === 0) return;
 
   const migrated = [];
 
@@ -306,6 +316,12 @@ function migrateLegacyState(targetDir) {
       migrated.push(`data/qbz.db <= ${candidate}`);
       copyIfMissing(path.join(candidate, 'data', 'qbz.db-wal'), path.join(targetDir, 'data', 'qbz.db-wal'));
       copyIfMissing(path.join(candidate, 'data', 'qbz.db-shm'), path.join(targetDir, 'data', 'qbz.db-shm'));
+      // Without the key file every encrypted credential in the copied database
+      // decrypts to garbage, and the user has to re-enter all of them.
+      copyIfMissing(
+        path.join(candidate, 'data', '.secret.key'),
+        path.join(targetDir, 'data', '.secret.key')
+      );
     }
 
     if (copyIfMissing(path.join(candidate, 'history.json'), path.join(targetDir, 'history.json'))) {
@@ -754,10 +770,12 @@ function registerIpc() {
 }
 
 async function bootstrap() {
-  const startPort = Number.parseInt(
+  const parsedPort = Number.parseInt(
     process.env.DESKTOP_DASHBOARD_PORT || process.env.DASHBOARD_PORT || '3210',
     10
   );
+  const startPort =
+    Number.isInteger(parsedPort) && parsedPort >= 1024 && parsedPort <= 65535 ? parsedPort : 3210;
   DESKTOP_PORT = await findAvailablePort(startPort);
   DASHBOARD_URL = `http://127.0.0.1:${DESKTOP_PORT}`;
 
@@ -822,11 +840,18 @@ if (!gotLock) {
     mainWindow.focus();
   });
 
-  app.whenReady().then(async () => {
-    setupSecurityHeaders();
-    registerIpc();
-    await bootstrap();
-  });
+  app.whenReady()
+    .then(async () => {
+      setupSecurityHeaders();
+      registerIpc();
+      await bootstrap();
+    })
+    // Otherwise a startup failure leaves a running process holding the single
+    // instance lock, and the next launch silently does nothing.
+    .catch((error) => {
+      console.error('Failed to start QBZ Downloader:', error);
+      app.quit();
+    });
 }
 
 app.on('before-quit', () => {
