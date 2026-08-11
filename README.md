@@ -236,11 +236,15 @@ QBZ-Downloader is developed and maintained by **Muhammad Ibnu Fauzi**, with valu
 <a href="https://github.com/ICHlMOKU">
   <img src="https://avatars.githubusercontent.com/u/57502530?v=4" width="48" height="48" alt="ICHlMOKU" style="border-radius: 50%;" />
 </a>
+<a href="https://github.com/MiguelGalrao">
+  <img src="https://avatars.githubusercontent.com/u/31900787?v=4" width="48" height="48" alt="MiguelGalrao" style="border-radius: 50%;" />
+</a>
 
 | Contributor | Role |
 |:------------|:-----|
 | [@ifauzeee](https://github.com/ifauzeee) | Project maintainer, core development, architecture |
 | [@ICHlMOKU](https://github.com/ICHlMOKU) | Docker CI/CD, cross-platform FLAC tagging fix, security hardening, path traversal protection, Unraid template, media route authentication, environment variable handling, HTTP login fix |
+| [@MiguelGalrao](https://github.com/MiguelGalrao) | macOS ad-hoc signing fix for "app is damaged" on Apple Silicon (issue #107), download engine bug fixes (partial files, skipExisting, empty zips, queue concurrency), dashboard security hardening |
 | [@dependabot](https://github.com/dependabot) | Automated dependency management and security updates |
 
 We welcome contributions of all kinds — bug reports, feature suggestions, documentation improvements, and pull requests.
