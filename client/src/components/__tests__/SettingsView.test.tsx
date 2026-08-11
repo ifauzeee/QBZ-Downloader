@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
     deleteTheme: vi.fn(),
     applyTheme: vi.fn(),
     resetTheme: vi.fn(),
-    sha256: vi.fn()
+    normalizePasswordForAuth: vi.fn()
 }));
 
 vi.mock('../../utils/api', () => ({
@@ -17,7 +17,7 @@ vi.mock('../../utils/api', () => ({
 }));
 
 vi.mock('../../utils/crypto', () => ({
-    sha256: mocks.sha256
+    normalizePasswordForAuth: mocks.normalizePasswordForAuth
 }));
 
 vi.mock('../../contexts/ToastContext', () => ({
@@ -124,7 +124,7 @@ function mockSettingsApi() {
 describe('SettingsView', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.sha256.mockResolvedValue('hashed-password');
+        mocks.normalizePasswordForAuth.mockResolvedValue('hashed-password');
         sessionStorage.clear();
         mockSettingsApi();
     });
@@ -195,7 +195,7 @@ describe('SettingsView', () => {
                 '"dashboard_password":"new-pass"'
             );
         });
-        expect(mocks.sha256).toHaveBeenCalledWith('new-pass');
+        expect(mocks.normalizePasswordForAuth).toHaveBeenCalledWith('new-pass');
         expect(sessionStorage.getItem('dashboard_password')).toBe('hashed-password');
     });
 });

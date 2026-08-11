@@ -28,6 +28,22 @@ export class DownloadQueue {
             metadata?: QueueItemMetadata;
         } = {}
     ): QueueItem {
+        // Two live items for the same content download into the same output
+        // path concurrently and interleave their writes. Completed and failed
+        // items are deliberately still re-addable.
+        const existing = Array.from(this.items.values()).find(
+            (item) =>
+                item.type === type &&
+                item.contentId.toString() === contentId.toString() &&
+                (item.status === 'pending' ||
+                    item.status === 'downloading' ||
+                    item.status === 'processing')
+        );
+        if (existing) {
+            logger.debug(`Queue: ${type} ${contentId} already queued (${existing.id})`);
+            return existing;
+        }
+
         const id = generateQueueId();
         const normalizedQuality = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const item: QueueItem = {

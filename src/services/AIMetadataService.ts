@@ -168,7 +168,10 @@ export class AIMetadataService {
         }, {
             headers: {
                 'x-goog-api-key': apiKey
-            }
+            },
+            // This sits on the download path; without a bound a hung provider
+            // stalls the queue indefinitely.
+            timeout: 30000
         });
 
         const parsedResponse = geminiResponseSchema.safeParse(response.data);
@@ -201,7 +204,8 @@ export class AIMetadataService {
             ],
             response_format: { type: 'json_object' }
         }, {
-            headers: { 'Authorization': `Bearer ${apiKey}` }
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            timeout: 30000
         });
 
         const parsedResponse = openAIResponseSchema.safeParse(response.data);

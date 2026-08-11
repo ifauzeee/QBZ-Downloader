@@ -13,6 +13,7 @@ vi.mock('../utils/network.js', () => ({
 
 vi.mock('./batch.js', () => ({
     resumeService: {
+        getPartial: vi.fn().mockReturnValue(undefined),
         canResume: vi.fn().mockReturnValue(false),
         getResumePosition: vi.fn().mockReturnValue(0),
         startDownload: vi.fn(),
@@ -156,7 +157,52 @@ describe('DownloadEngine', () => {
         await expect(downloadPromise).rejects.toThrow('selected Hi-Res candidate is likely unavailable');
     });
 
+    it('should not resume when the recorded partial points at a different file', async () => {
+        vi.mocked(resumeService.getPartial).mockReturnValue({
+            trackId: 'id',
+            filePath: 'some/other/file.flac',
+            bytesDownloaded: 500,
+            totalBytes: 1000,
+            quality: 27,
+            startedAt: new Date().toISOString()
+        });
+        vi.mocked(resumeService.canResume).mockReturnValue(true);
+        vi.mocked(resumeService.getResumePosition).mockReturnValue(500);
+
+        const mockDataStream = new EventEmitter();
+        (mockDataStream as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
+        (mockDataStream as unknown as Record<string, unknown>).destroy = vi.fn();
+
+        vi.mocked(network.downloadFile).mockResolvedValue({
+            status: 200,
+            headers: { 'content-length': '1000' },
+            data: mockDataStream
+        } as unknown as AxiosResponse);
+
+        void engine.download('url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27);
+
+        await vi.waitFor(() => {
+            if (vi.mocked(network.downloadFile).mock.calls.length === 0) {
+                throw new Error('not called');
+            }
+        });
+
+        // No Range header: the recorded offset belongs to another file, and
+        // applying it here would append to the wrong place.
+        const [, requestOptions] = vi.mocked(network.downloadFile).mock.calls[0]!;
+        expect((requestOptions as { headers?: Record<string, string> })?.headers?.Range).toBeUndefined();
+        expect(vi.mocked(fs.createReadStream)).not.toHaveBeenCalled();
+    });
+
     it('should handle resume if possible', async () => {
+        vi.mocked(resumeService.getPartial).mockReturnValue({
+            trackId: 'id',
+            filePath: 'path',
+            bytesDownloaded: 500,
+            totalBytes: 1000,
+            quality: 27,
+            startedAt: new Date().toISOString()
+        });
         vi.mocked(resumeService.canResume).mockReturnValue(true);
         vi.mocked(resumeService.getResumePosition).mockReturnValue(500);
 

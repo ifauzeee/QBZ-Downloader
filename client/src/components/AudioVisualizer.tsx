@@ -31,6 +31,20 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     // Keep track of which element we're connected to
     const connectedElementRef = useRef<HTMLAudioElement | null>(null);
 
+    // Browsers cap concurrent AudioContexts (~6 in Chrome). Opening and
+    // closing the player repeatedly without releasing them left the
+    // visualizer permanently dead until a page reload.
+    useEffect(
+        () => () => {
+            const ctx = audioContextRef.current;
+            audioContextRef.current = null;
+            analyserRef.current = null;
+            connectedElementRef.current = null;
+            if (ctx && ctx.state !== 'closed') ctx.close().catch(() => undefined);
+        },
+        []
+    );
+
     useEffect(() => {
         if (!audioElement || !isPlaying) {
             if (animationFrameRef.current) {

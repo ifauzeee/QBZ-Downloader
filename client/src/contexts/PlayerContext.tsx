@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 export interface PlaybackTrack {
     id: string;
@@ -57,22 +57,41 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [currentTrackIndex, setCurrentTrackIndex] = useState(-1);
     const [showQueue, setShowQueue] = useState(false);
 
-    const addToPlaybackQueue = (track: PlaybackTrack, playNow = false) => {
-        const exists = playQueue.findIndex(t => t.id === track.id);
+    // Player subscribes to the 'player:play' window event once, so it holds
+    // whichever addToPlaybackQueue it saw on first render. Reading the queue
+    // from a ref instead of the closed-over state keeps that stale callback
+    // correct — otherwise every play event rebuilt the queue from the empty
+    // array captured at mount and discarded everything already in it.
+    const playQueueRef = useRef<PlaybackTrack[]>([]);
+    const currentTrackIndexRef = useRef(-1);
+
+    useEffect(() => {
+        playQueueRef.current = playQueue;
+    }, [playQueue]);
+
+    useEffect(() => {
+        currentTrackIndexRef.current = currentTrackIndex;
+    }, [currentTrackIndex]);
+
+    const addToPlaybackQueue = useCallback((track: PlaybackTrack, playNow = false) => {
+        const current = playQueueRef.current;
+        const exists = current.findIndex(t => t.id === track.id);
         if (exists !== -1) {
             if (playNow) setCurrentTrackIndex(exists);
             return;
         }
-        
-        const newQueue = [...playQueue, track];
+
+        const newQueue = [...current, track];
+        // Updated eagerly so two events in the same tick both land.
+        playQueueRef.current = newQueue;
         setPlayQueue(newQueue);
-        
+
         if (playNow) {
             setCurrentTrackIndex(newQueue.length - 1);
-        } else if (currentTrackIndex === -1) {
+        } else if (currentTrackIndexRef.current === -1) {
             setCurrentTrackIndex(0);
         }
-    };
+    }, []);
 
 
     const removeFromQueue = (index: number) => {

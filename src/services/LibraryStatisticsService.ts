@@ -17,7 +17,8 @@ export interface LibraryStats {
 export class LibraryStatisticsService {
     async getLibraryStats(): Promise<LibraryStats> {
         try {
-            const tracks = databaseService.getAllTracks();
+            // Default page size is 100; whole-library statistics need the whole library.
+        const tracks = databaseService.getAllTracks(1_000_000, 0);
             
             const stats: LibraryStats = {
                 totalTracks: tracks.length,

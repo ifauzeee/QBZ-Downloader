@@ -402,6 +402,11 @@ export class DatabaseService {
         const row = stmt.get('db_version') as { value: string } | undefined;
         const currentVersion = row ? parseInt(row.value) : 0;
 
+        // Every migration step below swallows its own error so one failure does
+        // not abort startup. Recording DB_VERSION anyway made those failures
+        // permanent: the step never runs again and the column stays missing.
+        let migrationsOk = true;
+
         if (currentVersion < 2) {
             try {
                 const tableInfo = this.db.prepare('PRAGMA table_info(tracks)').all() as {
@@ -419,6 +424,7 @@ export class DatabaseService {
                 }
             } catch (error: unknown) {
                 logger.warn(`Migration v2 partial: ${(error as Error).message}`, 'DB');
+                    migrationsOk = false;
             }
         }
 
@@ -441,6 +447,7 @@ export class DatabaseService {
                 }
             } catch (error: unknown) {
                 logger.warn(`Migration v3 partial: ${(error as Error).message}`, 'DB');
+                    migrationsOk = false;
             }
         }
 
@@ -460,6 +467,7 @@ export class DatabaseService {
                     }
                 } catch (error: unknown) {
                     logger.warn(`Migration v7 partial: ${(error as Error).message}`, 'DB');
+                    migrationsOk = false;
                 }
             }
 
@@ -479,6 +487,7 @@ export class DatabaseService {
                     }
                 } catch (error: unknown) {
                     logger.warn(`Migration v8 partial: ${(error as Error).message}`, 'DB');
+                    migrationsOk = false;
                 }
             }
 
@@ -498,6 +507,7 @@ export class DatabaseService {
                     }
                 } catch (error: unknown) {
                     logger.warn(`Migration v9 partial: ${(error as Error).message}`, 'DB');
+                    migrationsOk = false;
                 }
             }
 
@@ -519,6 +529,7 @@ export class DatabaseService {
                     }
                 } catch (error: unknown) {
                     logger.warn(`Migration v10 partial: ${(error as Error).message}`, 'DB');
+                    migrationsOk = false;
                 }
             }
 
@@ -540,6 +551,7 @@ export class DatabaseService {
                     }
                 } catch (error: unknown) {
                     logger.warn(`Migration v11 partial: ${(error as Error).message}`, 'DB');
+                    migrationsOk = false;
                 }
             }
 
@@ -574,7 +586,16 @@ export class DatabaseService {
                     }
                 } catch (error: unknown) {
                     logger.warn(`Migration v12 partial: ${(error as Error).message}`, 'DB');
+                    migrationsOk = false;
                 }
+            }
+
+            if (!migrationsOk) {
+                logger.error(
+                    `Migration to v${DB_VERSION} incomplete; version not recorded, will retry on next start`,
+                    'DB'
+                );
+                return;
             }
 
             this.db
@@ -630,7 +651,7 @@ export class DatabaseService {
             track.quality_scanned_at || null
         );
 
-        this.updateDailyStats('tracks');
+        this.updateDailyStats('tracks', track.file_size || 0);
         if (track.genre) this.updateGenreStats(track.genre, track.file_size || 0);
         if (track.quality) this.updateQualityStats(track.quality, track.file_size || 0);
         const artistForStats = track.album_artist || track.artist;
