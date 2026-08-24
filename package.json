@@ -200,7 +200,7 @@
     "flac-metadata": "^0.1.1",
     "gradient-string": "^2.0.2",
     "lru-cache": "^11.5.2",
-    "music-metadata": "^11.14.0",
+    "music-metadata": "^11.15.0",
     "node-id3": "^0.2.9",
     "p-limit": "^7.3.1",
     "socket.io": "^4.8.3",
