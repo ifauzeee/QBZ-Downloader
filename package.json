@@ -217,7 +217,7 @@
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.11",
     "copyfiles": "^2.4.1",
-    "electron": "^43.4.1",
+    "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.9.0",
     "globals": "^17.11.0",
