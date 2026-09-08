@@ -14,6 +14,12 @@ updates:
       - dependency-name: "@types/node"
         versions: [">=23.0.0"]
     groups:
+      # vitest + @vitest/* must always move in lockstep (peer-dep);
+      # solo major PRs fail `npm ci` with ERESOLVE.
+      vitest:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
       production-deps:
         dependency-type: production
         update-types:
@@ -24,6 +30,9 @@ updates:
         update-types:
           - minor
           - patch
+        exclude-patterns:
+          - 'vitest'
+          - '@vitest/*'
 
   - package-ecosystem: npm
     directory: /client
@@ -39,6 +48,12 @@ updates:
       - dependency-name: "@types/node"
         versions: [">=23.0.0"]
     groups:
+      # vitest + @vitest/* must always move in lockstep (peer-dep);
+      # solo major PRs fail `npm ci` with ERESOLVE.
+      vitest:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
       production-deps:
         dependency-type: production
         update-types:
@@ -49,6 +64,9 @@ updates:
         update-types:
           - minor
           - patch
+        exclude-patterns:
+          - 'vitest'
+          - '@vitest/*'
 
   - package-ecosystem: github-actions
     directory: /
