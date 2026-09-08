@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.5.3] - 2026-09-08
+
+### Fixed
+- **Download path resets on restart (desktop)** — The Electron shell injected its default folder through `DOWNLOADS_PATH` on every boot, and the settings init (since #119-follow-up `0b8919a`) mistook it for explicit config and overwrote the stored value. The default is now exported through `QBZ_DEFAULT_DOWNLOADS_PATH` and only used as a fallback, so a custom path survives restarts (see #137, PR #150). If your path was already reset, set it once more and it will stick.
+- **Transitive audit failures** — `qs`, `fast-uri`, `@xmldom/xmldom`, `@humanfs/node` bumped past their advisories via `npm audit fix` (lockfile only); `npm audit --audit-level=high` is clean in root and client (see PR #145).
+
+### Changed
+- **Node.js >= 22 required** (`engines`) — Vitest 5 needs Node 22+ and Vite 6.4+ (see PR #145).
+- **Vitest 4 → 5** (backend + client, with `@vitest/coverage-v8` in lockstep) — client `setupTests.ts` now imports `@testing-library/jest-dom/vitest`, required since Vitest 5 inlines the `expect` package (see PR #146, #147).
+- **Dependabot: lockstep `vitest` group** — `vitest` + `@vitest/*` always update in one PR so solo majors can no longer break `npm ci` with ERESOLVE (see PR #145).
+- Dependency refresh: `express-rate-limit` 8.7.0, `p-limit` 7.3.2, `zod` 4.5.x, `electron` 44.2.0, `eslint` 10.10.0 (see #138, #148, #149).
+
 ## [5.5.2] - 2026-08-11
 
 ### Security
