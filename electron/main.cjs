@@ -400,7 +400,13 @@ async function startBackend() {
     process.env.QBZ_DESKTOP = '1';
     process.env.QBZ_DESKTOP_TOKEN = DESKTOP_HANDSHAKE_TOKEN;
     process.env.NODE_ENV = process.env.NODE_ENV || (app.isPackaged ? 'production' : 'development');
-    process.env.DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || path.join(app.getPath('downloads'), 'QBZ-Downloader');
+    // Default download folder for desktop installs. Exported through a separate
+    // variable (never DOWNLOADS_PATH) so the settings init cannot mistake this
+    // default for explicit user config and overwrite the stored path (issue #137).
+    // An explicitly set DOWNLOADS_PATH keeps working untouched.
+    if (!process.env.DOWNLOADS_PATH) {
+      process.env.QBZ_DEFAULT_DOWNLOADS_PATH = path.join(app.getPath('downloads'), 'QBZ-Downloader');
+    }
 
     const serverEntry = path.join(baseAppPath, 'dist', 'index.js');
     await import(pathToFileURL(serverEntry).href);

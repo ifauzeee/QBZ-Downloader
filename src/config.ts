@@ -229,7 +229,14 @@ export const CONFIG: Config = {
 
     get download() {
         return getCachedConfig('download', () => ({
-            outputDir: getStr('DOWNLOADS_PATH', './downloads'),
+            // The desktop shell exports its OS download folder through
+            // QBZ_DEFAULT_DOWNLOADS_PATH (never DOWNLOADS_PATH), so this
+            // fallback default can never be mistaken for explicit user config
+            // and overwrite the stored path on restart (issue #137).
+            outputDir: getStr(
+                'DOWNLOADS_PATH',
+                process.env.QBZ_DEFAULT_DOWNLOADS_PATH || './downloads'
+            ),
             folderStructure: getStr('FOLDER_TEMPLATE', '{albumArtist}/{album}'),
             fileNaming: getStr('FILE_TEMPLATE', '{track_number}. {title}'),
             concurrent: getInt('MAX_CONCURRENCY', 2),
