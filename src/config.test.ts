@@ -108,3 +108,38 @@ describe('CONFIG environment fallback (server / container installs)', () => {
         expect(CONFIG.dashboard.host).toBe('127.0.0.1');
     });
 });
+
+describe('CONFIG desktop download-path default (issue #137)', () => {
+    afterEach(() => {
+        process.env = { ...originalEnv };
+        vi.resetModules();
+        vi.doUnmock('./services/settings.js');
+    });
+
+    it('uses QBZ_DEFAULT_DOWNLOADS_PATH when nothing is stored and DOWNLOADS_PATH is unset', async () => {
+        delete process.env.DOWNLOADS_PATH;
+        process.env.QBZ_DEFAULT_DOWNLOADS_PATH = 'C:/Users/Downloads/QBZ-Downloader';
+
+        const { CONFIG } = await loadConfigWithSettings({});
+
+        expect(CONFIG.download.outputDir).toBe('C:/Users/Downloads/QBZ-Downloader');
+    });
+
+    it('keeps the stored path when only the desktop default is present', async () => {
+        delete process.env.DOWNLOADS_PATH;
+        process.env.QBZ_DEFAULT_DOWNLOADS_PATH = 'C:/Users/Downloads/QBZ-Downloader';
+
+        const { CONFIG } = await loadConfigWithSettings({ DOWNLOADS_PATH: 'D:/Music' });
+
+        expect(CONFIG.download.outputDir).toBe('D:/Music');
+    });
+
+    it('lets an explicit DOWNLOADS_PATH win over the desktop default', async () => {
+        process.env.DOWNLOADS_PATH = 'E:/Explicit';
+        process.env.QBZ_DEFAULT_DOWNLOADS_PATH = 'C:/Users/Downloads/QBZ-Downloader';
+
+        const { CONFIG } = await loadConfigWithSettings({});
+
+        expect(CONFIG.download.outputDir).toBe('E:/Explicit');
+    });
+});
