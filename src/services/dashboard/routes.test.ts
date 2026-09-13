@@ -584,11 +584,4 @@ describe('Dashboard API Routes', () => {
         });
     });
 
-    describe('GET /api/download/:id', () => {
-        it('should return 404 for unknown id', async () => {
-            const res = await request(app).get('/api/download/unknown-id');
-
-            expect(res.status).toBe(404);
-        });
-    });
 });

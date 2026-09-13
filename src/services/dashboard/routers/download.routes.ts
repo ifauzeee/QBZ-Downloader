@@ -179,18 +179,6 @@ router.delete('/history', (req: Request, res: Response) => {
     res.json({ success: true });
 });
 
-router.get('/download/:id', (req: Request, res: Response) => {
-    const id = getParam(req.params.id);
-    const historyItem = historyService.get(id);
-    const queueItem = downloadQueue.get(id);
-    
-    if (historyItem || queueItem) {
-        res.json({ id, inHistory: !!historyItem, inQueue: !!queueItem, status: queueItem?.status || 'completed' });
-    } else {
-        res.status(404).json({ error: 'Item not found' });
-    }
-});
-
 router.get('/preview/:id', async (req: Request, res: Response) => {
     try {
         const { audioPreviewService } = await import('../../audio-preview/index.js');

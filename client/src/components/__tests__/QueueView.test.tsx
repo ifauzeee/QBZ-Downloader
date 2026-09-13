@@ -11,6 +11,11 @@ const mocks = vi.hoisted(() => ({
   connected: true,
   stats: { total: 0, downloading: 0, completed: 0, failed: 0, pending: 0 },
   queue: [] as any[],
+  addToQueue: vi.fn(),
+}));
+
+vi.mock('../../hooks/useQueueActions', () => ({
+  useQueueActions: () => ({ addToQueue: mocks.addToQueue, addToBatchStaging: vi.fn() }),
 }));
 
 vi.mock('../../utils/api', () => ({
