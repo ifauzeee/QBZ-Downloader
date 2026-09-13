@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.6.0] - 2026-09-13
+### Added
+- **Library file watcher** — New files, renames, and deletions in the library folders now trigger an incremental rescan automatically; no more manual "Scan Library" clicks after adding music (PR #152).
+- **Smart playlists** — Save a filter query as a dynamic playlist; it re-evaluates against the library every time it is opened, so new downloads appear automatically (PR #152).
+### Fixed
+- **History "Download" button re-queues** — History rows now re-queue the track through the shared queue action instead of redirecting the page to a dead JSON endpoint; the artist view sent an invalid URL payload to `/api/queue/add` (`type` + `id` is required) and silently failed (PR #152).
+- **Transitive audit failures** — `js-yaml` patched via `npm audit fix` (lockfile only) (PR #152).
+### Changed
+- **Dead code pruned (~1900 lines)** — Unused modules (`friendly-errors`, `input`, `i18n`), exports, events, and Electron IPC channels removed; `fast-average-color` and `@types/socket.io-client` dropped. `DownloadEngine` and `MetadataProcessor` classes converted to plain functions, settings cache made synchronous, sample-stream detection centralized into `isSampleStream`, and the unused download-status endpoint removed (PR #152).
 ## [5.5.3] - 2026-09-08
 
 ### Fixed
