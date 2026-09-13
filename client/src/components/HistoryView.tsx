@@ -5,6 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ConfirmModal } from './Modals';
 import { Icons } from './Icons';
+import { useQueueActions } from '../hooks/useQueueActions';
 
 interface HistoryItem {
     id: string;
@@ -14,7 +15,6 @@ interface HistoryItem {
     quality: number;
     filename: string;
     downloadedAt: string;
-    contentId: string;
 }
 
 const HistoryRow = React.memo(({ item, virtualItem, downloadFile, confirmDelete, t }: { item: HistoryItem, virtualItem: any, downloadFile: (id: string) => void, confirmDelete: (id: string) => void, t: (key: string) => string }) => {
@@ -44,7 +44,7 @@ const HistoryRow = React.memo(({ item, virtualItem, downloadFile, confirmDelete,
             <div>{getQualityLabel(item.quality)}</div>
             <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.filename}</div>
             <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => downloadFile(item.contentId || item.id)}>{t('action_download')}</button>
+                <button className="btn primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => downloadFile(item.id)}>{t('action_download')}</button>
                 {(window as any).qbzDesktop && (
                     <button 
                         className="btn secondary" 
@@ -65,6 +65,7 @@ export const HistoryView: React.FC = () => {
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [loading, setLoading] = useState(false);
     const { showToast } = useToast();
+    const { addToQueue } = useQueueActions();
     const { t } = useLanguage();
 
     const parentRef = useRef<HTMLDivElement>(null);
@@ -135,8 +136,8 @@ export const HistoryView: React.FC = () => {
     };
 
     const downloadFile = useCallback((id: string) => {
-        window.location.href = `/api/download/${id}`;
-    }, []);
+        void addToQueue('track', id);
+    }, [addToQueue]);
 
     const exportHistory = (format: string) => {
         window.location.href = `/api/history/export?format=${format}`;
