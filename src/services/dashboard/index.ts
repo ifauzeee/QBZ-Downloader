@@ -333,22 +333,11 @@ export class DashboardService {
             if (!password || isDesktop) return next();
 
             const providedPassword = socket.handshake.auth?.password;
-
-            if (providedPassword && typeof providedPassword === 'string' && password) {
-                try {
-                    const isPlainMatch = providedPassword.length === password.length && 
-                                       crypto.timingSafeEqual(Buffer.from(providedPassword), Buffer.from(password));
-                    if (isPlainMatch) return next();
-
-                    if (providedPassword.length === 64) {
-                        const expectedHash = crypto.createHash('sha256').update(password).digest('hex');
-                        if (crypto.timingSafeEqual(Buffer.from(providedPassword), Buffer.from(expectedHash))) {
-                            return next();
-                        }
-                    }
-                } catch {
-                    return next(new Error('Internal authentication error'));
-                }
+            if (
+                typeof providedPassword === 'string' &&
+                matchesDashboardPassword(providedPassword, password)
+            ) {
+                return next();
             }
 
             next(new Error('Authentication failed'));

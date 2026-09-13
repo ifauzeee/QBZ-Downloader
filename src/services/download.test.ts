@@ -20,12 +20,6 @@ vi.mock('fs', async (importOriginal) => {
     const actual = await importOriginal<typeof import('fs')>();
     return {
         ...actual,
-        readFileSync: vi.fn().mockImplementation((path, options) => {
-            if (path.toString().includes('package.json')) {
-                return JSON.stringify({ version: '5.2.0' });
-            }
-            return actual.readFileSync(path, options);
-        }),
         existsSync: vi.fn().mockReturnValue(true),
         mkdirSync: vi.fn(),
         unlinkSync: vi.fn(),
