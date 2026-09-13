@@ -7,7 +7,6 @@ class TokenManager extends EventEmitter {
     private token: string;
     private lastValidated: number = 0;
     private isValid: boolean | null = null;
-    private refreshInProgress: boolean = false;
 
     constructor() {
         super();
@@ -79,10 +78,6 @@ class TokenManager extends EventEmitter {
     clearValidation(): void {
         this.isValid = null;
         this.lastValidated = 0;
-    }
-
-    needsRefresh(): boolean {
-        return this.isValid === false;
     }
 
     getStatus(): { configured: boolean; valid: boolean | null; lastValidated: number | null } {
