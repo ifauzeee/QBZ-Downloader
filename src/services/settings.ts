@@ -73,7 +73,7 @@ export class SettingsService {
     private cache = new Map<string, { value: string; timestamp: number }>();
     private readonly CACHE_TTL = 5000; // 5 seconds
 
-    private ensureInitialized() {
+    ensureInitialized() {
         if (this.initialized) return;
 
         try {

@@ -24,17 +24,9 @@ export const eventBus = EventBus.getInstance();
 
 export const EVENTS = {
     DOWNLOAD: {
-        PROGRESS: 'download:progress',
-        COMPLETE: 'download:complete',
-        FAILED: 'download:failed'
-    },
-    QUEUE: {
-        UPDATE: 'queue:update'
+        PROGRESS: 'download:progress'
     },
     SETTINGS: {
         UPDATED: 'settings:updated'
-    },
-    SYSTEM: {
-        READY: 'system:ready'
     }
 } as const;

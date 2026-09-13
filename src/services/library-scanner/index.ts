@@ -8,8 +8,9 @@ import { databaseService } from '../database/index.js';
 import { historyService } from '../history.js';
 import { logger } from '../../utils/logger.js';
 import { CONFIG } from '../../config.js';
-import qobuzApi from '../../api/qobuz.js';
+import qobuzApi, { isSampleStream } from '../../api/qobuz.js';
 import { downloadFile } from '../../utils/network.js';
+import { sleep } from '../../utils/async.js';
 
 export interface LibraryFile {
     filePath: string;
@@ -634,7 +635,7 @@ export class LibraryScannerService extends EventEmitter {
                 };
                 this.currentProgress = progress;
                 this.emit('scan:progress', progress);
-                await this.delay(process.env.NODE_ENV === 'test' ? 0 : 50);
+                await sleep(process.env.NODE_ENV === 'test' ? 0 : 50);
             } catch (error: unknown) {
                 logger.debug(
                     `Error checking upgrade for ${file.file_path}: ${(error as Error).message}`,
@@ -777,7 +778,7 @@ export class LibraryScannerService extends EventEmitter {
                         duration?: number;
                     };
                     const formatId = data.format_id || 0;
-                    if (!data.url || data.sample || (data.duration && data.duration <= 30)) {
+                    if (!data.url || isSampleStream(data)) {
                         continue;
                     }
                     if (quality >= 7 && data.quality_verified === false) {
@@ -913,10 +914,6 @@ export class LibraryScannerService extends EventEmitter {
             27: 'FLAC 24/192'
         };
         return labels[quality] || `Q${quality}`;
-    }
-
-    private delay(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private async detectDuplicates(): Promise<number> {

@@ -7,9 +7,3 @@ import { CONFIG } from '../config.js';
  * multiple services (Download, Migration, Search) are active.
  */
 export const globalApiLimit = pLimit(CONFIG.download.concurrent || 4);
-
-/**
- * Global concurrency controller for external metadata/lyrics lookups.
- * Usually more relaxed than the main API.
- */
-export const globalMetadataLimit = pLimit(10);

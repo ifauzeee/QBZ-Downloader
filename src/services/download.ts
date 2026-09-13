@@ -11,8 +11,8 @@ import { Album, FileUrlData, Track, LyricsResult } from '../types/qobuz.js';
 import { historyService } from './history.js';
 import { resumeService } from './batch.js';
 
-import { DownloadEngine, DownloadProgress } from './DownloadEngine.js';
-import { MetadataProcessor } from './MetadataProcessor.js';
+import { downloadTrack, DownloadProgress } from './DownloadEngine.js';
+import { buildFolderPath, buildFilename, ensurePathSafety, sanitizeFilename } from './MetadataProcessor.js';
 import { qualityScannerService, QualityReport } from './QualityScannerService.js';
 import { mediaServerService } from './MediaServerService.js';
 import { formatConverterService } from './FormatConverterService.js';
@@ -82,27 +82,23 @@ export default class DownloadService {
     api: QobuzAPI;
     lyricsProvider: LyricsProvider;
     metadataService: MetadataService;
-    engine: DownloadEngine;
-    processor: MetadataProcessor;
 
     constructor(api: QobuzAPI = qobuzApi, lyricsProvider: LyricsProvider, metadataService: MetadataService) {
         this.api = api;
         this.lyricsProvider = lyricsProvider;
         this.metadataService = metadataService;
-        this.engine = new DownloadEngine();
-        this.processor = new MetadataProcessor();
     }
 
     sanitizeFilename(name: string) {
-        return this.processor.sanitizeFilename(name);
+        return sanitizeFilename(name);
     }
 
     buildFolderPath(metadata: Metadata, quality: number) {
-        return this.processor.buildFolderPath(metadata, quality);
+        return buildFolderPath(metadata, quality);
     }
 
     buildFilename(metadata: Metadata, quality: number) {
-        return this.processor.buildFilename(metadata, quality);
+        return buildFilename(metadata, quality);
     }
 
     private getOutputDir(overrideDir?: string): string {
@@ -335,10 +331,10 @@ export default class DownloadService {
         if (options.onMetadata) options.onMetadata(metadata);
 
         const outputDir = this.getOutputDir(options.outputDir);
-        const rawFolderPath = this.processor.buildFolderPath(metadata, actualQuality);
-        const rawFilename = this.processor.buildFilename(metadata, actualQuality);
+        const rawFolderPath = buildFolderPath(metadata, actualQuality);
+        const rawFilename = buildFilename(metadata, actualQuality);
 
-        const { folder: safeFolder, file: safeFile } = this.processor.ensurePathSafety(
+        const { folder: safeFolder, file: safeFile } = ensurePathSafety(
             outputDir,
             rawFolderPath,
             rawFilename
@@ -383,7 +379,7 @@ export default class DownloadService {
         try {
             let lrcContent: string | null = null;
             
-            const { size, md5 } = await this.engine.download(
+            const { size, md5 } = await downloadTrack(
                 fileUrlData.url,
                 workingFilePath,
                 trackId.toString(),
@@ -692,8 +688,8 @@ export default class DownloadService {
                 try {
                     const tempMetadata = await this.metadataService.extractMetadata(tracks[0] as Track, album! as Album, {});
                     const outputDir = this.getOutputDir();
-                    const rawFolderPath = this.processor.buildFolderPath(tempMetadata, requestedQuality);
-                    const { folder: safeFolder } = this.processor.ensurePathSafety(
+                    const rawFolderPath = buildFolderPath(tempMetadata, requestedQuality);
+                    const { folder: safeFolder } = ensurePathSafety(
                         outputDir,
                         rawFolderPath,
                         'dummy.txt'
@@ -777,8 +773,8 @@ export default class DownloadService {
                         {}
                     );
                     const outputDir = this.getOutputDir();
-                    const rawFolderPath = this.processor.buildFolderPath(tempMetadata, requestedQuality);
-                    const { folder: safeFolder } = this.processor.ensurePathSafety(
+                    const rawFolderPath = buildFolderPath(tempMetadata, requestedQuality);
+                    const { folder: safeFolder } = ensurePathSafety(
                         outputDir,
                         rawFolderPath,
                         'dummy.txt'
