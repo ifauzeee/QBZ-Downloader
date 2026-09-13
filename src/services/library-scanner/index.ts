@@ -170,7 +170,7 @@ export class LibraryScannerService extends EventEmitter {
 
     private isScanning = false;
     private scanAborted = false;
-    private supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
+    readonly supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
     private api = qobuzApi;
     private static fpcalcAvailable: boolean | null = null;
     private currentProgress: ScanProgress | null = null;
