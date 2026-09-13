@@ -5,7 +5,7 @@ import { AxiosInstance, AxiosError, AxiosRequestConfig, AxiosResponse } from 'ax
 import crypto from 'crypto';
 import { CONFIG, normalizeDownloadQuality } from '../config.js';
 import { APIError, AuthenticationError } from '../utils/errors.js';
-import { refreshUserToken } from '../utils/token.js';
+import { tokenManager } from '../utils/token.js';
 import { URL_PATTERNS } from '../constants.js';
 import { settingsService } from '../services/settings.js';
 
@@ -24,6 +24,10 @@ interface ApiResponse<T = unknown> {
     success: boolean;
     data?: T;
     error?: string;
+}
+
+export function isSampleStream(data: { sample?: unknown; duration?: unknown }): boolean {
+    return !!(data.sample || (typeof data.duration === 'number' && data.duration <= 30));
 }
 
 export class QobuzAPI {
@@ -97,21 +101,8 @@ export class QobuzAPI {
                     !originalRequest._retry
                 ) {
                     originalRequest._retry = true;
-
-                    try {
-                        const newToken = await refreshUserToken();
-                        if (newToken) {
-                            this.token = newToken;
-
-                            if (originalRequest.params) {
-                                originalRequest.params.user_auth_token = newToken;
-                            }
-
-                            return this.client(originalRequest as AxiosRequestConfig);
-                        }
-                    } catch {
-                        return Promise.reject(error);
-                    }
+                    // No token refresh exists; a 401/403 just invalidates.
+                    tokenManager.markInvalid();
                 }
                 return Promise.reject(error);
             }
@@ -490,10 +481,7 @@ export class QobuzAPI {
                 response.data.format_id = detectedFormat;
                 response.data.quality_verified = qualityVerified;
 
-                if (
-                    response.data.sample ||
-                    (response.data.duration && response.data.duration <= 30)
-                ) {
+                if (isSampleStream(response.data)) {
                     logger.warn(`Track ${trackId} returned as a SAMPLE/PREVIEW (30s limit)`, 'API');
 
                     const debugInfo = {

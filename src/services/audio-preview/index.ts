@@ -1,7 +1,6 @@
 import { EventEmitter } from 'events';
-import qobuzApi from '../../api/qobuz.js';
+import qobuzApi, { isSampleStream } from '../../api/qobuz.js';
 import { logger } from '../../utils/logger.js';
-import { cacheService } from '../../utils/cache.js';
 import { CONFIG, normalizeDownloadQuality } from '../../config.js';
 import { LRUCache } from 'lru-cache';
 
@@ -84,12 +83,11 @@ class AudioPreviewService extends EventEmitter {
                 qualityLabel: QUALITY_LABELS[quality] || `Quality ${quality}`,
                 coverUrl: this.getCoverUrl(track.album?.image || {}),
                 waveform: this.generateWaveform(track.duration || 180),
-                isSample: !!(streamData.sample || (streamData.duration && streamData.duration <= 30)),
+                isSample: isSampleStream(streamData),
                 expiresAt: Date.now() + 30 * 60 * 1000
             };
 
             this.previewCache.set(trackId, previewInfo);
-            await cacheService.set(`preview:${trackId}`, previewInfo, 1800);
 
             return previewInfo;
         } catch (error: unknown) {
@@ -129,7 +127,7 @@ class AudioPreviewService extends EventEmitter {
                                     QUALITY_LABELS[data.format_id || preferredQuality] ||
                                     `Quality ${data.format_id}`,
                                 coverUrl: this.getCoverUrl(track.album?.image || {}),
-                                isSample: !!(data.sample || (data.duration && data.duration <= 30)),
+                                isSample: isSampleStream(data),
                                 expiresAt: Date.now() + 30 * 60 * 1000
                             };
                             this.previewCache.set(trackId, meta as PreviewInfo);

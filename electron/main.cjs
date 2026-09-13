@@ -587,17 +587,15 @@ function setupAutoUpdater() {
     });
   });
 
+  const updateChannelNotReady =
+    (message) =>
+      /404|status code 404|not found|cannot find latest|no published versions/.test(
+        (message || '').toLowerCase()
+      );
+
   autoUpdater.on('error', (error) => {
     const message = (error?.message || String(error)).trim();
-    const low = message.toLowerCase();
-    const channelNotReady =
-      low.includes('404') ||
-      low.includes('status code 404') ||
-      low.includes('not found') ||
-      low.includes('cannot find latest') ||
-      low.includes('no published versions');
-
-    if (channelNotReady) {
+    if (updateChannelNotReady(message)) {
       pushUpdateState({
         status: 'disabled',
         message: 'Update channel is not ready yet. Publish a release first.',
@@ -612,15 +610,8 @@ function setupAutoUpdater() {
 
   const checkNow = () => autoUpdater.checkForUpdates().catch((error) => {
     const message = (error?.message || String(error)).trim();
-    const low = message.toLowerCase();
-    const channelNotReady =
-      low.includes('404') ||
-      low.includes('status code 404') ||
-      low.includes('not found') ||
-      low.includes('cannot find latest') ||
-      low.includes('no published versions');
 
-    if (channelNotReady) {
+    if (updateChannelNotReady(message)) {
       pushUpdateState({
         status: 'disabled',
         message: 'Update channel is not ready yet. Publish a release first.',
@@ -677,15 +668,8 @@ function registerIpc() {
       return { ok: true };
     } catch (error) {
       const message = (error?.message || String(error)).trim();
-      const low = message.toLowerCase();
-      const channelNotReady =
-        low.includes('404') ||
-        low.includes('status code 404') ||
-        low.includes('not found') ||
-        low.includes('cannot find latest') ||
-        low.includes('no published versions');
 
-      if (channelNotReady) {
+      if (updateChannelNotReady(message)) {
         pushUpdateState({
           status: 'disabled',
           message: 'Update channel is not ready yet. Publish a release first.',
@@ -715,26 +699,6 @@ function registerIpc() {
 
 
 
-
-  // Proxy player events between windows
-  ipcMain.on('desktop:player:event', (event, type, data) => {
-    const windows = BrowserWindow.getAllWindows();
-    for (const win of windows) {
-      if (win.webContents !== event.sender) {
-        win.webContents.send('desktop:player:event', type, data);
-      }
-    }
-  });
-
-  ipcMain.on('desktop:show-notification', (event, { title, body }) => {
-    if (!Notification.isSupported()) return;
-    const iconPath = path.join(baseAppPath, 'assets', 'desktop', 'icon.png');
-    new Notification({
-      title: title || 'QBZ Downloader',
-      body: body,
-      icon: fs.existsSync(iconPath) ? iconPath : undefined
-    }).show();
-  });
 
   ipcMain.handle('desktop:select-folder', async (event, defaultPath) => {
     const { dialog } = require('electron');

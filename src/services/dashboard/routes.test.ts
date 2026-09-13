@@ -111,8 +111,7 @@ vi.mock('../settings.js', () => {
 
 vi.mock('../../utils/env.js', () => ({
     validateEnvironment: vi.fn().mockReturnValue({ valid: true, warnings: [] }),
-    displayEnvWarnings: vi.fn(),
-    getEnvSummary: vi.fn()
+    displayEnvWarnings: vi.fn()
 }));
 
 vi.mock('../../utils/validator.js', () => {
@@ -585,11 +584,4 @@ describe('Dashboard API Routes', () => {
         });
     });
 
-    describe('GET /api/download/:id', () => {
-        it('should return 404 for unknown id', async () => {
-            const res = await request(app).get('/api/download/unknown-id');
-
-            expect(res.status).toBe(404);
-        });
-    });
 });

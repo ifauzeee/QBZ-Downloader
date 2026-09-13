@@ -3,7 +3,7 @@ import { smartFetch } from '../utils/api';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useSettings } from '../contexts/SettingsContext';
+import { useQueueActions } from '../hooks/useQueueActions';
 import { playTrack } from './Player';
 import { Icons } from './Icons';
 
@@ -22,8 +22,8 @@ interface ListItem {
 export const ArtistListView: React.FC = () => {
     const { navData, navigate, activeTab } = useNavigation();
     const { t } = useLanguage();
-    const { addToStaging, settings } = useSettings();
     const { showToast } = useToast();
+    const { addToQueue, addToBatchStaging } = useQueueActions();
 
     const [items, setItems] = useState<ListItem[]>([]);
     const [artistName, setArtistName] = useState('');
@@ -72,31 +72,6 @@ export const ArtistListView: React.FC = () => {
             setOffset(newOffset);
             fetchItems(newOffset);
         }
-    };
-
-    const addToQueue = async (type: string, id: string) => {
-        try {
-            const url = `https://open.qobuz.com/${type}/${id}`;
-            await smartFetch('/api/queue/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
-            });
-            showToast(t('msg_added_to_queue'), 'success');
-        } catch (e) {
-            showToast('Failed to add to queue', 'error');
-        }
-    };
-
-    const addToBatchStaging = async (type: string, id: string) => {
-        const url = `https://open.qobuz.com/${type}/${id}`;
-        const existing = settings.UI_BATCH_STAGING_URLS || '';
-        if (existing.includes(url)) {
-            showToast('Already in Batch Staging', 'info');
-            return;
-        }
-        await addToStaging(url);
-        showToast('Added to Batch Staging', 'success');
     };
 
     return (

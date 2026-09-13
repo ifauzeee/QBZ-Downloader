@@ -3,7 +3,7 @@ import { smartFetch } from '../utils/api';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useSettings } from '../contexts/SettingsContext';
+import { useQueueActions } from '../hooks/useQueueActions';
 import { playTrack } from './Player';
 import { Icons } from './Icons';
 import type { ArtistData } from '../types/qobuz';
@@ -12,8 +12,8 @@ import type { ArtistData } from '../types/qobuz';
 export const ArtistDetailView: React.FC = () => {
     const { navData, setActiveTab, navigate } = useNavigation();
     const { t } = useLanguage();
-    const { addToStaging, settings } = useSettings();
     const { showToast } = useToast();
+    const { addToQueue, addToBatchStaging } = useQueueActions();
     const [artist, setArtist] = useState<ArtistData | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -49,38 +49,6 @@ export const ArtistDetailView: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const addToQueue = async (type: string, id: string | number) => {
-        if (!id) {
-            showToast('Invalid content ID', 'error');
-            return;
-        }
-        try {
-            const res = await smartFetch('/api/queue/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, id: String(id) })
-            });
-            if (res && res.ok) {
-                showToast(t('msg_added_to_queue') || 'Added to queue', 'success');
-            } else {
-                showToast('Failed to add to queue', 'error');
-            }
-        } catch (e) {
-            showToast('Network error', 'error');
-        }
-    };
-
-    const addToBatchStaging = async (type: string, id: string) => {
-        const url = `https://open.qobuz.com/${type}/${id}`;
-        const existing = settings.UI_BATCH_STAGING_URLS || '';
-        if (existing.includes(url)) {
-            showToast('Already in Batch Staging', 'info');
-            return;
-        }
-        await addToStaging(url);
-        showToast('Added to Batch Staging', 'success');
     };
 
     const downloadLyrics = async (trackId: string) => {

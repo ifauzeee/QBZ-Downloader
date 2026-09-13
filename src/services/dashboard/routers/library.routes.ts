@@ -7,6 +7,16 @@ import { formatConverterService } from '../../FormatConverterService.js';
 import { logger } from '../../../utils/logger.js';
 import { isPathWithinManagedRoots } from '../../../utils/paths.js';
 import { isPublicHttpUrl, MAX_IMAGE_BYTES, MAX_IMAGE_REDIRECTS } from '../../../utils/net.js';
+import {
+    listSmartPlaylists,
+    createSmartPlaylist,
+    deleteSmartPlaylist,
+    getSmartPlaylist,
+    parseSmartPlaylistFilter,
+    sanitizeSmartPlaylistFilter,
+    countTracksForFilter,
+    tracksForFilter
+} from '../../smart-playlists.js';
 
 const router = Router();
 
@@ -307,6 +317,44 @@ router.get('/database/search', async (req: Request, res: Response) => {
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });
     }
+});
+
+router.get('/smart-playlists', (_req: Request, res: Response) => {
+    res.json(listSmartPlaylists());
+});
+
+router.post('/smart-playlists', (req: Request, res: Response) => {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    if (!name || name.length > 100) {
+        res.status(400).json({ error: 'name is required (max 100 chars)' });
+        return;
+    }
+    const filter = sanitizeSmartPlaylistFilter(req.body?.filter);
+    if (!filter) {
+        res.status(400).json({ error: 'at least one filter condition is required' });
+        return;
+    }
+    const created = createSmartPlaylist(name, filter);
+    res.status(201).json({ ...created, track_count: countTracksForFilter(filter) });
+});
+
+router.delete('/smart-playlists/:id', (req: Request, res: Response) => {
+    const removed = deleteSmartPlaylist(getParam(req.params.id));
+    if (!removed) {
+        res.status(404).json({ error: 'Playlist not found' });
+        return;
+    }
+    res.json({ success: true });
+});
+
+router.get('/smart-playlists/:id/tracks', (req: Request, res: Response) => {
+    const playlist = getSmartPlaylist(getParam(req.params.id));
+    const filter = parseSmartPlaylistFilter(playlist);
+    if (!playlist || !filter) {
+        res.status(404).json({ error: 'Playlist not found' });
+        return;
+    }
+    res.json(tracksForFilter(filter));
 });
 
 export default router;

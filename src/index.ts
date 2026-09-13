@@ -9,6 +9,7 @@ import { historyService } from './services/history.js';
 import { validateEnvironment, displayEnvWarnings } from './utils/env.js';
 import { logger } from './utils/logger.js';
 import { playlistWatcherService } from './services/PlaylistWatcherService.js';
+import { libraryWatcher } from './services/LibraryWatcher.js';
 import { printLogo } from './utils/ui.js';
 import { CONFIG } from './config.js';
 
@@ -33,6 +34,7 @@ async function gracefulShutdown(signal: string) {
     logger.info('Dashboard service terminated.', 'WEB');
 
     playlistWatcherService.stop();
+    await libraryWatcher.stop();
 
     logger.success('System shutdown sequence completed successfully.', 'SYSTEM');
     process.exit(0);
@@ -55,7 +57,7 @@ async function main() {
 
             const { settingsService } = await import('./services/settings.js');
             // Force initialization to log setting count
-            (settingsService as unknown as { ensureInitialized: () => void }).ensureInitialized();
+            settingsService.ensureInitialized();
             
             await downloadQueue.load();
         } catch (error: unknown) {
@@ -93,6 +95,8 @@ async function main() {
 
         logger.info('Initializing Dashboard Service...', 'WEB');
         dashboardService.start();
+
+        libraryWatcher.start();
 
         // Check for ffmpeg if export is enabled
         if (CONFIG.export.enabled) {

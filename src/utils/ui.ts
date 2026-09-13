@@ -2,7 +2,7 @@ import boxen from 'boxen';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import { APP_VERSION } from '../constants.js';
-import { COLORS, GRADIENTS, SYMBOLS } from './theme.js';
+import { GRADIENTS } from './theme.js';
 
 export const printLogo = () => {
     console.clear();
@@ -30,29 +30,4 @@ export const printBox = (content: string, title = '', style = 'info') => {
             borderColor: borderColor
         })
     );
-};
-
-export const printHeader = (text: string) => {
-    console.log('\n' + chalk.bold.hex(COLORS.primary)(` ${SYMBOLS.arrow} ${text.toUpperCase()}`));
-    console.log(chalk.hex(COLORS.subtext)(SYMBOLS.line.repeat(50)));
-};
-
-export const printSection = (label: string, value: string | number) => {
-    console.log(`${chalk.hex(COLORS.primary).bold(label.padEnd(15))} : ${chalk.white(value)}`);
-};
-
-export const printSuccess = (msg: string) => {
-    console.log(chalk.hex(COLORS.success)(`\n ${SYMBOLS.success} ${msg}`));
-};
-
-export const printError = (msg: string) => {
-    console.log(chalk.hex(COLORS.error)(`\n ${SYMBOLS.error} ${msg}`));
-};
-
-export const printWarning = (msg: string) => {
-    console.log(chalk.hex(COLORS.warning)(`\n ${SYMBOLS.warning} ${msg}`));
-};
-
-export const printInfo = (msg: string) => {
-    console.log(chalk.hex(COLORS.primary)(`\n ${SYMBOLS.info} ${msg}`));
 };

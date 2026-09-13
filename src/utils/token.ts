@@ -7,7 +7,6 @@ class TokenManager extends EventEmitter {
     private token: string;
     private lastValidated: number = 0;
     private isValid: boolean | null = null;
-    private refreshInProgress: boolean = false;
 
     constructor() {
         super();
@@ -81,10 +80,6 @@ class TokenManager extends EventEmitter {
         this.lastValidated = 0;
     }
 
-    needsRefresh(): boolean {
-        return this.isValid === false;
-    }
-
     getStatus(): { configured: boolean; valid: boolean | null; lastValidated: number | null } {
         this.syncTokenFromConfig();
         return {
@@ -96,23 +91,3 @@ class TokenManager extends EventEmitter {
 }
 
 export const tokenManager = new TokenManager();
-
-export async function refreshUserToken(): Promise<string | null> {
-    const status = tokenManager.getStatus();
-
-    if (!status.configured) {
-        logger.warn('No token configured. Please set QOBUZ_USER_AUTH_TOKEN in Settings.', 'AUTH');
-        return null;
-    }
-
-    // Only mark invalid and notify if we haven't already marked it as invalid
-    if (status.valid !== false) {
-        logger.warn(
-            'Qobuz token is expired or invalid. Please go to Settings > Update Credentials to enter a new token.',
-            'AUTH'
-        );
-        tokenManager.markInvalid();
-    }
-
-    return null;
-}

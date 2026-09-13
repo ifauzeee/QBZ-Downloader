@@ -15,24 +15,24 @@ class CacheService {
         logger.debug('Cache service initialized (LRU)');
     }
 
-    async get(key: string): Promise<unknown | null> {
+    get(key: string): unknown | null {
         const value = this.cache.get(key);
         return value !== undefined ? value : null;
     }
 
-    async set(key: string, value: unknown, ttlSeconds: number = 3600): Promise<void> {
+    set(key: string, value: unknown, ttlSeconds: number = 3600): void {
         this.cache.set(key, value, {
             ttl: ttlSeconds * 1000
         });
     }
 
-    async delete(key: string): Promise<boolean> {
+    delete(key: string): boolean {
         const hadKey = this.cache.has(key);
         this.cache.delete(key);
         return hadKey;
     }
 
-    async clear(): Promise<void> {
+    clear(): void {
         this.cache.clear();
     }
 

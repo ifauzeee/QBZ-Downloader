@@ -9,6 +9,7 @@ import { CONFIG } from '../config.js';
 import { notifyDownloadComplete, notifyDownloadError } from './notifications.js';
 import { eventBus, EVENTS } from '../utils/events.js';
 import { globalApiLimit } from '../utils/limit.js';
+import { sleep } from '../utils/async.js';
 
 /** Hydration passes to spend on one queue item before treating it as unresolvable. */
 const MAX_HYDRATION_ATTEMPTS = 3;
@@ -90,16 +91,11 @@ function calculateRetryDelay(retryCount: number, category: ErrorCategory): numbe
     return Math.min(delay + jitter, 30000);
 }
 
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export class QueueProcessor {
     private api = qobuzApi;
     private downloadService: DownloadService;
     private lastErrorTime: number = 0;
     private consecutiveErrors: number = 0;
-    private runningTasks: Set<string> = new Set();
     private isHydrationRunning: boolean = false;
     private isStarted: boolean = false;
     /** Hydration attempts per content id, so an unresolvable item is dropped. */
@@ -253,11 +249,6 @@ export class QueueProcessor {
         let item: QueueItem | null;
         while ((item = downloadQueue.dequeue())) {
             const taskItem = item;
-            if (this.runningTasks.has(taskItem.id)) {
-                continue;
-            }
-
-            this.runningTasks.add(taskItem.id);
             logger.info(
                 `Processing item: ${taskItem.title || taskItem.contentId} (${taskItem.type})`,
                 'QUEUE'
@@ -279,8 +270,6 @@ export class QueueProcessor {
             this.consecutiveErrors = 0;
         } catch (error: unknown) {
             await this.handleError(item, error);
-        } finally {
-            this.runningTasks.delete(item.id);
         }
     }
 

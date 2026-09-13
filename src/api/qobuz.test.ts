@@ -37,7 +37,12 @@ vi.mock('../utils/logger.js', () => ({
 }));
 
 vi.mock('../utils/token.js', () => ({
-    refreshUserToken: vi.fn()
+    tokenManager: {
+        markInvalid: vi.fn(),
+        getToken: vi.fn(() => 'token'),
+        getStatus: vi.fn(() => ({ configured: true, valid: null, lastValidated: null })),
+        clearValidation: vi.fn()
+    }
 }));
 
 vi.mock('../services/settings.js', () => ({

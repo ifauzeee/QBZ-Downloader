@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import path from 'path';
-import { MetadataProcessor } from './MetadataProcessor.js';
+import { sanitizeFilename, applyTemplate, buildFolderPath, ensurePathSafety } from './MetadataProcessor.js';
 import type { Metadata } from './metadata.js';
 
 vi.mock('../config.js', () => ({
@@ -27,30 +27,23 @@ vi.mock('../utils/logger.js', () => ({
 }));
 
 describe('MetadataProcessor', () => {
-    let processor: MetadataProcessor;
-
-    beforeEach(() => {
-        vi.clearAllMocks();
-        processor = new MetadataProcessor();
-    });
-
     describe('sanitizeFilename', () => {
         it('should remove illegal characters', () => {
             const input = 'A/B\\C:D*E?F"G<H>I|J';
-            expect(processor.sanitizeFilename(input)).toBe('ABCDEFGHIJ');
+            expect(sanitizeFilename(input)).toBe('ABCDEFGHIJ');
         });
 
         it('should replace & with and', () => {
-            expect(processor.sanitizeFilename('Me & You')).toBe('Me and You');
+            expect(sanitizeFilename('Me & You')).toBe('Me and You');
         });
 
         it('should truncate long names', () => {
             const long = 'A'.repeat(200);
-            expect(processor.sanitizeFilename(long, 10).length).toBe(10);
+            expect(sanitizeFilename(long, 10).length).toBe(10);
         });
 
         it('should return Unknown for empty input', () => {
-            expect(processor.sanitizeFilename('')).toBe('Unknown');
+            expect(sanitizeFilename('')).toBe('Unknown');
         });
     });
 
@@ -65,18 +58,18 @@ describe('MetadataProcessor', () => {
 
         it('should replace placeholders correctly', () => {
             const template = '{artist} - {album} - {title} - {track_number} ({year})';
-            const result = processor.applyTemplate(template, metadata as unknown as Record<string, unknown>, 27);
+            const result = applyTemplate(template, metadata as unknown as Record<string, unknown>, 27);
             expect(result).toBe('Artist - Album - Track - 05 (2024)');
         });
 
         it('should use quality name', () => {
-            const result = processor.applyTemplate('{quality}', metadata as unknown as Record<string, unknown>, 5);
+            const result = applyTemplate('{quality}', metadata as unknown as Record<string, unknown>, 5);
             expect(result).toBe('MP3 320');
         });
 
         it('should handle missing metadata gracefully', () => {
             const emptyMeta = {};
-            const result = processor.applyTemplate('{artist} - {title}', emptyMeta as unknown as Record<string, unknown>, 27);
+            const result = applyTemplate('{artist} - {title}', emptyMeta as unknown as Record<string, unknown>, 27);
             expect(result).toBe('Unknown Artist - Unknown Title');
         });
     });
@@ -95,7 +88,7 @@ describe('MetadataProcessor', () => {
         const singleDisc = { ...disc2, discNumber: 1, totalDiscs: 1 };
 
         it('exposes the disc number and total', () => {
-            const result = processor.applyTemplate(
+            const result = applyTemplate(
                 '{disc_number}-{track_number} of {total_discs}',
                 disc2 as unknown as Record<string, unknown>,
                 27
@@ -104,7 +97,7 @@ describe('MetadataProcessor', () => {
         });
 
         it('renders {disc_folder} as CDn on a multi-disc release', () => {
-            const result = processor.applyTemplate(
+            const result = applyTemplate(
                 '{disc_folder}',
                 disc2 as unknown as Record<string, unknown>,
                 27
@@ -113,7 +106,7 @@ describe('MetadataProcessor', () => {
         });
 
         it('renders {disc_folder} empty on a single-disc release', () => {
-            const result = processor.applyTemplate(
+            const result = applyTemplate(
                 '{disc_folder}',
                 singleDisc as unknown as Record<string, unknown>,
                 27
@@ -122,7 +115,7 @@ describe('MetadataProcessor', () => {
         });
 
         it('defaults to disc 1 of 1 when the release carries no disc data', () => {
-            const result = processor.applyTemplate(
+            const result = applyTemplate(
                 '{disc_number}/{total_discs}[{disc_folder}]',
                 { title: 'T' } as unknown as Record<string, unknown>,
                 27
@@ -136,9 +129,9 @@ describe('MetadataProcessor', () => {
             CONFIG.download.folderStructure = '{albumArtist}/{album}/{disc_folder}';
 
             try {
-                expect(processor.buildFolderPath(disc2 as unknown as Metadata, 27))
+                expect(buildFolderPath(disc2 as unknown as Metadata, 27))
                     .toBe(path.join('Metallica', 'SandM', 'CD2'));
-                expect(processor.buildFolderPath(singleDisc as unknown as Metadata, 27))
+                expect(buildFolderPath(singleDisc as unknown as Metadata, 27))
                     .toBe(path.join('Metallica', 'SandM'));
             } finally {
                 CONFIG.download.folderStructure = original;
@@ -148,7 +141,7 @@ describe('MetadataProcessor', () => {
 
     describe('ensurePathSafety', () => {
         it('should return original paths if within limit', () => {
-            const result = processor.ensurePathSafety('C:\\Music', 'Artist\\Album', 'Track.flac');
+            const result = ensurePathSafety('C:\\Music', 'Artist\\Album', 'Track.flac');
             expect(result).toEqual({ folder: 'Artist\\Album', file: 'Track.flac' });
         });
 
@@ -157,7 +150,7 @@ describe('MetadataProcessor', () => {
             const folder = 'Some Artist\\Some Extremely Long Album Name That Goes On And On';
             const file = '01. This Is A Very Long Track Title That Might Cause Problems On Windows Systems.flac';
             
-            const result = processor.ensurePathSafety(base, folder, file);
+            const result = ensurePathSafety(base, folder, file);
             const totalLength = (base + result.folder + '\\' + result.file).length;
             expect(totalLength).toBeLessThanOrEqual(255);
             expect(result.file).toMatch(/\.flac$/);

@@ -4,9 +4,10 @@ import { useSocket } from '../contexts/SocketContext';
 import { smartFetch, getQualityLabel } from '../utils/api';
 import { Icons } from './Icons';
 import { useQueueStore, type QueueItem } from '../stores/queueStore';
+import { useQueueActions } from '../hooks/useQueueActions';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, handleDownload, t }: { item: QueueItem, virtualItem: any, scrollMargin: number, handleCancel: (id: string) => void, handleDownload: (id: string) => void, t: (key: string) => string }) => {
+const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, handleDownload, t }: { item: QueueItem, virtualItem: any, scrollMargin: number, handleCancel: (id: string) => void, handleDownload: (item: QueueItem) => void, t: (key: string) => string }) => {
     return (
         <div
             className="list-row"
@@ -43,7 +44,7 @@ const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, ha
                     <button className="btn danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleCancel(item.id)}>{t('action_cancel')}</button>
                 ) : (item.status === 'completed' || item.status === 'partial') ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn primary" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }} onClick={() => handleDownload(item.contentId)}>
+                        <button className="btn primary" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }} onClick={() => handleDownload(item)}>
                             <Icons.Download size={14} /> {t('action_download')}
                         </button>
                         {(window as any).qbzDesktop && (
@@ -65,6 +66,7 @@ const QueueRow = React.memo(({ item, virtualItem, scrollMargin, handleCancel, ha
 
 export const QueueView: React.FC = () => {
     const { t } = useLanguage();
+    const { addToQueue } = useQueueActions();
     const { socket, connected } = useSocket();
     const { stats, queue, setStats, fetchQueue, updateItemProgress } = useQueueStore();
 
@@ -155,9 +157,9 @@ export const QueueView: React.FC = () => {
         fetchQueue();
     }, [fetchQueue]);
 
-    const handleDownload = useCallback((contentId: string) => {
-        window.location.href = `/api/download/${contentId}`;
-    }, []);
+    const handleDownload = useCallback((item: QueueItem) => {
+        void addToQueue(item.type, item.contentId);
+    }, [addToQueue]);
 
     return (
         <div id="view-queue" ref={parentRef} className="view-section" style={{ display: 'block', overflowY: 'auto' }}>

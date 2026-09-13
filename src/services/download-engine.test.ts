@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DownloadEngine } from './DownloadEngine.js';
+import { describe, it, expect, vi } from 'vitest';
+import { downloadTrack } from './DownloadEngine.js';
 import * as network from '../utils/network.js';
 import { resumeService } from './batch.js';
 import { Metadata } from './metadata.js';
@@ -66,14 +66,7 @@ vi.mock('../config.js', () => ({
     }
 }));
 
-describe('DownloadEngine', () => {
-    let engine: DownloadEngine;
-
-    beforeEach(() => {
-        vi.clearAllMocks();
-        engine = new DownloadEngine();
-    });
-
+describe('downloadTrack', () => {
     it('should perform a clean download', async () => {
         const mockDataStream = new EventEmitter();
         (mockDataStream as unknown as Record<string, unknown>).pipe = vi.fn().mockReturnThis();
@@ -85,7 +78,7 @@ describe('DownloadEngine', () => {
             data: mockDataStream
         } as unknown as AxiosResponse);
 
-        const downloadPromise = engine.download(
+        const downloadPromise = downloadTrack(
             'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27
         );
 
@@ -113,7 +106,7 @@ describe('DownloadEngine', () => {
         } as unknown as AxiosResponse);
 
         let cancelled = false;
-        const downloadPromise = engine.download(
+        const downloadPromise = downloadTrack(
             'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27, 
             undefined, () => cancelled
         );
@@ -139,7 +132,7 @@ describe('DownloadEngine', () => {
             data: mockDataStream
         } as unknown as AxiosResponse);
 
-        const downloadPromise = engine.download(
+        const downloadPromise = downloadTrack(
             'url',
             'path',
             'id',
@@ -179,7 +172,7 @@ describe('DownloadEngine', () => {
             data: mockDataStream
         } as unknown as AxiosResponse);
 
-        void engine.download('url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27);
+        void downloadTrack('url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27);
 
         await vi.waitFor(() => {
             if (vi.mocked(network.downloadFile).mock.calls.length === 0) {
@@ -216,7 +209,7 @@ describe('DownloadEngine', () => {
             data: mockDataStream
         } as unknown as AxiosResponse);
 
-        const downloadPromise = engine.download(
+        const downloadPromise = downloadTrack(
             'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27
         );
 
@@ -263,8 +256,7 @@ describe('DownloadEngine', () => {
                 data: stream
             } as unknown as AxiosResponse);
 
-            return engine
-                .download('url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27)
+            return downloadTrack('url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27)
                 .then(
                     (ok) => ({ ok, err: undefined as Error | undefined }),
                     (err: Error) => ({ ok: undefined, err })

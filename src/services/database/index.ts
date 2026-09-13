@@ -356,6 +356,13 @@ export class DatabaseService {
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS smart_playlists (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                filter TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS themes (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,

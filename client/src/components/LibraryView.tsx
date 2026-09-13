@@ -61,6 +61,32 @@ interface MissingMetadataFile {
 
 type ProcessingFile = AutoFixFile;
 
+interface SmartPlaylist {
+    id: string;
+    name: string;
+    filter: string;
+    track_count: number;
+}
+
+interface SmartTrack {
+    id: string;
+    title: string;
+    artist: string;
+    album: string;
+    quality: number;
+    duration: number;
+    genre: string;
+}
+
+const parsePlaylistFilter = (raw: string): Record<string, string | number> => {
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+};
+
 const QUALITY_LABELS: Record<number, string> = {
     5: 'MP3 320',
     6: 'FLAC 16/44.1',
@@ -164,7 +190,7 @@ export const LibraryView: React.FC = () => {
     const { t } = useLanguage();
     const [stats, setStats] = useState<LibraryStats | null>(null);
     const [scanning, setScanning] = useState(false);
-    const [activeTab, setActiveTab] = useState<'duplicates' | 'upgradeable' | 'metadata'>('duplicates');
+    const [activeTab, setActiveTab] = useState<'duplicates' | 'upgradeable' | 'metadata' | 'smart'>('duplicates');
 
     const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
     const [upgradeable, setUpgradeable] = useState<UpgradeableFile[]>([]);
@@ -175,6 +201,11 @@ export const LibraryView: React.FC = () => {
     const stopAutoFix = useAutoFixStore((s) => s.stop);
     const [loading, setLoading] = useState(false);
     const [upgradingIds, setUpgradingIds] = useState<Set<string>>(new Set());
+
+    const [smartPlaylists, setSmartPlaylists] = useState<SmartPlaylist[]>([]);
+    const [smartTracks, setSmartTracks] = useState<SmartTrack[]>([]);
+    const [selectedSmart, setSelectedSmart] = useState<SmartPlaylist | null>(null);
+    const [smartForm, setSmartForm] = useState({ name: '', q: '', artist: '', genre: '', minQuality: '' });
 
     const { showToast } = useToast();
 
@@ -211,6 +242,56 @@ export const LibraryView: React.FC = () => {
             }
         } catch (e) { console.error(e); }
     }, []);
+
+    const loadSmartPlaylists = useCallback(async () => {
+        try {
+            const res = await smartFetch('/api/library/smart-playlists');
+            if (res && res.ok) {
+                setSmartPlaylists(asArray<SmartPlaylist>(await res.json()));
+            }
+        } catch (e) { console.error(e); }
+    }, []);
+
+    const createSmartPlaylist = async () => {
+        const name = smartForm.name.trim();
+        const filter: Record<string, string | number> = {};
+        if (smartForm.q.trim()) filter.q = smartForm.q.trim();
+        if (smartForm.artist.trim()) filter.artist = smartForm.artist.trim();
+        if (smartForm.genre.trim()) filter.genre = smartForm.genre.trim();
+        if (smartForm.minQuality) filter.minQuality = Number(smartForm.minQuality);
+
+        if (!name) { showToast('Playlist name is required', 'error'); return; }
+        if (Object.keys(filter).length === 0) { showToast('Add at least one filter condition', 'error'); return; }
+
+        const res = await smartFetch('/api/library/smart-playlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, filter })
+        });
+        if (res && res.ok) {
+            showToast('Playlist saved', 'success');
+            setSmartForm((f) => ({ ...f, name: '' }));
+            loadSmartPlaylists();
+        } else {
+            showToast('Failed to save playlist', 'error');
+        }
+    };
+
+    const deleteSmartPlaylist = async (id: string) => {
+        await smartFetch(`/api/library/smart-playlists/${id}`, { method: 'DELETE' });
+        if (selectedSmart?.id === id) { setSelectedSmart(null); setSmartTracks([]); }
+        loadSmartPlaylists();
+    };
+
+    const openSmartPlaylist = async (playlist: SmartPlaylist) => {
+        setSelectedSmart(playlist);
+        try {
+            const res = await smartFetch(`/api/library/smart-playlists/${playlist.id}/tracks`);
+            setSmartTracks(res && res.ok ? asArray<SmartTrack>(await res.json()) : []);
+        } catch {
+            setSmartTracks([]);
+        }
+    };
 
     const loadMissingMetadata = useCallback(async () => {
         try {
@@ -258,7 +339,8 @@ export const LibraryView: React.FC = () => {
         if (activeTab === 'duplicates') loadDuplicates();
         if (activeTab === 'upgradeable') loadUpgradeable();
         if (activeTab === 'metadata') loadMissingMetadata();
-    }, [activeTab, loadDuplicates, loadUpgradeable, loadMissingMetadata]);
+        if (activeTab === 'smart') loadSmartPlaylists();
+    }, [activeTab, loadDuplicates, loadUpgradeable, loadMissingMetadata, loadSmartPlaylists]);
 
     const startScan = async () => {
         try {
@@ -525,6 +607,9 @@ export const LibraryView: React.FC = () => {
                 <button className={`tab-btn ${activeTab === 'metadata' ? 'active' : ''}`} onClick={() => setActiveTab('metadata')}>
                     🏷️ Metadata Issues {missingMetadata.length > 0 && `(${missingMetadata.length})`}
                 </button>
+                <button className={`tab-btn ${activeTab === 'smart' ? 'active' : ''}`} onClick={() => setActiveTab('smart')}>
+                    ✨ Smart Playlists {smartPlaylists.length > 0 && `(${smartPlaylists.length})`}
+                </button>
             </div>
 
             {/* Duplicates Tab */}
@@ -708,6 +793,90 @@ export const LibraryView: React.FC = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Smart Playlists Tab */}
+            <div className={`library-tab-content ${activeTab === 'smart' ? 'active' : ''}`} style={{ display: activeTab === 'smart' ? 'block' : 'none' }}>
+                <div className="form-group" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+                    <div>
+                        <label>Name</label>
+                        <input value={smartForm.name} onChange={(e) => setSmartForm({ ...smartForm, name: e.target.value })} placeholder="My Jazz" />
+                    </div>
+                    <div>
+                        <label>Search</label>
+                        <input value={smartForm.q} onChange={(e) => setSmartForm({ ...smartForm, q: e.target.value })} placeholder="title / artist / album" />
+                    </div>
+                    <div>
+                        <label>Artist contains</label>
+                        <input value={smartForm.artist} onChange={(e) => setSmartForm({ ...smartForm, artist: e.target.value })} />
+                    </div>
+                    <div>
+                        <label>Genre</label>
+                        <input value={smartForm.genre} onChange={(e) => setSmartForm({ ...smartForm, genre: e.target.value })} />
+                    </div>
+                    <div>
+                        <label>Min quality</label>
+                        <select value={smartForm.minQuality} onChange={(e) => setSmartForm({ ...smartForm, minQuality: e.target.value })}>
+                            <option value="">Any</option>
+                            {Object.entries(QUALITY_LABELS).map(([value, label]) => (
+                                <option key={value} value={value}>{label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <button className="btn primary" onClick={createSmartPlaylist}>Save Playlist</button>
+
+                {smartPlaylists.length === 0 ? (
+                    <div className="empty-state" style={{ marginTop: '20px' }}>
+                        <h3>No smart playlists yet</h3>
+                        <p>Save a filter above to build a dynamic view of your library.</p>
+                    </div>
+                ) : (
+                    <div className="duplicates-list" style={{ marginTop: '20px' }}>
+                        {smartPlaylists.map((playlist) => (
+                            <div key={playlist.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 600 }}>{playlist.name}</div>
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                        {Object.entries(parsePlaylistFilter(playlist.filter)).map(([key, value]) => (
+                                            <span className="candidate-chip" key={key}>{key}: {String(value)}</span>
+                                        ))}
+                                        <span className="quality-badge high-res">{playlist.track_count} tracks</span>
+                                    </div>
+                                </div>
+                                <button className="btn small secondary" onClick={() => openSmartPlaylist(playlist)}>
+                                    <Icons.Library width={12} height={12} /> View
+                                </button>
+                                <button className="btn small danger" onClick={() => deleteSmartPlaylist(playlist.id)}>
+                                    <Icons.Trash width={12} height={12} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {selectedSmart && (
+                    <div className="table-responsive" style={{ marginTop: '20px' }}>
+                        <table className="data-table">
+                            <thead>
+                                <tr><th>Title</th><th>Artist</th><th>Album</th><th>Quality</th><th>Duration</th></tr>
+                            </thead>
+                            <tbody>
+                                {smartTracks.length === 0 ? (
+                                    <tr><td colSpan={5}>No tracks match this playlist.</td></tr>
+                                ) : smartTracks.map((track) => (
+                                    <tr key={track.id}>
+                                        <td>{track.title}</td>
+                                        <td>{track.artist}</td>
+                                        <td>{track.album}</td>
+                                        <td>{QUALITY_LABELS[track.quality] || track.quality}</td>
+                                        <td>{formatDuration(track.duration)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );
