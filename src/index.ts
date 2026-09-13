@@ -55,7 +55,7 @@ async function main() {
 
             const { settingsService } = await import('./services/settings.js');
             // Force initialization to log setting count
-            (settingsService as unknown as { ensureInitialized: () => void }).ensureInitialized();
+            settingsService.ensureInitialized();
             
             await downloadQueue.load();
         } catch (error: unknown) {

@@ -57,180 +57,178 @@ function normalizeDownloadError(
     return original;
 }
 
-export class DownloadEngine {
-    async download(
-        url: string,
-        filePath: string,
-        trackId: string,
-        metadata: Metadata,
-        totalLength: number,
-        actualQuality: number,
-        onProgress?: (progress: DownloadProgress) => void,
-        isCancelled?: () => boolean
-    ): Promise<{ size: number; md5: string }> {
-        let downloaded = 0;
-        const headers: Record<string, string> = {};
-        let isResuming = false;
+export async function downloadTrack(
+    url: string,
+    filePath: string,
+    trackId: string,
+    metadata: Metadata,
+    totalLength: number,
+    actualQuality: number,
+    onProgress?: (progress: DownloadProgress) => void,
+    isCancelled?: () => boolean
+): Promise<{ size: number; md5: string }> {
+    let downloaded = 0;
+    const headers: Record<string, string> = {};
+    let isResuming = false;
 
-        // The recorded partial has to be the file we are about to write, not
-        // just the same track id: the byte offset and the re-hash below both
-        // apply to `filePath`, so resuming against a different recorded path
-        // would append to one file using another file's length.
-        const partial = resumeService.getPartial(trackId);
-        const partialMatchesTarget =
-            !!partial && path.resolve(partial.filePath) === path.resolve(filePath);
+    // The recorded partial has to be the file we are about to write, not
+    // just the same track id: the byte offset and the re-hash below both
+    // apply to `filePath`, so resuming against a different recorded path
+    // would append to one file using another file's length.
+    const partial = resumeService.getPartial(trackId);
+    const partialMatchesTarget =
+        !!partial && path.resolve(partial.filePath) === path.resolve(filePath);
 
-        if (partialMatchesTarget && resumeService.canResume(trackId)) {
-            downloaded = resumeService.getResumePosition(trackId);
-            headers['Range'] = `bytes=${downloaded}-`;
-            isResuming = true;
-            logger.info(`Resuming download for ${metadata.title} from ${downloaded} bytes`, 'DOWNLOAD');
-        }
+    if (partialMatchesTarget && resumeService.canResume(trackId)) {
+        downloaded = resumeService.getResumePosition(trackId);
+        headers['Range'] = `bytes=${downloaded}-`;
+        isResuming = true;
+        logger.info(`Resuming download for ${metadata.title} from ${downloaded} bytes`, 'DOWNLOAD');
+    }
 
-        // Captured once: reading it again later re-stats the file as it grows,
-        // which made every resumed download report ~0 B/s.
-        const resumeStartOffset = downloaded;
+    // Captured once: reading it again later re-stats the file as it grows,
+    // which made every resumed download report ~0 B/s.
+    const resumeStartOffset = downloaded;
 
-        const response = await downloadFile(url, { headers });
-        
-        const contentLength = parseInt(String(response.headers?.['content-length'] || '0'), 10);
-        const effectiveTotalLength = contentLength > 0 ? contentLength + (isResuming ? downloaded : 0) : totalLength;
+    const response = await downloadFile(url, { headers });
 
-        const isPartial = response.status === 206;
-        if (isResuming && !isPartial) {
-            logger.warn('Server did not honor Range request, restarting download from scratch', 'DOWNLOAD');
-            downloaded = 0;
-            isResuming = false;
-        }
+    const contentLength = parseInt(String(response.headers?.['content-length'] || '0'), 10);
+    const effectiveTotalLength = contentLength > 0 ? contentLength + (isResuming ? downloaded : 0) : totalLength;
 
-        const startTime = Date.now();
-        const md5Hash = crypto.createHash('md5');
+    const isPartial = response.status === 206;
+    if (isResuming && !isPartial) {
+        logger.warn('Server did not honor Range request, restarting download from scratch', 'DOWNLOAD');
+        downloaded = 0;
+        isResuming = false;
+    }
 
-        if (isResuming && downloaded > 0) {
-            logger.info(`Re-hashing ${downloaded} bytes of existing data...`, 'DOWNLOAD');
-            try {
-                await new Promise<void>((resolve, reject) => {
-                    const existingData = createReadStream(filePath, {
-                        end: downloaded - 1,
-                        highWaterMark: 1024 * 1024 // 1MB buffer for faster reading
-                    });
-                    existingData.on('data', (chunk) => {
-                        if (isCancelled && isCancelled()) {
-                            existingData.destroy();
-                            reject(new Error('Cancelled by user during re-hashing'));
-                            return;
-                        }
-                        md5Hash.update(chunk);
-                    });
-                    existingData.on('end', resolve);
-                    existingData.on('error', reject);
-                });
-            } catch (hashErr: unknown) {
-                const message = hashErr instanceof Error ? hashErr.message : String(hashErr);
-                logger.error(`Critical failure re-hashing existing part: ${message}`, 'DOWNLOAD');
-                throw new Error(`Integrity check failed: Could not re-hash existing file part for resume. ${message}`);
-            }
-        }
+    const startTime = Date.now();
+    const md5Hash = crypto.createHash('md5');
 
-        const writer = createWriteStream(filePath, { flags: isResuming ? 'a' : 'w' });
-        
-        if (!isResuming) {
-            resumeService.startDownload(trackId, filePath, effectiveTotalLength, actualQuality);
-        }
-
-        let lastProgressEmit = 0;
+    if (isResuming && downloaded > 0) {
+        logger.info(`Re-hashing ${downloaded} bytes of existing data...`, 'DOWNLOAD');
         try {
             await new Promise<void>((resolve, reject) => {
-                let settled = false;
-                let idleTimer: NodeJS.Timeout | null = null;
-
-                const clearIdleTimer = () => {
-                    if (idleTimer) {
-                        clearTimeout(idleTimer);
-                        idleTimer = null;
-                    }
-                };
-                const armIdleTimer = () => {
-                    clearIdleTimer();
-                    idleTimer = setTimeout(() => {
-                        fail(
-                            new Error(
-                                `Stream stalled: no data received for ${STREAM_IDLE_TIMEOUT_MS / 1000}s`
-                            )
-                        );
-                    }, STREAM_IDLE_TIMEOUT_MS);
-                };
-
-                const fail = (error: unknown) => {
-                    if (settled) return;
-                    settled = true;
-                    clearIdleTimer();
-                    reject(normalizeDownloadError(error, downloaded, effectiveTotalLength));
-                };
-                const done = () => {
-                    if (settled) return;
-                    settled = true;
-                    clearIdleTimer();
-                    resolve();
-                };
-                const onData = (chunk: Buffer) => {
-                    armIdleTimer();
-
+                const existingData = createReadStream(filePath, {
+                    end: downloaded - 1,
+                    highWaterMark: 1024 * 1024 // 1MB buffer for faster reading
+                });
+                existingData.on('data', (chunk) => {
                     if (isCancelled && isCancelled()) {
-                        fail(new Error('Cancelled by user'));
+                        existingData.destroy();
+                        reject(new Error('Cancelled by user during re-hashing'));
                         return;
                     }
-                    downloaded += chunk.length;
                     md5Hash.update(chunk);
-
-                    if (onProgress) {
-                        const currentTime = Date.now();
-                        if (currentTime - lastProgressEmit >= 100 || (effectiveTotalLength > 0 && downloaded >= effectiveTotalLength)) {
-                            const elapsed = (currentTime - startTime) / 1000;
-                            const speed = elapsed > 0 ? (downloaded - resumeStartOffset) / elapsed : 0;
-
-                            onProgress({
-                                phase: 'download',
-                                loaded: downloaded,
-                                total: effectiveTotalLength,
-                                speed
-                            });
-                            lastProgressEmit = currentTime;
-                            resumeService.updateProgress(trackId, downloaded);
-                        }
-                    }
-                };
-
-                response.data.on('data', onData);
-
-                if (CONFIG.download.bandwidthLimit > 0) {
-                    const throttle = new ThrottleStream(CONFIG.download.bandwidthLimit);
-                    response.data.pipe(throttle).pipe(writer);
-                } else {
-                    response.data.pipe(writer);
-                }
-
-                writer.on('finish', done);
-                writer.on('error', fail);
-                response.data.on('aborted', () => fail(new Error('aborted')));
-                response.data.on('error', fail);
-
-                // Start the clock before the first byte: a connection that opens
-                // and then says nothing is just as dead as one that stops midway.
-                armIdleTimer();
+                });
+                existingData.on('end', resolve);
+                existingData.on('error', reject);
             });
-        } finally {
-            if (!writer.closed) {
-                writer.destroy();
-            }
-            if (!response.data.destroyed) {
-                response.data.destroy();
-            }
+        } catch (hashErr: unknown) {
+            const message = hashErr instanceof Error ? hashErr.message : String(hashErr);
+            logger.error(`Critical failure re-hashing existing part: ${message}`, 'DOWNLOAD');
+            throw new Error(`Integrity check failed: Could not re-hash existing file part for resume. ${message}`);
         }
-
-        return {
-            size: downloaded,
-            md5: md5Hash.digest('hex')
-        };
     }
+
+    const writer = createWriteStream(filePath, { flags: isResuming ? 'a' : 'w' });
+
+    if (!isResuming) {
+        resumeService.startDownload(trackId, filePath, effectiveTotalLength, actualQuality);
+    }
+
+    let lastProgressEmit = 0;
+    try {
+        await new Promise<void>((resolve, reject) => {
+            let settled = false;
+            let idleTimer: NodeJS.Timeout | null = null;
+
+            const clearIdleTimer = () => {
+                if (idleTimer) {
+                    clearTimeout(idleTimer);
+                    idleTimer = null;
+                }
+            };
+            const armIdleTimer = () => {
+                clearIdleTimer();
+                idleTimer = setTimeout(() => {
+                    fail(
+                        new Error(
+                            `Stream stalled: no data received for ${STREAM_IDLE_TIMEOUT_MS / 1000}s`
+                        )
+                    );
+                }, STREAM_IDLE_TIMEOUT_MS);
+            };
+
+            const fail = (error: unknown) => {
+                if (settled) return;
+                settled = true;
+                clearIdleTimer();
+                reject(normalizeDownloadError(error, downloaded, effectiveTotalLength));
+            };
+            const done = () => {
+                if (settled) return;
+                settled = true;
+                clearIdleTimer();
+                resolve();
+            };
+            const onData = (chunk: Buffer) => {
+                armIdleTimer();
+
+                if (isCancelled && isCancelled()) {
+                    fail(new Error('Cancelled by user'));
+                    return;
+                }
+                downloaded += chunk.length;
+                md5Hash.update(chunk);
+
+                if (onProgress) {
+                    const currentTime = Date.now();
+                    if (currentTime - lastProgressEmit >= 100 || (effectiveTotalLength > 0 && downloaded >= effectiveTotalLength)) {
+                        const elapsed = (currentTime - startTime) / 1000;
+                        const speed = elapsed > 0 ? (downloaded - resumeStartOffset) / elapsed : 0;
+
+                        onProgress({
+                            phase: 'download',
+                            loaded: downloaded,
+                            total: effectiveTotalLength,
+                            speed
+                        });
+                        lastProgressEmit = currentTime;
+                        resumeService.updateProgress(trackId, downloaded);
+                    }
+                }
+            };
+
+            response.data.on('data', onData);
+
+            if (CONFIG.download.bandwidthLimit > 0) {
+                const throttle = new ThrottleStream(CONFIG.download.bandwidthLimit);
+                response.data.pipe(throttle).pipe(writer);
+            } else {
+                response.data.pipe(writer);
+            }
+
+            writer.on('finish', done);
+            writer.on('error', fail);
+            response.data.on('aborted', () => fail(new Error('aborted')));
+            response.data.on('error', fail);
+
+            // Start the clock before the first byte: a connection that opens
+            // and then says nothing is just as dead as one that stops midway.
+            armIdleTimer();
+        });
+    } finally {
+        if (!writer.closed) {
+            writer.destroy();
+        }
+        if (!response.data.destroyed) {
+            response.data.destroy();
+        }
+    }
+
+    return {
+        size: downloaded,
+        md5: md5Hash.digest('hex')
+    };
 }

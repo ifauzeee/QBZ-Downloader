@@ -96,23 +96,3 @@ class TokenManager extends EventEmitter {
 }
 
 export const tokenManager = new TokenManager();
-
-export async function refreshUserToken(): Promise<string | null> {
-    const status = tokenManager.getStatus();
-
-    if (!status.configured) {
-        logger.warn('No token configured. Please set QOBUZ_USER_AUTH_TOKEN in Settings.', 'AUTH');
-        return null;
-    }
-
-    // Only mark invalid and notify if we haven't already marked it as invalid
-    if (status.valid !== false) {
-        logger.warn(
-            'Qobuz token is expired or invalid. Please go to Settings > Update Credentials to enter a new token.',
-            'AUTH'
-        );
-        tokenManager.markInvalid();
-    }
-
-    return null;
-}

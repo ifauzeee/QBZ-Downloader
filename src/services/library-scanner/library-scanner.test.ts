@@ -70,7 +70,8 @@ vi.mock('../../api/qobuz.js', () => {
     });
     return {
         default: mock,
-        QobuzAPI: mock
+        QobuzAPI: mock,
+        isSampleStream: vi.fn().mockReturnValue(false)
     };
 });
 

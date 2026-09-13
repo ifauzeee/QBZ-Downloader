@@ -4,7 +4,7 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { playTrack } from './Player';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useSettings } from '../contexts/SettingsContext';
+import { useQueueActions } from '../hooks/useQueueActions';
 import { Icons } from './Icons';
 interface Track {
     id: string;
@@ -37,7 +37,7 @@ export const AlbumDetailView: React.FC = () => {
     const { navData, setActiveTab } = useNavigation();
     const { showToast } = useToast();
     const { t } = useLanguage();
-    const { addToStaging, settings } = useSettings();
+    const { addToQueue, addToBatchStaging } = useQueueActions();
 
     const [album, setAlbum] = useState<AlbumData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -72,43 +72,6 @@ export const AlbumDetailView: React.FC = () => {
         }
     };
 
-    const addToQueue = async (type: string, id: string) => {
-        try {
-            const res = await smartFetch('/api/queue/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, id })
-            });
-            if (res && res.ok) {
-                showToast(t('msg_added_to_queue') || 'Added to queue', 'success');
-                if (type === 'track') {
-                    setQueuedTrackIds(prev => new Set(prev).add(id));
-                } else if (type === 'album' && album) {
-                    setQueuedTrackIds(prev => {
-                        const newSet = new Set(prev);
-                        album.tracks.items.forEach(t => newSet.add(t.id));
-                        return newSet;
-                    });
-                }
-            } else {
-                showToast('Failed to add', 'error');
-            }
-        } catch (e) {
-            showToast('Failed to add', 'error');
-        }
-    };
-
-    const addToBatchStaging = async (type: string, id: string) => {
-        const url = `https://open.qobuz.com/${type}/${id}`;
-        const existing = settings.UI_BATCH_STAGING_URLS || '';
-        if (existing.includes(url)) {
-            showToast('Already in Batch Staging', 'info');
-            return;
-        }
-        await addToStaging(url);
-        showToast('Added to Batch Staging', 'success');
-    };
-
     const openDownloadModal = (type: 'album' | 'lyrics') => {
         setModalType(type);
         setShowModal(true);
@@ -132,8 +95,12 @@ export const AlbumDetailView: React.FC = () => {
                 } catch (e) {
                     showToast('Failed to start album download', 'error');
                 }
-            } else {
-                addToQueue('album', album.id);
+            } else if (await addToQueue('album', album.id) && album) {
+                setQueuedTrackIds(prev => {
+                    const newSet = new Set(prev);
+                    album.tracks.items.forEach(t => newSet.add(t.id));
+                    return newSet;
+                });
             }
         } else {
             if (asZip) {
@@ -290,7 +257,7 @@ export const AlbumDetailView: React.FC = () => {
                                 <button 
                                     className="btn-track-dl" 
                                     title={queuedTrackIds.has(track.id) ? 'Queued ✓' : t('action_download')} 
-                                    onClick={() => !queuedTrackIds.has(track.id) && addToQueue('track', track.id)}
+                                    onClick={() => !queuedTrackIds.has(track.id) && addToQueue('track', track.id).then(ok => ok && setQueuedTrackIds(prev => new Set(prev).add(track.id)))}
                                     style={queuedTrackIds.has(track.id) ? { color: 'var(--accent)' } : {}}
                                 >
                                     {queuedTrackIds.has(track.id) ? <Icons.Check width={14} height={14} /> : <Icons.Download width={14} height={14} />}

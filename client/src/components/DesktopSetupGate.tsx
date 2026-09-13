@@ -243,7 +243,7 @@ export function DesktopSetupGate({ onContinue }: DesktopSetupGateProps) {
                                                 onChange={e => setForm({...form, appSecret: e.target.value})}
                                             />
                                             <button onClick={() => setShowSecret(!showSecret)}>
-                                                {showSecret ? <Icons.Search size={16} /> : <Icons.Search size={16} />}
+                                                {showSecret ? <Icons.EyeOff size={16} /> : <Icons.Eye size={16} />}
                                             </button>
                                         </div>
                                     </div>

@@ -111,8 +111,7 @@ vi.mock('../settings.js', () => {
 
 vi.mock('../../utils/env.js', () => ({
     validateEnvironment: vi.fn().mockReturnValue({ valid: true, warnings: [] }),
-    displayEnvWarnings: vi.fn(),
-    getEnvSummary: vi.fn()
+    displayEnvWarnings: vi.fn()
 }));
 
 vi.mock('../../utils/validator.js', () => {
