@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.6.1] - 2026-09-14
+
+### Fixed
+- **MP3 downloads failing with "An integer value is expected"** — `buildId3Tags` mapped the wrong field (`l.time`) from the SYLT lyric lines produced by `toSylt()` (`{ text, timeStamp }`), so every synced-lyrics timestamp reached `node-id3` as `undefined` and threw a `RangeError` during tagging. Any MP3 download whose track had synced lyrics failed on every retry (see #157, PR #158). FLAC and lyric-less MP3s were unaffected.
+
+### Changed
+- Dependency refresh: `zod` 4.6.2, `electron` 44.3.0, React 19.3 (client), typescript-eslint 8.70.0, plus routine dev-dep bumps (PRs #153-#156).
+
 ## [5.6.0] - 2026-09-13
 ### Added
 - **Library file watcher** — New files, renames, and deletions in the library folders now trigger an incremental rescan automatically; no more manual "Scan Library" clicks after adding music (PR #152).
