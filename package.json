@@ -205,7 +205,7 @@
     "node-id3": "^0.2.9",
     "p-limit": "^7.3.2",
     "socket.io": "^4.8.3",
-    "zod": "^4.5.4"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -214,11 +214,11 @@
     "@types/express": "^5.0.6",
     "@types/figlet": "^1.7.0",
     "@types/gradient-string": "^1.1.6",
-    "@types/node": "^22.20.1",
+    "@types/node": "^22.20.2",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.0.0",
     "copyfiles": "^2.4.1",
-    "electron": "^44.2.0",
+    "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
@@ -227,7 +227,7 @@
     "supertest": "^7.2.2",
     "typedoc": "^0.28.20",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.69.0",
+    "typescript-eslint": "^8.70.0",
     "vitest": "^5.0.0"
   }
 }
