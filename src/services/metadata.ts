@@ -652,9 +652,9 @@ export class MetadataService {
                         timeStampFormat: 2,
                         contentType: 1,
                         shortText: 'Lyrics',
-                        synchronisedText: (lyrics.syltFormat as { text: string; time: number }[]).map((l: { text: string; time: number }) => ({
+                        synchronisedText: (lyrics.syltFormat as { text: string; timeStamp: number }[]).map((l: { text: string; timeStamp: number }) => ({
                             text: l.text,
-                            timeStamp: l.time
+                            timeStamp: l.timeStamp
                         }))
                     }
                 ];
