@@ -123,6 +123,20 @@ describe('MetadataService', () => {
             expect(titleTag?.[1]).toBe('T');
         });
 
+        it('should map syltFormat timeStamp into SYLT frames as integers', () => {
+            const tags = service.buildId3Tags(mockMetadata, null, {
+                success: true,
+                synced: '[00:01.50] line one\n[00:02.75] line two',
+                syltFormat: [
+                    { text: 'line one', timeStamp: 1500 },
+                    { text: 'line two', timeStamp: 2750 }
+                ]
+            } as never);
+            const frame = (tags as never as { synchronisedLyrics: { synchronisedText: { text: string; timeStamp: number }[] }[] }).synchronisedLyrics[0];
+            expect(frame.synchronisedText[0]).toEqual({ text: 'line one', timeStamp: 1500 });
+            expect(frame.synchronisedText.every((l) => Number.isInteger(l.timeStamp))).toBe(true);
+        });
+
         it('should reject when tag writing fails', async () => {
             vi.spyOn(service, 'writeFlacTags').mockRejectedValueOnce(new Error('write failed'));
 
