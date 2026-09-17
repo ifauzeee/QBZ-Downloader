@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { downloadTrack } from './DownloadEngine.js';
-import * as network from '../utils/network.js';
+import * as network from '../utils/http.js';
 import { resumeService } from './batch.js';
 import { Metadata } from './metadata.js';
 import * as fs from 'fs';
 import { EventEmitter } from 'events';
 import { AxiosResponse } from 'axios';
 
-vi.mock('../utils/network.js', () => ({
+vi.mock('../utils/http.js', () => ({
     downloadFile: vi.fn()
 }));
 

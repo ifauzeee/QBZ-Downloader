@@ -17,6 +17,9 @@ export interface ArtistDetails extends Artist {
         items: Track[];
         total: number;
     };
+    biography?: { en?: string; id?: string; [key: string]: string | undefined } | string;
+    similar_artists?: { items: Artist[] };
+    already_downloaded?: boolean;
 }
 
 export interface Playlist {
@@ -46,6 +49,7 @@ export interface Album {
     image?: {
         small?: string;
         thumbnail?: string;
+        medium?: string;
         large?: string;
         extralarge?: string;
         mega?: string;
@@ -66,6 +70,8 @@ export interface Album {
     upc?: string;
     catalog_number?: string;
     release_type?: string;
+    release_date_original?: string;
+    already_downloaded?: boolean;
     [key: string]: unknown;
 }
 
@@ -78,21 +84,7 @@ export interface Track {
         name: string;
         image?: { small?: string; medium?: string; large?: string };
     };
-    album?: {
-        title: string;
-        id?: string | number;
-        artist?: Artist;
-        description?: string;
-        image?: {
-            small?: string;
-            thumbnail?: string;
-            medium?: string;
-            large?: string;
-            mega?: string;
-            extralarge?: string;
-            [key: string]: unknown;
-        };
-    };
+    album?: Album;
     duration: number;
     hires: boolean;
     track_number: number;
@@ -100,6 +92,7 @@ export interface Track {
     maximum_bit_depth?: number;
     hires_streamable?: boolean;
     media_number?: number;
+    already_downloaded?: boolean;
     performers?: string;
     parental_warning?: boolean;
     streamable?: boolean;

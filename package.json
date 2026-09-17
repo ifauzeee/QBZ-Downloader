@@ -184,11 +184,9 @@
     }
   },
   "dependencies": {
-    "@types/better-sqlite3": "^9.6.0",
     "archiver": "^7.0.1",
     "axios": "^1.20.0",
     "better-sqlite3": "^13.0.3",
-    "boxen": "^7.1.1",
     "chalk": "^6.0.0",
     "cheerio": "^1.2.0",
     "chokidar": "^5.0.0",
@@ -197,9 +195,6 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "ffmpeg-static": "^5.3.0",
-    "figlet": "^1.11.4",
-    "flac-metadata": "^0.1.1",
-    "gradient-string": "^2.0.2",
     "lru-cache": "^11.5.2",
     "music-metadata": "^11.15.0",
     "node-id3": "^0.2.9",
@@ -210,10 +205,9 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/archiver": "^7.0.0",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/cheerio": "^0.22.35",
     "@types/express": "^5.0.6",
-    "@types/figlet": "^1.7.0",
-    "@types/gradient-string": "^1.1.6",
     "@types/node": "^22.20.2",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.0.0",
