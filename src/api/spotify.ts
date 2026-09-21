@@ -1,4 +1,4 @@
-import { createAxiosInstance } from '../utils/network.js';
+import { createAxiosInstance } from '../utils/http.js';
 import { CONFIG } from '../config.js';
 import { logger } from '../utils/logger.js';
 

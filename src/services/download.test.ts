@@ -7,7 +7,7 @@ import MetadataService, { Metadata } from './metadata.js';
 vi.mock('../api/qobuz.js');
 vi.mock('../api/lyrics.js');
 vi.mock('./metadata.js');
-vi.mock('../utils/network.js', () => ({
+vi.mock('../utils/http.js', () => ({
     createAxiosInstance: vi.fn().mockReturnValue({
         interceptors: {
             request: { use: vi.fn() },

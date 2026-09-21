@@ -1,4 +1,4 @@
-import { createAxiosInstance } from '../utils/network.js';
+import { createAxiosInstance } from '../utils/http.js';
 import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger.js';
 

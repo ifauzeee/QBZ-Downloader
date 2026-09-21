@@ -8,16 +8,6 @@ vi.mock('node-id3', () => ({
     }
 }));
 
-vi.mock('flac-metadata', () => ({
-    default: {
-        Processor: vi.fn(),
-        data: {
-            MetaDataBlockVorbisComment: { create: vi.fn() },
-            MetaDataBlockPicture: { create: vi.fn() }
-        }
-    }
-}));
-
 vi.mock('../utils/logger.js', () => ({
     logger: {
         info: vi.fn(),

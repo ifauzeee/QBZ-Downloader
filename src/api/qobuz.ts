@@ -1,4 +1,4 @@
-import { createAxiosInstance } from '../utils/network.js';
+import { createAxiosInstance } from '../utils/http.js';
 import { cacheService } from '../utils/cache.js';
 import { logger } from '../utils/logger.js';
 import { AxiosInstance, AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';

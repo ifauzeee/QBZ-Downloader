@@ -15,7 +15,7 @@ const { mockClient, mockGet } = vi.hoisted(() => {
     };
 });
 
-vi.mock('../utils/network.js', () => ({
+vi.mock('../utils/http.js', () => ({
     createAxiosInstance: vi.fn(() => mockClient)
 }));
 

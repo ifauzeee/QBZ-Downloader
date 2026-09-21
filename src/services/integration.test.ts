@@ -41,7 +41,7 @@ vi.mock('../api/qobuz.js', () => {
 
 import qobuzApi from '../api/qobuz.js';
 
-vi.mock('../utils/network.js', () => ({
+vi.mock('../utils/http.js', () => ({
     createAxiosInstance: vi.fn().mockReturnValue({
         get: vi.fn().mockResolvedValue({ data: Buffer.alloc(10), headers: {} }),
         interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } }

@@ -9,7 +9,7 @@ import { historyService } from '../history.js';
 import { logger } from '../../utils/logger.js';
 import { CONFIG } from '../../config.js';
 import qobuzApi, { isSampleStream } from '../../api/qobuz.js';
-import { downloadFile } from '../../utils/network.js';
+import { downloadFile } from '../../utils/http.js';
 import { sleep } from '../../utils/async.js';
 
 export interface LibraryFile {

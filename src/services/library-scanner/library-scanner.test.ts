@@ -47,7 +47,7 @@ vi.mock('../../utils/logger.js', () => ({
     }
 }));
 
-vi.mock('../../utils/network.js', () => ({
+vi.mock('../../utils/http.js', () => ({
     downloadFile: vi.fn().mockImplementation(() => {
         const stream = new EventEmitter();
         (stream as unknown as { destroy: () => void; destroyed: boolean }).destroy = vi.fn(

@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import path from 'path';
 import { createWriteStream, createReadStream } from 'fs';
-import { downloadFile } from '../utils/network.js';
+import { downloadFile } from '../utils/http.js';
 import { logger } from '../utils/logger.js';
 import { ThrottleStream } from '../utils/throttle.js';
 import { CONFIG } from '../config.js';
