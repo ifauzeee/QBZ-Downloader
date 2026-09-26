@@ -76,6 +76,87 @@ const flushPromises = async () => {
     }
 };
 
+describe('QobuzAPI playlist pagination', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.clearAllMocks();
+        mockGet.mockReset();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('should fetch all playlist track pages', async () => {
+        const api = new QobuzAPI();
+        mockGet
+            .mockResolvedValueOnce({
+                data: {
+                    id: 'playlist-1',
+                    name: 'Playlist',
+                    tracks: {
+                        items: [{ id: 'track-1' }, { id: 'track-2' }],
+                        total: 3
+                    }
+                }
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    id: 'playlist-1',
+                    name: 'Playlist',
+                    tracks: {
+                        items: [{ id: 'track-3' }],
+                        total: 3
+                    }
+                }
+            });
+
+        const resultPromise = api.getPlaylist('playlist-1');
+        await flushPromises();
+        await vi.advanceTimersByTimeAsync(250);
+        const result = await resultPromise;
+
+        expect(result.success).toBe(true);
+        expect(result.data?.tracks.items).toEqual([
+            { id: 'track-1' },
+            { id: 'track-2' },
+            { id: 'track-3' }
+        ]);
+        expect(mockGet).toHaveBeenCalledTimes(2);
+        expect(mockGet.mock.calls[0]?.[1].params).toMatchObject({ limit: 100, offset: 0 });
+        expect(mockGet.mock.calls[1]?.[1].params).toMatchObject({ limit: 100, offset: 2 });
+    });
+
+    it('should fail when playlist pagination ends before the total is reached', async () => {
+        const api = new QobuzAPI();
+        mockGet
+            .mockResolvedValueOnce({
+                data: {
+                    id: 'playlist-1',
+                    name: 'Playlist',
+                    tracks: {
+                        items: [{ id: 'track-1' }, { id: 'track-2' }],
+                        total: 3
+                    }
+                }
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    id: 'playlist-1',
+                    name: 'Playlist',
+                    tracks: { items: [], total: 3 }
+                }
+            });
+
+        const resultPromise = api.getPlaylist('playlist-1');
+        await flushPromises();
+        await vi.advanceTimersByTimeAsync(250);
+        const result = await resultPromise;
+
+        expect(result).toEqual({ success: false, error: 'API Error' });
+    });
+});
+
 describe('QobuzAPI rate limiting and retry handling', () => {
     beforeEach(() => {
         vi.useFakeTimers();

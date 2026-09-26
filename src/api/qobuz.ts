@@ -213,10 +213,10 @@ export class QobuzAPI {
     generateSignature(endpoint: string, params: Record<string, string | number | boolean>) {
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const secret = CONFIG.credentials.appSecret;
-        
+
         // Remove slashes but KEEP case for signature base
         let data = endpoint.replace(/\//g, '');
-        
+
         // Sort parameters alphabetically
         const sortedKeys = Object.keys(params).sort();
         for (const key of sortedKeys) {
@@ -225,13 +225,13 @@ export class QobuzAPI {
                 data += key + val.toString();
             }
         }
-        
+
         data += timestamp + secret;
-        
+
         logger.debug(`[QobuzAPI] Signature Data: ${data.replace(secret, 'REDACTED')}`, 'API');
-        
+
         const signature = crypto.createHash('md5').update(data).digest('hex');
-        
+
         return { timestamp: parseInt(timestamp), signature };
     }
 
@@ -320,7 +320,11 @@ export class QobuzAPI {
         }
     }
 
-    async getArtistAlbums(artistId: string | number, limit = 20, offset = 0): Promise<ApiResponse<ArtistDetails>> {
+    async getArtistAlbums(
+        artistId: string | number,
+        limit = 20,
+        offset = 0
+    ): Promise<ApiResponse<ArtistDetails>> {
         try {
             const response = await this.getWithRateLimit<ArtistDetails>('/artist/get', {
                 params: {
@@ -343,15 +347,35 @@ export class QobuzAPI {
 
     async getPlaylist(playlistId: string | number): Promise<ApiResponse<Playlist>> {
         try {
+            const params = {
+                playlist_id: playlistId,
+                app_id: this.appId,
+                user_auth_token: this.token,
+                extra: 'tracks,subscribers',
+                limit: 100
+            };
             const response = await this.getWithRateLimit<Playlist>('/playlist/get', {
-                params: {
-                    playlist_id: playlistId,
-                    app_id: this.appId,
-                    user_auth_token: this.token,
-                    extra: 'tracks,subscribers'
-                }
+                params: { ...params, offset: 0 }
             });
-            return { success: true, data: response.data };
+            const playlist = response.data;
+            const tracks = [...playlist.tracks.items];
+            let offset = tracks.length;
+
+            while (tracks.length < playlist.tracks.total) {
+                const nextPage = await this.getWithRateLimit<Playlist>('/playlist/get', {
+                    params: { ...params, offset }
+                });
+                const pageItems = nextPage.data?.tracks?.items ?? [];
+                if (pageItems.length === 0) {
+                    return { success: false, error: 'API Error' };
+                }
+
+                tracks.push(...pageItems);
+                offset += pageItems.length;
+            }
+
+            playlist.tracks.items = tracks;
+            return { success: true, data: playlist };
         } catch (error) {
             this.handleApiError(error);
             return { success: false, error: 'API Error' };
@@ -397,7 +421,10 @@ export class QobuzAPI {
         }
     }
 
-    async getFileUrl(trackId: string | number, formatId: number | string = 27): Promise<ApiResponse> {
+    async getFileUrl(
+        trackId: string | number,
+        formatId: number | string = 27
+    ): Promise<ApiResponse> {
         try {
             const requestedFormatId = normalizeDownloadQuality(formatId, 27);
             const sigParams: Record<string, string | number | boolean> = {
@@ -428,7 +455,8 @@ export class QobuzAPI {
                     // is actually a full-length 24-bit track carrying bit_depth/sampling_rate.
                     const isPreview =
                         response.data.sample === true ||
-                        (typeof response.data.duration === 'number' && response.data.duration <= 30);
+                        (typeof response.data.duration === 'number' &&
+                            response.data.duration <= 30);
 
                     if (isPreview) {
                         logger.warn(`Track ${trackId} returned format 1 (preview/sample)`, 'API');
@@ -438,7 +466,10 @@ export class QobuzAPI {
                             restrictions: response.data.restrictions,
                             format_id: 1
                         };
-                        logger.debug(`Sample Details: ${JSON.stringify(debugInfo, null, 2)}`, 'API');
+                        logger.debug(
+                            `Sample Details: ${JSON.stringify(debugInfo, null, 2)}`,
+                            'API'
+                        );
                         response.data.quality_verified = false;
                         return { success: true, data: response.data };
                     }
@@ -448,8 +479,8 @@ export class QobuzAPI {
                     // allowing full-length tracks served at format_id=1 to download.
                     logger.debug(
                         `Track ${trackId} returned format_id=1 but is not a preview ` +
-                        `(sample=${response.data.sample}, duration=${response.data.duration}) — ` +
-                        'falling through to quality detection',
+                            `(sample=${response.data.sample}, duration=${response.data.duration}) — ` +
+                            'falling through to quality detection',
                         'API'
                     );
                 }
