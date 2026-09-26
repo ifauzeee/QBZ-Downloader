@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.6.2] - 2026-09-26
+
+### Fixed
+- **Large playlist downloads stopping at about 50 tracks** — Qobuz playlist pagination now fetches every track page for downloads and watched playlists; incomplete API pagination is rejected instead of silently returning a partial playlist (see #167, PR #168).
+
 ## [5.6.1] - 2026-09-14
 
 ### Fixed
