@@ -12,12 +12,9 @@ jobs:
         runs-on: ubuntu-latest
         if: github.actor == 'dependabot[bot]'
         steps:
-            - uses: actions/checkout@v5
-            - name: Approve dependabot PR
-              run: gh pr review "$PR_URL" --approve
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  PR_URL: ${{ github.event.pull_request.html_url }}
+            # GitHub forbids Actions from approving pull requests, so branch
+            # protection still needs one human approval per PR. This job only
+            # queues the merge; GitHub fires it once checks and the review pass.
             - name: Enable auto-merge
               run: gh pr merge "$PR_URL" --auto --merge
               env:
