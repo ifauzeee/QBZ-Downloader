@@ -8,7 +8,7 @@
 - **`bin/`** — platform binaries (ffmpeg, fpcalc), populated at build time by `scripts/bundle-binaries.cjs`
 
 ## Version sync
-Version must match in **3 files**: `package.json`, `client/package.json`, `client/public/manifest.json`.
+Version must match in **5 files**: `package.json`, `package-lock.json`, `client/package.json`, `client/package-lock.json`, `client/public/manifest.json`.
 After bumping `package.json` version, run:
 ```
 npm run sync-version
