@@ -29,6 +29,19 @@ try {
     console.error(`Failed to update ${clientPackagePath}:`, e.message);
 }
 
+// 1.6 Update lockfiles
+for (const lockPath of ['package-lock.json', 'client/package-lock.json']) {
+    try {
+        const lock = JSON.parse(readFileSync(lockPath, 'utf-8'));
+        lock.version = version;
+        if (lock.packages?.['']) lock.packages[''].version = version;
+        writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
+        console.log(`✅ Updated ${lockPath} to v${version}`);
+    } catch (e) {
+        console.error(`Failed to update ${lockPath}:`, e.message);
+    }
+}
+
 // 2. Update README.md badge
 try {
     let readme = readFileSync(readmePath, 'utf-8');
