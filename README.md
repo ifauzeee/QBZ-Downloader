@@ -140,6 +140,16 @@ QBZ-Downloader ships as a native desktop application for all three major platfor
 > `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`,
 > `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`) are signed and notarized and
 > install without any workaround.
+>
+> **Linux AppImage note:** the `.AppImage` mounts itself through FUSE 2. On systems
+> that ship FUSE 3 only (Fedora 40+, some minimal distros) it refuses to start; run it
+> with the extraction fallback instead:
+>
+> ```bash
+> APPIMAGE_EXTRACT_AND_RUN=1 ./QBZ-Downloader-<version>-x86_64.AppImage
+> ```
+>
+> The `.deb` package has no such requirement.
 
 ### Build from Source
 If you prefer to build the application yourself:
