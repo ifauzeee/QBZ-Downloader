@@ -2,35 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.6.3] - 2026-10-01
+
+### Fixed
+
+- **FLAC downloads missing cover art** — Qobuz `max` covers can exceed the 16 MiB `METADATA_BLOCK_PICTURE` limit of a FLAC metadata block; ffmpeg dropped the oversized picture silently and the track was tagged without cover art. Oversized covers are now downscaled before embedding (PR #177).
+
 ## [5.6.2] - 2026-09-26
 
 ### Fixed
+
 - **Large playlist downloads stopping at about 50 tracks** — Qobuz playlist pagination now fetches every track page for downloads and watched playlists; incomplete API pagination is rejected instead of silently returning a partial playlist (see #167, PR #168).
 
 ## [5.6.1] - 2026-09-14
 
 ### Fixed
+
 - **MP3 downloads failing with "An integer value is expected"** — `buildId3Tags` mapped the wrong field (`l.time`) from the SYLT lyric lines produced by `toSylt()` (`{ text, timeStamp }`), so every synced-lyrics timestamp reached `node-id3` as `undefined` and threw a `RangeError` during tagging. Any MP3 download whose track had synced lyrics failed on every retry (see #157, PR #158). FLAC and lyric-less MP3s were unaffected.
 
 ### Changed
+
 - Dependency refresh: `zod` 4.6.2, `electron` 44.3.0, React 19.3 (client), typescript-eslint 8.70.0, plus routine dev-dep bumps (PRs #153-#156).
 
 ## [5.6.0] - 2026-09-13
+
 ### Added
+
 - **Library file watcher** — New files, renames, and deletions in the library folders now trigger an incremental rescan automatically; no more manual "Scan Library" clicks after adding music (PR #152).
 - **Smart playlists** — Save a filter query as a dynamic playlist; it re-evaluates against the library every time it is opened, so new downloads appear automatically (PR #152).
+
 ### Fixed
+
 - **History "Download" button re-queues** — History rows now re-queue the track through the shared queue action instead of redirecting the page to a dead JSON endpoint; the artist view sent an invalid URL payload to `/api/queue/add` (`type` + `id` is required) and silently failed (PR #152).
 - **Transitive audit failures** — `js-yaml` patched via `npm audit fix` (lockfile only) (PR #152).
+
 ### Changed
+
 - **Dead code pruned (~1900 lines)** — Unused modules (`friendly-errors`, `input`, `i18n`), exports, events, and Electron IPC channels removed; `fast-average-color` and `@types/socket.io-client` dropped. `DownloadEngine` and `MetadataProcessor` classes converted to plain functions, settings cache made synchronous, sample-stream detection centralized into `isSampleStream`, and the unused download-status endpoint removed (PR #152).
+
 ## [5.5.3] - 2026-09-08
 
 ### Fixed
+
 - **Download path resets on restart (desktop)** — The Electron shell injected its default folder through `DOWNLOADS_PATH` on every boot, and the settings init (since #119-follow-up `0b8919a`) mistook it for explicit config and overwrote the stored value. The default is now exported through `QBZ_DEFAULT_DOWNLOADS_PATH` and only used as a fallback, so a custom path survives restarts (see #137, PR #150). If your path was already reset, set it once more and it will stick.
 - **Transitive audit failures** — `qs`, `fast-uri`, `@xmldom/xmldom`, `@humanfs/node` bumped past their advisories via `npm audit fix` (lockfile only); `npm audit --audit-level=high` is clean in root and client (see PR #145).
 
 ### Changed
+
 - **Node.js >= 22 required** (`engines`) — Vitest 5 needs Node 22+ and Vite 6.4+ (see PR #145).
 - **Vitest 4 → 5** (backend + client, with `@vitest/coverage-v8` in lockstep) — client `setupTests.ts` now imports `@testing-library/jest-dom/vitest`, required since Vitest 5 inlines the `expect` package (see PR #146, #147).
 - **Dependabot: lockstep `vitest` group** — `vitest` + `@vitest/*` always update in one PR so solo majors can no longer break `npm ci` with ERESOLVE (see PR #145).
@@ -39,6 +57,7 @@ All notable changes to this project will be documented in this file.
 ## [5.5.2] - 2026-08-11
 
 ### Security
+
 - **Dashboard authentication hardened** — The dashboard is now protected from request smuggling, CSRF, and DNS-rebinding attacks: routes are matched case-sensitively, requests are validated against the expected `Host` header, `Origin`/`Referer` is checked on state-changing requests, socket.io validates its origin, and the authentication endpoint is rate-limited. A random handshake token (`DESKTOP_HANDSHAKE_TOKEN` → `QBZ_DESKTOP_TOKEN`) is generated for desktop mode and sent via the `x-qbz-desktop-token` header instead of the query string (see PR #119).
 - **Process invocation hardened** — All `exec`/`execSync` shell calls replaced with `execFile` and explicit argv arrays: quality scanner, format converter, library scanner worker, and the binary availability probe (which also gained a 10s timeout and 60s memoization so a hung binary can't block the event loop). Format conversion validates the target format/bitrate against an allowlist (see PR #119).
 - **SSRF protection for outbound requests** — New `src/utils/net.ts` guards URLs from request bodies: only public http(s) allowed (private/link-local/loopback/CGNAT IPv4+IPv6 and localhost blocked), 25 MB size cap, 3-hop redirect limit with per-hop re-check. Applied to cover art, library, and tools routes; CORS wildcard removed from catalog routes; media server URLs must be http(s) with tokens moved from query strings to headers and a connection timeout (see PR #119).
@@ -47,12 +66,14 @@ All notable changes to this project will be documented in this file.
 - **Encryption key corruption handling** — The key file is validated (32-byte hex) and written atomically (temp + rename); a truncated/corrupted key is detected and regenerated with a warning instead of silently producing a zero-length key (see PR #119).
 
 ### Fixed
+
 - **macOS "app is damaged" on Apple Silicon (arm64 builds) — for real this time** — The 5.5.1 ad-hoc signing hook never actually signed anything: its Mach-O magic check compared a 4-byte buffer against a 16-byte constant with `every()`, which always returned false, and the collector only traversed inside the bundle, skipping the top-level `.app`. The hook now uses `MACHO_MAGICS.some(buf.equals(...))`, signs the app bundle itself, fails the build when zero binaries are signed, and verifies with `codesign --verify --deep --strict`. The release workflow now also verifies version consistency before building and uploads macOS artifacts even when packaging fails (see issue #107, PR #117).
 - **Partial files left behind after failed downloads** — Downloads are staged to a `.qbz-part` file and only renamed on success; interrupted transfers resume via partial path matching, and `skipExisting` no longer mis-detects (see PR #118).
 - **Empty album/playlist downloads produced corrupt zips** — Queues that finish with zero tracks now report `partial` instead of writing an empty archive; queue items are deduplicated and concurrency is read from settings at runtime (see PR #118).
 - **UI bugs in player, queue, and settings** — `AudioContext` is closed on unmount to stop memory leaks, the editor resets after save, and queue/player state updates are more reliable (see PR #118).
 
 ### Tests
+
 - **New coverage for the fixes above** — `scripts/adhoc-sign-mac.test.mjs` (signing hook), dashboard hardening tests (`src/services/dashboard/index.test.ts`), media server guard tests, format converter allowlist tests, and download/queue regression tests.
 
 ---
@@ -60,9 +81,11 @@ All notable changes to this project will be documented in this file.
 ## [5.5.1] - 2026-08-10
 
 ### Fixed
-- **macOS "app is damaged" on Apple Silicon (arm64 builds)** — macOS Gatekeeper rejected unsigned builds once quarantine was applied: electron-builder rewrites `Info.plist` during packaging, invalidating the auto-generated ad-hoc signature, so the app failed with *"is damaged and can't be opened"*. All macOS builds are now ad-hoc signed via an `afterPack` hook (`scripts/adhoc-sign-mac.cjs`) with hardened runtime and entitlements, which produces a valid signature and clears the error (see issue #107). The release pipeline also forwards Apple Developer ID and notarization secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), so builds made with credentials are fully signed and notarized automatically. Without credentials, builds remain ad-hoc signed and may still require right-click → Open (see README workaround).
+
+- **macOS "app is damaged" on Apple Silicon (arm64 builds)** — macOS Gatekeeper rejected unsigned builds once quarantine was applied: electron-builder rewrites `Info.plist` during packaging, invalidating the auto-generated ad-hoc signature, so the app failed with _"is damaged and can't be opened"_. All macOS builds are now ad-hoc signed via an `afterPack` hook (`scripts/adhoc-sign-mac.cjs`) with hardened runtime and entitlements, which produces a valid signature and clears the error (see issue #107). The release pipeline also forwards Apple Developer ID and notarization secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), so builds made with credentials are fully signed and notarized automatically. Without credentials, builds remain ad-hoc signed and may still require right-click → Open (see README workaround).
 
 ### Tests
+
 - **Flaky Windows CI: database migration test timeout** — `should create a same-directory backup before migrating a file database` exceeded vitest's 5000ms default on slow runners (9s observed on windows-latest), failing the run intermittently. The per-test timeout is raised to 30000ms.
 
 ---
@@ -70,6 +93,7 @@ All notable changes to this project will be documented in this file.
 ## [5.4.0] - 2026-07-26
 
 ### Fixed
+
 - **FLAC tagging always fails on non-Windows platforms** — `writeFlacTags()` writes the tagged output to a temporary file with a `.tmp` extension. Since ffmpeg selects the output muxer based on the file extension and `.tmp` does not match any known format, every tag write fails with `Unable to find a suitable output format`. The downloader then treats the track as failed and removes the file, resulting in complete batch downloads with nothing on disk. The output muxer is now forced with `-f flac` before the output path — the output is always FLAC here (`-c copy` from a FLAC input). Reported and fixed by @ICHlMOKU (see issue #58).
 - **ffmpeg 'Command line too long' on long metadata** — Replaced inline `-metadata KEY=VALUE` flags with an ffmetadata temp file. The inline approach placed every tag value in the CreateProcess command line, exceeding Windows' ~32K limit when synced lyrics or performer credits were lengthy. Now tags are written to a temp file in ffmetadata format and passed via `-f ffmetadata -i meta.txt -map_metadata` (see issue #57).
 - **format_id=1 false positive on full-length 24-bit tracks** — `getFileUrl()` now only early-returns for genuine previews (`sample === true` or `duration <= 30`). Full-length tracks that the Qobuz API serves with `format_id=1` but carry valid `bit_depth`/`sampling_rate` metadata fall through to quality detection, which correctly sets the format to 7 (Hi-Res ≤96kHz) or 27 (Hi-Res 192kHz) (see issue #56).
@@ -79,6 +103,7 @@ All notable changes to this project will be documented in this file.
 ## [5.3.3] - 2026-07-16
 
 ### Fixed
+
 - **FLAC tagging no longer corrupts audio stream** - Replaced the `flac-metadata` library with ffmpeg for writing FLAC Vorbis comments and embedding cover art. The `flac-metadata` v0.1.1 library used a fragile `processor.push()` pattern inside a Transform stream's event handler, which could misalign audio frame boundaries and produce a "Corrupted FLAC stream" error in players like Foobar2000. Re-encoding in Foobar restored playback because it created a clean FLAC from the original PCM audio. ffmpeg's stream-copy mode is now used instead, which updates metadata without touching audio frames (see issue #50).
 - **Cover art no longer embedded when 'save cover file' is set without 'embed'** - The cover buffer was being passed to the tagger regardless of the `embedCover` setting. Now it is only passed when `CONFIG.metadata.embedCover` is enabled (see issue #50).
 
@@ -87,9 +112,11 @@ All notable changes to this project will be documented in this file.
 ## [5.3.2] - 2026-07-16
 
 ### Changed
+
 - **Cover Size dropdown shows pixel dimensions** - Settings → Cover Size options now display their pixel sizes (Small 230px, Large 600px, Max original) so the 600px option is easier to find (see issue #50).
 
 ### Fixed
+
 - **Format 1 preview no longer bypasses sample rejection** - When `getFileUrl` falls back to format 1 (30s preview), the quality-detection logic was overwriting `format_id` from 1 to 6 (or 5) based on MIME type/bit depth, which caused the sample rejection check in the downloader to miss it. Preview data was then saved as a full FLAC file, resulting in a "Corrupted FLAC stream" error in players like Foobar2000. Now format 1 preserves its original `format_id` so the rejection works correctly (see issue #50).
 
 ---
@@ -97,9 +124,11 @@ All notable changes to this project will be documented in this file.
 ## [5.3.1] - 2026-07-14
 
 ### Changed
+
 - **Clearer signature error messages** - Login signature-test failures now explain the real cause: the App Secret does not match the App ID (or is revoked/expired), and instruct users to use a matching App ID + App Secret pair from the Qobuz web player. Previously these surfaced as a generic "Invalid Request Signature" error (see issue #50).
 
 ### Fixed
+
 - **Preview/sample tracks no longer downloaded as full tracks** - `getFileUrl` falls back to the ~30s preview (format 1) when a track is unavailable; such tracks are now rejected and surfaced in `missing_tracks.txt` instead of being saved as a broken/partial file (see issue #8, case 1).
 - **Queue now reports partial downloads** - Albums/playlists that finish with some tracks missing are marked with a new `partial` queue status (and a "Partial" stat), instead of always showing as `completed`. The missing tracks are still logged to `missing_tracks.txt` in the album folder (see issue #8, case 2).
 
@@ -108,6 +137,7 @@ All notable changes to this project will be documented in this file.
 ## [5.3.0] - 2026-07-11
 
 ### Added
+
 - macOS builds (DMG + ZIP) for Apple Silicon (arm64); Intel (x64) planned for a later release
 - Linux builds (AppImage, deb, tar.gz)
 - Platform-specific binary resolution via `bin/<platform>-<arch>/`
@@ -116,6 +146,7 @@ All notable changes to this project will be documented in this file.
 - Community health files: PR template, bug/feature issue templates, and `CODE_OF_CONDUCT.md`
 
 ### Changed
+
 - README updated with download links for all 3 platforms
 - Minimum Node.js version bumped to 20.0.0
 - Linux packages now ship `maintainer` metadata and expanded desktop categories (`Audio;AudioVideo;Music`)
@@ -236,7 +267,6 @@ This release summarizes the changes from `v5.1.6` to `v5.2.0`.
 ---
 
 ## [5.1.6] - 2026-05-13
-
 
 ### Bug Fixes
 
