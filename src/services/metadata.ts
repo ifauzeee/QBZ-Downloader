@@ -12,6 +12,15 @@ const LYRICS_KEYS = new Set([
     'UNSYNCED LYRICS',
 ]);
 
+// A FLAC metadata block length is a 24-bit field, so a METADATA_BLOCK_PICTURE
+// body (picture data plus its header fields) cannot exceed 16 MiB. Qobuz "max"
+// covers are often ~20 MB, and ffmpeg drops an oversized picture silently
+// (exit 0), producing an untagged file that looks like a successful write.
+// Anything above this is downscaled before embedding. The 1 KiB of slack
+// covers the fixed header fields that sit in front of the image data.
+const FLAC_PICTURE_PAYLOAD_LIMIT = 16 * 1024 * 1024 - 1024;
+const FLAC_COVER_MAX_DIMENSION = 1500;
+
 export type RawData = Record<string, unknown>;
 
 export interface Metadata {
@@ -808,11 +817,13 @@ export class MetadataService {
         const uniqueSuffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const tempPath = `${filePath}.${uniqueSuffix}.tmp`;
         const coverPath = `${filePath}.${uniqueSuffix}.cover.tmp.jpg`;
+        const scaledCoverPath = `${filePath}.${uniqueSuffix}.cover.scaled.jpg`;
         const metaPath = `${filePath}.${uniqueSuffix}.meta.txt`;
 
         const clean = () => {
             try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
             try { if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath); } catch {}
+            try { if (fs.existsSync(scaledCoverPath)) fs.unlinkSync(scaledCoverPath); } catch {}
             try { if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath); } catch {}
         };
 
@@ -834,8 +845,53 @@ export class MetadataService {
 
             if (coverBuffer) {
                 fs.writeFileSync(coverPath, coverBuffer);
+                let embedCoverPath = coverPath;
+
+                // A FLAC METADATA_BLOCK_PICTURE that overflows the 24-bit block
+                // length is dropped silently by ffmpeg (exit 0), leaving the
+                // track untagged. Re-encode an oversized cover so it survives.
+                if (coverBuffer.length > FLAC_PICTURE_PAYLOAD_LIMIT) {
+                    await new Promise<void>((resolve, reject) => {
+                        execFile(
+                            ffmpeg,
+                            [
+                                '-y',
+                                '-i',
+                                coverPath,
+                                '-vf',
+                                `scale=${FLAC_COVER_MAX_DIMENSION}:${FLAC_COVER_MAX_DIMENSION}:force_original_aspect_ratio=decrease`,
+                                '-q:v',
+                                '2',
+                                scaledCoverPath
+                            ],
+                            { timeout: 60000 },
+                            (error, _stdout, stderr) => {
+                                if (error) {
+                                    const detail = (stderr || error.message || '')
+                                        .trim()
+                                        .split('\n')
+                                        .slice(-3)
+                                        .join('\n');
+                                    reject(
+                                        new Error(
+                                            `ffmpeg cover downscale failed: ${detail || error.message}`
+                                        )
+                                    );
+                                } else {
+                                    resolve();
+                                }
+                            }
+                        );
+                    });
+                    logger.debug(
+                        `Downscaled oversized FLAC cover for ${path.basename(filePath)}`,
+                        'META'
+                    );
+                    embedCoverPath = scaledCoverPath;
+                }
+
                 // inputs: [0]=flac, [1]=cover, [2]=metadata file
-                args.push('-i', coverPath, '-f', 'ffmetadata', '-i', metaPath);
+                args.push('-i', embedCoverPath, '-f', 'ffmetadata', '-i', metaPath);
                 args.push(
                     '-map', '0:0',
                     '-map', '1:0',

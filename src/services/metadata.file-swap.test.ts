@@ -91,4 +91,29 @@ describe('writeFlacTags file swap', () => {
         expect(fs.readFileSync(track).equals(ORIGINAL_CONTENT)).toBe(true);
         expect(fs.readdirSync(dir)).toEqual(['track.flac']);
     });
+
+    it('downscales a cover that overflows the 24-bit FLAC picture block', async () => {
+        // Qobuz "max" covers can exceed the 16 MiB METADATA_BLOCK_PICTURE limit;
+        // ffmpeg then drops the picture silently. The cover must be scaled first.
+        const oversized = Buffer.alloc(17 * 1024 * 1024, 1);
+        await service.writeFlacTags(track, TAGS, oversized);
+
+        const calls = vi.mocked(execFile).mock.calls.map((c) => (c[1] as string[]).join(' '));
+        expect(
+            calls.some((args) =>
+                args.includes('scale=1500:1500:force_original_aspect_ratio=decrease')
+            )
+        ).toBe(true);
+        expect(fs.existsSync(track)).toBe(true);
+        expect(fs.readdirSync(dir)).toEqual(['track.flac']);
+    });
+
+    it('embeds a cover under the limit without re-encoding it', async () => {
+        const small = Buffer.alloc(1024 * 1024, 1);
+        await service.writeFlacTags(track, TAGS, small);
+
+        const calls = vi.mocked(execFile).mock.calls.map((c) => (c[1] as string[]).join(' '));
+        expect(calls.some((args) => args.includes('scale='))).toBe(false);
+        expect(fs.readdirSync(dir)).toEqual(['track.flac']);
+    });
 });
