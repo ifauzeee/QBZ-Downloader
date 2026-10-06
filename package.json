@@ -187,10 +187,10 @@
     "archiver": "^7.0.1",
     "axios": "^1.20.0",
     "better-sqlite3": "^13.0.3",
-    "chalk": "^6.0.0",
+    "chalk": "^6.0.1",
     "cheerio": "^1.2.0",
     "chokidar": "^5.0.0",
-    "csv-parse": "^7.0.2",
+    "csv-parse": "^7.0.3",
     "electron-updater": "^6.8.9",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
@@ -199,7 +199,7 @@
     "music-metadata": "^11.16.1",
     "node-id3": "^0.2.9",
     "p-limit": "^7.3.3",
-    "socket.io": "^4.8.3",
+    "socket.io": "^4.8.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {
