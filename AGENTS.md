@@ -6,7 +6,7 @@
 - **`client/`** — React 18 + Vite + Tailwind frontend (built to `src/services/dashboard/public/`)
 - **`electron/`** — Electron shell (`main.cjs` starts backend via dynamic import, loads dashboard)
 - **`scripts/`** — build helpers (sync-version, rebuild-electron-native, bundle-binaries)
-- **`bin/`** — platform binaries (ffmpeg, fpcalc), populated at build time by `scripts/bundle-binaries.cjs`
+- **`bin/`** — platform binaries (ffmpeg, fpcalc), populated on demand by `scripts/bundle-binaries.cjs` when packaging locally
 
 ## Version sync
 
@@ -19,14 +19,14 @@ npm run sync-version
 
 This also updates the README badge and CHANGELOG top entry. **Do not bump versions manually.**
 
-## Build order (for releases)
+## Build order
 
 ```
 npm run build:full   # sync-version → client npm ci + build → tsc + copy-assets
 ```
 
-Then `scripts/rebuild-electron-native.cjs` rebuilds `better-sqlite3` for Electron's Node ABI.
-Then `scripts/bundle-binaries.cjs` copies ffmpeg (from ffmpeg-static) + fpcalc (from GitHub) into `bin/<platform>-<arch>/`.
+Then `scripts/rebuild-electron-native.cjs` rebuilds `better-sqlite3` for Electron's Node ABI
+(`npm run desktop:start` does this for you).
 
 ## Tests
 
@@ -60,23 +60,20 @@ Settings are stored in SQLite, read via `CONFIG` proxy object (`src/config.ts`).
 - `npm run lint` only covers `src/**/*.ts`; `cd client && npm run lint` for frontend
 - TypeScript: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` off
 
-## Release workflow
+## Distribution
 
-Push a tag matching `v*` triggers `desktop-release.yml` (3 parallel jobs: Windows, macOS, Linux).
-Each job: build:full → verify version → test → lint → smoke → rebuild native → bundle binaries → publish.
+There are **no binary releases**. No installer, portable build, or container image is
+published: `desktop-release.yml` and `docker-publish.yml` were removed and
+`package.json` carries no electron-builder/publish configuration. The app is
+distributed as source only; users build it with the commands above.
 
-**Known gotcha:** Tag push auto-creates a GitHub release (published, not draft). electron-builder's `--publish always` can fail on a pre-existing release, uploading only the first platform's assets. Fix:
+Consequences:
 
-```
-gh release delete vX.Y.Z --yes
-# then re-run the CI workflow for that tag
-```
-
-After re-run, update release body with CHANGELOG content:
-
-```
-gh release edit vX.Y.Z --notes-file CHANGELOG.md
-```
+- Pushing a `v*` tag no longer creates a GitHub release or publishes anything.
+- The desktop app has no auto-update — the update UI, IPC bridge and
+  `electron-updater` dependency were removed along with the release channel.
+- `unraid/qbz-downloader.xml` is reference only; the GHCR image it pointed to is
+  no longer built.
 
 ## CI and branch protection
 
@@ -104,5 +101,5 @@ When editing a ruleset over REST, the review rule type is `pull_request` (not `r
 ## Dependencies with quirks
 
 - `better-sqlite3` must be rebuilt for each Electron version (handled by `scripts/rebuild-electron-native.cjs` with multi-path fallback to find `@electron/rebuild`)
-- `ffmpeg-static` provides ffmpeg path at runtime; `scripts/bundle-binaries.cjs` copies it for distribution
-- `electron-updater` is optional (graceful fallback in `electron/main.cjs`)
+- `ffmpeg-static` provides ffmpeg path at runtime; `scripts/bundle-binaries.cjs` copies it into `bin/` only when someone packages the app locally
+- `electron-builder` is still a devDependency, but nothing configures or invokes it anymore

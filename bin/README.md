@@ -1,9 +1,10 @@
 # Platform Binaries
 
-This directory contains platform-specific binaries bundled with the app via
-electron-builder's `extraResources`. The binaries are **not committed** to the
-repo — they are downloaded at release-build time by `scripts/bundle-binaries.cjs`
-(which runs as the `Bundle platform binaries` step in `desktop-release.yml`).
+This directory holds platform-specific binaries that a locally packaged app
+resolves through electron-builder's `extraResources`. No packaging pipeline runs
+anymore, so this is entirely optional: the binaries are **not committed** to the
+repo, and `scripts/bundle-binaries.cjs` downloads them on demand. Without them the
+app falls back to whatever ffmpeg and fpcalc it finds on your `PATH`.
 
 ## Directory Structure
 

@@ -5,11 +5,7 @@
 # 🎵 QBZ-Downloader
 ### The Ultimate High-Resolution Audio Downloader & Library Manager
 
-[![Version](https://img.shields.io/badge/version-5.6.3-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader/releases)
-[![Windows](https://img.shields.io/badge/Windows-EXE-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
-[![macOS](https://img.shields.io/badge/macOS-DMG-000000?style=for-the-badge&logo=apple)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
-[![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624?style=for-the-badge&logo=linux)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
-[![Docker](https://img.shields.io/badge/Docker-ghcr-2496ed?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/ifauzeee/QBZ-Downloader/pkgs/container/qbz-downloader)
+[![Version](https://img.shields.io/badge/version-5.6.3-6366f1?style=for-the-badge&logo=github)](https://github.com/ifauzeee/QBZ-Downloader)
 
 [![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -27,7 +23,6 @@
 
 [✨ Features](#-key-features) •
 [📥 Installation](#-installation) •
-[🐳 Docker](#docker-for-nas--headless-servers) •
 [🤝 Contributors](#-contributors)
 
 </div>
@@ -56,7 +51,6 @@ QBZ-Downloader transforms the way you curate your local music library. Every fea
 | **📡 Media Server Integration** | After a download completes, the app can automatically notify Plex or Jellyfin to rescan the library — your music appears in your media server immediately. |
 | **📤 Automatic Format Conversion** | Optionally convert downloaded FLAC files to MP3, AAC, or Opus for portable devices. The conversion runs automatically after every download. |
 | **👀 Playlist Watcher** | Subscribe to any Qobuz playlist and the app will monitor it for new tracks, downloading them as soon as they appear. |
-| **🐳 Docker Deployment** | Run the full dashboard inside a container on your NAS or headless server. A multi-architecture image (amd64 + arm64) is published to GHCR with every release. |
 
 ---
 
@@ -107,51 +101,10 @@ Audit your collection for metadata completeness, identify Hi-Res upgrade candida
 
 ## 📥 Installation
 
-### Desktop Application (Windows, macOS, Linux)
-QBZ-Downloader ships as a native desktop application for all three major platforms. Download the installer for your operating system from the [Releases page](https://github.com/ifauzeee/QBZ-Downloader/releases/latest), run it, and complete the one-time credential setup in the settings panel.
-
-- **Windows:** `.exe` installer or portable `.exe` (no installation required)
-- **macOS:** `.dmg` disk image for Apple Silicon (arm64); Intel support is planned for a future release
-- **Linux:** `.AppImage` (portable), `.deb` (Debian / Ubuntu), or `.tar.gz` archive
-
-> **macOS Gatekeeper note:** builds made without Apple Developer credentials
-> are ad-hoc signed but **not notarized**, so the first launch of a downloaded
-> copy is blocked with *"Apple could not verify … is free of malicious
-> software."* This is expected. Either open it once via **System Settings →
-> Privacy & Security → Open Anyway**, or clear the quarantine attribute after
-> dragging the app to `/Applications`:
->
-> ```bash
-> xattr -dr com.apple.quarantine "/Applications/QBZ Downloader.app"
-> ```
->
-> If macOS instead reports *"…is damaged and can't be opened"*, the bundle's
-> code signature is invalid rather than merely unnotarized — that is a build
-> bug, not a Gatekeeper policy, and no workaround should be needed. Please
-> [open an issue](https://github.com/ifauzeee/QBZ-Downloader/issues). You can
-> confirm a good build yourself with:
->
-> ```bash
-> codesign --verify --deep --strict --verbose=2 "/Applications/QBZ Downloader.app"
-> ```
->
-> Releases built with Apple Developer ID credentials configured in CI (secrets
-> `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`,
-> `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`) are signed and notarized and
-> install without any workaround.
->
-> **Linux AppImage note:** the `.AppImage` mounts itself through FUSE 2. On systems
-> that ship FUSE 3 only (Fedora 40+, some minimal distros) it refuses to start; run it
-> with the extraction fallback instead:
->
-> ```bash
-> APPIMAGE_EXTRACT_AND_RUN=1 ./QBZ-Downloader-<version>-x86_64.AppImage
-> ```
->
-> The `.deb` package has no such requirement.
+There are no prebuilt installers or container images. Build from source and
+run it locally.
 
 ### Build from Source
-If you prefer to build the application yourself:
 
 ```bash
 # Install dependencies
@@ -159,37 +112,25 @@ npm install
 
 # Build both the client dashboard and the backend server
 npm run build:full
-
-# Package the desktop installer
-npm run desktop:dist
 ```
 
-Build artifacts are written to the `release/` directory:
-- **Windows:** `QBZ-Downloader-Setup-<version>.exe` and `QBZ-Downloader-Portable-<version>.exe`
-- **macOS:** `QBZ-Downloader-<version>-arm64.dmg`
-- **Linux:** `QBZ-Downloader-<version>-x86_64.AppImage`, `.deb`, and `.tar.gz`
-
-### Pre-Release Builds (CI Artifacts)
-When a fix has been merged to `main` but a formal release has not yet been cut, you can build the current `main` from CI:
-
-1. Navigate to the [Actions tab](https://github.com/ifauzeee/QBZ-Downloader/actions) and select the **Desktop Release** workflow.
-2. Trigger it with **Run workflow** (the workflow only runs automatically for `v*` tags).
-3. Open the run and, once it is green, download your platform's bundle from the **Artifacts** section:
-   - `qbz-desktop-release` — the Windows `.exe` installer and portable build
-   - `macos-build` — the `.dmg` and `.zip`
-   - `linux-build` — the `.AppImage`, `.deb` and `.tar.gz`
-4. Extract the archive and run the installer. No build tools are required.
-
-> These builds are compiled from the selected branch using the same CI pipeline that produces official releases. They are functionally identical to a tagged release — the only difference is the absence of a version tag.
-
-### Docker (for NAS / Headless Servers)
-A pre-built multi-architecture Docker image is available for server and NAS deployments. It bundles ffmpeg, fpcalc, and the full dashboard behind a password-protected web interface.
+Run the desktop app in development:
 
 ```bash
-docker pull ghcr.io/ifauzeee/qbz-downloader:latest
+npm run desktop:start
 ```
 
-Refer to the [Docker workflow](.github/workflows/docker-publish.yml) for environment variables and volume mount points.
+`desktop:start` rebuilds `better-sqlite3` for Electron, starts the Electron
+shell, and loads the local dashboard.
+
+The dashboard also runs as a plain Node service, without Electron:
+
+```bash
+npm run build
+npm start
+```
+
+Build artifacts are written to the `dist/` directory.
 
 ---
 
