@@ -10,7 +10,6 @@
 [![macOS](https://img.shields.io/badge/macOS-DMG-000000?style=for-the-badge&logo=apple)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
 [![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624?style=for-the-badge&logo=linux)](https://github.com/ifauzeee/QBZ-Downloader/releases/latest)
 [![Docker](https://img.shields.io/badge/Docker-ghcr-2496ed?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/ifauzeee/QBZ-Downloader/pkgs/container/qbz-downloader)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-Support-ffdd00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/ifauzeee)
 
 [![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
