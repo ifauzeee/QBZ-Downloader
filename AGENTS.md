@@ -67,6 +67,10 @@ published: `desktop-release.yml` and `docker-publish.yml` were removed and
 `package.json` carries no electron-builder/publish configuration. The app is
 distributed as source only; users build it with the commands above.
 
+`desktop:rebuild` and `desktop:start` are kept: they run the app from source and
+are the way to launch it, not distribution. The `desktop:dist*` packaging scripts
+are what were removed.
+
 Consequences:
 
 - Pushing a `v*` tag no longer creates a GitHub release or publishes anything.

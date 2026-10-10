@@ -28,6 +28,8 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
     "docs": "typedoc --out docs src/index.ts",
+    "desktop:rebuild": "node scripts/rebuild-electron-native.cjs",
+    "desktop:start": "npm run build:full && npm run desktop:rebuild && electron electron/main.cjs",
     "prepare": "husky"
   },
   "keywords": [
