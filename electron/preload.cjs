@@ -19,14 +19,4 @@ contextBridge.exposeInMainWorld('qbzDesktop', {
       return () => ipcRenderer.removeListener('desktop:maximize-changed', listener);
     }
   },
-  updates: {
-    getStatus: () => ipcRenderer.invoke('desktop:update:get-status'),
-    check: () => ipcRenderer.invoke('desktop:update:check'),
-    install: () => ipcRenderer.invoke('desktop:update:install'),
-    onStatusChanged: (callback) => {
-      const listener = (_event, status) => callback(status);
-      ipcRenderer.on('desktop:update-status', listener);
-      return () => ipcRenderer.removeListener('desktop:update-status', listener);
-    }
-  },
 });

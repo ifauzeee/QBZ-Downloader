@@ -9,23 +9,19 @@ QBZ Downloader is ready to move beyond the Windows-only release channel with a s
 
 ## Build Targets
 
-The package now exposes explicit build commands:
+The project no longer ships prebuilt packages, so there are no `desktop:dist:*`
+commands. To run the app on any platform:
 
-- `npm run desktop:dist:win` builds the Windows NSIS installer.
-- `npm run desktop:dist:portable` builds the Windows portable package.
-- `npm run desktop:dist:mac` builds macOS DMG and ZIP artifacts.
-- `npm run desktop:dist:linux` builds Linux AppImage, DEB, and tar.gz artifacts.
-- `npm run desktop:dist:all` declares all targets, but macOS artifacts should be produced on macOS for signing/notarization reliability.
+```bash
+npm run build:full   # dashboard + backend
+npm run desktop:start
+```
 
 ## Native Dependencies
 
-`better-sqlite3` should be rebuilt on each platform before packaging. The existing `desktop:rebuild` step already runs the Electron native rebuild flow, so release jobs should run packaging on native OS runners instead of relying on cross-compilation for every artifact.
-
-Recommended CI matrix:
-
-- Windows x64: `npm run desktop:dist:win` and `npm run desktop:dist:portable`
-- macOS x64/arm64: `npm run desktop:dist:mac`
-- Linux x64: `npm run desktop:dist:linux`
+CI no longer builds artifacts, so there is no packaging matrix. The only cross-platform
+requirement is building `better-sqlite3` on the platform it runs on, which
+`npm run desktop:start` handles through `scripts/rebuild-electron-native.cjs`.
 
 ## Bundled Binaries
 
@@ -45,12 +41,13 @@ bin/linux-x64/ffmpeg
 
 For developer builds, installing FFmpeg in `PATH` remains sufficient.
 
-## Remaining Release Work
+## Remaining Work
 
-- Add a proper `.icns` icon for macOS if the PNG fallback is not accepted by the final signing pipeline.
-- Configure Apple Developer signing and notarization secrets before distributing macOS builds publicly.
-- Add Linux package metadata such as maintainer and desktop categories once a release owner is chosen.
-- Smoke-test download path selection, open-folder actions, notifications, and auto-update behavior on each OS before publishing stable artifacts.
+- Optional: a proper `.icns` icon for macOS if someone packages the app themselves.
+- Optional: Apple Developer signing and notarization secrets for whoever builds a
+  distributable bundle locally.
+- Smoke-test download path selection, open-folder actions, notifications, and
+  library scanning on each OS after a local build.
 
 ## Implementation Status (v5.3.0)
 

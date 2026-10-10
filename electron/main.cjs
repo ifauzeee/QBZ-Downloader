@@ -3,13 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
 
-let autoUpdater = null;
-try {
-  ({ autoUpdater } = require('electron-updater'));
-} catch {
-  autoUpdater = null;
-}
-
 const initialCwd = process.cwd();
 const net = require('net');
 const crypto = require('crypto');
@@ -50,15 +43,6 @@ const baseAppPath = app.isPackaged ? app.getAppPath() : path.join(__dirname, '..
 let runtimeDir = initialCwd;
 let mainWindow = null;
 let backendBootPromise = null;
-let updaterInterval = null;
-let updateState = {
-  status: 'idle',
-  message: 'No update check yet.',
-  version: null,
-  available: false,
-  downloaded: false,
-  checkedAt: null
-};
 
 
 
@@ -347,18 +331,6 @@ function migrateLegacyState(targetDir) {
 }
 
 
-function pushUpdateState(partialState) {
-  updateState = {
-    ...updateState,
-    ...partialState,
-    checkedAt: new Date().toISOString()
-  };
-
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('desktop:update-status', updateState);
-  }
-}
-
 async function loadInlinePage(win, message) {
   const content = createLoadingMarkup(message);
   const dataUri = `data:text/html;charset=UTF-8,${encodeURIComponent(content)}`;
@@ -522,111 +494,6 @@ function setupSecurityHeaders() {
 
 
 
-function setupAutoUpdater() {
-  if (!autoUpdater || !app.isPackaged) {
-    pushUpdateState({ status: 'disabled', message: 'Auto update only active in packaged builds.' });
-    return;
-  }
-
-  const rawFeed = process.env.QBZ_UPDATE_URL;
-  if (rawFeed && rawFeed.startsWith('https://')) {
-    const feed = rawFeed.endsWith('/') ? rawFeed : `${rawFeed}/`;
-    autoUpdater.setFeedURL({ provider: 'generic', url: feed });
-  } else if (rawFeed) {
-    // autoDownload and autoInstallOnAppQuit are both on, so a plaintext feed
-    // is a straight path from a network position to code execution.
-    pushUpdateState({
-      status: 'error',
-      message: 'Ignoring QBZ_UPDATE_URL: only https update feeds are accepted.'
-    });
-  }
-
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  autoUpdater.on('checking-for-update', () => {
-    pushUpdateState({ status: 'checking', message: 'Checking for update...', available: false, downloaded: false });
-  });
-
-  autoUpdater.on('update-available', (info) => {
-    pushUpdateState({
-      status: 'available',
-      message: `Update ${info.version} found. Downloading...`,
-      version: info.version,
-      available: true,
-      downloaded: false
-    });
-  });
-
-  autoUpdater.on('update-not-available', (info) => {
-    pushUpdateState({
-      status: 'up-to-date',
-      message: 'You are using the latest version.',
-      version: info?.version || app.getVersion(),
-      available: false,
-      downloaded: false
-    });
-  });
-
-  autoUpdater.on('download-progress', (progress) => {
-    pushUpdateState({
-      status: 'downloading',
-      message: `Downloading update... ${Math.round(progress.percent)}%`,
-      available: true,
-      downloaded: false
-    });
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    pushUpdateState({
-      status: 'downloaded',
-      message: `Update ${info.version} is ready. Restart app to install.`,
-      version: info.version,
-      available: true,
-      downloaded: true
-    });
-  });
-
-  const updateChannelNotReady =
-    (message) =>
-      /404|status code 404|not found|cannot find latest|no published versions/.test(
-        (message || '').toLowerCase()
-      );
-
-  autoUpdater.on('error', (error) => {
-    const message = (error?.message || String(error)).trim();
-    if (updateChannelNotReady(message)) {
-      pushUpdateState({
-        status: 'disabled',
-        message: 'Update channel is not ready yet. Publish a release first.',
-        available: false,
-        downloaded: false
-      });
-      return;
-    }
-
-    pushUpdateState({ status: 'error', message: `Update check failed: ${message}` });
-  });
-
-  const checkNow = () => autoUpdater.checkForUpdates().catch((error) => {
-    const message = (error?.message || String(error)).trim();
-
-    if (updateChannelNotReady(message)) {
-      pushUpdateState({
-        status: 'disabled',
-        message: 'Update channel is not ready yet. Publish a release first.',
-        available: false,
-        downloaded: false
-      });
-      return;
-    }
-
-    pushUpdateState({ status: 'error', message: `Update check failed: ${message}` });
-  });
-
-  setTimeout(checkNow, 12000);
-  updaterInterval = setInterval(checkNow, 6 * 60 * 60 * 1000);
-}
 
 function registerIpc() {
   ipcMain.handle('desktop:app-version', () => app.getVersion());
@@ -656,43 +523,6 @@ function registerIpc() {
     return win ? win.isMaximized() : false;
   });
 
-  ipcMain.handle('desktop:update:get-status', () => updateState);
-
-  ipcMain.handle('desktop:update:check', async () => {
-    if (!autoUpdater || !app.isPackaged) {
-      return { ok: false, reason: 'disabled' };
-    }
-
-    try {
-      await autoUpdater.checkForUpdates();
-      return { ok: true };
-    } catch (error) {
-      const message = (error?.message || String(error)).trim();
-
-      if (updateChannelNotReady(message)) {
-        pushUpdateState({
-          status: 'disabled',
-          message: 'Update channel is not ready yet. Publish a release first.',
-          available: false,
-          downloaded: false
-        });
-        return { ok: false, reason: 'channel-not-ready' };
-      }
-
-      pushUpdateState({ status: 'error', message: `Manual update check failed: ${message}` });
-      return { ok: false, reason: message };
-    }
-  });
-
-  ipcMain.handle('desktop:update:install', () => {
-    if (!autoUpdater || !app.isPackaged) return { ok: false, reason: 'disabled' };
-
-    setImmediate(() => {
-      autoUpdater.quitAndInstall(true, true);
-    });
-
-    return { ok: true };
-  });
 
 
 
@@ -760,7 +590,6 @@ async function bootstrap() {
 
     if (online) {
       await mainWindow.loadURL(DASHBOARD_URL);
-      setupAutoUpdater();
       setupEventBridge().catch(err => console.error('Failed to setup event bridge:', err));
     } else {
       await loadInlinePage(
@@ -823,13 +652,6 @@ if (!gotLock) {
       app.quit();
     });
 }
-
-app.on('before-quit', () => {
-  if (updaterInterval) {
-    clearInterval(updaterInterval);
-    updaterInterval = null;
-  }
-});
 
 app.on('window-all-closed', () => {
   app.quit();

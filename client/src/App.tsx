@@ -34,15 +34,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { applyAccent } from './utils/theme';
 import { smartFetch } from './utils/api';
 
-type UpdateState = {
-  status: string;
-  message: string;
-  version: string | null;
-  available: boolean;
-  downloaded: boolean;
-  checkedAt: string | null;
-};
-
 type DesktopSetupState = 'checking' | 'required' | 'ready';
 
 type OnboardingStatusResponse = {
@@ -63,8 +54,6 @@ function AppContent() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   const [showLangMenu, setShowLangMenu] = useState(false);
-  const [updateState, setUpdateState] = useState<UpdateState | null>(null);
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const desktopBridge = typeof window !== 'undefined' ? window.qbzDesktop : undefined;
   const isDesktop = Boolean(desktopBridge?.isDesktop);
   const [desktopSetupState, setDesktopSetupState] = useState<DesktopSetupState>(
@@ -131,22 +120,6 @@ function AppContent() {
     return () => {
       if (cleanup) cleanup();
     };
-  }, [desktopBridge, isDesktop]);
-
-  useEffect(() => {
-    if (!isDesktop || !desktopBridge) return;
-
-    desktopBridge.updates
-      .getStatus()
-      .then((status) => setUpdateState(status))
-      .catch(() => undefined);
-
-    const cleanup = desktopBridge.updates.onStatusChanged((status) => {
-      setUpdateState(status);
-      setIsCheckingUpdate(status.status === 'checking' || status.status === 'downloading');
-    });
-
-    return () => cleanup();
   }, [desktopBridge, isDesktop]);
 
   const checkDesktopSetup = useCallback(async () => {
@@ -254,34 +227,6 @@ function AppContent() {
     }
   };
 
-  const handleCheckUpdate = () => {
-    if (!desktopBridge) return;
-    setIsCheckingUpdate(true);
-    desktopBridge.updates
-      .check()
-      .catch(() => undefined)
-      .finally(() => setIsCheckingUpdate(false));
-  };
-
-  const handleInstallUpdate = () => {
-    if (!desktopBridge) return;
-    void desktopBridge.updates.install();
-  };
-
-  const getUpdateLabel = () => {
-    if (!updateState) return 'Updates';
-    if (updateState.downloaded) return 'Update Ready';
-    if (updateState.status === 'disabled') return 'Update Disabled';
-    if (updateState.status === 'downloading') return 'Updating...';
-    if (updateState.status === 'checking') return 'Checking...';
-    if (updateState.status === 'available') return 'Update Found';
-    if (updateState.status === 'up-to-date') return 'Up to Date';
-    if (updateState.status === 'error') return 'Update Error';
-    return 'Updates';
-  };
-  
-
-
 
   return (
     <div className="app-shell">
@@ -381,28 +326,6 @@ function AppContent() {
                       <span className="sync-dot" />
                       <span>{connected ? 'Synced' : 'Reconnecting'}</span>
                     </div>
-
-                    {isDesktop && (
-                      <div
-                        className={`update-pill ${updateState?.status || 'idle'} ${updateState?.downloaded ? 'ready' : ''}`}
-                        title={updateState?.message || 'Desktop updates'}
-                      >
-                        <span className="update-pill-label">{getUpdateLabel()}</span>
-                        {updateState?.downloaded ? (
-                          <button className="update-action-btn" onClick={handleInstallUpdate}>
-                            Install
-                          </button>
-                        ) : (
-                          <button
-                            className="update-action-btn"
-                            onClick={handleCheckUpdate}
-                            disabled={isCheckingUpdate}
-                          >
-                            Check
-                          </button>
-                        )}
-                      </div>
-                    )}
 
                     <div style={{ position: 'relative' }}>
                       <button

@@ -1,14 +1,5 @@
 export {};
 
-interface DesktopUpdateStatus {
-  status: string;
-  message: string;
-  version: string | null;
-  available: boolean;
-  downloaded: boolean;
-  checkedAt: string | null;
-}
-
 declare global {
   interface Window {
     qbzDesktop?: {
@@ -23,12 +14,6 @@ declare global {
         close: () => Promise<void>;
         isMaximized: () => Promise<boolean>;
         onMaximizeChanged: (callback: (maximized: boolean) => void) => () => void;
-      };
-      updates: {
-        getStatus: () => Promise<DesktopUpdateStatus>;
-        check: () => Promise<{ ok: boolean; reason?: string }>;
-        install: () => Promise<{ ok: boolean; reason?: string }>;
-        onStatusChanged: (callback: (status: DesktopUpdateStatus) => void) => () => void;
       };
       miniPlayer: {
         toggle: () => Promise<void>;

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **Distribution is source-only.** No installers, portable builds, or container images
+  are published. The desktop release and Docker publish workflows are removed,
+  `package.json` no longer carries an electron-builder or publish configuration, and the
+  dashboard auto-update (UI, IPC bridge, `electron-updater`) is gone. Build and run
+  locally with `npm run build:full` and `npm run desktop:start`. Existing installs keep
+  working but no longer receive updates.
+
 ## [5.6.3] - 2026-10-01
 
 ### Fixed

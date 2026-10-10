@@ -14,6 +14,9 @@
   <Support>https://github.com/ifauzeee/QBZ-Downloader/issues</Support>
   <Project>https://github.com/ifauzeee/QBZ-Downloader</Project>
   <Overview>
+    [b]Note: no container image is published anymore.[/b] This template is kept for
+    reference only — build the app from source instead.
+
     Qobuz downloader with a web dashboard for Hi-Res audio, metadata automation and local library management.
 
     Search Qobuz and queue tracks, albums, artists or playlists; files are tagged from Qobuz metadata with cover art and lyrics, and organised on disk using your own folder and filename templates. The built-in library scanner reports duplicates, missing tags and tracks available at a higher quality than the copy you already have.
