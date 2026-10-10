@@ -263,11 +263,14 @@ We welcome contributions of all kinds — bug reports, feature suggestions, docu
 
 ## ⚖️ Legal Disclaimer
 
-**Educational and Personal Archival Use Only.** This software is provided for educational purposes and personal archival use.
+**Personal archival use only.** This software is intended for educational purposes and for managing a personal music library built from content you have legitimately licensed or purchased.
 
-1. **No DRM circumvention.** QBZ-Downloader does not bypass DRM or region restrictions. It interacts with the Qobuz API using your own valid credentials.
-2. **Trademark notice.** "Qobuz" is a registered trademark of Xandrie SA. This project is not affiliated with, endorsed by, or sponsored by Xandrie SA or Qobuz.
-3. **User responsibility.** You are solely responsible for how you use this software. Please comply with Qobuz's Terms of Service at all times.
+1. **Your own subscription required.** QBZ-Downloader uses your own Qobuz account credentials. An active paid Qobuz subscription is required to download content — it is not a tool for free access.
+2. **Access outside the official flow.** The application talks to the Qobuz API directly instead of using Qobuz's official download feature. That access is not authorized by Qobuz and is prohibited by their [Terms of Service](https://www.qobuz.com/terms-of-use), so accounts used with this tool may be suspended or terminated.
+3. **Copyright.** Every file obtained through this software is protected by copyright. Do not copy, share, redistribute, or publicly perform them. The rules for keeping a personal backup copy differ by country, and respecting them is your responsibility.
+4. **No affiliation or endorsement.** "Qobuz" is a registered trademark of Xandrie SA. This project is not affiliated with, endorsed by, or sponsored by Xandrie SA or Qobuz.
+5. **No warranty.** The software is provided "as is", without warranty of any kind. The authors accept no liability for damages, data loss, account termination, or legal consequences arising from its use.
+6. **Not legal advice.** Nothing in this document is legal advice. If you are unsure about your situation, consult a qualified lawyer in your jurisdiction.
 
 ---
 
