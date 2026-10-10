@@ -1,7 +1,6 @@
 services:
   qbz-downloader:
     build: .
-    # image: ghcr.io/ifauzeee/qbz-downloader:latest
     container_name: qbz-downloader
     restart: unless-stopped
     ports:
