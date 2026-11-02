@@ -22,7 +22,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@tanstack/react-virtual": "^3.14.22",
+    "@tanstack/react-virtual": "^3.14.24",
     "chart.js": "^4.6.1",
     "react": "^19.3.1",
     "react-chartjs-2": "^5.3.1",
