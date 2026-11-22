@@ -15,5 +15,3 @@ export const URL_PATTERNS = {
 };
 
 export const APP_VERSION = packageJson.version;
-
-

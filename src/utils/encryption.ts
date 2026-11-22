@@ -18,7 +18,11 @@ async function getSafeStorage() {
     if (process.versions?.electron) {
         try {
             const electron = await import('electron');
-            _safeStorage = electron.safeStorage || (electron.default && (electron.default as unknown as { safeStorage: ElectronSafeStorage }).safeStorage);
+            _safeStorage =
+                electron.safeStorage ||
+                (electron.default &&
+                    (electron.default as unknown as { safeStorage: ElectronSafeStorage })
+                        .safeStorage);
         } catch {
             _safeStorage = undefined;
         }
@@ -143,5 +147,5 @@ export const encryptionService = {
 
     encryptSync,
     decryptSync,
-    isEncryptedSync,
+    isEncryptedSync
 };

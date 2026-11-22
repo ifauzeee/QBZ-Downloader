@@ -35,7 +35,12 @@ describe('MediaServerService', () => {
     describe('Notifications', () => {
         it('should skip if disabled', async () => {
             vi.mocked(settingsService.get).mockReturnValue('false');
-            await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
+            await service.notifyNewContent({
+                title: 'T',
+                artist: 'A',
+                album: 'Alb',
+                type: 'track'
+            });
             expect(axios.post).not.toHaveBeenCalled();
         });
 
@@ -48,7 +53,12 @@ describe('MediaServerService', () => {
                 return '';
             });
 
-            await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
+            await service.notifyNewContent({
+                title: 'T',
+                artist: 'A',
+                album: 'Alb',
+                type: 'track'
+            });
             // The token goes in a header, not the query string, so it does not
             // land in the media server's access log.
             expect(axios.get).toHaveBeenCalledWith(
@@ -67,7 +77,12 @@ describe('MediaServerService', () => {
                 return '';
             });
 
-            await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
+            await service.notifyNewContent({
+                title: 'T',
+                artist: 'A',
+                album: 'Alb',
+                type: 'track'
+            });
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('/Library/Refresh'),
                 undefined,
@@ -84,7 +99,12 @@ describe('MediaServerService', () => {
                 return '';
             });
 
-            await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
+            await service.notifyNewContent({
+                title: 'T',
+                artist: 'A',
+                album: 'Alb',
+                type: 'track'
+            });
             expect(axios.post).toHaveBeenCalledWith(
                 'http://hook',
                 expect.objectContaining({ event: 'download_complete' }),
@@ -100,7 +120,12 @@ describe('MediaServerService', () => {
                 return '';
             });
 
-            await service.notifyNewContent({ title: 'T', artist: 'A', album: 'Alb', type: 'track' });
+            await service.notifyNewContent({
+                title: 'T',
+                artist: 'A',
+                album: 'Alb',
+                type: 'track'
+            });
             expect(axios.post).not.toHaveBeenCalled();
 
             await expect(
@@ -114,15 +139,17 @@ describe('MediaServerService', () => {
             vi.mocked(axios.get).mockResolvedValue({ data: {} });
             const result = await service.testConnection('plex', 'http://plex', 'token');
             expect(result.success).toBe(true);
-            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('identity'), expect.anything());
-
+            expect(axios.get).toHaveBeenCalledWith(
+                expect.stringContaining('identity'),
+                expect.anything()
+            );
         });
 
         it('should handle connection failures', async () => {
             vi.mocked(axios.get).mockRejectedValue(new Error('Network error'));
-            await expect(service.testConnection('plex', 'http://plex', 'token'))
-                .rejects.toThrow('Connection failed:');
-
+            await expect(service.testConnection('plex', 'http://plex', 'token')).rejects.toThrow(
+                'Connection failed:'
+            );
         });
     });
 });

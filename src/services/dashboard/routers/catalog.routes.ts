@@ -40,7 +40,7 @@ router.get('/search', async (req: Request, res: Response) => {
                             item.image = latestAlbum?.image;
                             item.picture = latestAlbum?.image;
                         }
-                    } catch { }
+                    } catch {}
                 }
                 return item;
             });

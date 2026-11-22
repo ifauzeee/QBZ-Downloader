@@ -62,8 +62,6 @@ vi.mock('../utils/http.js', () => ({
     })
 }));
 
-
-
 vi.mock('axios', () => ({
     default: {
         get: vi.fn().mockResolvedValue({
@@ -75,7 +73,7 @@ vi.mock('axios', () => ({
 }));
 
 vi.mock('./metadata.js', () => ({
-    default: vi.fn().mockImplementation(function() {
+    default: vi.fn().mockImplementation(function () {
         return {
             extractMetadata: vi.fn().mockResolvedValue({
                 title: 'Integrasi Test',
@@ -91,7 +89,6 @@ vi.mock('./metadata.js', () => ({
 }));
 
 const { mockDatabaseService } = vi.hoisted(() => ({
-
     mockDatabaseService: {
         addQueueItem: vi.fn(),
         updateQueueItemStatus: vi.fn(),
@@ -101,12 +98,9 @@ const { mockDatabaseService } = vi.hoisted(() => ({
     }
 }));
 
-
 vi.mock('./database/index.js', () => ({
     databaseService: mockDatabaseService
 }));
-
-
 
 vi.mock('./history.js', () => ({
     historyService: {
@@ -126,7 +120,9 @@ vi.mock('./AIMetadataService.js', () => ({
 }));
 
 vi.mock('./QualityScannerService.js', () => ({
-    qualityScannerService: { scanFile: vi.fn().mockResolvedValue({ isTrueLossless: true, details: 'OK' }) }
+    qualityScannerService: {
+        scanFile: vi.fn().mockResolvedValue({ isTrueLossless: true, details: 'OK' })
+    }
 }));
 
 vi.mock('./MediaServerService.js', () => ({
@@ -151,26 +147,26 @@ vi.mock('../utils/logger.js', () => ({
 vi.mock('../config.js', () => {
     const configMock = {
         ai: { enabled: false, provider: 'none', apiKey: '', model: '' },
-        download: { 
-            outputDir: './downloads', 
-            folderStructure: '{artist}/{album}', 
-            fileNaming: '{track_number}. {title}', 
+        download: {
+            outputDir: './downloads',
+            folderStructure: '{artist}/{album}',
+            fileNaming: '{track_number}. {title}',
             retryDelay: 100,
             bandwidthLimit: 0,
             retryAttempts: 3,
             concurrent: 2
         },
-        quality: { 
+        quality: {
             default: 27,
             formats: {
                 27: { name: 'FLAC', extension: 'flac' },
                 5: { name: 'MP3', extension: 'mp3' }
             }
         },
-        metadata: { 
-            downloadLyrics: false, 
-            embedCover: false, 
-            saveCoverFile: false, 
+        metadata: {
+            downloadLyrics: false,
+            embedCover: false,
+            saveCoverFile: false,
             embedLyrics: false,
             tags: { basic: [], extended: [], credits: [] }
         },
@@ -190,7 +186,7 @@ vi.mock('../config.js', () => {
 // Partially mock fs
 vi.mock('fs', async (importOriginal) => {
     const actual = await importOriginal<typeof import('fs')>();
-    
+
     const mockExistsSync = vi.fn().mockReturnValue(false);
     const mockMkdirSync = vi.fn();
     const mockWriteFileSync = vi.fn();
@@ -198,14 +194,18 @@ vi.mock('fs', async (importOriginal) => {
     const mockRenameSync = vi.fn();
     const mockUnlinkSync = vi.fn();
     const mockCreateWriteStream = vi.fn().mockReturnValue({
-        on: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }, event, cb) {
+        on: vi.fn().mockImplementation(function (
+            this: { emit: (event: string) => void },
+            event,
+            cb
+        ) {
             if (event === 'finish') setTimeout(cb, 10);
             return this;
         }),
         once: vi.fn(),
         emit: vi.fn(),
         write: vi.fn().mockReturnValue(true),
-        end: vi.fn().mockImplementation(function(this: { emit: (event: string) => void }) {
+        end: vi.fn().mockImplementation(function (this: { emit: (event: string) => void }) {
             this.emit('finish');
             return this;
         }),
@@ -233,7 +233,6 @@ vi.mock('fs', async (importOriginal) => {
     };
 });
 
-
 describe('Download Integration Flow', () => {
     let processor: QueueProcessor;
 
@@ -245,17 +244,19 @@ describe('Download Integration Flow', () => {
     it('should execute full E2E flow: search -> queue -> download -> metadata -> library scan', async () => {
         // 1. Search (Mock API)
         const searchResult = await qobuzApi.search('Integrasi Test');
-        
+
         expect(searchResult.success).toBe(true);
         const trackToDownload = searchResult.data?.tracks?.items[0];
         expect(trackToDownload).toBeDefined();
 
         // 2. Add to Queue
         processor.start();
-        const item = downloadQueue.add('track', trackToDownload!.id, 27, { title: trackToDownload!.title } as Record<string, string>);
+        const item = downloadQueue.add('track', trackToDownload!.id, 27, {
+            title: trackToDownload!.title
+        } as Record<string, string>);
 
         // 3. Wait for Queue and Download to process
-        await new Promise(resolve => setTimeout(resolve, 600));
+        await new Promise((resolve) => setTimeout(resolve, 600));
 
         // Verify queue status
         const updatedItem = downloadQueue.get(item.id);
@@ -266,11 +267,11 @@ describe('Download Integration Flow', () => {
         // 4. Verify Database & Library Scan triggers (with polling for async operation)
         for (let i = 0; i < 10; i++) {
             if (mockDatabaseService.addTrack.mock.calls.length > 0) break;
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
         }
-        
+
         expect(mockDatabaseService.addTrack).toHaveBeenCalled();
-        
+
         const mediaServerModule = await import('./MediaServerService.js');
         expect(mediaServerModule.mediaServerService.notifyNewContent).toHaveBeenCalled();
     });

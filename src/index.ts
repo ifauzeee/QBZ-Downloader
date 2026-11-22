@@ -58,7 +58,7 @@ async function main() {
             const { settingsService } = await import('./services/settings.js');
             // Force initialization to log setting count
             settingsService.ensureInitialized();
-            
+
             await downloadQueue.load();
         } catch (error: unknown) {
             logger.warn(`Database init failed: ${(error as Error).message}`, 'DB');
@@ -74,10 +74,7 @@ async function main() {
 
         if (!valid) {
             logger.warn(`Missing required credentials: ${missing?.join(', ')}`, 'AUTH');
-            logger.info(
-                'Please configure your credentials via Dashboard Settings.',
-                'CONFIG'
-            );
+            logger.info('Please configure your credentials via Dashboard Settings.', 'CONFIG');
         } else {
             logger.success('Application settings validated.', 'CONFIG');
         }
@@ -90,7 +87,10 @@ async function main() {
             logger.info('Starting Playlist Watcher Service...', 'WATCHER');
             playlistWatcherService.start();
         } else {
-            logger.info('Background services (Queue/Watcher) suspended until credentials are configured.', 'BOOT');
+            logger.info(
+                'Background services (Queue/Watcher) suspended until credentials are configured.',
+                'BOOT'
+            );
         }
 
         logger.info('Initializing Dashboard Service...', 'WEB');
@@ -102,10 +102,19 @@ async function main() {
         if (CONFIG.export.enabled) {
             const { formatConverterService } = await import('./services/FormatConverterService.js');
             if (!(await formatConverterService.isAvailable())) {
-                logger.warn('Converter: export is enabled but ffmpeg was not found in your system PATH.', 'CONVERTER');
-                logger.info('Converter: please install ffmpeg to use the format conversion features.', 'CONVERTER');
+                logger.warn(
+                    'Converter: export is enabled but ffmpeg was not found in your system PATH.',
+                    'CONVERTER'
+                );
+                logger.info(
+                    'Converter: please install ffmpeg to use the format conversion features.',
+                    'CONVERTER'
+                );
             } else {
-                logger.success('Converter: ffmpeg detected and ready for format conversion.', 'CONVERTER');
+                logger.success(
+                    'Converter: ffmpeg detected and ready for format conversion.',
+                    'CONVERTER'
+                );
             }
         }
 

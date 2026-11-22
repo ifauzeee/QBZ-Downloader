@@ -21,7 +21,6 @@ interface ThemeRow {
 }
 
 export class ThemeService {
-
     async create(name: string, isDark: boolean, colors: Record<string, string>): Promise<Theme> {
         const id = crypto.randomUUID();
         const now = new Date().toISOString();
@@ -85,7 +84,9 @@ export class ThemeService {
 
     async getAll(): Promise<Theme[]> {
         const db = databaseService.getDb();
-        const rows = db.prepare('SELECT * FROM themes ORDER BY created_at DESC').all() as ThemeRow[];
+        const rows = db
+            .prepare('SELECT * FROM themes ORDER BY created_at DESC')
+            .all() as ThemeRow[];
 
         return rows.map((row) => ({
             id: row.id,

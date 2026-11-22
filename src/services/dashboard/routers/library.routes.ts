@@ -232,7 +232,10 @@ router.post('/metadata/edit', async (req: Request, res: Response) => {
                     coverBuffer = Buffer.from(response.data);
                     break;
                 } catch (e: unknown) {
-                    logger.debug(`Cover candidate failed (${candidate}): ${(e as Error).message}`, 'METADATA');
+                    logger.debug(
+                        `Cover candidate failed (${candidate}): ${(e as Error).message}`,
+                        'METADATA'
+                    );
                 }
             }
 

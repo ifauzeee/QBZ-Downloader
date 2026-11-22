@@ -72,7 +72,7 @@ type UpgradeSearchTrack = {
             [key: string]: unknown;
         };
     };
-}
+};
 
 export interface WorkerResult {
     filePath: string;
@@ -167,7 +167,6 @@ export interface ScanProgress {
 import { checkBinaryAvailability } from '../../utils/binaries.js';
 
 export class LibraryScannerService extends EventEmitter {
-
     private isScanning = false;
     private scanAborted = false;
     readonly supportedFormats = ['.flac', '.mp3', '.wav', '.aiff', '.alac', '.m4a', '.ogg'];
@@ -180,8 +179,9 @@ export class LibraryScannerService extends EventEmitter {
     }
 
     private async checkFpcalc(): Promise<boolean> {
-        if (LibraryScannerService.fpcalcAvailable !== null) return LibraryScannerService.fpcalcAvailable;
-        
+        if (LibraryScannerService.fpcalcAvailable !== null)
+            return LibraryScannerService.fpcalcAvailable;
+
         const info = await checkBinaryAvailability('fpcalc');
         LibraryScannerService.fpcalcAvailable = info.available;
 
@@ -242,7 +242,10 @@ export class LibraryScannerService extends EventEmitter {
             result.totalFiles = allFiles.length;
 
             const currentPaths = new Set(allFiles.map((file) => file.filePath));
-            const cachedRows = databaseService.getLibraryFiles(1000000, 0) as unknown as CachedLibraryFile[];
+            const cachedRows = databaseService.getLibraryFiles(
+                1000000,
+                0
+            ) as unknown as CachedLibraryFile[];
             const cacheByPath = new Map<string, CachedLibraryFile>();
             let staleFiles = 0;
 
@@ -459,9 +462,7 @@ export class LibraryScannerService extends EventEmitter {
                 this.currentProgress = progress;
                 this.emit('scan:progress', progress);
 
-                const changedFilePaths = options.deep
-                    ? undefined
-                    : changedFilePathsForUpgrade;
+                const changedFilePaths = options.deep ? undefined : changedFilePathsForUpgrade;
                 const upgradeCount = await this.checkQobuzUpgrades(changedFilePaths);
                 result.upgradeableFiles = upgradeCount;
                 logger.info(`Found ${upgradeCount} tracks with available upgrades`, 'SCANNER');
@@ -541,7 +542,9 @@ export class LibraryScannerService extends EventEmitter {
         let processed = 0;
 
         if (files.length === 0) {
-            const row = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE needs_upgrade = 1').get() as { count: number };
+            const row = db
+                .prepare('SELECT COUNT(*) as count FROM library_files WHERE needs_upgrade = 1')
+                .get() as { count: number };
             return row.count;
         }
 
@@ -645,7 +648,9 @@ export class LibraryScannerService extends EventEmitter {
             }
         }
 
-        const row = db.prepare('SELECT COUNT(*) as count FROM library_files WHERE needs_upgrade = 1').get() as { count: number };
+        const row = db
+            .prepare('SELECT COUNT(*) as count FROM library_files WHERE needs_upgrade = 1')
+            .get() as { count: number };
         return row.count;
     }
 
@@ -677,12 +682,18 @@ export class LibraryScannerService extends EventEmitter {
 
             if (titleScore > 0.75 && artistScore > 0.55) {
                 const strongIdentityMatch = titleScore >= 0.95 && artistScore >= 0.8;
-                if (normalizedAlbum && albumScore < 0.5 && !strongIdentityMatch && !variantWarning) {
+                if (
+                    normalizedAlbum &&
+                    albumScore < 0.5 &&
+                    !strongIdentityMatch &&
+                    !variantWarning
+                ) {
                     continue;
                 }
 
                 const variantPenalty = variantWarning ? 0.12 : 0;
-                const score = titleScore * 0.5 + artistScore * 0.3 + albumScore * 0.2 - variantPenalty;
+                const score =
+                    titleScore * 0.5 + artistScore * 0.3 + albumScore * 0.2 - variantPenalty;
                 matches.push({ track, score });
             }
         }
@@ -697,11 +708,21 @@ export class LibraryScannerService extends EventEmitter {
         sourceAlbum: string
     ): UpgradeCandidate {
         const title = track.title || '';
-        const artist = track.performer?.name || track.artist?.name || track.album?.artist?.name || '';
+        const artist =
+            track.performer?.name || track.artist?.name || track.album?.artist?.name || '';
         const album = track.album?.title || '';
-        const titleScore = this.similarity(this.normalizeString(sourceTitle), this.normalizeString(title));
-        const artistScore = this.similarity(this.normalizeString(sourceArtist), this.normalizeString(artist));
-        const albumScore = this.similarity(this.normalizeString(sourceAlbum), this.normalizeString(album));
+        const titleScore = this.similarity(
+            this.normalizeString(sourceTitle),
+            this.normalizeString(title)
+        );
+        const artistScore = this.similarity(
+            this.normalizeString(sourceArtist),
+            this.normalizeString(artist)
+        );
+        const albumScore = this.similarity(
+            this.normalizeString(sourceAlbum),
+            this.normalizeString(album)
+        );
         const variantWarning = this.hasDistinctVersionContext(
             { filePath: '', title: sourceTitle, album: sourceAlbum },
             { filePath: '', title, album }
@@ -721,7 +742,10 @@ export class LibraryScannerService extends EventEmitter {
             releaseDate: this.getReleaseDate(track),
             matchScore: Math.max(
                 0,
-                Math.min(1, titleScore * 0.5 + artistScore * 0.3 + albumScore * 0.2 - variantPenalty)
+                Math.min(
+                    1,
+                    titleScore * 0.5 + artistScore * 0.3 + albumScore * 0.2 - variantPenalty
+                )
             ),
             titleScore,
             artistScore,
@@ -743,14 +767,12 @@ export class LibraryScannerService extends EventEmitter {
         image?: NonNullable<UpgradeSearchTrack['album']>['image']
     ): string | undefined {
         if (!image) return undefined;
-        return (
-            image.extralarge ||
+        return (image.extralarge ||
             image.mega ||
             image.large ||
             image.medium ||
             image.thumbnail ||
-            image.small
-        ) as string | undefined;
+            image.small) as string | undefined;
     }
 
     private getReleaseDate(track: UpgradeSearchTrack): string | undefined {
@@ -788,7 +810,10 @@ export class LibraryScannerService extends EventEmitter {
                         );
                         continue;
                     }
-                    if (quality >= 7 && !(await this.canReadStreamStart(data.url, trackId, quality))) {
+                    if (
+                        quality >= 7 &&
+                        !(await this.canReadStreamStart(data.url, trackId, quality))
+                    ) {
                         continue;
                     }
                     if (formatId && formatId >= quality) {
@@ -930,7 +955,10 @@ export class LibraryScannerService extends EventEmitter {
         );
 
         const fingerprintGroups = new Map<string, string[]>();
-        const titleGroups = new Map<string, { filePath: string; title: string; artist: string; album: string }[]>();
+        const titleGroups = new Map<
+            string,
+            { filePath: string; title: string; artist: string; album: string }[]
+        >();
 
         for (const file of files) {
             if (file.audio_fingerprint) {
@@ -1050,9 +1078,7 @@ export class LibraryScannerService extends EventEmitter {
         if (signature1.markers !== signature2.markers) return true;
 
         return Boolean(
-            signature1.album &&
-            signature2.album &&
-            signature1.album !== signature2.album
+            signature1.album && signature2.album && signature1.album !== signature2.album
         );
     }
 
@@ -1096,7 +1122,12 @@ export class LibraryScannerService extends EventEmitter {
     }
 
     getDuplicates(): DuplicateGroup[] {
-        const rawDuplicates = databaseService.getDuplicates() as unknown as { id: number; file_path_1: string; file_path_2: string; match_type: string }[];
+        const rawDuplicates = databaseService.getDuplicates() as unknown as {
+            id: number;
+            file_path_1: string;
+            file_path_2: string;
+            match_type: string;
+        }[];
         const groups: Map<string, DuplicateGroup> = new Map();
         for (const dup of rawDuplicates) {
             const key = dup.file_path_1;
@@ -1172,7 +1203,8 @@ export class LibraryScannerService extends EventEmitter {
                 bitDepth: f.bit_depth || 0,
                 sampleRate: f.sample_rate || 0,
                 needsUpgrade: true,
-                upgradeCandidates: upgradeCandidates.length > 0 ? upgradeCandidates : fallbackCandidate
+                upgradeCandidates:
+                    upgradeCandidates.length > 0 ? upgradeCandidates : fallbackCandidate
             };
         });
     }
@@ -1190,7 +1222,8 @@ export class LibraryScannerService extends EventEmitter {
                     album: String(candidate?.album || ''),
                     quality: Number(candidate?.quality || 0),
                     qualityLabel: String(
-                        candidate?.qualityLabel || this.getQualityLabel(Number(candidate?.quality || 0))
+                        candidate?.qualityLabel ||
+                            this.getQualityLabel(Number(candidate?.quality || 0))
                     ),
                     albumId: candidate?.albumId ? String(candidate.albumId) : undefined,
                     coverUrl: candidate?.coverUrl ? String(candidate.coverUrl) : undefined,
@@ -1244,11 +1277,13 @@ export class LibraryScannerService extends EventEmitter {
 
     async resolveDuplicate(id: number): Promise<ResolveDuplicateResult> {
         const db = databaseService.getDb();
-        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as {
-            file_path_1: string;
-            file_path_2: string;
-            match_type?: string;
-        } | undefined;
+        const duplicate = db.prepare('SELECT * FROM duplicates WHERE id = ?').get(id) as
+            | {
+                  file_path_1: string;
+                  file_path_2: string;
+                  match_type?: string;
+              }
+            | undefined;
         if (!duplicate) {
             return {
                 id,
@@ -1260,19 +1295,25 @@ export class LibraryScannerService extends EventEmitter {
 
         const file1 = db
             .prepare('SELECT * FROM library_files WHERE file_path = ?')
-            .get(duplicate.file_path_1) as { quality?: number; file_path: string; file_size?: number } | undefined;
+            .get(duplicate.file_path_1) as
+            { quality?: number; file_path: string; file_size?: number } | undefined;
         const file2 = db
             .prepare('SELECT * FROM library_files WHERE file_path = ?')
-            .get(duplicate.file_path_2) as { quality?: number; file_path: string; file_size?: number } | undefined;
+            .get(duplicate.file_path_2) as
+            { quality?: number; file_path: string; file_size?: number } | undefined;
 
         const fallbackFile1 = {
             file_path: duplicate.file_path_1,
-            file_size: fs.existsSync(duplicate.file_path_1) ? fs.statSync(duplicate.file_path_1).size : 0,
+            file_size: fs.existsSync(duplicate.file_path_1)
+                ? fs.statSync(duplicate.file_path_1).size
+                : 0,
             quality: 0
         };
         const fallbackFile2 = {
             file_path: duplicate.file_path_2,
-            file_size: fs.existsSync(duplicate.file_path_2) ? fs.statSync(duplicate.file_path_2).size : 0,
+            file_size: fs.existsSync(duplicate.file_path_2)
+                ? fs.statSync(duplicate.file_path_2).size
+                : 0,
             quality: 0
         };
         const candidate1 = file1 || fallbackFile1;
@@ -1287,7 +1328,10 @@ export class LibraryScannerService extends EventEmitter {
                 duplicate.file_path_2
             );
             databaseService.resolveDuplicate(id);
-            logger.warn(`Duplicate #${id} resolved as stale; neither file exists on disk`, 'SCANNER');
+            logger.warn(
+                `Duplicate #${id} resolved as stale; neither file exists on disk`,
+                'SCANNER'
+            );
             return {
                 id,
                 resolved: true,
@@ -1417,7 +1461,9 @@ export class LibraryScannerService extends EventEmitter {
         return stats;
     }
 
-    async findMissingTracks(): Promise<{ filePath: string; title: string; artist: string; album: string }[]> {
+    async findMissingTracks(): Promise<
+        { filePath: string; title: string; artist: string; album: string }[]
+    > {
         const files = databaseService.getLibraryFiles(100000, 0) as unknown as {
             file_path: string;
             title?: string | null;

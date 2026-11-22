@@ -123,7 +123,9 @@ describe('DownloadService', () => {
 
         it('should return Unknown for null/undefined', () => {
             expect(downloadService.sanitizeFilename(null as unknown as string)).toBe('Unknown');
-            expect(downloadService.sanitizeFilename(undefined as unknown as string)).toBe('Unknown');
+            expect(downloadService.sanitizeFilename(undefined as unknown as string)).toBe(
+                'Unknown'
+            );
         });
 
         it('should truncate long names to 128 chars', () => {

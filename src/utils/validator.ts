@@ -87,7 +87,11 @@ export class InputValidator {
 
             if (this.config.strictMode) {
                 const host = parsedUrl.hostname.toLowerCase();
-                const allowedHosts = [...this.config.allowedHosts, 'open.spotify.com', 'spotify.com'];
+                const allowedHosts = [
+                    ...this.config.allowedHosts,
+                    'open.spotify.com',
+                    'spotify.com'
+                ];
                 if (!allowedHosts.some((h) => host.includes(h))) {
                     return { valid: false, error: 'Invalid domain' };
                 }

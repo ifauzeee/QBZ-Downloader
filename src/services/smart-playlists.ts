@@ -20,12 +20,9 @@ export interface SmartPlaylistRow extends SmartPlaylist {
     track_count: number;
 }
 
-const escapeLikePattern = (value: string): string =>
-    value.replace(/[\\%_]/g, (c) => `\\${c}`);
+const escapeLikePattern = (value: string): string => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-export function sanitizeSmartPlaylistFilter(
-    input: unknown
-): SmartPlaylistFilter | null {
+export function sanitizeSmartPlaylistFilter(input: unknown): SmartPlaylistFilter | null {
     if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
 
     const src = input as Record<string, unknown>;
@@ -59,7 +56,9 @@ export function buildTrackFilterSql(filter: SmartPlaylistFilter): {
     const params: (string | number)[] = [];
 
     if (filter.q) {
-        clauses.push("(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')");
+        clauses.push(
+            "(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')"
+        );
         const like = `%${escapeLikePattern(filter.q)}%`;
         params.push(like, like, like);
     }
@@ -68,11 +67,11 @@ export function buildTrackFilterSql(filter: SmartPlaylistFilter): {
         params.push(filter.genre);
     }
     if (filter.artist) {
-        clauses.push('artist LIKE ? ESCAPE \'\\\'');
+        clauses.push("artist LIKE ? ESCAPE '\\'");
         params.push(`%${escapeLikePattern(filter.artist)}%`);
     }
     if (filter.album) {
-        clauses.push('album LIKE ? ESCAPE \'\\\'');
+        clauses.push("album LIKE ? ESCAPE '\\'");
         params.push(`%${escapeLikePattern(filter.album)}%`);
     }
     if (typeof filter.minQuality === 'number') {
@@ -116,7 +115,9 @@ export function deleteSmartPlaylist(id: string): boolean {
     return db.prepare('DELETE FROM smart_playlists WHERE id = ?').run(id).changes > 0;
 }
 
-export function parseSmartPlaylistFilter(row: SmartPlaylist | undefined): SmartPlaylistFilter | undefined {
+export function parseSmartPlaylistFilter(
+    row: SmartPlaylist | undefined
+): SmartPlaylistFilter | undefined {
     if (!row) return undefined;
     try {
         return sanitizeSmartPlaylistFilter(JSON.parse(row.filter)) ?? undefined;
@@ -128,16 +129,15 @@ export function parseSmartPlaylistFilter(row: SmartPlaylist | undefined): SmartP
 export function getSmartPlaylist(id: string): SmartPlaylist | undefined {
     const db = databaseService.getDb();
     return db.prepare('SELECT * FROM smart_playlists WHERE id = ?').get(id) as
-        | SmartPlaylist
-        | undefined;
+        SmartPlaylist | undefined;
 }
 
 export function countTracksForFilter(filter: SmartPlaylistFilter): number {
     const db = databaseService.getDb();
     const { sql, params } = buildTrackFilterSql(filter);
-    const row = db
-        .prepare(`SELECT COUNT(*) AS count FROM tracks ${sql}`)
-        .get(...params) as { count: number };
+    const row = db.prepare(`SELECT COUNT(*) AS count FROM tracks ${sql}`).get(...params) as {
+        count: number;
+    };
     return row.count;
 }
 

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import path from 'path';
-import { sanitizeFilename, applyTemplate, buildFolderPath, ensurePathSafety } from './MetadataProcessor.js';
+import {
+    sanitizeFilename,
+    applyTemplate,
+    buildFolderPath,
+    ensurePathSafety
+} from './MetadataProcessor.js';
 import type { Metadata } from './metadata.js';
 
 vi.mock('../config.js', () => ({
@@ -58,18 +63,30 @@ describe('MetadataProcessor', () => {
 
         it('should replace placeholders correctly', () => {
             const template = '{artist} - {album} - {title} - {track_number} ({year})';
-            const result = applyTemplate(template, metadata as unknown as Record<string, unknown>, 27);
+            const result = applyTemplate(
+                template,
+                metadata as unknown as Record<string, unknown>,
+                27
+            );
             expect(result).toBe('Artist - Album - Track - 05 (2024)');
         });
 
         it('should use quality name', () => {
-            const result = applyTemplate('{quality}', metadata as unknown as Record<string, unknown>, 5);
+            const result = applyTemplate(
+                '{quality}',
+                metadata as unknown as Record<string, unknown>,
+                5
+            );
             expect(result).toBe('MP3 320');
         });
 
         it('should handle missing metadata gracefully', () => {
             const emptyMeta = {};
-            const result = applyTemplate('{artist} - {title}', emptyMeta as unknown as Record<string, unknown>, 27);
+            const result = applyTemplate(
+                '{artist} - {title}',
+                emptyMeta as unknown as Record<string, unknown>,
+                27
+            );
             expect(result).toBe('Unknown Artist - Unknown Title');
         });
     });
@@ -129,10 +146,12 @@ describe('MetadataProcessor', () => {
             CONFIG.download.folderStructure = '{albumArtist}/{album}/{disc_folder}';
 
             try {
-                expect(buildFolderPath(disc2 as unknown as Metadata, 27))
-                    .toBe(path.join('Metallica', 'SandM', 'CD2'));
-                expect(buildFolderPath(singleDisc as unknown as Metadata, 27))
-                    .toBe(path.join('Metallica', 'SandM'));
+                expect(buildFolderPath(disc2 as unknown as Metadata, 27)).toBe(
+                    path.join('Metallica', 'SandM', 'CD2')
+                );
+                expect(buildFolderPath(singleDisc as unknown as Metadata, 27)).toBe(
+                    path.join('Metallica', 'SandM')
+                );
             } finally {
                 CONFIG.download.folderStructure = original;
             }
@@ -148,8 +167,9 @@ describe('MetadataProcessor', () => {
         it('should truncate filename if over limit', () => {
             const base = 'C:\\Very\\Long\\Path\\To\\Music\\Library\\Folder\\';
             const folder = 'Some Artist\\Some Extremely Long Album Name That Goes On And On';
-            const file = '01. This Is A Very Long Track Title That Might Cause Problems On Windows Systems.flac';
-            
+            const file =
+                '01. This Is A Very Long Track Title That Might Cause Problems On Windows Systems.flac';
+
             const result = ensurePathSafety(base, folder, file);
             const totalLength = (base + result.folder + '\\' + result.file).length;
             expect(totalLength).toBeLessThanOrEqual(255);

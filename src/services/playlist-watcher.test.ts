@@ -106,7 +106,7 @@ describe('PlaylistWatcherService', () => {
                 last_synced_at: '2020-01-01' // Very old
             };
             vi.mocked(databaseService.getWatchedPlaylists).mockReturnValue([mockPlaylist]);
-            
+
             // Mock track deduplication: new1 is new, old1 is in history
             vi.mocked(historyService.has).mockImplementation((id) => id === 'old1');
 
@@ -115,9 +115,9 @@ describe('PlaylistWatcherService', () => {
             expect(mockApi.getPlaylist).toHaveBeenCalledWith('pl1');
             expect(downloadQueue.add).toHaveBeenCalledTimes(1);
             expect(downloadQueue.add).toHaveBeenCalledWith(
-                'track', 
-                'new1', 
-                expect.any(Number), 
+                'track',
+                'new1',
+                expect.any(Number),
                 expect.objectContaining({ title: 'New Track 1' })
             );
             expect(databaseService.updatePlaylistSyncTime).toHaveBeenCalledWith('1');

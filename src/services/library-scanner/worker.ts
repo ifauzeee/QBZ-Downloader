@@ -191,7 +191,7 @@ parentPort?.on('message', async (filePath: string) => {
         }
 
         const fingerprint = getAudioFingerprint(filePath);
-        
+
         const checksum = await new Promise<string>((resolve) => {
             const hash = crypto.createHash('md5');
             const stream = fs.createReadStream(filePath);

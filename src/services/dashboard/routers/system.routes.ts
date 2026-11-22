@@ -224,7 +224,10 @@ router.put('/qobuz/accounts/:id', (req: Request, res: Response) => {
         const body = (req.body || {}) as Record<string, unknown>;
         const account = qobuzAccountService.update(req.params.id as string, {
             name: body.name === undefined ? undefined : String(body.name),
-            appId: body.app_id === undefined && body.appId === undefined ? undefined : String(body.app_id || body.appId),
+            appId:
+                body.app_id === undefined && body.appId === undefined
+                    ? undefined
+                    : String(body.app_id || body.appId),
             appSecret:
                 body.app_secret === undefined && body.appSecret === undefined
                     ? undefined
@@ -285,8 +288,7 @@ router.post('/settings/update', async (req: Request, res: Response) => {
             if (value === undefined || value === null) return;
             if (!APP_SETTING_KEYS.has(key)) return;
 
-            const normalized =
-                typeof value === 'boolean' ? String(value) : String(value).trim();
+            const normalized = typeof value === 'boolean' ? String(value) : String(value).trim();
             if (normalized === '' && !CLEARABLE_SETTING_KEYS.has(key)) return;
             updates[key] = normalized;
         };
@@ -359,10 +361,10 @@ router.post('/settings/update', async (req: Request, res: Response) => {
 router.post('/login', async (req: Request, res: Response) => {
     const creds = CONFIG.credentials;
     const missing: string[] = [];
-    if (!creds.appId)     missing.push('App ID');
+    if (!creds.appId) missing.push('App ID');
     if (!creds.appSecret) missing.push('App Secret');
-    if (!creds.token)     missing.push('Auth Token');
-    if (!creds.userId)    missing.push('User ID');
+    if (!creds.token) missing.push('Auth Token');
+    if (!creds.userId) missing.push('User ID');
     if (missing.length > 0) {
         return res.status(400).json({
             error: `Missing required credentials: ${missing.join(', ')}. Please complete setup first.`
@@ -378,13 +380,15 @@ router.post('/login', async (req: Request, res: Response) => {
                 // Test signature with a real-looking track ID (e.g. 184511252)
                 const sigTest = await api.getFileUrl('184511252', 5);
                 if (!sigTest.success) {
-                    const isSigError = sigTest.error?.toLowerCase().includes('request_sig') || 
-                                     sigTest.error?.toLowerCase().includes('signature');
-                    
+                    const isSigError =
+                        sigTest.error?.toLowerCase().includes('request_sig') ||
+                        sigTest.error?.toLowerCase().includes('signature');
+
                     if (isSigError) {
                         tokenManager.markInvalid();
                         return res.status(401).json({
-                            error: 'Invalid App Secret: signature verification failed. ' +
+                            error:
+                                'Invalid App Secret: signature verification failed. ' +
                                 'Your App Secret does not match the App ID (or has been revoked/expired). ' +
                                 'Get a fresh App ID + App Secret pair from the Qobuz web player (bundle.js) ' +
                                 'and make sure they come from the same source, with no extra spaces.'
@@ -393,13 +397,18 @@ router.post('/login', async (req: Request, res: Response) => {
                 }
             } catch (e: unknown) {
                 const message = (e as Error).message || '';
-                if (message.toLowerCase().includes('signature') || message.toLowerCase().includes('auth')) {
+                if (
+                    message.toLowerCase().includes('signature') ||
+                    message.toLowerCase().includes('auth')
+                ) {
                     tokenManager.markInvalid();
                     return res.status(401).json({
-                        error: 'Authentication failed during signature test. ' +
+                        error:
+                            'Authentication failed during signature test. ' +
                             'This usually means the App Secret does not match the App ID. ' +
                             'Get a matching App ID + App Secret pair from the Qobuz web player (bundle.js). ' +
-                            'Original error: ' + message
+                            'Original error: ' +
+                            message
                     });
                 }
             }

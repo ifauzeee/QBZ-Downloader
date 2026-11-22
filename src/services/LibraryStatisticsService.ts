@@ -18,12 +18,12 @@ export class LibraryStatisticsService {
     async getLibraryStats(): Promise<LibraryStats> {
         try {
             // Default page size is 100; whole-library statistics need the whole library.
-        const tracks = databaseService.getAllTracks(1_000_000, 0);
-            
+            const tracks = databaseService.getAllTracks(1_000_000, 0);
+
             const stats: LibraryStats = {
                 totalTracks: tracks.length,
-                totalAlbums: new Set(tracks.map(t => t.album)).size,
-                totalArtists: new Set(tracks.map(t => t.artist)).size,
+                totalAlbums: new Set(tracks.map((t) => t.album)).size,
+                totalArtists: new Set(tracks.map((t) => t.artist)).size,
                 totalSize: tracks.reduce((acc, t) => acc + (t.file_size || 0), 0),
                 qualityDistribution: {},
                 genreDistribution: {},
@@ -35,7 +35,8 @@ export class LibraryStatisticsService {
                 stats.qualityDistribution[qName] = (stats.qualityDistribution[qName] || 0) + 1;
 
                 if (track.genre) {
-                    stats.genreDistribution[track.genre] = (stats.genreDistribution[track.genre] || 0) + 1;
+                    stats.genreDistribution[track.genre] =
+                        (stats.genreDistribution[track.genre] || 0) + 1;
                 }
             }
 
@@ -56,10 +57,12 @@ export class LibraryStatisticsService {
         return 'Other';
     }
 
-    private calculateActivity(tracks: { downloaded_at?: string }[]): { date: string; count: number }[] {
+    private calculateActivity(
+        tracks: { downloaded_at?: string }[]
+    ): { date: string; count: number }[] {
         const activityMap = new Map<string, number>();
         const now = new Date();
-        
+
         for (let i = 29; i >= 0; i--) {
             const d = new Date();
             d.setDate(now.getDate() - i);

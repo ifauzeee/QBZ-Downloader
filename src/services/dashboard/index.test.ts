@@ -75,7 +75,8 @@ function waitForListening(service: DashboardService): Promise<void> {
 }
 
 function getPort(service: DashboardService): number {
-    const server = (service as unknown as { httpServer: { address: () => AddressInfo } }).httpServer;
+    const server = (service as unknown as { httpServer: { address: () => AddressInfo } })
+        .httpServer;
     return server.address().port;
 }
 

@@ -36,13 +36,17 @@ describe('AIMetadataService', () => {
     describe('Sanitization', () => {
         it('should sanitize input strings', () => {
             const input = '`Dangerous` $Text \\With Backslashes';
-            const result = (service as unknown as { sanitize: (s: string) => string }).sanitize(input);
+            const result = (service as unknown as { sanitize: (s: string) => string }).sanitize(
+                input
+            );
             expect(result).toBe('Dangerous Text With Backslashes');
         });
 
         it('should truncate long strings', () => {
             const long = 'a'.repeat(300);
-            const result = (service as unknown as { sanitize: (s: string) => string }).sanitize(long);
+            const result = (service as unknown as { sanitize: (s: string) => string }).sanitize(
+                long
+            );
             expect(result.length).toBe(200);
         });
     });
@@ -53,7 +57,7 @@ describe('AIMetadataService', () => {
                 if (key === 'AI_REPAIR_ENABLED') return 'false';
                 return '';
             });
-            
+
             const result = await service.repairMetadata({ title: 'Test' });
             expect(result).toBeNull();
         });
@@ -69,13 +73,17 @@ describe('AIMetadataService', () => {
 
             const mockResponse = {
                 data: {
-                    candidates: [{
-                        content: {
-                            parts: [{
-                                text: '```json\n{"title": "Fixed Title", "genre": "Pop"}\n```'
-                            }]
+                    candidates: [
+                        {
+                            content: {
+                                parts: [
+                                    {
+                                        text: '```json\n{"title": "Fixed Title", "genre": "Pop"}\n```'
+                                    }
+                                ]
+                            }
                         }
-                    }]
+                    ]
                 }
             };
             vi.mocked(axios.post).mockResolvedValue(mockResponse);
@@ -92,14 +100,16 @@ describe('AIMetadataService', () => {
                 if (key === 'AI_MODEL') return 'gpt-4';
                 return '';
             });
-            
+
             const mockResponse = {
                 data: {
-                    choices: [{
-                        message: {
-                            content: '{"title": "OpenAI Fixed", "year": "2023"}'
+                    choices: [
+                        {
+                            message: {
+                                content: '{"title": "OpenAI Fixed", "year": "2023"}'
+                            }
                         }
-                    }]
+                    ]
                 }
             };
             vi.mocked(axios.post).mockResolvedValue(mockResponse);
@@ -122,8 +132,7 @@ describe('AIMetadataService', () => {
                     choices: [
                         {
                             message: {
-                                content:
-                                    '{"title": "OpenAI Fixed", "qobuzTrackId": "wrong-id"}'
+                                content: '{"title": "OpenAI Fixed", "qobuzTrackId": "wrong-id"}'
                             }
                         }
                     ]
@@ -193,11 +202,11 @@ describe('AIMetadataService', () => {
                 if (key === 'AI_API_KEY') return 'SUPER_SECRET_KEY';
                 return '';
             });
-            
+
             vi.mocked(axios.post).mockRejectedValue(new Error('Failed for key SUPER_SECRET_KEY'));
-            
+
             await service.repairMetadata({ title: 'Test' });
-            
+
             expect(logger.error).toHaveBeenCalledWith(
                 expect.stringContaining('***REDACTED***'),
                 'AI'

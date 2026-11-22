@@ -98,7 +98,7 @@ describe('MetadataService', () => {
             discNumber: 1,
             totalDiscs: 1,
             genre: 'Rock',
-            label: 'L',
+            label: 'L'
         } as unknown as Metadata;
 
         it('should build valid ID3 tags', () => {
@@ -109,7 +109,7 @@ describe('MetadataService', () => {
 
         it('should build valid FLAC tags', () => {
             const tags = service.buildFlacTags(mockMetadata);
-            const titleTag = tags.find(t => t[0] === 'TITLE');
+            const titleTag = tags.find((t) => t[0] === 'TITLE');
             expect(titleTag?.[1]).toBe('T');
         });
 
@@ -122,7 +122,13 @@ describe('MetadataService', () => {
                     { text: 'line two', timeStamp: 2750 }
                 ]
             } as never);
-            const frame = (tags as never as { synchronisedLyrics: { synchronisedText: { text: string; timeStamp: number }[] }[] }).synchronisedLyrics[0];
+            const frame = (
+                tags as never as {
+                    synchronisedLyrics: {
+                        synchronisedText: { text: string; timeStamp: number }[];
+                    }[];
+                }
+            ).synchronisedLyrics[0];
             expect(frame.synchronisedText[0]).toEqual({ text: 'line one', timeStamp: 1500 });
             expect(frame.synchronisedText.every((l) => Number.isInteger(l.timeStamp))).toBe(true);
         });
@@ -130,9 +136,9 @@ describe('MetadataService', () => {
         it('should reject when tag writing fails', async () => {
             vi.spyOn(service, 'writeFlacTags').mockRejectedValueOnce(new Error('write failed'));
 
-            await expect(
-                service.writeMetadata('track.flac', mockMetadata)
-            ).rejects.toThrow('write failed');
+            await expect(service.writeMetadata('track.flac', mockMetadata)).rejects.toThrow(
+                'write failed'
+            );
         });
     });
 

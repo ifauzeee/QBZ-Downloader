@@ -52,7 +52,6 @@ vi.mock('archiver', () => {
     };
 });
 
-
 vi.mock('./queue/queue.js', async () => {
     const { EventEmitter } = await import('events');
     const emitter = new EventEmitter();
@@ -127,8 +126,14 @@ describe('BatchImportService', () => {
 
     it('should import URLs from a plain text file', async () => {
         vi.mocked(fs.existsSync).mockReturnValue(true);
-        vi.mocked(fs.readFileSync).mockReturnValue('http://qobuz.com/track/1\nhttp://qobuz.com/track/2');
-        vi.mocked(inputValidator.validateUrl).mockReturnValue({ valid: true, type: 'track', id: '1' });
+        vi.mocked(fs.readFileSync).mockReturnValue(
+            'http://qobuz.com/track/1\nhttp://qobuz.com/track/2'
+        );
+        vi.mocked(inputValidator.validateUrl).mockReturnValue({
+            valid: true,
+            type: 'track',
+            id: '1'
+        });
 
         const result = await service.importFromFile('list.txt');
         expect(result.imported).toBe(2);
@@ -137,8 +142,14 @@ describe('BatchImportService', () => {
 
     it('should import from a CSV file', async () => {
         vi.mocked(fs.existsSync).mockReturnValue(true);
-        vi.mocked(fs.readFileSync).mockReturnValue('url,quality\nhttp://qobuz.com/track/1,27\nhttp://qobuz.com/track/2,6');
-        vi.mocked(inputValidator.validateUrl).mockReturnValue({ valid: true, type: 'track', id: '1' });
+        vi.mocked(fs.readFileSync).mockReturnValue(
+            'url,quality\nhttp://qobuz.com/track/1,27\nhttp://qobuz.com/track/2,6'
+        );
+        vi.mocked(inputValidator.validateUrl).mockReturnValue({
+            valid: true,
+            type: 'track',
+            id: '1'
+        });
 
         const result = await service.importFromCsv('list.csv');
         expect(result.imported).toBe(2);
@@ -146,24 +157,41 @@ describe('BatchImportService', () => {
 
     it('should handle ZIP creation on batch completion', async () => {
         const batchUrls = ['url1', 'url2'];
-        vi.mocked(inputValidator.validateUrl).mockReturnValue({ valid: true, type: 'track', id: '1' });
-        
+        vi.mocked(inputValidator.validateUrl).mockReturnValue({
+            valid: true,
+            type: 'track',
+            id: '1'
+        });
+
         await service.importUrls(batchUrls, 27, true);
-        
+
         // Simulate all items completed
-        downloadQueue.emit('item:completed', { 
-            metadata: { batchId: Array.from((service as unknown as { activeBatches: Map<string, unknown> }).activeBatches.keys())[0] },
+        downloadQueue.emit('item:completed', {
+            metadata: {
+                batchId: Array.from(
+                    (
+                        service as unknown as { activeBatches: Map<string, unknown> }
+                    ).activeBatches.keys()
+                )[0]
+            },
             filePath: 'file.flac'
         });
-        downloadQueue.emit('item:completed', { 
-            metadata: { batchId: Array.from((service as unknown as { activeBatches: Map<string, unknown> }).activeBatches.keys())[0] },
+        downloadQueue.emit('item:completed', {
+            metadata: {
+                batchId: Array.from(
+                    (
+                        service as unknown as { activeBatches: Map<string, unknown> }
+                    ).activeBatches.keys()
+                )[0]
+            },
             filePath: 'file2.flac'
         });
 
         // FinalizeBatch should have been called
-        await new Promise(r => setTimeout(r, 10));
-        expect((service as unknown as { activeBatches: Map<string, unknown> }).activeBatches.size).toBe(0);
-
+        await new Promise((r) => setTimeout(r, 10));
+        expect(
+            (service as unknown as { activeBatches: Map<string, unknown> }).activeBatches.size
+        ).toBe(0);
     });
 
     it('should remove generated batch files and empty folders after ZIP creation', async () => {
@@ -188,7 +216,10 @@ describe('BatchImportService', () => {
             createdAt
         };
         const internals = service as unknown as {
-            collectBatchArtifacts: (batch: typeof batch, downloadDir: string) => Array<{
+            collectBatchArtifacts: (
+                batch: typeof batch,
+                downloadDir: string
+            ) => Array<{
                 filePath: string;
                 archiveName: string;
                 cleanup: boolean;

@@ -64,7 +64,9 @@ function matchesDashboardPassword(provided: string, password: string): boolean {
 
         if (provided.length === 64) {
             const expected = Buffer.from(sha256Hex(password));
-            return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
+            return (
+                candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected)
+            );
         }
     } catch (err) {
         logger.error(`Auth comparison error: ${err}`, 'AUTH');
@@ -110,7 +112,6 @@ export class DashboardService {
             }
         });
 
-
         this.setupMiddleware();
         this.setupRoutes();
         this.setupSocket();
@@ -130,7 +131,10 @@ export class DashboardService {
             const hostname = hostHeader.replace(/:\d+$/, '');
             if (!hostname || DashboardService.isLoopbackHost(hostname)) return next();
 
-            logger.warn(`Rejected request with non-loopback Host header: ${hostHeader}`, 'SECURITY');
+            logger.warn(
+                `Rejected request with non-loopback Host header: ${hostHeader}`,
+                'SECURITY'
+            );
             res.status(403).json({ error: 'Forbidden: invalid Host header' });
         });
 
@@ -174,25 +178,24 @@ export class DashboardService {
             res.setHeader(
                 'Content-Security-Policy',
                 "default-src 'self'; " +
-                "script-src 'self' 'unsafe-inline'; " +
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-                "img-src 'self' data: https: http: blob:; " +
-                "media-src 'self' data: blob: https: http:; " +
-                "connect-src 'self' ws://localhost:* http://localhost:* wss://*.qobuz.com https://*.qobuz.com https://www.qobuz.com; " +
-                "font-src 'self' data: https: https://fonts.gstatic.com;"
+                    "script-src 'self' 'unsafe-inline'; " +
+                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                    "img-src 'self' data: https: http: blob:; " +
+                    "media-src 'self' data: blob: https: http:; " +
+                    "connect-src 'self' ws://localhost:* http://localhost:* wss://*.qobuz.com https://*.qobuz.com https://www.qobuz.com; " +
+                    "font-src 'self' data: https: https://fonts.gstatic.com;"
             );
             next();
         });
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-
         const limiter = rateLimit({
             windowMs: 15 * 60 * 1000, // 15 minutes
             max: 1000, // Limit each IP to 1000 requests per windowMs
             message: { error: 'Too many requests from this IP, please try again after 15 minutes' },
             standardHeaders: true,
-            legacyHeaders: false,
+            legacyHeaders: false
         });
 
         this.app.use('/api', limiter);
@@ -243,7 +246,7 @@ export class DashboardService {
         this.app.use((req: Request, res: Response, next: NextFunction) => {
             const password = CONFIG.dashboard.password;
             const isDesktop = process.env.QBZ_DESKTOP === '1';
-            
+
             // Bypass password protection entirely in Desktop mode
             if (!password || isDesktop) return next();
 
@@ -345,7 +348,7 @@ export class DashboardService {
 
         this.io.on('connection', (socket) => {
             logger.debug(`Client connection established: ${socket.id}`, 'WEB');
-            
+
             socket.emit('notifications:history', notificationService.getRecent(50));
             socket.emit('notifications:unreadCount', notificationService.getUnreadCount());
 
@@ -415,7 +418,7 @@ export class DashboardService {
         notificationService.on('notifications:cleared', () => {
             this.io.emit('notifications:unreadCount', 0);
         });
-        
+
         tokenManager.on('token:invalid', () => {
             this.io.emit('auth:token-invalid');
             notificationService.error(
@@ -438,7 +441,10 @@ export class DashboardService {
 
     /** Loopback binds are reachable from this machine alone. */
     private static isLoopbackHost(host: string): boolean {
-        const normalized = host.trim().toLowerCase().replace(/^\[|\]$/g, '');
+        const normalized = host
+            .trim()
+            .toLowerCase()
+            .replace(/^\[|\]$/g, '');
         return (
             normalized === 'localhost' ||
             normalized === '::1' ||
@@ -476,7 +482,6 @@ export class DashboardService {
 
         try {
             this.httpServer.listen(this.port, host, async () => {
-
                 try {
                     const message = `
 ${chalk.bold.green('Dashboard Active')}

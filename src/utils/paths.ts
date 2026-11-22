@@ -45,7 +45,5 @@ export const isPathWithinManagedRoots = (filePath: unknown): boolean => {
     if (typeof filePath !== 'string' || !filePath.trim()) return false;
 
     const target = resolveReal(filePath);
-    return getManagedRoots().some(
-        (root) => target === root || target.startsWith(root + path.sep)
-    );
+    return getManagedRoots().some((root) => target === root || target.startsWith(root + path.sep));
 };

@@ -18,5 +18,3 @@ export function registerRoutes(app: Express) {
     app.use('/api/tools', toolsRouter);
     app.use('/api/batch', batchRouter);
 }
-
-

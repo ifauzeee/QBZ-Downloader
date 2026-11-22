@@ -50,11 +50,9 @@ vi.mock('../../utils/logger.js', () => ({
 vi.mock('../../utils/http.js', () => ({
     downloadFile: vi.fn().mockImplementation(() => {
         const stream = new EventEmitter();
-        (stream as unknown as { destroy: () => void; destroyed: boolean }).destroy = vi.fn(
-            () => {
-                (stream as unknown as { destroyed: boolean }).destroyed = true;
-            }
-        );
+        (stream as unknown as { destroy: () => void; destroyed: boolean }).destroy = vi.fn(() => {
+            (stream as unknown as { destroyed: boolean }).destroyed = true;
+        });
         (stream as unknown as { destroyed: boolean }).destroyed = false;
         setTimeout(() => stream.emit('data', Buffer.alloc(2048)), 0);
         return Promise.resolve({ data: stream });
@@ -74,8 +72,6 @@ vi.mock('../../api/qobuz.js', () => {
         isSampleStream: vi.fn().mockReturnValue(false)
     };
 });
-
-
 
 describe('LibraryScannerService', () => {
     let scanner: LibraryScannerService;
@@ -112,21 +108,36 @@ describe('LibraryScannerService', () => {
 
             const count = await scanner.detectDuplicates();
             expect(count).toBe(1);
-            expect(databaseService.addDuplicate).toHaveBeenCalledWith('path1', 'path2', 'exact', 1.0);
+            expect(databaseService.addDuplicate).toHaveBeenCalledWith(
+                'path1',
+                'path2',
+                'exact',
+                1.0
+            );
         });
 
         it('should detect duplicates based on metadata similarity', async () => {
             vi.mocked(databaseService.getLibraryFiles).mockReturnValue([
-                { file_path: 'path1', audio_fingerprint: null, title: 'Stereo Love', artist: 'Edward Maya' },
-                { file_path: 'path2', audio_fingerprint: null, title: 'stereo love', artist: 'Edward Maya & Vika Jigulina' }
+                {
+                    file_path: 'path1',
+                    audio_fingerprint: null,
+                    title: 'Stereo Love',
+                    artist: 'Edward Maya'
+                },
+                {
+                    file_path: 'path2',
+                    audio_fingerprint: null,
+                    title: 'stereo love',
+                    artist: 'Edward Maya & Vika Jigulina'
+                }
             ]);
 
             const count = await scanner.detectDuplicates();
             expect(count).toBe(1);
             expect(databaseService.addDuplicate).toHaveBeenCalledWith(
-                expect.any(String), 
-                expect.any(String), 
-                'similar', 
+                expect.any(String),
+                expect.any(String),
+                'similar',
                 expect.any(Number)
             );
         });
@@ -141,7 +152,8 @@ describe('LibraryScannerService', () => {
                     album: 'After Hours (Explicit)'
                 },
                 {
-                    file_path: 'Music/The Weeknd/Save Your Tears (Remix with Ariana Grande)/01. Save Your Tears.flac',
+                    file_path:
+                        'Music/The Weeknd/Save Your Tears (Remix with Ariana Grande)/01. Save Your Tears.flac',
                     audio_fingerprint: null,
                     title: 'Save Your Tears',
                     artist: 'The Weeknd',
@@ -215,7 +227,9 @@ describe('LibraryScannerService', () => {
         it('should detect a Hi-Res upgrade from a different release with the same title and artist', async () => {
             const run = vi.fn();
             vi.mocked(databaseService.getDb).mockReturnValue({
-                prepare: vi.fn().mockReturnValue({ run, get: vi.fn().mockReturnValue({ count: 1 }) })
+                prepare: vi
+                    .fn()
+                    .mockReturnValue({ run, get: vi.fn().mockReturnValue({ count: 1 }) })
             } as any);
             vi.mocked(databaseService.getLibraryFiles).mockReturnValue([
                 {
@@ -253,7 +267,11 @@ describe('LibraryScannerService', () => {
                 }),
                 getFileUrl: vi.fn().mockResolvedValue({
                     success: true,
-                    data: { url: 'https://stream.example/track.flac', format_id: 27, quality_verified: true }
+                    data: {
+                        url: 'https://stream.example/track.flac',
+                        format_id: 27,
+                        quality_verified: true
+                    }
                 })
             };
 

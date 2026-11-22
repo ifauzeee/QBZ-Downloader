@@ -22,7 +22,12 @@ const pluginCapabilitySchema = z
 
 const pluginCredentialSchema = z
     .object({
-        key: z.string().trim().min(1).max(64).regex(/^[A-Z0-9_]+$/),
+        key: z
+            .string()
+            .trim()
+            .min(1)
+            .max(64)
+            .regex(/^[A-Z0-9_]+$/),
         label: z.string().trim().min(1).max(80),
         required: z.boolean().default(true),
         secret: z.boolean().default(true),

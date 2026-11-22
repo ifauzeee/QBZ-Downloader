@@ -93,7 +93,8 @@ export async function scanQualityFile(filePath: string): Promise<QualityReport> 
             return {
                 isTrueLossless: true,
                 confidence: 50,
-                details: 'Quality scan inconclusive (Frequency analysis failed or no high frequency content found).'
+                details:
+                    'Quality scan inconclusive (Frequency analysis failed or no high frequency content found).'
             };
         }
 

@@ -48,7 +48,6 @@ class LyricsProvider {
     userAgent: string;
     client: AxiosInstance;
 
-
     constructor() {
         this.providers = [
             { name: 'LRCLIB', enabled: true },
@@ -291,8 +290,15 @@ class LyricsProvider {
             result = await this.searchLrclibBest(cleanTitle, '');
             if (result.success && (result.data?.syncedLyrics || result.data?.plainLyrics)) {
                 // Verify duration if possible to avoid wrong song
-                if (duration > 0 && result.data?.duration && Math.abs(result.data.duration - duration) > 15) {
-                    logger.debug(`Lyrics duration mismatch for "${title}": found ${result.data.duration}s, expected ${duration}s. Skipping.`, 'LYRICS');
+                if (
+                    duration > 0 &&
+                    result.data?.duration &&
+                    Math.abs(result.data.duration - duration) > 15
+                ) {
+                    logger.debug(
+                        `Lyrics duration mismatch for "${title}": found ${result.data.duration}s, expected ${duration}s. Skipping.`,
+                        'LYRICS'
+                    );
                 } else {
                     return this.formatResult(result);
                 }

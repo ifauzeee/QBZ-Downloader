@@ -78,7 +78,10 @@ export class MediaServerService {
         logger.success('MediaServer: Jellyfin library scan triggered.', 'MEDIA');
     }
 
-    private async notifyWebhook(url: string, data: { title: string; artist: string; album: string; type: string }) {
+    private async notifyWebhook(
+        url: string,
+        data: { title: string; artist: string; album: string; type: string }
+    ) {
         await axios.post(
             url,
             {
@@ -114,7 +117,11 @@ export class MediaServerService {
                     return { success: true, message: 'Connected to Jellyfin successfully' };
                 }
                 case 'webhook':
-                    await axios.post(url, { event: 'ping', timestamp: new Date().toISOString() }, { timeout: 5000 });
+                    await axios.post(
+                        url,
+                        { event: 'ping', timestamp: new Date().toISOString() },
+                        { timeout: 5000 }
+                    );
                     return { success: true, message: 'Webhook test ping successful' };
                 default:
                     throw new Error('Invalid media server type');
