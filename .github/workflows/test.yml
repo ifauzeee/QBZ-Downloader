@@ -76,10 +76,14 @@ jobs:
       run: npm test
       working-directory: client
 
+    - name: Electron binary check
+      if: runner.os == 'Windows'
+      run: npx electron --version
+
     - name: Build backend
-      if: runner.os == 'Windows' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: npm run sync-version && npm run build
+      if: runner.os == 'Windows'
+      run: npm run build
 
     - name: Smoke test (server health check)
-      if: runner.os == 'Windows' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: runner.os == 'Windows'
       run: node tests/electron-smoke.mjs
