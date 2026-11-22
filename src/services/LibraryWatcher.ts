@@ -36,6 +36,15 @@ export class LibraryWatcher {
             this.scheduleScan();
         });
 
+        // chokidar emits watch errors as 'error' events (v6); without a
+        // listener an EventEmitter throws and takes the app down.
+        this.watcher.on('error', (error: unknown) => {
+            logger.error(
+                `LibraryWatcher error: ${error instanceof Error ? error.message : String(error)}`,
+                'WATCHER'
+            );
+        });
+
         logger.info(`LibraryWatcher: watching ${root}`, 'WATCHER');
     }
 

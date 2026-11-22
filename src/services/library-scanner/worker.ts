@@ -85,6 +85,29 @@ export function hasSyncedLyricsMetadata(metadata: IAudioMetadata): boolean {
     );
 }
 
+/**
+ * Maps a parsed audio format to the library's quality tier.
+ * Purely derived from music-metadata's `format` plus the file extension; kept
+ * separate so quality scoring is unit-testable without real audio files.
+ */
+export function deriveQuality(
+    format: IAudioMetadata['format'],
+    ext: string
+): { quality: number; bitDepth: number; sampleRate: number } {
+    const bitDepth = format?.bitsPerSample || 16;
+    const sampleRate = format?.sampleRate || 44100;
+
+    if (format?.lossless || ['.flac', '.wav', '.aiff'].includes(ext)) {
+        if (bitDepth >= 24 && sampleRate >= 192000) return { quality: 27, bitDepth, sampleRate };
+        if (bitDepth >= 24 && sampleRate >= 96000) return { quality: 7, bitDepth, sampleRate };
+        if (bitDepth >= 24) return { quality: 7, bitDepth, sampleRate };
+        return { quality: 6, bitDepth, sampleRate };
+    }
+
+    if (format?.bitrate && format.bitrate >= 320000) return { quality: 5, bitDepth, sampleRate };
+    return { quality: 5, bitDepth, sampleRate };
+}
+
 export function getMetadataIssueTags(missingTags: string[]): string[] {
     return missingTags.filter((tag) =>
         [
@@ -125,19 +148,10 @@ parentPort?.on('message', async (filePath: string) => {
 
             if (metadata.format) {
                 duration = metadata.format.duration || 0;
-                sampleRate = metadata.format.sampleRate || 44100;
-                bitDepth = metadata.format.bitsPerSample || 16;
-
-                if (metadata.format.lossless || ['.flac', '.wav', '.aiff'].includes(ext)) {
-                    if (bitDepth >= 24 && sampleRate >= 192000) quality = 27;
-                    else if (bitDepth >= 24 && sampleRate >= 96000) quality = 7;
-                    else if (bitDepth >= 24) quality = 7;
-                    else quality = 6;
-                } else if (metadata.format.bitrate && metadata.format.bitrate >= 320000) {
-                    quality = 5;
-                } else {
-                    quality = 5;
-                }
+                const derived = deriveQuality(metadata.format, ext);
+                quality = derived.quality;
+                bitDepth = derived.bitDepth;
+                sampleRate = derived.sampleRate;
             }
 
             if (metadata.common) {

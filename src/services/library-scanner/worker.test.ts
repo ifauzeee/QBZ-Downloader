@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IAudioMetadata } from 'music-metadata';
 import {
+    deriveQuality,
     getMetadataIssueTags,
     hasCoverArtMetadata,
     hasSyncedLyricsMetadata
@@ -41,6 +42,48 @@ describe('library scanner worker cover art detection', () => {
         } as IAudioMetadata;
 
         expect(hasCoverArtMetadata(metadata)).toBe(false);
+    });
+});
+
+describe('library scanner worker quality derivation', () => {
+    it('rates 24-bit/192kHz lossless as quality 27', () => {
+        const { quality, bitDepth, sampleRate } = deriveQuality(
+            { lossless: true, bitsPerSample: 24, sampleRate: 192000 },
+            '.flac'
+        );
+        expect({ quality, bitDepth, sampleRate }).toEqual({
+            quality: 27,
+            bitDepth: 24,
+            sampleRate: 192000
+        });
+    });
+
+    it('rates 24-bit/96kHz lossless as quality 7', () => {
+        const { quality } = deriveQuality(
+            { lossless: true, bitsPerSample: 24, sampleRate: 96000 },
+            '.flac'
+        );
+        expect(quality).toBe(7);
+    });
+
+    it('rates a WAV with WAVE_FORMAT_EXTENSIBLE (lossless) high-res as quality 7', () => {
+        // music-metadata >=12.4 now reports WAVE_FORMAT_EXTENSIBLE as lossless,
+        // so a 24-bit WAV must not degrade to quality 5.
+        const { quality } = deriveQuality(
+            { lossless: true, bitsPerSample: 24, sampleRate: 96000 },
+            '.wav'
+        );
+        expect(quality).toBe(7);
+    });
+
+    it('rates a lossy 320kbps file as quality 5', () => {
+        const { quality } = deriveQuality({ lossless: false, bitrate: 320000 }, '.mp3');
+        expect(quality).toBe(5);
+    });
+
+    it('defaults unreadable/lossy low-bitrate to quality 5', () => {
+        const { quality } = deriveQuality({ lossless: false, bitrate: 128000 }, '.mp3');
+        expect(quality).toBe(5);
     });
 });
 

@@ -8,15 +8,17 @@ const h = vi.hoisted(() => {
         fakeClose,
         scanLibrary,
         isScanInProgress,
-        handler: null as null | ((event: string, filePath: string) => void)
+        handler: null as null | ((event: string, filePath: string) => void),
+        errorHandler: null as null | ((err: Error) => void)
     };
 });
 
 vi.mock('chokidar', () => ({
     watch: vi.fn(() => {
         const w = {
-            on: vi.fn((_event: string, cb: (e: string, p: string) => void) => {
-                h.handler = cb;
+            on: vi.fn((_event: string, cb: ((e: string, p: string) => void) | ((err: Error) => void)) => {
+                if (_event === 'all') h.handler = cb as (e: string, p: string) => void;
+                if (_event === 'error') h.errorHandler = cb as (err: Error) => void;
                 return w;
             }),
             close: h.fakeClose
@@ -103,5 +105,10 @@ describe('LibraryWatcher', () => {
         watcher.start();
         await watcher.stop();
         expect(h.fakeClose).toHaveBeenCalled();
+    });
+
+    it('registers an error handler so watch errors do not crash the process', () => {
+        new LibraryWatcher().start();
+        expect(h.errorHandler).toBeInstanceOf(Function);
     });
 });
