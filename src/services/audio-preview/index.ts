@@ -69,7 +69,12 @@ class AudioPreviewService extends EventEmitter {
                 return null;
             }
 
-            const streamData = urlResult.data as { url: string; format_id?: number; sample?: boolean; duration?: number };
+            const streamData = urlResult.data as {
+                url: string;
+                format_id?: number;
+                sample?: boolean;
+                duration?: number;
+            };
             const quality = streamData.format_id || streamQuality;
 
             const previewInfo: PreviewInfo = {
@@ -105,7 +110,12 @@ class AudioPreviewService extends EventEmitter {
             const result = await this.api.getFileUrl(trackId, preferredQuality);
 
             if (result.success && result.data) {
-                const data = result.data as { url: string; format_id?: number; sample?: boolean; duration?: number };
+                const data = result.data as {
+                    url: string;
+                    format_id?: number;
+                    sample?: boolean;
+                    duration?: number;
+                };
 
                 let meta = this.previewCache.get(trackId);
 
@@ -154,7 +164,6 @@ class AudioPreviewService extends EventEmitter {
         }
     }
 
-
     generateWaveform(duration: number, samples = 100): number[] {
         const waveform: number[] = [];
         const seed = duration;
@@ -195,7 +204,6 @@ class AudioPreviewService extends EventEmitter {
 
         return '';
     }
-
 }
 
 export const audioPreviewService = new AudioPreviewService();

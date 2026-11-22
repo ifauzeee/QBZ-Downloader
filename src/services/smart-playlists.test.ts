@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-    buildTrackFilterSql,
-    sanitizeSmartPlaylistFilter
-} from './smart-playlists.js';
+import { buildTrackFilterSql, sanitizeSmartPlaylistFilter } from './smart-playlists.js';
 
 describe('sanitizeSmartPlaylistFilter', () => {
     it('keeps only whitelisted, non-empty fields', () => {

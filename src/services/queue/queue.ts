@@ -1,5 +1,12 @@
 import { EventEmitter } from 'events';
-import { QueueItem, QueueItemStatus, QueuePriority, QueueStats, DownloadType, QueueItemMetadata } from './types.js';
+import {
+    QueueItem,
+    QueueItemStatus,
+    QueuePriority,
+    QueueStats,
+    DownloadType,
+    QueueItemMetadata
+} from './types.js';
 import { generateQueueId } from './utils.js';
 import { logger } from '../../utils/logger.js';
 import { databaseService } from '../database/index.js';
@@ -105,11 +112,10 @@ export class DownloadQueue {
         return null;
     }
 
-
     startItem(id: string): boolean {
         const item = this.items.get(id);
         if (!item || item.status !== 'pending') return false;
-        
+
         // Final concurrency guard
         if (this.processing.size >= this.maxConcurrent) return false;
 
@@ -125,7 +131,6 @@ export class DownloadQueue {
         return true;
     }
 
-
     updateProgress(id: string, progress: number, status?: QueueItemStatus): void {
         const item = this.items.get(id);
         if (!item) return;
@@ -133,7 +138,7 @@ export class DownloadQueue {
         item.progress = Math.min(100, Math.max(0, progress));
         if (status && item.status !== status) {
             item.status = status;
-            
+
             // If status changed to a finished state, remove from processing
             const activeStatuses: QueueItemStatus[] = ['downloading', 'processing', 'uploading'];
             if (!activeStatuses.includes(status)) {
@@ -145,8 +150,10 @@ export class DownloadQueue {
         this.emitGlobalProgress();
     }
 
-
-    updateItemDetails(id: string, details: { title?: string; artist?: string; album?: string }): void {
+    updateItemDetails(
+        id: string,
+        details: { title?: string; artist?: string; album?: string }
+    ): void {
         const item = this.items.get(id);
         if (!item) return;
 
@@ -170,7 +177,6 @@ export class DownloadQueue {
         databaseService.addQueueItem(item);
         this.emit('item:progress', item, item.progress);
     }
-
 
     updateQuality(id: string, quality: number | string): void {
         const item = this.items.get(id);
@@ -414,8 +420,10 @@ export class DownloadQueue {
 
     private emitGlobalProgress(): void {
         const items = Array.from(this.items.values());
-        const activeItems = items.filter(i => i.status === 'downloading' || i.status === 'processing');
-        
+        const activeItems = items.filter(
+            (i) => i.status === 'downloading' || i.status === 'processing'
+        );
+
         if (activeItems.length === 0) {
             eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, -1);
             return;
@@ -423,7 +431,7 @@ export class DownloadQueue {
 
         const totalProgress = activeItems.reduce((acc, curr) => acc + curr.progress, 0);
         const averageProgress = totalProgress / activeItems.length / 100;
-        
+
         eventBus.emit(EVENTS.DOWNLOAD.PROGRESS, averageProgress);
     }
 

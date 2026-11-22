@@ -16,14 +16,16 @@ vi.mock('../queue/queue.js', () => {
                 { id: '1', type: 'track', status: 'pending', title: 'Test Track' },
                 { id: '2', type: 'album', status: 'downloading', title: 'Test Album' }
             ],
-            add: vi.fn((_type: string, _id: string, _quality: number, opts?: Record<string, unknown>) => ({
-                id: 'new-id',
-                type: _type,
-                contentId: _id,
-                quality: _quality,
-                status: 'pending',
-                title: String(opts?.title || 'New Item')
-            })),
+            add: vi.fn(
+                (_type: string, _id: string, _quality: number, opts?: Record<string, unknown>) => ({
+                    id: 'new-id',
+                    type: _type,
+                    contentId: _id,
+                    quality: _quality,
+                    status: 'pending',
+                    title: String(opts?.title || 'New Item')
+                })
+            ),
             getAll: () => [
                 { id: '1', type: 'track', status: 'pending', title: 'Test Track' },
                 { id: '2', type: 'album', status: 'downloading', title: 'Test Album' }
@@ -35,8 +37,15 @@ vi.mock('../queue/queue.js', () => {
             remove: vi.fn().mockReturnValue(true),
             clearCompleted: vi.fn().mockReturnValue(1),
             get: (id: string) => {
-                if (id === '1') return { id: '1', type: 'track', status: 'pending', title: 'Test Track' };
-                if (id === '123') return { id: '123', type: 'track', status: 'completed', title: 'Downloaded Track' };
+                if (id === '1')
+                    return { id: '1', type: 'track', status: 'pending', title: 'Test Track' };
+                if (id === '123')
+                    return {
+                        id: '123',
+                        type: 'track',
+                        status: 'completed',
+                        title: 'Downloaded Track'
+                    };
                 return undefined;
             }
         }
@@ -583,5 +592,4 @@ describe('Dashboard API Routes', () => {
             expect(res.body.id).toBe('1');
         });
     });
-
 });

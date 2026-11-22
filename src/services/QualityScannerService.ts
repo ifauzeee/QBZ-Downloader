@@ -30,7 +30,10 @@ export class QualityScannerService {
             });
 
             worker.once('error', (error) => {
-                logger.error(`QualityScanner worker failed for ${filePath}: ${error.message}`, 'SCANNER');
+                logger.error(
+                    `QualityScanner worker failed for ${filePath}: ${error.message}`,
+                    'SCANNER'
+                );
                 finish({
                     isTrueLossless: true,
                     confidence: 0,
@@ -40,7 +43,10 @@ export class QualityScannerService {
 
             worker.once('exit', (code) => {
                 if (!settled && code !== 0) {
-                    logger.error(`QualityScanner worker exited with code ${code} for ${filePath}`, 'SCANNER');
+                    logger.error(
+                        `QualityScanner worker exited with code ${code} for ${filePath}`,
+                        'SCANNER'
+                    );
                     finish({
                         isTrueLossless: true,
                         confidence: 0,

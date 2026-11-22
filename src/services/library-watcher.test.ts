@@ -16,11 +16,13 @@ const h = vi.hoisted(() => {
 vi.mock('chokidar', () => ({
     watch: vi.fn(() => {
         const w = {
-            on: vi.fn((_event: string, cb: ((e: string, p: string) => void) | ((err: Error) => void)) => {
-                if (_event === 'all') h.handler = cb as (e: string, p: string) => void;
-                if (_event === 'error') h.errorHandler = cb as (err: Error) => void;
-                return w;
-            }),
+            on: vi.fn(
+                (_event: string, cb: ((e: string, p: string) => void) | ((err: Error) => void)) => {
+                    if (_event === 'all') h.handler = cb as (e: string, p: string) => void;
+                    if (_event === 'error') h.errorHandler = cb as (err: Error) => void;
+                    return w;
+                }
+            ),
             close: h.fakeClose
         };
         return w;

@@ -33,7 +33,7 @@ describe('DatabaseService', () => {
             const db = dbService.getDb();
             const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
             const tableNames = tables.map((t: unknown) => (t as { name: string }).name);
-            
+
             expect(tableNames).toContain('tracks');
             expect(tableNames).toContain('albums');
             expect(tableNames).toContain('artists');
@@ -190,8 +190,13 @@ describe('DatabaseService', () => {
 
         it('should search tracks by title or artist', () => {
             dbService.addTrack(testTrack);
-            dbService.addTrack({ ...testTrack, id: 'track2', title: 'Other Song', artist: 'Someone Else' });
-            
+            dbService.addTrack({
+                ...testTrack,
+                id: 'track2',
+                title: 'Other Song',
+                artist: 'Someone Else'
+            });
+
             const results = dbService.searchTracks('Track');
             expect(results.length).toBe(1);
             expect(results[0].title).toBe('Test Track');
@@ -215,7 +220,6 @@ describe('DatabaseService', () => {
             expect(cached?.scannedAt).toBe('2026-05-25T00:00:00.000Z');
             expect(dbService.getQualityScanResult('track1', 'different')).toBeUndefined();
         });
-
     });
 
     describe('Statistics', () => {
@@ -252,7 +256,7 @@ describe('DatabaseService', () => {
         it('should calculate library health score', () => {
             dbService.addLibraryFile({ file_path: 'f1', missing_metadata: true });
             dbService.addLibraryFile({ file_path: 'f2', missing_metadata: false });
-            
+
             const health = dbService.getLibraryHealth();
             expect(health.totalTracks).toBe(2);
             expect(health.healthScore).toBeLessThan(100);

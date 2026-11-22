@@ -30,7 +30,10 @@ vi.mock('../utils/logger.js', () => ({
 }));
 
 const ORIGINAL_CONTENT = Buffer.alloc(2048, 42);
-const TAGS = [['TITLE', 'T'], ['ARTIST', 'A']];
+const TAGS = [
+    ['TITLE', 'T'],
+    ['ARTIST', 'A']
+];
 
 describe('writeFlacTags file swap', () => {
     let service: MetadataService;

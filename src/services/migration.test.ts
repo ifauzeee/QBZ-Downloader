@@ -20,7 +20,12 @@ vi.mock('../api/qobuz.js', () => {
             data: {
                 tracks: {
                     items: [
-                        { id: 'q1', title: 'Song Title', artist: { name: 'Artist Name' }, duration: 200 }
+                        {
+                            id: 'q1',
+                            title: 'Song Title',
+                            artist: { name: 'Artist Name' },
+                            duration: 200
+                        }
                     ]
                 }
             }
@@ -69,7 +74,12 @@ describe('MigrationService', () => {
         it('should migrate a Spotify playlist', async () => {
             vi.mocked(spotifyApi.extractId).mockReturnValue({ type: 'playlist', id: 'pl123' });
             vi.mocked(spotifyApi.getPlaylistTracks).mockResolvedValue([
-                { title: 'Song Title', artist: 'Artist Name', album: 'Album Name', duration_ms: 200000 }
+                {
+                    title: 'Song Title',
+                    artist: 'Artist Name',
+                    album: 'Album Name',
+                    duration_ms: 200000
+                }
             ]);
 
             const result = await service.migrateFromSpotify('https://spotify.com/playlist/pl123');
@@ -83,24 +93,32 @@ describe('MigrationService', () => {
         it('should handle track matches correctly based on score', () => {
             const sTrack = { title: 'Hello', artist: 'Adele', duration_ms: 295000 };
             const qTrack = { title: 'Hello', artist: { name: 'Adele' }, duration: 295 };
-            
-            const score = (service as unknown as {
-                calculateMatchScore: (s: unknown, q: unknown) => number;
-            }).calculateMatchScore(sTrack, qTrack);
+
+            const score = (
+                service as unknown as {
+                    calculateMatchScore: (s: unknown, q: unknown) => number;
+                }
+            ).calculateMatchScore(sTrack, qTrack);
             expect(score).toBeGreaterThan(0.9);
         });
 
         it('should start downloads for found tracks', async () => {
             const results = [
-                { 
-                    found: true, 
-                    qobuzTrackId: 'q1', 
-                    spotifyTrack: { title: 'S1', artist: 'A1' } as unknown as { title: string; artist: string },
+                {
+                    found: true,
+                    qobuzTrackId: 'q1',
+                    spotifyTrack: { title: 'S1', artist: 'A1' } as unknown as {
+                        title: string;
+                        artist: string;
+                    },
                     matchScore: 1.0
                 },
-                { 
-                    found: false, 
-                    spotifyTrack: { title: 'S2', artist: 'A2' } as unknown as { title: string; artist: string },
+                {
+                    found: false,
+                    spotifyTrack: { title: 'S2', artist: 'A2' } as unknown as {
+                        title: string;
+                        artist: string;
+                    },
                     matchScore: 0
                 }
             ];
@@ -109,9 +127,9 @@ describe('MigrationService', () => {
             expect(added).toBe(1);
             expect(downloadQueue.add).toHaveBeenCalledTimes(1);
             expect(downloadQueue.add).toHaveBeenCalledWith(
-                'track', 
-                'q1', 
-                27, 
+                'track',
+                'q1',
+                27,
                 expect.objectContaining({ title: 'S1' })
             );
         });
@@ -120,7 +138,9 @@ describe('MigrationService', () => {
     describe('Edge Cases', () => {
         it('should throw error for invalid Spotify URL', async () => {
             vi.mocked(spotifyApi.extractId).mockReturnValue(null);
-            await expect(service.migrateFromSpotify('invalid')).rejects.toThrow('Invalid Spotify URL');
+            await expect(service.migrateFromSpotify('invalid')).rejects.toThrow(
+                'Invalid Spotify URL'
+            );
         });
     });
 });

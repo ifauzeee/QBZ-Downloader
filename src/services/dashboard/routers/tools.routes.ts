@@ -98,7 +98,7 @@ router.post('/identify', async (req: Request, res: Response) => {
 
         const filename = path.basename(filePath as string, path.extname(filePath as string));
         const parts = (filePath as string).split(path.sep);
-        
+
         // Extract context from folder structure (e.g., downloads/Artist/Album/File)
         const artistFromFolder = parts.length >= 3 ? parts[parts.length - 3] : '';
         const _albumFromFolder = parts.length >= 2 ? parts[parts.length - 2] : '';
@@ -125,7 +125,7 @@ router.post('/identify', async (req: Request, res: Response) => {
         const result = await api.search(query, 'tracks', 5);
         if (result.success && result.data?.tracks?.items?.length) {
             const track = result.data.tracks.items[0]!;
-            
+
             // Intelligence Boost: Fetch full album to get Genre, Label, and accurate Year
             if (track.album?.id) {
                 const albumRes = await api.getAlbum(track.album.id);
@@ -180,10 +180,10 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
             metadata as any,
             (metadata as any).album || {}
         );
-        
+
         let coverBuffer: Buffer | null = null;
         const coverCandidates = metadataService.getCoverUrlCandidates(
-            ((metadata as any).album)?.image || (metadata as any).image || {} as any,
+            (metadata as any).album?.image || (metadata as any).image || ({} as any),
             CONFIG.metadata.coverSize,
             typeof (metadata as Record<string, unknown>).image === 'string'
                 ? ((metadata as Record<string, unknown>).image as string)
@@ -213,7 +213,10 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
                 coverBuffer = Buffer.from(response.data);
                 break;
             } catch (e: unknown) {
-                logger.debug(`Cover candidate failed for heal (${imageUrl}): ${(e as Error).message}`, 'TOOLS');
+                logger.debug(
+                    `Cover candidate failed for heal (${imageUrl}): ${(e as Error).message}`,
+                    'TOOLS'
+                );
             }
         }
 
@@ -224,7 +227,13 @@ router.post('/apply-metadata', async (req: Request, res: Response) => {
         // Pass lyrics if found
         const lyrics = (metadata as Record<string, unknown>).lyrics || null;
 
-        await metadataService.writeMetadata(filePath as string, targetMeta as any, 0, lyrics as any, coverBuffer);
+        await metadataService.writeMetadata(
+            filePath as string,
+            targetMeta as any,
+            0,
+            lyrics as any,
+            coverBuffer
+        );
         res.json({ success: true });
     } catch (error: unknown) {
         // Log as well as answer the client: a tagging failure that only travels

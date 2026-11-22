@@ -5,12 +5,7 @@ import { execFile } from 'child_process';
 import { logger } from '../utils/logger.js';
 import { Track, Album, Artist, LyricsResult } from '../types/qobuz.js';
 
-const LYRICS_KEYS = new Set([
-    'LYRICS',
-    'SYNCEDLYRICS',
-    'UNSYNCEDLYRICS',
-    'UNSYNCED LYRICS',
-]);
+const LYRICS_KEYS = new Set(['LYRICS', 'SYNCEDLYRICS', 'UNSYNCEDLYRICS', 'UNSYNCED LYRICS']);
 
 // A FLAC metadata block length is a 24-bit field, so a METADATA_BLOCK_PICTURE
 // body (picture data plus its header fields) cannot exceed 16 MiB. Qobuz "max"
@@ -88,7 +83,6 @@ export interface Metadata {
     replayGain?: string;
 }
 export class MetadataService {
-
     supportedFormats: string[];
 
     constructor() {
@@ -129,10 +123,9 @@ export class MetadataService {
                   ? ['large', 'extralarge', 'mega', 'small', 'thumbnail']
                   : ['mega', 'extralarge', 'large', 'small', 'thumbnail'];
 
-        const baseUrls = [
-            seedUrl,
-            ...fieldOrder.map((field) => image?.[field])
-        ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
+        const baseUrls = [seedUrl, ...fieldOrder.map((field) => image?.[field])].filter(
+            (url): url is string => typeof url === 'string' && url.trim().length > 0
+        );
 
         const candidates: string[] = [];
         const add = (url: string) => {
@@ -165,9 +158,9 @@ export class MetadataService {
         albumData: Album,
         fileInfo: Record<string, unknown> = {}
     ): Promise<Metadata> {
-        const album = (albumData && Object.keys(albumData).length > 0
-            ? albumData
-            : trackData.album || {}) as Album;
+        const album = (
+            albumData && Object.keys(albumData).length > 0 ? albumData : trackData.album || {}
+        ) as Album;
         const artist = (trackData.performer || trackData.artist || {}) as Artist;
         const composer = (trackData.composer || {}) as Artist;
 
@@ -179,7 +172,9 @@ export class MetadataService {
         if (performers.main.length > 0) {
             performers.main.forEach((p: { name: string }) => allArtistNames.add(p.name));
         } else {
-            const fallback = (trackData.performer?.name || trackData.artist?.name || 'Unknown') as string;
+            const fallback = (trackData.performer?.name ||
+                trackData.artist?.name ||
+                'Unknown') as string;
             allArtistNames.add(fallback);
         }
 
@@ -193,7 +188,9 @@ export class MetadataService {
         const composerName = this.joinWithAnd(
             performers.composers.length > 0
                 ? performers.composers.map((p: { name: string }) => p.name)
-                : [trackData.composer?.name || (composer as Artist).name].filter(Boolean) as string[]
+                : ([trackData.composer?.name || (composer as Artist).name].filter(
+                      Boolean
+                  ) as string[])
         );
 
         const metadata: Metadata = {
@@ -211,7 +208,10 @@ export class MetadataService {
 
                 if (list.length > 0) {
                     const lastItem = list[list.length - 1]!;
-                    const name = typeof lastItem === 'string' ? lastItem : (lastItem as { name: string }).name;
+                    const name =
+                        typeof lastItem === 'string'
+                            ? lastItem
+                            : (lastItem as { name: string }).name;
                     bestGenre = name.split('→').pop()!.trim();
                 } else if ((album.genre as { name?: string })?.name) {
                     bestGenre = (album.genre as { name: string }).name;
@@ -432,7 +432,11 @@ export class MetadataService {
             mixers: []
         };
 
-        const addPerformer = (name: string, role: string, targetList: { name: string; role: string }[]) => {
+        const addPerformer = (
+            name: string,
+            role: string,
+            targetList: { name: string; role: string }[]
+        ) => {
             const normalized = this.normalizeName(name);
             const exists = targetList.some((p) => this.normalizeName(p.name) === normalized);
             if (!exists) {
@@ -548,10 +552,14 @@ export class MetadataService {
     getAllArtists(trackData: Track, albumData: Album) {
         const artists = new Set();
 
-        if ((trackData.performer as { name?: string })?.name) artists.add((trackData.performer as { name: string }).name);
-        if ((trackData.artist as { name?: string })?.name) artists.add((trackData.artist as { name: string }).name);
-        if ((trackData.composer as { name?: string })?.name) artists.add((trackData.composer as { name: string }).name);
-        if ((albumData?.artist as { name?: string })?.name) artists.add((albumData.artist as { name: string }).name);
+        if ((trackData.performer as { name?: string })?.name)
+            artists.add((trackData.performer as { name: string }).name);
+        if ((trackData.artist as { name?: string })?.name)
+            artists.add((trackData.artist as { name: string }).name);
+        if ((trackData.composer as { name?: string })?.name)
+            artists.add((trackData.composer as { name: string }).name);
+        if ((albumData?.artist as { name?: string })?.name)
+            artists.add((albumData.artist as { name: string }).name);
 
         return Array.from(artists);
     }
@@ -577,7 +585,11 @@ export class MetadataService {
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    buildId3Tags(metadata: Metadata, coverBuffer: Buffer | null = null, lyrics: LyricsResult | null = null) {
+    buildId3Tags(
+        metadata: Metadata,
+        coverBuffer: Buffer | null = null,
+        lyrics: LyricsResult | null = null
+    ) {
         const tags: NodeID3.Tags = {
             title: metadata.title,
             artist: metadata.artist,
@@ -661,7 +673,9 @@ export class MetadataService {
                         timeStampFormat: 2,
                         contentType: 1,
                         shortText: 'Lyrics',
-                        synchronisedText: (lyrics.syltFormat as { text: string; timeStamp: number }[]).map((l: { text: string; timeStamp: number }) => ({
+                        synchronisedText: (
+                            lyrics.syltFormat as { text: string; timeStamp: number }[]
+                        ).map((l: { text: string; timeStamp: number }) => ({
                             text: l.text,
                             timeStamp: l.timeStamp
                         }))
@@ -727,14 +741,15 @@ export class MetadataService {
             // LRCLIB returns plainLyrics as a single continuous string without \n.
             // When available, strip timestamps from synced lyrics to get proper line breaks.
             const rawPlain = typeof lyrics.plainLyrics === 'string' ? lyrics.plainLyrics : '';
-            const plain = rawPlain && rawPlain.includes('\n')
-                ? rawPlain
-                : synced
-                    ? (typeof synced === 'string' ? synced : '')
-                        .replace(/^\uFEFF/, '')
-                        .replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '')
-                        .trim()
-                    : rawPlain;
+            const plain =
+                rawPlain && rawPlain.includes('\n')
+                    ? rawPlain
+                    : synced
+                      ? (typeof synced === 'string' ? synced : '')
+                            .replace(/^\uFEFF/, '')
+                            .replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '')
+                            .trim()
+                      : rawPlain;
 
             if (plain) {
                 comments.push(['UNSYNCEDLYRICS', plain]);
@@ -821,10 +836,18 @@ export class MetadataService {
         const metaPath = `${filePath}.${uniqueSuffix}.meta.txt`;
 
         const clean = () => {
-            try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
-            try { if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath); } catch {}
-            try { if (fs.existsSync(scaledCoverPath)) fs.unlinkSync(scaledCoverPath); } catch {}
-            try { if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath); } catch {}
+            try {
+                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+            } catch {}
+            try {
+                if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath);
+            } catch {}
+            try {
+                if (fs.existsSync(scaledCoverPath)) fs.unlinkSync(scaledCoverPath);
+            } catch {}
+            try {
+                if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath);
+            } catch {}
         };
 
         try {
@@ -893,20 +916,21 @@ export class MetadataService {
                 // inputs: [0]=flac, [1]=cover, [2]=metadata file
                 args.push('-i', embedCoverPath, '-f', 'ffmetadata', '-i', metaPath);
                 args.push(
-                    '-map', '0:0',
-                    '-map', '1:0',
-                    '-map_metadata', '2',
-                    '-c', 'copy',
-                    '-disposition:v:0', 'attached_pic'
+                    '-map',
+                    '0:0',
+                    '-map',
+                    '1:0',
+                    '-map_metadata',
+                    '2',
+                    '-c',
+                    'copy',
+                    '-disposition:v:0',
+                    'attached_pic'
                 );
             } else {
                 // inputs: [0]=flac, [1]=metadata file
                 args.push('-f', 'ffmetadata', '-i', metaPath);
-                args.push(
-                    '-map', '0:0',
-                    '-map_metadata', '1',
-                    '-c', 'copy'
-                );
+                args.push('-map', '0:0', '-map_metadata', '1', '-c', 'copy');
             }
 
             // The temp output ends in `.tmp`, so ffmpeg cannot guess the output
@@ -917,7 +941,11 @@ export class MetadataService {
             await new Promise<void>((resolve, reject) => {
                 execFile(ffmpeg, args, { timeout: 60000 }, (error, _stdout, stderr) => {
                     if (error) {
-                        const detail = (stderr || error.message || '').trim().split('\n').slice(-3).join('\n');
+                        const detail = (stderr || error.message || '')
+                            .trim()
+                            .split('\n')
+                            .slice(-3)
+                            .join('\n');
                         reject(new Error(`ffmpeg tagging failed: ${detail || error.message}`));
                     } else {
                         resolve();
@@ -945,7 +973,8 @@ export class MetadataService {
                 try {
                     fs.renameSync(backupPath, filePath);
                 } catch (restoreError) {
-                    const detail = restoreError instanceof Error ? restoreError.message : String(restoreError);
+                    const detail =
+                        restoreError instanceof Error ? restoreError.message : String(restoreError);
                     logger.error(
                         `Failed to restore original after tagging error (${detail}). The untagged original is preserved at: ${backupPath}`,
                         'META'
@@ -955,7 +984,9 @@ export class MetadataService {
             }
             // The swap already succeeded, so failing to remove the backup must
             // not surface as a tagging error — callers delete the track on throw.
-            try { fs.unlinkSync(backupPath); } catch {}
+            try {
+                fs.unlinkSync(backupPath);
+            } catch {}
         } catch (e) {
             clean();
             throw e instanceof Error ? e : new Error(String(e));
@@ -984,14 +1015,15 @@ export class MetadataService {
         }
 
         const rawPlain = typeof lyrics.plainLyrics === 'string' ? lyrics.plainLyrics : '';
-        const plain = rawPlain && rawPlain.includes('\n')
-            ? rawPlain
-            : synced
-                ? (typeof synced === 'string' ? synced : '')
-                    .replace(/^\uFEFF/, '')
-                    .replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '')
-                    .trim()
-                : rawPlain;
+        const plain =
+            rawPlain && rawPlain.includes('\n')
+                ? rawPlain
+                : synced
+                  ? (typeof synced === 'string' ? synced : '')
+                        .replace(/^\uFEFF/, '')
+                        .replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s*/gm, '')
+                        .trim()
+                  : rawPlain;
 
         if (plain) {
             entries.push({ key: 'UNSYNCEDLYRICS', value: plain });
@@ -1011,7 +1043,7 @@ export class MetadataService {
         let lastBlock = false;
 
         while (!lastBlock && pos < data.length) {
-            const blockType = data[pos]! & 0x7F;
+            const blockType = data[pos]! & 0x7f;
             lastBlock = (data[pos]! & 0x80) !== 0;
             const blockSize = data.readUIntBE(pos + 1, 3);
             const blockEnd = pos + 4 + blockSize;
@@ -1075,7 +1107,7 @@ export class MetadataService {
                     data.slice(0, pos),
                     Buffer.from([data[pos]!, ...sizeBuf]),
                     newBody,
-                    data.slice(blockEnd),
+                    data.slice(blockEnd)
                 ]);
 
                 const tmp = `${filePath}.lrc-${Date.now()}.tmp`;
@@ -1083,7 +1115,11 @@ export class MetadataService {
                 try {
                     fs.renameSync(tmp, filePath);
                 } catch {
-                    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+                    try {
+                        fs.unlinkSync(tmp);
+                    } catch {
+                        /* ignore */
+                    }
                     throw new Error('Failed to write lyrics to FLAC');
                 }
 
@@ -1105,15 +1141,16 @@ export class MetadataService {
     ) {
         const operation = async () => {
             try {
-                logger.debug(`Writing metadata to ${path.basename(filePath)} (Lyrics: ${lyrics ? 'Yes' : 'No'})`, 'META');
+                logger.debug(
+                    `Writing metadata to ${path.basename(filePath)} (Lyrics: ${lyrics ? 'Yes' : 'No'})`,
+                    'META'
+                );
                 if (filePath.endsWith('.flac')) {
                     const tags = this.buildFlacTags(metadata, lyrics);
                     // Strip lyrics tags from ffmpeg — its ffmetadata parser
                     // on Windows drops backslash in \n escapes, writing bare
                     // n instead of real newlines.  We inject them directly.
-                    const filtered = lyrics
-                        ? tags.filter((p) => !LYRICS_KEYS.has(p[0]!))
-                        : tags;
+                    const filtered = lyrics ? tags.filter((p) => !LYRICS_KEYS.has(p[0]!)) : tags;
                     await this.writeFlacTags(filePath, filtered, coverBuffer);
                     if (lyrics) {
                         this.writeFlacLyricsDirect(filePath, lyrics);

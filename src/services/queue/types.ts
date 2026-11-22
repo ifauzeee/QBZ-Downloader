@@ -26,7 +26,6 @@ export interface QueueItemMetadata {
     [key: string]: string | number | boolean | string[] | undefined | null;
 }
 
-
 export interface QueueItem {
     id: string;
     type: DownloadType;

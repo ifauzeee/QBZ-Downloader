@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { NotificationService, notifyDownloadComplete, notifyDownloadError } from './notifications.js';
+import {
+    NotificationService,
+    notifyDownloadComplete,
+    notifyDownloadError
+} from './notifications.js';
 
 // Mock dependencies
 vi.mock('../utils/logger.js', () => ({
@@ -32,7 +36,7 @@ describe('NotificationService', () => {
     it('should limit the number of notifications', () => {
         // Set maxNotifications to 3 for testing (private but we can cast or just use the default 100)
         (service as unknown as { maxNotifications: number }).maxNotifications = 3;
-        
+
         service.info('1', 'M');
         service.info('2', 'M');
         service.info('3', 'M');
@@ -45,7 +49,7 @@ describe('NotificationService', () => {
     it('should mark notifications as read', () => {
         const n = service.info('T', 'M');
         expect(service.getUnreadCount()).toBe(1);
-        
+
         service.markAsRead(n.id);
         expect(service.getUnreadCount()).toBe(0);
         expect(service.getUnread().length).toBe(0);
@@ -54,7 +58,7 @@ describe('NotificationService', () => {
     it('should emit events on notification', () => {
         const spy = vi.fn();
         service.on('notification', spy);
-        
+
         service.success('T', 'M');
         expect(spy).toHaveBeenCalled();
     });

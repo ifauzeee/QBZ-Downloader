@@ -75,7 +75,7 @@ describe('FormatConverterService', () => {
 
     it('should perform conversion using ffmpeg', async () => {
         const result = await service.convert('input.flac');
-        
+
         expect(result).toBeDefined();
         expect(result).toContain('input.mp3');
         expect(execFile).toHaveBeenCalled();
@@ -83,7 +83,7 @@ describe('FormatConverterService', () => {
 
     it('should remove original file if keepOriginal is false', async () => {
         CONFIG.export.keepOriginal = false;
-        
+
         await service.convert('input.flac');
         expect(fs.unlinkSync).toHaveBeenCalledWith('input.flac');
     });

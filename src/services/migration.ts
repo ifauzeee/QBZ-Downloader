@@ -13,13 +13,14 @@ export interface MigrationResult {
 }
 
 export class MigrationService {
-
     private qobuzApi = qobuzApi;
 
-    constructor() {
-    }
+    constructor() {}
 
-    async migrateFromSpotify(url: string, _quality: number = 27): Promise<{
+    async migrateFromSpotify(
+        url: string,
+        _quality: number = 27
+    ): Promise<{
         total: number;
         found: number;
         results: MigrationResult[];
@@ -39,9 +40,12 @@ export class MigrationService {
             if (track) spotifyTracks = [track];
         }
 
-        logger.info(`Migration: Found ${spotifyTracks.length} tracks on Spotify. Searching on Qobuz...`, 'MIGRATION');
+        logger.info(
+            `Migration: Found ${spotifyTracks.length} tracks on Spotify. Searching on Qobuz...`,
+            'MIGRATION'
+        );
 
-        const promises = spotifyTracks.map(sTrack => 
+        const promises = spotifyTracks.map((sTrack) =>
             globalApiLimit(async () => {
                 const match = await this.findOnQobuz(sTrack);
                 return {
@@ -53,11 +57,14 @@ export class MigrationService {
                 } as MigrationResult;
             })
         );
- 
+
         const results = await Promise.all(promises);
 
-        const foundCount = results.filter(r => r.found).length;
-        logger.info(`Migration complete: ${foundCount}/${results.length} tracks matched.`, 'MIGRATION');
+        const foundCount = results.filter((r) => r.found).length;
+        logger.info(
+            `Migration complete: ${foundCount}/${results.length} tracks matched.`,
+            'MIGRATION'
+        );
 
         return {
             total: results.length,
@@ -66,9 +73,9 @@ export class MigrationService {
         };
     }
 
-    private async findOnQobuz(sTrack: SpotifyTrack): Promise<{ id: string; quality: number; score: number } | null> {
-
-
+    private async findOnQobuz(
+        sTrack: SpotifyTrack
+    ): Promise<{ id: string; quality: number; score: number } | null> {
         try {
             const query = `${sTrack.title} ${sTrack.artist.split(',')[0]}`;
             const searchRes = await this.qobuzApi.search(query, 'track', 5);
@@ -107,8 +114,14 @@ export class MigrationService {
     ): number {
         let score = 0;
 
-        const sTitle = sTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
-        const qTitle = qTrack.title.toLowerCase().replace(/\(.*\)|\[.*\]/g, '').trim();
+        const sTitle = sTrack.title
+            .toLowerCase()
+            .replace(/\(.*\)|\[.*\]/g, '')
+            .trim();
+        const qTitle = qTrack.title
+            .toLowerCase()
+            .replace(/\(.*\)|\[.*\]/g, '')
+            .trim();
 
         if (sTitle === qTitle) score += 0.5;
         else if (qTitle.includes(sTitle) || sTitle.includes(qTitle)) score += 0.3;
@@ -125,7 +138,10 @@ export class MigrationService {
         return score;
     }
 
-    async startMigrationDownload(results: MigrationResult[], quality: number = 27): Promise<number> {
+    async startMigrationDownload(
+        results: MigrationResult[],
+        quality: number = 27
+    ): Promise<number> {
         let added = 0;
         for (const res of results) {
             if (res.found && res.qobuzTrackId) {

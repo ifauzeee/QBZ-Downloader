@@ -160,7 +160,9 @@ router.get('/history/export', (req: Request, res: Response) => {
 
         const csvContent = [
             headers.join(','),
-            ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            ...rows.map((row) =>
+                row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+            )
         ].join('\n');
 
         res.setHeader('Content-Type', 'text/csv');
@@ -184,7 +186,7 @@ router.get('/preview/:id', async (req: Request, res: Response) => {
         const { audioPreviewService } = await import('../../audio-preview/index.js');
         const id = getParam(req.params.id);
         const info = await audioPreviewService.getPreviewInfo(id);
-        
+
         if (info) {
             res.json(info);
         } else {
@@ -264,7 +266,8 @@ router.post('/lyrics/download', async (req: Request, res: Response) => {
 
         const { downloadService } = await import('../../queue-processor.js');
         const trackRes = await api.getTrack(trackId);
-        if (!trackRes.success || !trackRes.data) return res.status(404).json({ error: 'Track not found' });
+        if (!trackRes.success || !trackRes.data)
+            return res.status(404).json({ error: 'Track not found' });
 
         const track = trackRes.data;
         const lyrics = await downloadService.lyricsProvider.getLyrics(
@@ -296,11 +299,13 @@ router.post('/lyrics/download-album-zip', async (req: Request, res: Response) =>
         if (!albumId) return res.status(400).json({ error: 'albumId is required' });
 
         const albumRes = await api.getAlbum(albumId);
-        if (!albumRes.success || !albumRes.data) return res.status(404).json({ error: 'Album not found' });
+        if (!albumRes.success || !albumRes.data)
+            return res.status(404).json({ error: 'Album not found' });
 
         const album = albumRes.data;
         const tracks = album.tracks?.items || [];
-        if (tracks.length === 0) return res.status(404).json({ error: 'No tracks found for this album' });
+        if (tracks.length === 0)
+            return res.status(404).json({ error: 'No tracks found for this album' });
 
         const { downloadService } = await import('../../queue-processor.js');
         const { existsSync, mkdirSync, createWriteStream } = await import('fs');
@@ -310,7 +315,10 @@ router.post('/lyrics/download-album-zip', async (req: Request, res: Response) =>
         const zipDir = path.join(CONFIG.download.outputDir || './downloads', '_lyrics');
         if (!existsSync(zipDir)) mkdirSync(zipDir, { recursive: true });
 
-        const zipName = `${album.artist.name} - ${album.title} - Lyrics.zip`.replace(/[\\/:*?"<>|]/g, '_');
+        const zipName = `${album.artist.name} - ${album.title} - Lyrics.zip`.replace(
+            /[\\/:*?"<>|]/g,
+            '_'
+        );
         const zipPath = path.join(zipDir, zipName);
 
         const output = createWriteStream(zipPath);
@@ -333,7 +341,11 @@ router.post('/lyrics/download-album-zip', async (req: Request, res: Response) =>
 
                 if (lyrics.success && (lyrics.syncedLyrics || lyrics.plainLyrics)) {
                     const content = lyrics.syncedLyrics || lyrics.plainLyrics || '';
-                    const filename = `${track.track_number.toString().padStart(2, '0')}. ${track.title}.lrc`.replace(/[\\/:*?"<>|]/g, '_');
+                    const filename =
+                        `${track.track_number.toString().padStart(2, '0')}. ${track.title}.lrc`.replace(
+                            /[\\/:*?"<>|]/g,
+                            '_'
+                        );
                     archive.append(content, { name: filename });
                 }
             } catch {
@@ -353,12 +365,12 @@ router.post('/migrate/spotify', async (req: Request, res: Response) => {
         const { url, quality, download } = req.body;
         const q = normalizeDownloadQuality(quality, CONFIG.quality.default);
         const results = await migrationService.migrateFromSpotify(url, q);
-        
+
         if (download && results.results.length > 0) {
             const count = await migrationService.startMigrationDownload(results.results, q);
             return res.json({ ...results, enqueued: count });
         }
-        
+
         res.json(results);
     } catch (error: unknown) {
         res.status(500).json({ error: (error as Error).message });

@@ -66,9 +66,12 @@ export class FormatConverterService {
         }
 
         const outputPath = path.join(finalOutputDir, `${baseName}.${safeFormat}`);
-        
+
         if (existsSync(outputPath)) {
-            logger.debug(`Converter: Output file already exists, skipping: ${outputPath}`, 'CONVERTER');
+            logger.debug(
+                `Converter: Output file already exists, skipping: ${outputPath}`,
+                'CONVERTER'
+            );
             return outputPath;
         }
 
@@ -100,10 +103,16 @@ export class FormatConverterService {
             if (!keepOriginal) {
                 try {
                     unlinkSync(inputPath);
-                    logger.debug(`Converter: Original file removed: ${path.basename(inputPath)}`, 'CONVERTER');
+                    logger.debug(
+                        `Converter: Original file removed: ${path.basename(inputPath)}`,
+                        'CONVERTER'
+                    );
                 } catch (e: unknown) {
                     const message = e instanceof Error ? e.message : String(e);
-                    logger.warn(`Converter: Failed to remove original file: ${message}`, 'CONVERTER');
+                    logger.warn(
+                        `Converter: Failed to remove original file: ${message}`,
+                        'CONVERTER'
+                    );
                 }
             }
 

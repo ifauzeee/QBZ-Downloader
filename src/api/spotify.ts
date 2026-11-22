@@ -40,12 +40,16 @@ class SpotifyAPI {
 
         try {
             const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-            const response = await this.client.post('https://accounts.spotify.com/api/token', 'grant_type=client_credentials', {
-                headers: {
-                    'Authorization': `Basic ${auth}`,
-                    'Content-Type': 'application/x-www-form-urlencoded'
+            const response = await this.client.post(
+                'https://accounts.spotify.com/api/token',
+                'grant_type=client_credentials',
+                {
+                    headers: {
+                        Authorization: `Basic ${auth}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
                 }
-            });
+            );
 
             this.accessToken = response.data.access_token;
             this.tokenExpiry = Date.now() + (response.data.expires_in - 60) * 1000;
@@ -57,7 +61,6 @@ class SpotifyAPI {
             logger.error(`Spotify Auth Error: ${errorMsg}`, 'SPOTIFY');
             return false;
         }
-
     }
 
     async getPlaylistTracks(playlistId: string): Promise<SpotifyTrack[]> {
@@ -69,7 +72,7 @@ class SpotifyAPI {
         try {
             while (url) {
                 const response = await this.client.get(url, {
-                    headers: { 'Authorization': `Bearer ${this.accessToken}` }
+                    headers: { Authorization: `Bearer ${this.accessToken}` }
                 });
 
                 const items = response.data.items;
@@ -82,7 +85,6 @@ class SpotifyAPI {
                         duration_ms: item.track.duration_ms,
                         isrc: item.track.external_ids?.isrc
                     });
-
                 }
 
                 url = response.data.next;
@@ -93,7 +95,6 @@ class SpotifyAPI {
             logger.error(`Spotify Playlist Error: ${err.message}`, 'SPOTIFY');
             throw error;
         }
-
     }
 
     async getAlbumTracks(albumId: string): Promise<SpotifyTrack[]> {
@@ -101,7 +102,7 @@ class SpotifyAPI {
 
         try {
             const albumRes = await this.client.get(`https://api.spotify.com/v1/albums/${albumId}`, {
-                headers: { 'Authorization': `Bearer ${this.accessToken}` }
+                headers: { Authorization: `Bearer ${this.accessToken}` }
             });
 
             const albumName = albumRes.data.name;
@@ -110,7 +111,7 @@ class SpotifyAPI {
 
             while (url) {
                 const response = await this.client.get(url, {
-                    headers: { 'Authorization': `Bearer ${this.accessToken}` }
+                    headers: { Authorization: `Bearer ${this.accessToken}` }
                 });
 
                 for (const item of response.data.items) {
@@ -130,14 +131,13 @@ class SpotifyAPI {
             logger.error(`Spotify Album Error: ${err.message}`, 'SPOTIFY');
             throw error;
         }
-
     }
 
     async getTrack(trackId: string): Promise<SpotifyTrack | null> {
         await this.ensureToken();
         try {
             const response = await this.client.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
-                headers: { 'Authorization': `Bearer ${this.accessToken}` }
+                headers: { Authorization: `Bearer ${this.accessToken}` }
             });
             return {
                 title: response.data.name,
@@ -146,13 +146,11 @@ class SpotifyAPI {
                 duration_ms: response.data.duration_ms,
                 isrc: response.data.external_ids?.isrc
             };
-
         } catch (error: unknown) {
             const err = error as Error;
             logger.error(`Spotify Track Error: ${err.message}`, 'SPOTIFY');
             return null;
         }
-
     }
 
     extractId(url: string): { id: string; type: 'playlist' | 'album' | 'track' } | null {

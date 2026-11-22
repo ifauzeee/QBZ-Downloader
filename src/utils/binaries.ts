@@ -32,9 +32,11 @@ export function resolveBinaryPath(binaryName: string): string {
     // 2. Check local 'bin' directory in the application root
     // In production (Electron), this is in resourcesPath
     const isDesktop = Boolean(process.versions.electron);
-    const appRoot = isDev 
-        ? path.join(__dirname, '..', '..') 
-        : (isDesktop ? (process as unknown as { resourcesPath: string }).resourcesPath : process.cwd());
+    const appRoot = isDev
+        ? path.join(__dirname, '..', '..')
+        : isDesktop
+          ? (process as unknown as { resourcesPath: string }).resourcesPath
+          : process.cwd();
     const localBinCandidates = [
         path.join(appRoot, 'bin', `${process.platform}-${process.arch}`, nameWithExt),
         path.join(appRoot, 'bin', process.platform, nameWithExt),
@@ -104,5 +106,8 @@ export async function checkBinaryAvailability(binaryName: string): Promise<Binar
  */
 export function warnMissingBinary(binaryName: string, featureName: string) {
     logger.warn(`${binaryName} not found. ${featureName} will be disabled.`, 'BINARIES');
-    logger.info(`To enable ${featureName}, please install ${binaryName} or place ${binaryName}${process.platform === 'win32' ? '.exe' : ''} in the application folder.`, 'BINARIES');
+    logger.info(
+        `To enable ${featureName}, please install ${binaryName} or place ${binaryName}${process.platform === 'win32' ? '.exe' : ''} in the application folder.`,
+        'BINARIES'
+    );
 }

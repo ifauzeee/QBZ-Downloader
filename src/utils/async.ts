@@ -18,8 +18,7 @@ export async function retryOperation<T>(
             lastError = e;
             const message = e instanceof Error ? e.message : String(e);
             const isAuthError = message.includes('401') || message.includes('403');
-            const isNotFoundError =
-                message.includes('404') || message.includes('not found');
+            const isNotFoundError = message.includes('404') || message.includes('not found');
 
             if (isAuthError || isNotFoundError) throw e;
 

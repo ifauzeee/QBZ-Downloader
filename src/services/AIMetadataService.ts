@@ -25,7 +25,13 @@ const aiMetadataTextField = z
     });
 
 const aiMetadataYearField = z
-    .union([z.number().int(), z.string().trim().regex(/^\d{4}$/)])
+    .union([
+        z.number().int(),
+        z
+            .string()
+            .trim()
+            .regex(/^\d{4}$/)
+    ])
     .refine(
         (value) => {
             const year = typeof value === 'number' ? value : Number(value);
@@ -54,11 +60,15 @@ const aiMetadataSchema = z
 const geminiResponseSchema = z.object({
     candidates: z
         .array(
-            z.object({
-                content: z.object({
-                    parts: z.array(z.object({ text: z.string() }).passthrough()).min(1)
-                }).passthrough()
-            }).passthrough()
+            z
+                .object({
+                    content: z
+                        .object({
+                            parts: z.array(z.object({ text: z.string() }).passthrough()).min(1)
+                        })
+                        .passthrough()
+                })
+                .passthrough()
         )
         .min(1)
 });
@@ -66,11 +76,15 @@ const geminiResponseSchema = z.object({
 const openAIResponseSchema = z.object({
     choices: z
         .array(
-            z.object({
-                message: z.object({
-                    content: z.string()
-                }).passthrough()
-            }).passthrough()
+            z
+                .object({
+                    message: z
+                        .object({
+                            content: z.string()
+                        })
+                        .passthrough()
+                })
+                .passthrough()
         )
         .min(1)
 });
@@ -119,7 +133,10 @@ export class AIMetadataService {
             return null;
         }
 
-        logger.info(`AI: Attempting to repair metadata for "${currentMetadata.title}" using ${provider}`, 'AI');
+        logger.info(
+            `AI: Attempting to repair metadata for "${currentMetadata.title}" using ${provider}`,
+            'AI'
+        );
 
         try {
             if (provider === 'gemini') {
@@ -138,7 +155,11 @@ export class AIMetadataService {
         }
     }
 
-    private async repairWithGemini(metadata: Partial<Metadata>, apiKey: string, model: string): Promise<Partial<Metadata>> {
+    private async repairWithGemini(
+        metadata: Partial<Metadata>,
+        apiKey: string,
+        model: string
+    ): Promise<Partial<Metadata>> {
         const sTitle = this.sanitize(metadata.title);
         const sArtist = this.sanitize(metadata.artist);
         const sAlbum = this.sanitize(metadata.album);
@@ -162,17 +183,21 @@ export class AIMetadataService {
         `;
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-        
-        const response = await axios.post(url, {
-            contents: [{ parts: [{ text: prompt }] }]
-        }, {
-            headers: {
-                'x-goog-api-key': apiKey
+
+        const response = await axios.post(
+            url,
+            {
+                contents: [{ parts: [{ text: prompt }] }]
             },
-            // This sits on the download path; without a bound a hung provider
-            // stalls the queue indefinitely.
-            timeout: 30000
-        });
+            {
+                headers: {
+                    'x-goog-api-key': apiKey
+                },
+                // This sits on the download path; without a bound a hung provider
+                // stalls the queue indefinitely.
+                timeout: 30000
+            }
+        );
 
         const parsedResponse = geminiResponseSchema.safeParse(response.data);
         if (!parsedResponse.success) throw new Error('Invalid Gemini response schema');
@@ -183,30 +208,38 @@ export class AIMetadataService {
         return this.validateMetadataResponse(this.extractJsonObject(text));
     }
 
-    private async repairWithOpenAI(metadata: Partial<Metadata>, apiKey: string, model: string): Promise<Partial<Metadata>> {
+    private async repairWithOpenAI(
+        metadata: Partial<Metadata>,
+        apiKey: string,
+        model: string
+    ): Promise<Partial<Metadata>> {
         const sTitle = this.sanitize(metadata.title);
         const sArtist = this.sanitize(metadata.artist);
         const sAlbum = this.sanitize(metadata.album);
 
         const url = 'https://api.openai.com/v1/chat/completions';
-        
-        const response = await axios.post(url, {
-            model: model,
-            messages: [
-                {
-                    role: 'system',
-                    content: 'You are a music metadata expert. Return JSON ONLY.'
-                },
-                {
-                    role: 'user',
-                    content: `Fix this metadata: Title: ${sTitle}, Artist: ${sArtist}, Album: ${sAlbum}. Return JSON: {title, artist, album, year, genre, albumArtist, composer}`
-                }
-            ],
-            response_format: { type: 'json_object' }
-        }, {
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-            timeout: 30000
-        });
+
+        const response = await axios.post(
+            url,
+            {
+                model: model,
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a music metadata expert. Return JSON ONLY.'
+                    },
+                    {
+                        role: 'user',
+                        content: `Fix this metadata: Title: ${sTitle}, Artist: ${sArtist}, Album: ${sAlbum}. Return JSON: {title, artist, album, year, genre, albumArtist, composer}`
+                    }
+                ],
+                response_format: { type: 'json_object' }
+            },
+            {
+                headers: { Authorization: `Bearer ${apiKey}` },
+                timeout: 30000
+            }
+        );
 
         const parsedResponse = openAIResponseSchema.safeParse(response.data);
         if (!parsedResponse.success) throw new Error('Invalid OpenAI response schema');

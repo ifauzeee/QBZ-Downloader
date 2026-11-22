@@ -18,7 +18,10 @@ export class LibraryWatcher {
 
         const root = CONFIG.download.outputDir;
         if (!root || !fs.existsSync(root)) {
-            logger.warn('LibraryWatcher: downloads directory not found, watcher disabled', 'WATCHER');
+            logger.warn(
+                'LibraryWatcher: downloads directory not found, watcher disabled',
+                'WATCHER'
+            );
             return;
         }
 
@@ -76,10 +79,7 @@ export class LibraryWatcher {
                 )
             )
             .catch((error: unknown) =>
-                logger.error(
-                    `LibraryWatcher scan failed: ${(error as Error).message}`,
-                    'WATCHER'
-                )
+                logger.error(`LibraryWatcher scan failed: ${(error as Error).message}`, 'WATCHER')
             );
     }
 

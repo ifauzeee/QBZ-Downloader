@@ -305,7 +305,10 @@ export class BatchImportService {
 
             const containingDir = path.dirname(resolved);
             if (containingDir !== downloadDir) {
-                for (const companionFile of this.findGeneratedCompanionFiles(resolved, cleanupCutoff)) {
+                for (const companionFile of this.findGeneratedCompanionFiles(
+                    resolved,
+                    cleanupCutoff
+                )) {
                     addArtifact(companionFile, true);
                 }
             }
@@ -495,8 +498,12 @@ export class BatchImportService {
             // Find URL and Quality column keys (case-insensitive)
             const firstRecord = records[0] as Record<string, unknown>;
             const keys = Object.keys(firstRecord);
-            const urlKey = keys.find((k) => k.toLowerCase() === 'url' || k.toLowerCase() === 'link');
-            const qualityKey = keys.find((k) => k.toLowerCase() === 'quality' || k.toLowerCase() === 'format');
+            const urlKey = keys.find(
+                (k) => k.toLowerCase() === 'url' || k.toLowerCase() === 'link'
+            );
+            const qualityKey = keys.find(
+                (k) => k.toLowerCase() === 'quality' || k.toLowerCase() === 'format'
+            );
 
             if (!urlKey) {
                 return {
@@ -507,13 +514,17 @@ export class BatchImportService {
                 };
             }
 
-            const urlsWithQuality: { url: string; quality: number }[] = records.map((row) => {
-                const r = row as Record<string, string>;
-                return {
-                    url: r[urlKey]!,
-                    quality: qualityKey ? parseInt(r[qualityKey]!) || defaultQuality : defaultQuality
-                };
-            }).filter(item => item.url);
+            const urlsWithQuality: { url: string; quality: number }[] = records
+                .map((row) => {
+                    const r = row as Record<string, string>;
+                    return {
+                        url: r[urlKey]!,
+                        quality: qualityKey
+                            ? parseInt(r[qualityKey]!) || defaultQuality
+                            : defaultQuality
+                    };
+                })
+                .filter((item) => item.url);
 
             let imported = 0;
             let failed = 0;

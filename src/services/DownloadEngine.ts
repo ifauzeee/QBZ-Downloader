@@ -23,11 +23,7 @@ export interface DownloadProgress {
     speed?: number;
 }
 
-function normalizeDownloadError(
-    error: unknown,
-    downloaded: number,
-    total?: number
-): Error {
+function normalizeDownloadError(error: unknown, downloaded: number, total?: number): Error {
     const original = error instanceof Error ? error : new Error(String(error));
     const message = original.message || String(error);
     const lower = message.toLowerCase();
@@ -93,11 +89,15 @@ export async function downloadTrack(
     const response = await downloadFile(url, { headers });
 
     const contentLength = parseInt(String(response.headers?.['content-length'] || '0'), 10);
-    const effectiveTotalLength = contentLength > 0 ? contentLength + (isResuming ? downloaded : 0) : totalLength;
+    const effectiveTotalLength =
+        contentLength > 0 ? contentLength + (isResuming ? downloaded : 0) : totalLength;
 
     const isPartial = response.status === 206;
     if (isResuming && !isPartial) {
-        logger.warn('Server did not honor Range request, restarting download from scratch', 'DOWNLOAD');
+        logger.warn(
+            'Server did not honor Range request, restarting download from scratch',
+            'DOWNLOAD'
+        );
         downloaded = 0;
         isResuming = false;
     }
@@ -127,7 +127,9 @@ export async function downloadTrack(
         } catch (hashErr: unknown) {
             const message = hashErr instanceof Error ? hashErr.message : String(hashErr);
             logger.error(`Critical failure re-hashing existing part: ${message}`, 'DOWNLOAD');
-            throw new Error(`Integrity check failed: Could not re-hash existing file part for resume. ${message}`);
+            throw new Error(
+                `Integrity check failed: Could not re-hash existing file part for resume. ${message}`
+            );
         }
     }
 
@@ -184,7 +186,10 @@ export async function downloadTrack(
 
                 if (onProgress) {
                     const currentTime = Date.now();
-                    if (currentTime - lastProgressEmit >= 100 || (effectiveTotalLength > 0 && downloaded >= effectiveTotalLength)) {
+                    if (
+                        currentTime - lastProgressEmit >= 100 ||
+                        (effectiveTotalLength > 0 && downloaded >= effectiveTotalLength)
+                    ) {
                         const elapsed = (currentTime - startTime) / 1000;
                         const speed = elapsed > 0 ? (downloaded - resumeStartOffset) / elapsed : 0;
 

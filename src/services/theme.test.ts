@@ -49,23 +49,32 @@ describe('ThemeService', () => {
         const theme = await service.create('Custom', true, { primary: '#f00' });
         expect(theme.name).toBe('Custom');
         expect(theme.id).toBeDefined();
-        expect(databaseService.getDb().prepare).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO themes'));
+        expect(databaseService.getDb().prepare).toHaveBeenCalledWith(
+            expect.stringContaining('INSERT INTO themes')
+        );
     });
 
     it('should update an existing theme', async () => {
         const theme = await service.update('1', 'Updated', false, { primary: '#ccc' });
         expect(theme?.name).toBe('Updated');
-        expect(databaseService.getDb().prepare).toHaveBeenCalledWith(expect.stringContaining('UPDATE themes'));
+        expect(databaseService.getDb().prepare).toHaveBeenCalledWith(
+            expect.stringContaining('UPDATE themes')
+        );
     });
 
     it('should delete a theme', async () => {
         const success = await service.delete('1');
         expect(success).toBe(true);
-        expect(databaseService.getDb().prepare).toHaveBeenCalledWith(expect.stringContaining('DELETE FROM themes'));
+        expect(databaseService.getDb().prepare).toHaveBeenCalledWith(
+            expect.stringContaining('DELETE FROM themes')
+        );
     });
 
     it('should return null if update fails (no changes)', async () => {
-        vi.mocked(databaseService.getDb().prepare('').run).mockReturnValueOnce({ changes: 0, lastInsertRowid: 0 });
+        vi.mocked(databaseService.getDb().prepare('').run).mockReturnValueOnce({
+            changes: 0,
+            lastInsertRowid: 0
+        });
         const result = await service.update('999', 'Fail', true, {});
         expect(result).toBeNull();
     });

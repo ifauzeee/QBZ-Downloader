@@ -33,7 +33,7 @@ vi.mock('../utils/encryption.js', () => ({
     encryptionService: {
         encryptSync: vi.fn((v) => `enc_${v}`),
         decryptSync: vi.fn((v) => v.replace('enc_', '')),
-        isEncryptedSync: vi.fn(() => true),
+        isEncryptedSync: vi.fn(() => true)
     }
 }));
 
@@ -49,7 +49,9 @@ describe('SettingsService', () => {
         const emitSpy = vi.spyOn(eventBus, 'emit');
         settings.set('THEME', 'dark');
         expect(settings.get('THEME')).toBe('dark');
-        expect(databaseService.getDb().prepare).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO app_settings'));
+        expect(databaseService.getDb().prepare).toHaveBeenCalledWith(
+            expect.stringContaining('INSERT INTO app_settings')
+        );
         expect(emitSpy).toHaveBeenCalledWith(EVENTS.SETTINGS.UPDATED, { keys: ['THEME'] });
     });
 
@@ -61,14 +63,16 @@ describe('SettingsService', () => {
 
     it('should encrypt stored Qobuz account bundles', () => {
         settings.set('QOBUZ_ACCOUNTS', '[{"name":"Personal","token":"secret"}]');
-        expect(encryptionService.encryptSync).toHaveBeenCalledWith('[{"name":"Personal","token":"secret"}]');
+        expect(encryptionService.encryptSync).toHaveBeenCalledWith(
+            '[{"name":"Personal","token":"secret"}]'
+        );
     });
 
     it('should handle setMany correctly', () => {
         const emitSpy = vi.spyOn(eventBus, 'emit');
         settings.setMany({
-            'KEY1': 'VAL1',
-            'KEY2': 'VAL2'
+            KEY1: 'VAL1',
+            KEY2: 'VAL2'
         });
         expect(settings.get('KEY1')).toBe('VAL1');
         expect(settings.get('KEY2')).toBe('VAL2');
@@ -80,9 +84,9 @@ describe('SettingsService', () => {
         settings.set('B', '2');
         const many = settings.getMany(['A', 'B', 'C']);
         expect(many).toEqual({
-            'A': '1',
-            'B': '2',
-            'C': undefined
+            A: '1',
+            B: '2',
+            C: undefined
         });
     });
 

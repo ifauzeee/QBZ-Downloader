@@ -18,12 +18,18 @@ export class PlaylistWatcherService {
     start(checkIntervalMinutes = 60) {
         if (this.timer) return;
 
-        this.timer = setInterval(() => {
-            this.scanAllPlaylists();
-        }, checkIntervalMinutes * 60 * 1000);
+        this.timer = setInterval(
+            () => {
+                this.scanAllPlaylists();
+            },
+            checkIntervalMinutes * 60 * 1000
+        );
 
         this.scanAllPlaylists();
-        logger.info(`PlaylistWatcher: Started (checking every ${checkIntervalMinutes} mins)`, 'WATCHER');
+        logger.info(
+            `PlaylistWatcher: Started (checking every ${checkIntervalMinutes} mins)`,
+            'WATCHER'
+        );
     }
 
     stop() {
@@ -38,7 +44,14 @@ export class PlaylistWatcherService {
         this.isScanning = true;
 
         try {
-            const watched = databaseService.getWatchedPlaylists() as unknown as { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }[];
+            const watched = databaseService.getWatchedPlaylists() as unknown as {
+                id: number;
+                playlist_id: string;
+                title: string;
+                interval_hours: number;
+                quality: number;
+                last_synced_at: string | null;
+            }[];
             logger.debug(`PlaylistWatcher: Scanning ${watched.length} playlists`, 'WATCHER');
 
             for (const playlist of watched) {
@@ -52,7 +65,14 @@ export class PlaylistWatcherService {
         }
     }
 
-    private async scanPlaylist(p: { id: number; playlist_id: string; title: string; interval_hours: number; quality: number; last_synced_at: string | null }) {
+    private async scanPlaylist(p: {
+        id: number;
+        playlist_id: string;
+        title: string;
+        interval_hours: number;
+        quality: number;
+        last_synced_at: string | null;
+    }) {
         const lastSync = p.last_synced_at ? new Date(p.last_synced_at) : new Date(0);
         const nextSync = new Date(lastSync.getTime() + p.interval_hours * 60 * 60 * 1000);
 
@@ -65,7 +85,10 @@ export class PlaylistWatcherService {
         try {
             const res = await this.api.getPlaylist(p.playlist_id);
             if (!res.success || !res.data) {
-                logger.warn(`PlaylistWatcher: Could not fetch playlist ${p.playlist_id}`, 'WATCHER');
+                logger.warn(
+                    `PlaylistWatcher: Could not fetch playlist ${p.playlist_id}`,
+                    'WATCHER'
+                );
                 return;
             }
 
@@ -88,7 +111,10 @@ export class PlaylistWatcherService {
             }
 
             if (newTracksCount > 0) {
-                logger.success(`PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`, 'WATCHER');
+                logger.success(
+                    `PlaylistWatcher: Added ${newTracksCount} new tracks from "${p.title}"`,
+                    'WATCHER'
+                );
                 notificationService.info(
                     'Playlist Watcher',
                     `Added ${newTracksCount} new tracks from "${p.title}" to queue.`
@@ -96,7 +122,6 @@ export class PlaylistWatcherService {
             }
 
             databaseService.updatePlaylistSyncTime(p.id.toString());
-
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
             logger.error(`PlaylistWatcher: Error scanning "${p.title}": ${message}`, 'WATCHER');

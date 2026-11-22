@@ -61,9 +61,14 @@ describe('HistoryService', () => {
     });
 
     it('should search entries', () => {
-        history.add('t1', { filename: 'f1', quality: 27, title: 'Specific Title', artist: 'Artist A' });
+        history.add('t1', {
+            filename: 'f1',
+            quality: 27,
+            title: 'Specific Title',
+            artist: 'Artist A'
+        });
         history.add('t2', { filename: 'f2', quality: 27, title: 'Other', artist: 'Artist B' });
-        
+
         const results = history.search('Specific');
         expect(results.length).toBe(1);
         expect(results[0].title).toBe('Specific Title');
@@ -72,9 +77,9 @@ describe('HistoryService', () => {
     it('should sort entries by date', async () => {
         history.add('t1', { filename: 'f1', quality: 27, title: 'T1' });
         // Add a small delay to ensure different timestamps
-        await new Promise(r => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 10));
         history.add('t2', { filename: 'f2', quality: 27, title: 'T2' });
-        
+
         const sorted = history.getSorted();
         expect(sorted.length).toBe(2);
         expect(sorted[0].id).toBe('t2'); // t2 is newer
@@ -90,9 +95,11 @@ describe('HistoryService', () => {
     it('should cleanup missing files', () => {
         history.add('t1', { filename: 'existing.flac', quality: 27, title: 'T1' });
         history.add('t2', { filename: 'missing.flac', quality: 27, title: 'T2' });
-        
-        vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) => p.toString() === 'existing.flac');
-        
+
+        vi.mocked(fs.existsSync).mockImplementation(
+            (p: fs.PathLike) => p.toString() === 'existing.flac'
+        );
+
         const cleaned = history.cleanup();
         expect(cleaned).toBe(1);
         expect(history.count()).toBe(1);

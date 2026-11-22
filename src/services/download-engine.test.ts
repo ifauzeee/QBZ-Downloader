@@ -79,11 +79,17 @@ describe('downloadTrack', () => {
         } as unknown as AxiosResponse);
 
         const downloadPromise = downloadTrack(
-            'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27
+            'url',
+            'path',
+            'id',
+            { title: 'T' } as unknown as Metadata,
+            1000,
+            27
         );
 
         await vi.waitFor(() => {
-            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0) throw new Error('not called');
+            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0)
+                throw new Error('not called');
         });
 
         const writer = vi.mocked(fs.createWriteStream).mock.results[0].value;
@@ -107,12 +113,19 @@ describe('downloadTrack', () => {
 
         let cancelled = false;
         const downloadPromise = downloadTrack(
-            'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27, 
-            undefined, () => cancelled
+            'url',
+            'path',
+            'id',
+            { title: 'T' } as unknown as Metadata,
+            1000,
+            27,
+            undefined,
+            () => cancelled
         );
 
         await vi.waitFor(() => {
-            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0) throw new Error('not called');
+            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0)
+                throw new Error('not called');
         });
 
         cancelled = true;
@@ -142,12 +155,15 @@ describe('downloadTrack', () => {
         );
 
         await vi.waitFor(() => {
-            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0) throw new Error('not called');
+            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0)
+                throw new Error('not called');
         });
 
         mockDataStream.emit('aborted');
 
-        await expect(downloadPromise).rejects.toThrow('selected Hi-Res candidate is likely unavailable');
+        await expect(downloadPromise).rejects.toThrow(
+            'selected Hi-Res candidate is likely unavailable'
+        );
     });
 
     it('should not resume when the recorded partial points at a different file', async () => {
@@ -183,7 +199,9 @@ describe('downloadTrack', () => {
         // No Range header: the recorded offset belongs to another file, and
         // applying it here would append to the wrong place.
         const [, requestOptions] = vi.mocked(network.downloadFile).mock.calls[0]!;
-        expect((requestOptions as { headers?: Record<string, string> })?.headers?.Range).toBeUndefined();
+        expect(
+            (requestOptions as { headers?: Record<string, string> })?.headers?.Range
+        ).toBeUndefined();
         expect(vi.mocked(fs.createReadStream)).not.toHaveBeenCalled();
     });
 
@@ -210,12 +228,18 @@ describe('downloadTrack', () => {
         } as unknown as AxiosResponse);
 
         const downloadPromise = downloadTrack(
-            'url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27
+            'url',
+            'path',
+            'id',
+            { title: 'T' } as unknown as Metadata,
+            1000,
+            27
         );
 
         // Wait for re-hashing to start
         await vi.waitFor(() => {
-            if (vi.mocked(fs.createReadStream).mock.calls.length === 0) throw new Error('not called');
+            if (vi.mocked(fs.createReadStream).mock.calls.length === 0)
+                throw new Error('not called');
         });
 
         const reader = vi.mocked(fs.createReadStream).mock.results[0].value;
@@ -224,7 +248,8 @@ describe('downloadTrack', () => {
 
         // Wait for writing to start
         await vi.waitFor(() => {
-            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0) throw new Error('not called');
+            if (vi.mocked(fs.createWriteStream).mock.calls.length === 0)
+                throw new Error('not called');
         });
 
         const writer = vi.mocked(fs.createWriteStream).mock.results[0].value;
@@ -234,8 +259,8 @@ describe('downloadTrack', () => {
         const result = await downloadPromise;
         expect(result.size).toBe(1000);
         expect(network.downloadFile).toHaveBeenCalledWith(
-            'url', 
-            expect.objectContaining({ headers: { 'Range': 'bytes=500-' } })
+            'url',
+            expect.objectContaining({ headers: { Range: 'bytes=500-' } })
         );
     });
 
@@ -256,11 +281,17 @@ describe('downloadTrack', () => {
                 data: stream
             } as unknown as AxiosResponse);
 
-            return downloadTrack('url', 'path', 'id', { title: 'T' } as unknown as Metadata, 1000, 27)
-                .then(
-                    (ok) => ({ ok, err: undefined as Error | undefined }),
-                    (err: Error) => ({ ok: undefined, err })
-                );
+            return downloadTrack(
+                'url',
+                'path',
+                'id',
+                { title: 'T' } as unknown as Metadata,
+                1000,
+                27
+            ).then(
+                (ok) => ({ ok, err: undefined as Error | undefined }),
+                (err: Error) => ({ ok: undefined, err })
+            );
         };
 
         // A socket that goes quiet emits no 'end', 'error' or 'aborted', so before
